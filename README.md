@@ -33,8 +33,12 @@ python -m http.server 8123 --directory docs
 ## Бот
 
 Боевой бот живёт в Cloudflare Worker и работает без включённого
-компьютера: Telegram сам шлёт обновления на вебхук. Разворачивается из
-папки `worker/`:
+компьютера: Telegram сам шлёт обновления на вебхук.
+
+- Бот: [@FGPshedulebot](https://t.me/FGPshedulebot)
+- Воркер: <https://fgp-schedule-bot.bodryash.workers.dev>
+
+Разворачивается из папки `worker/`:
 
 ```bash
 npx wrangler deploy
