@@ -72,6 +72,18 @@ const WEEKS = 2;
 let selectedDay = Math.min((baseDate.getDay() + 6) % 7, 5) + 1;
 let selectedWeek = 0;
 
+// Дни двух недель как одна лента: по ней и листаем.
+const DAY_COUNT = DAYS.length * WEEKS;
+
+function dayIndex() {
+  return selectedWeek * DAYS.length + selectedDay - 1;
+}
+
+function setDayIndex(index) {
+  selectedWeek = Math.floor(index / DAYS.length);
+  selectedDay = (index % DAYS.length) + 1;
+}
+
 /** Понедельник недели, в которую попадает дата. */
 function mondayOf(date) {
   const monday = new Date(date);
@@ -427,10 +439,110 @@ function renderLessons(group, parity) {
     }
   }
 
-  nodes.forEach((node, i) => node.style.setProperty("--i", i));
+  // Пришли листанием — новый день въезжает с той стороны, откуда его тянули.
+  const from = enterFrom * 24;
+  enterFrom = 0;
+  nodes.forEach((node, i) => {
+    node.style.setProperty("--i", i);
+    node.style.setProperty("--from-x", `${from}px`);
+  });
+
   els.lessons.replaceChildren(...nodes);
   refreshNow();
   scrollToNow();
+}
+
+/* ---------- Листание дней ---------- */
+
+// Куда «уезжает» новый день при появлении: -1 — пришли справа, 1 — слева.
+let enterFrom = 0;
+
+const SWIPE_DISTANCE = 0.22; // доля ширины экрана
+const SWIPE_VELOCITY = 0.35; // px/мс — быстрый флик засчитываем без дистанции
+
+function initSwipe() {
+  const strip = els.lessons;
+  let pointer = null;
+  let startX = 0;
+  let startY = 0;
+  let startedAt = 0;
+  let shift = 0;
+  let dragging = false;
+  let decided = false;
+
+  const release = () => {
+    strip.style.transition = "";
+    strip.style.transform = "";
+    strip.style.opacity = "";
+  };
+
+  strip.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    pointer = event.pointerId;
+    startX = event.clientX;
+    startY = event.clientY;
+    startedAt = performance.now();
+    shift = 0;
+    dragging = false;
+    decided = false;
+    strip.style.transition = "none";
+  });
+
+  strip.addEventListener("pointermove", (event) => {
+    if (event.pointerId !== pointer) return;
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+
+    // Пока непонятно, листают или прокручивают, не перехватываем: иначе
+    // вертикальная прокрутка расписания сломается.
+    if (!decided) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      decided = true;
+      dragging = Math.abs(dx) > Math.abs(dy);
+      if (dragging) strip.setPointerCapture(pointer);
+    }
+    if (!dragging) return;
+
+    // За краем ленты сопротивление растёт, но упора нет — так понятнее,
+    // что дальше ничего нет, чем если бы палец просто упёрся в стену.
+    const index = dayIndex();
+    const atEdge =
+      (dx > 0 && index === 0) || (dx < 0 && index === DAY_COUNT - 1);
+    shift = atEdge ? dx * 0.25 : dx;
+
+    strip.style.transform = `translateX(${shift.toFixed(1)}px)`;
+    strip.style.opacity = String(1 - Math.min(Math.abs(shift) / 500, 0.35));
+  });
+
+  const finish = (event) => {
+    if (event.pointerId !== pointer) return;
+    pointer = null;
+    if (!dragging) return;
+    dragging = false;
+
+    const velocity = Math.abs(shift) / Math.max(1, performance.now() - startedAt);
+    const far = Math.abs(shift) > strip.clientWidth * SWIPE_DISTANCE;
+    const direction = shift < 0 ? 1 : -1;
+    const next = dayIndex() + direction;
+
+    if ((far || velocity > SWIPE_VELOCITY) && next >= 0 && next < DAY_COUNT) {
+      setDayIndex(next);
+      enterFrom = direction;
+      release();
+      showSchedule();
+      return;
+    }
+
+    // Не дотянули — возвращаем на место.
+    strip.style.transition =
+      "transform 240ms var(--ease-out), opacity 240ms var(--ease-out)";
+    strip.style.transform = "translateX(0)";
+    strip.style.opacity = "1";
+    strip.addEventListener("transitionend", release, { once: true });
+  };
+
+  strip.addEventListener("pointerup", finish);
+  strip.addEventListener("pointercancel", finish);
 }
 
 /** При открытии подводим к идущей паре, если она не попала на экран. */
@@ -616,6 +728,7 @@ async function init() {
     showSchedule();
   });
   els.change.addEventListener("click", showPicker);
+  initSwipe();
   // Крестик закрывает настройки, не сохраняя изменений.
   els.close.addEventListener("click", showSchedule);
 
