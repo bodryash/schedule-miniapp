@@ -64,7 +64,13 @@ const baseDate = new Date();
 if (baseDate.getDay() === 0) baseDate.setDate(baseDate.getDate() + 1);
 
 const weekStart = mondayOf(baseDate);
+
+// Показываем текущую неделю и следующую: расписание на послезавтра нужно
+// чаще, чем на месяц вперёд, а листать две недели можно одной полосой.
+const WEEKS = 2;
+
 let selectedDay = Math.min((baseDate.getDay() + 6) % 7, 5) + 1;
+let selectedWeek = 0;
 
 /** Понедельник недели, в которую попадает дата. */
 function mondayOf(date) {
@@ -74,10 +80,10 @@ function mondayOf(date) {
   return monday;
 }
 
-/** Дата дня недели (1 = понедельник) в показываемой неделе. */
-function dateOfDay(day) {
+/** Дата дня недели (1 = понедельник); week 0 — текущая, 1 — следующая. */
+function dateOfDay(day, week = selectedWeek) {
   const date = new Date(weekStart);
-  date.setDate(date.getDate() + day - 1);
+  date.setDate(date.getDate() + week * 7 + day - 1);
   return date;
 }
 
@@ -95,7 +101,7 @@ function isoDate(date) {
 function weekParity(weeks) {
   // Чётность — свойство недели, а не дня: считаем по пересечению с
   // Пн–Сб, иначе понедельник 31.08 выпал бы из семестра, начатого 02.09.
-  const from = isoDate(weekStart);
+  const from = isoDate(dateOfDay(1));
   const to = isoDate(dateOfDay(6));
   const week = (weeks || []).find((w) => w.from <= to && from <= w.to);
   return week ? week.parity : null;
@@ -314,22 +320,49 @@ function showSchedule() {
 }
 
 function renderDays() {
-  els.days.replaceChildren(
-    ...DAYS.map((name, i) => {
-      const day = i + 1;
-      const btn = el("button", day === selectedDay ? "day active" : "day");
+  const nodes = [];
+  const todayIso = isoDate(new Date());
+
+  for (let week = 0; week < WEEKS; week++) {
+    if (week > 0) nodes.push(el("span", "days-split"));
+
+    for (let day = 1; day <= DAYS.length; day++) {
+      const active = day === selectedDay && week === selectedWeek;
+      const date = dateOfDay(day, week);
+
+      const btn = el("button", active ? "day active" : "day");
+      if (isoDate(date) === todayIso) btn.classList.add("day--today");
       btn.append(
-        el("span", null, name),
-        el("span", "day-date", SHORT_DATE.format(dateOfDay(day)))
+        el("span", null, DAYS[day - 1]),
+        el("span", "day-date", SHORT_DATE.format(date))
       );
       btn.addEventListener("click", () => {
         selectedDay = day;
+        selectedWeek = week;
         showSchedule();
       });
-      return btn;
-    })
-  );
+      nodes.push(btn);
+    }
+  }
+
+  els.days.replaceChildren(...nodes);
+  keepSelectedVisible();
 }
+
+/** Полоса шире экрана, поэтому подводим выбранный день к центру. */
+function keepSelectedVisible() {
+  const active = els.days.querySelector(".day.active");
+  if (!active) return;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  active.scrollIntoView({
+    behavior: reduce || !daysScrolled ? "auto" : "smooth",
+    inline: "center",
+    block: "nearest",
+  });
+  daysScrolled = true;
+}
+
+let daysScrolled = false;
 
 /** Отсеивает языковые пары чужих подгрупп по настройкам студента. */
 function matchesPrefs(lesson) {

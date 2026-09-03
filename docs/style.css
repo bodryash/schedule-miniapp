@@ -174,10 +174,29 @@ button:active { transform: scale(0.97); }
   display: flex;
   gap: 8px;
   margin-bottom: 16px;
+  padding-bottom: 2px;
   overflow-x: auto;
   scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  /* Полоса тянется на две недели — за край экрана, а не обрезается по нему. */
+  margin-inline: -16px;
+  padding-inline: 16px;
+  overscroll-behavior-x: contain;
 }
 .days::-webkit-scrollbar { display: none; }
+
+.days > * { scroll-snap-align: center; }
+
+/* Граница между текущей неделей и следующей. */
+.days-split {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 1px;
+  margin: 4px 2px;
+  background: var(--muted);
+  opacity: 0.25;
+  scroll-snap-align: none;
+}
 
 .day {
   display: flex;
@@ -195,6 +214,13 @@ button:active { transform: scale(0.97); }
 .day-date {
   font-size: 11px;
   opacity: 0.6;
+}
+
+/* Сегодняшний день видно, даже когда пролистали на другой. */
+.day--today:not(.active) .day-date {
+  color: var(--accent);
+  opacity: 1;
+  font-weight: 600;
 }
 
 .day {
