@@ -255,17 +255,30 @@ button:active { transform: scale(0.97); }
   50% { opacity: 0.35; transform: scale(0.72); }
 }
 
-/* Полоса прогресса пары. Прогресс не должен ускоряться — только linear. */
+.now-left {
+  margin-left: auto;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* Полоса прогресса пары. Длительность — вся пара, отрицательная задержка
+   отматывает её к текущей минуте, поэтому линия ползёт непрерывно и ровно по
+   времени, а не прыгает на каждом обновлении. Прогресс не ускоряется —
+   только linear. */
 .now-bar {
   position: absolute;
   left: 0;
   bottom: 0;
   height: 2px;
   width: 100%;
-  transform: scaleX(var(--progress, 0));
   transform-origin: left;
   background: var(--accent);
-  transition: transform 600ms linear;
+  animation: fill var(--pair-duration, 5400s) linear var(--pair-elapsed, 0s) forwards;
+}
+
+@keyframes fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
 /* Цвета не зависят от чётности недели: они говорят про тип занятия,
@@ -393,8 +406,8 @@ section {
     animation-name: fade;
   }
 
+  /* Полосу прогресса оставляем: это не украшение, а сколько осталось. */
   .now-dot { animation: none; }
-  .now-bar { transition: none; }
   button:active { transform: none; }
 }
 

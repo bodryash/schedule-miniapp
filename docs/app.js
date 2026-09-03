@@ -434,10 +434,26 @@ function currentLesson() {
     const start = minutes(bell.start);
     const end = minutes(bell.end);
     if (nowMinutes >= start && nowMinutes <= end) {
-      return { slot: bell.n, progress: (nowMinutes - start) / (end - start) };
+      return {
+        slot: bell.n,
+        elapsed: nowMinutes - start,
+        total: end - start,
+        left: end - nowMinutes,
+      };
     }
   }
   return null;
+}
+
+/** «47 мин», «1 ч 5 мин» — сколько осталось до конца пары. */
+function humanLeft(value) {
+  const left = Math.max(0, Math.round(value));
+  if (left < 1) return "меньше минуты";
+  const hours = Math.floor(left / 60);
+  const rest = left % 60;
+  if (hours && rest) return `${hours} ч ${rest} мин`;
+  if (hours) return `${hours} ч`;
+  return `${rest} мин`;
 }
 
 /**
@@ -462,14 +478,22 @@ function refreshNow() {
 
     if (!badge) {
       badge = el("div", "now");
-      badge.append(el("span", "now-dot"), el("span", null, "идёт сейчас"));
+      badge.append(
+        el("span", "now-dot"),
+        el("span", null, "идёт сейчас"),
+        el("span", "now-left")
+      );
       card.append(badge);
     }
+    badge.querySelector(".now-left").textContent = `осталось ${humanLeft(current.left)}`;
+
+    // Полосу заводим один раз: пересоздание сбросило бы её в начало.
     if (!bar) {
       bar = el("div", "now-bar");
+      bar.style.setProperty("--pair-duration", `${Math.round(current.total * 60)}s`);
+      bar.style.setProperty("--pair-elapsed", `-${Math.round(current.elapsed * 60)}s`);
       card.append(bar);
     }
-    bar.style.setProperty("--progress", current.progress.toFixed(3));
   }
 }
 
