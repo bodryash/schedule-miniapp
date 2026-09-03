@@ -6,7 +6,9 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 
 # Обязательно https — Telegram не откроет Mini App по http.
-WEB_APP_URL = os.environ.get("WEB_APP_URL", "https://bodryash.github.io/bo/")
+WEB_APP_URL = os.environ.get(
+    "WEB_APP_URL", "https://bodryash.github.io/schedule-miniapp/"
+)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
