@@ -7,8 +7,8 @@
 
 | Что | Где |
 | --- | --- |
-| Страница мини-приложения | `web/` — статика, без сборки |
-| Данные расписания | `web/data/schedule.json` |
+| Страница мини-приложения | `docs/` — статика, без сборки |
+| Данные расписания | `docs/data/schedule.json` |
 | Парсер PDF | `tools/parse_pdf.py` |
 | Бот с кнопкой | `bot.py` |
 
@@ -18,12 +18,13 @@
 python tools/parse_pdf.py "путь/к/расписанию.pdf"
 ```
 
-Перезаписывает `web/data/schedule.json`. После этого залить `web/` на хостинг.
+Перезаписывает `docs/data/schedule.json`. После этого закоммитить и запушить —
+GitHub Pages раздаёт папку `docs/` с ветки `main`.
 
 ## Запустить локально
 
 ```bash
-python -m http.server 8123 --directory web
+python -m http.server 8123 --directory docs
 ```
 
 ## Запустить бота

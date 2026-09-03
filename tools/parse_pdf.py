@@ -1,4 +1,4 @@
-"""Разбирает PDF расписания ФГП МГУ в web/data/schedule.json.
+"""Разбирает PDF расписания ФГП МГУ в docs/data/schedule.json.
 
 Запуск:
     python tools/parse_pdf.py "путь/к/расписанию.pdf"
@@ -22,7 +22,7 @@ from pathlib import Path
 import pdfplumber
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "web" / "data" / "schedule.json"
+OUT = ROOT / "docs" / "data" / "schedule.json"
 
 DAYS = {
     "понедельник": 1,
