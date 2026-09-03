@@ -1,0 +1,278 @@
+:root {
+  --bg: var(--tg-theme-bg-color, #ffffff);
+  --text: var(--tg-theme-text-color, #0f0f0f);
+  --muted: var(--tg-theme-hint-color, #7d7d7d);
+  --card: var(--tg-theme-secondary-bg-color, #f2f2f7);
+  --accent: #2ea6ff;
+  --accent-soft: rgba(46, 166, 255, 0.14);
+  --accent-text: #ffffff;
+}
+
+/* Цвет интерфейса подсказывает чётность недели: голубой — нечётная,
+   оранжевый — чётная. Переключает showSchedule() через data-parity. */
+body[data-parity="even"] {
+  --accent: #f0821e;
+  --accent-soft: rgba(240, 130, 30, 0.16);
+}
+
+body[data-parity="none"] {
+  --accent: var(--tg-theme-button-color, #2ea6ff);
+  --accent-soft: rgba(127, 127, 127, 0.14);
+}
+
+* { box-sizing: border-box; }
+
+/* Иначе display у label перебивает атрибут hidden. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  padding: 16px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 4px 0 20px;
+}
+
+.week {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 9px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+}
+
+/* --- Выбор группы --- */
+
+label {
+  display: block;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--card);
+  border: none;
+  border-radius: 10px;
+  appearance: none;
+}
+
+fieldset {
+  margin: 0 0 14px;
+  padding: 0;
+  border: none;
+}
+
+legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 0;
+  padding: 10px 12px;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--card);
+  border-radius: 10px;
+}
+
+.check + .check { margin-top: 6px; }
+
+.check input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--accent);
+}
+
+.hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: 10px;
+}
+
+.primary {
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.ghost {
+  padding: 8px 12px;
+  font-size: 14px;
+  background: var(--card);
+  color: var(--text);
+}
+
+/* --- Расписание --- */
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.group-name { font-size: 20px; font-weight: 600; }
+
+.days {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.days::-webkit-scrollbar { display: none; }
+
+.day {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  font-size: 15px;
+  background: var(--card);
+  color: var(--text);
+}
+
+.day.active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.card {
+  padding: 14px;
+  margin-bottom: 10px;
+  background: var(--card);
+  border-radius: 12px;
+  border-left: 3px solid transparent;
+}
+
+/* Цвета не зависят от чётности недели: они говорят про тип занятия,
+   а не про неделю, и не должны меняться вместе с акцентом. */
+.card--elective {
+  --mark: #2fae60;
+  border-left-color: var(--mark);
+  background: color-mix(in srgb, #2fae60 9%, var(--card));
+}
+
+.card--mfk {
+  --mark: #8b5cf6;
+  border-left-color: var(--mark);
+  background: color-mix(in srgb, #8b5cf6 9%, var(--card));
+}
+
+.card--elective .slot,
+.card--mfk .slot {
+  color: var(--mark);
+  background: color-mix(in srgb, var(--mark) 16%, transparent);
+}
+
+.card--elective .tag,
+.card--mfk .tag {
+  color: var(--mark);
+  background: color-mix(in srgb, var(--mark) 14%, transparent);
+}
+
+.time {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.slot {
+  padding: 1px 7px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 6px;
+}
+
+.window {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  border: 1px dashed var(--muted);
+  border-radius: 12px;
+  opacity: 0.75;
+}
+
+.window-slot { font-weight: 600; letter-spacing: normal; }
+.window-time { margin-left: auto; font-weight: 400; letter-spacing: normal; }
+
+.tag {
+  padding: 1px 7px;
+  font-size: 11px;
+  background: var(--bg);
+  border-radius: 6px;
+}
+.subject { margin-top: 2px; font-size: 16px; font-weight: 600; }
+.meta { margin-top: 6px; font-size: 13px; color: var(--muted); }
+
+.subgroups summary {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--accent);
+  cursor: pointer;
+  list-style: none;
+}
+.subgroups summary::-webkit-details-marker { display: none; }
+.subgroups[open] summary { margin-bottom: 4px; }
+.subgroups .meta { margin-top: 4px; }
+
+.note {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.empty {
+  padding: 32px 0;
+  text-align: center;
+  color: var(--muted);
+}
+
+.error {
+  padding: 16px;
+  color: var(--tg-theme-destructive-text-color, #e53935);
+  text-align: center;
+}

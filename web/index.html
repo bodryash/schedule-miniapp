@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Расписание</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Первый заход: кто вы и что показывать -->
+  <section id="picker" hidden>
+    <h1>Настройка расписания</h1>
+
+    <label>
+      Курс
+      <select id="course"></select>
+    </label>
+
+    <label>
+      Группа
+      <select id="group"></select>
+    </label>
+
+    <label id="main-row" hidden>
+      Основной язык
+      <select id="main"></select>
+    </label>
+
+    <label id="main-group-row" hidden>
+      Подгруппа основного языка
+      <select id="main-group"></select>
+    </label>
+
+    <label id="lang2-row" hidden>
+      Второй или третий язык
+      <select id="lang2"></select>
+    </label>
+
+    <label id="lang2-group-row" hidden>
+      Подгруппа языка
+      <select id="lang2-group"></select>
+    </label>
+
+    <fieldset id="electives-row" hidden>
+      <legend>Дисциплины по выбору</legend>
+      <div id="electives"></div>
+      <p class="hint">Если не отмечено ничего, показываются все.</p>
+    </fieldset>
+
+    <button id="save" class="primary">Сохранить</button>
+  </section>
+
+  <!-- Основной экран -->
+  <section id="schedule" hidden>
+    <header class="bar">
+      <div>
+        <div class="group-name" id="current-group"></div>
+        <div class="week" id="week-label"></div>
+      </div>
+      <button id="change" class="ghost">Настройки</button>
+    </header>
+
+    <nav class="days" id="days"></nav>
+    <div id="lessons"></div>
+  </section>
+
+  <p id="error" class="error" hidden></p>
+
+  <script src="app.js"></script>
+</body>
+</html>
