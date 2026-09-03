@@ -14,6 +14,16 @@ const MAIN_LANGS = [
 // Второй и третий языки подписаны порядковым номером.
 const EXTRA_LANG = /^\d+-(ой|ий)\s/;
 
+const FULL_DATE = new Intl.DateTimeFormat("ru-RU", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+});
+const SHORT_DATE = new Intl.DateTimeFormat("ru-RU", {
+  day: "numeric",
+  month: "numeric",
+});
+
 const ELECTIVE = "по выбору";
 const MFK = "Межфакультетские учебные курсы МГУ";
 
@@ -36,7 +46,9 @@ const els = {
   electives: document.getElementById("electives"),
   save: document.getElementById("save"),
   change: document.getElementById("change"),
+  close: document.getElementById("close"),
   currentGroup: document.getElementById("current-group"),
+  dateLabel: document.getElementById("date-label"),
   weekLabel: document.getElementById("week-label"),
   days: document.getElementById("days"),
   lessons: document.getElementById("lessons"),
@@ -45,12 +57,34 @@ const els = {
 
 let data = null;
 let prefs = null;
-let selectedDay = todayIndex();
 
-/** 1 = понедельник … 6 = суббота. Воскресенье показываем как понедельник. */
-function todayIndex() {
-  const d = new Date().getDay();
-  return d === 0 ? 1 : Math.min(d, 6);
+// В воскресенье занятий нет, поэтому показываем понедельник — уже следующей
+// недели, а не той, что закончилась.
+const baseDate = new Date();
+if (baseDate.getDay() === 0) baseDate.setDate(baseDate.getDate() + 1);
+
+const weekStart = mondayOf(baseDate);
+let selectedDay = Math.min((baseDate.getDay() + 6) % 7, 5) + 1;
+
+/** Понедельник недели, в которую попадает дата. */
+function mondayOf(date) {
+  const monday = new Date(date);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  return monday;
+}
+
+/** Дата дня недели (1 = понедельник) в показываемой неделе. */
+function dateOfDay(day) {
+  const date = new Date(weekStart);
+  date.setDate(date.getDate() + day - 1);
+  return date;
+}
+
+/** ISO-дата по местному времени: toISOString() сдвинул бы день по UTC. */
+function isoDate(date) {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 /**
@@ -59,8 +93,11 @@ function todayIndex() {
  * Вне семестра чётности нет — показываем все пары.
  */
 function weekParity(weeks) {
-  const today = new Date().toISOString().slice(0, 10);
-  const week = (weeks || []).find((w) => w.from <= today && today <= w.to);
+  // Чётность — свойство недели, а не дня: считаем по пересечению с
+  // Пн–Сб, иначе понедельник 31.08 выпал бы из семестра, начатого 02.09.
+  const from = isoDate(weekStart);
+  const to = isoDate(dateOfDay(6));
+  const week = (weeks || []).find((w) => w.from <= to && from <= w.to);
   return week ? week.parity : null;
 }
 
@@ -245,6 +282,8 @@ function collectPrefs() {
 function showPicker() {
   els.schedule.hidden = true;
   els.picker.hidden = false;
+  // Возвращаться некуда, пока группа не выбрана хотя бы раз.
+  els.close.hidden = !prefs.group || !groupById(prefs.group);
   fillCourses();
 }
 
@@ -258,6 +297,8 @@ function showSchedule() {
   els.schedule.hidden = false;
   els.currentGroup.textContent = `Группа ${group.title}`;
 
+  const label = FULL_DATE.format(dateOfDay(selectedDay));
+  els.dateLabel.textContent = label[0].toUpperCase() + label.slice(1);
   const parity = weekParity(data.weeks);
   // Голубой интерфейс — нечётная неделя, оранжевый — чётная.
   document.body.dataset.parity = parity || "none";
@@ -276,7 +317,11 @@ function renderDays() {
   els.days.replaceChildren(
     ...DAYS.map((name, i) => {
       const day = i + 1;
-      const btn = el("button", day === selectedDay ? "day active" : "day", name);
+      const btn = el("button", day === selectedDay ? "day active" : "day");
+      btn.append(
+        el("span", null, name),
+        el("span", "day-date", SHORT_DATE.format(dateOfDay(day)))
+      );
       btn.addEventListener("click", () => {
         selectedDay = day;
         showSchedule();
@@ -430,6 +475,8 @@ async function init() {
     showSchedule();
   });
   els.change.addEventListener("click", showPicker);
+  // Крестик закрывает настройки, не сохраняя изменений.
+  els.close.addEventListener("click", showSchedule);
 
   if (prefs.group && groupById(prefs.group)) showSchedule();
   else showPicker();

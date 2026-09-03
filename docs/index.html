@@ -11,7 +11,10 @@
 
   <!-- Первый заход: кто вы и что показывать -->
   <section id="picker" hidden>
-    <h1>Настройка расписания</h1>
+    <header class="bar">
+      <h1>Настройка расписания</h1>
+      <button id="close" class="icon" type="button" aria-label="Вернуться к расписанию" hidden>×</button>
+    </header>
 
     <label>
       Курс
@@ -56,6 +59,7 @@
   <section id="schedule" hidden>
     <header class="bar">
       <div>
+        <div class="date" id="date-label"></div>
         <div class="group-name" id="current-group"></div>
         <div class="week" id="week-label"></div>
       </div>
