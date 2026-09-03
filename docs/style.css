@@ -261,24 +261,18 @@ button:active { transform: scale(0.97); }
   color: var(--muted);
 }
 
-/* Полоса прогресса пары. Длительность — вся пара, отрицательная задержка
-   отматывает её к текущей минуте, поэтому линия ползёт непрерывно и ровно по
-   времени, а не прыгает на каждом обновлении. Прогресс не ускоряется —
-   только linear. */
+/* Полоса прогресса пары. Само движение задаёт WAAPI из app.js: его позицию
+   можно выставить по часам, а CSS-анимация встала бы вместе с таймлайном
+   документа, пока приложение свёрнуто. */
 .now-bar {
   position: absolute;
   left: 0;
   bottom: 0;
   height: 2px;
   width: 100%;
+  transform: scaleX(0);
   transform-origin: left;
   background: var(--accent);
-  animation: fill var(--pair-duration, 5400s) linear var(--pair-elapsed, 0s) forwards;
-}
-
-@keyframes fill {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
 }
 
 /* Цвета не зависят от чётности недели: они говорят про тип занятия,

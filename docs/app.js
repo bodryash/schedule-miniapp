@@ -487,13 +487,20 @@ function refreshNow() {
     }
     badge.querySelector(".now-left").textContent = `осталось ${humanLeft(current.left)}`;
 
-    // Полосу заводим один раз: пересоздание сбросило бы её в начало.
     if (!bar) {
       bar = el("div", "now-bar");
-      bar.style.setProperty("--pair-duration", `${Math.round(current.total * 60)}s`);
-      bar.style.setProperty("--pair-elapsed", `-${Math.round(current.elapsed * 60)}s`);
       card.append(bar);
+      // WAAPI: идёт на компоновщике, как CSS-анимация, но позицию можно
+      // выставить по часам.
+      bar.animate(
+        [{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }],
+        { duration: current.total * 60_000, fill: "forwards", easing: "linear" }
+      );
     }
+    // Сверяем с часами на каждом обновлении: пока приложение свёрнуто,
+    // таймлайн анимаций стоит, и полоса отстала бы от реального времени.
+    const [animation] = bar.getAnimations();
+    if (animation) animation.currentTime = current.elapsed * 60_000;
   }
 }
 
@@ -578,6 +585,12 @@ async function init() {
   els.change.addEventListener("click", showPicker);
   // Крестик закрывает настройки, не сохраняя изменений.
   els.close.addEventListener("click", showSchedule);
+
+  // Возврат в свёрнутое приложение — момент, когда расхождение с часами
+  // максимально, а следующий тик ещё не наступил.
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && !els.schedule.hidden) refreshNow();
+  });
 
   const openedOn = isoDate(new Date());
   setInterval(() => {
