@@ -394,7 +394,83 @@ function renderLessons(group, parity) {
     }
   }
 
+  nodes.forEach((node, i) => node.style.setProperty("--i", i));
   els.lessons.replaceChildren(...nodes);
+  refreshNow();
+  scrollToNow();
+}
+
+/** При открытии подводим к идущей паре, если она не попала на экран. */
+let scrolledToNow = false;
+function scrollToNow() {
+  if (scrolledToNow) return;
+  const card = els.lessons.querySelector(".card--now");
+  if (!card) return;
+  scrolledToNow = true;
+
+  const box = card.getBoundingClientRect();
+  if (box.top >= 0 && box.bottom <= window.innerHeight) return;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  card.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+}
+
+/** Минуты с полуночи для строки «09:00». */
+function minutes(time) {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+/**
+ * Какая пара идёт по часам телефона и насколько она прошла.
+ * Только для сегодняшнего дня — в чужом дне «сейчас» не существует.
+ */
+function currentLesson() {
+  if (!data || isoDate(dateOfDay(selectedDay)) !== isoDate(new Date())) return null;
+
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+
+  for (const bell of data.bells) {
+    const start = minutes(bell.start);
+    const end = minutes(bell.end);
+    if (nowMinutes >= start && nowMinutes <= end) {
+      return { slot: bell.n, progress: (nowMinutes - start) / (end - start) };
+    }
+  }
+  return null;
+}
+
+/**
+ * Подсвечивает идущую пару. Работает поверх готовых карточек, а не через
+ * перерисовку: иначе список заново проигрывал бы появление каждую минуту.
+ */
+function refreshNow() {
+  const current = currentLesson();
+
+  for (const card of els.lessons.querySelectorAll(".card")) {
+    const isNow = current && Number(card.dataset.slot) === current.slot;
+    card.classList.toggle("card--now", Boolean(isNow));
+
+    let badge = card.querySelector(".now");
+    let bar = card.querySelector(".now-bar");
+
+    if (!isNow) {
+      badge?.remove();
+      bar?.remove();
+      continue;
+    }
+
+    if (!badge) {
+      badge = el("div", "now");
+      badge.append(el("span", "now-dot"), el("span", null, "идёт сейчас"));
+      card.append(badge);
+    }
+    if (!bar) {
+      bar = el("div", "now-bar");
+      card.append(bar);
+    }
+    bar.style.setProperty("--progress", current.progress.toFixed(3));
+  }
 }
 
 function renderWindow(slot, bell) {
@@ -421,6 +497,7 @@ function renderCard(entries, bells) {
   if (first.subject === MFK) kind = " card--mfk";
   else if (first.elective === ELECTIVE) kind = " card--elective";
   const card = el("article", `card${kind}`);
+  card.dataset.slot = first.slot;
 
   const head = el("div", "time");
   head.append(el("span", "slot", `${first.slot} пара`));
@@ -477,6 +554,14 @@ async function init() {
   els.change.addEventListener("click", showPicker);
   // Крестик закрывает настройки, не сохраняя изменений.
   els.close.addEventListener("click", showSchedule);
+
+  const openedOn = isoDate(new Date());
+  setInterval(() => {
+    // Приложение могли оставить открытым до следующего дня — тогда неделя и
+    // выбранный день устарели, и точечного обновления уже мало.
+    if (isoDate(new Date()) !== openedOn) return location.reload();
+    if (!els.schedule.hidden) refreshNow();
+  }, 30_000);
 
   if (prefs.group && groupById(prefs.group)) showSchedule();
   else showPicker();

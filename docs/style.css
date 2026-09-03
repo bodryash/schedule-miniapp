@@ -6,6 +6,10 @@
   --accent: #2ea6ff;
   --accent-soft: rgba(46, 166, 255, 0.14);
   --accent-text: #ffffff;
+
+  /* Встроенные кривые CSS слишком вялые для интерфейса. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 /* Цвет интерфейса подсказывает чётность недели: голубой — нечётная,
@@ -27,7 +31,7 @@ body[data-parity="none"] {
 
 body {
   margin: 0;
-  padding: 16px;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
@@ -134,7 +138,10 @@ button {
   cursor: pointer;
   border: none;
   border-radius: 10px;
+  transition: transform 120ms var(--ease-out);
 }
+
+button:active { transform: scale(0.97); }
 
 .primary {
   width: 100%;
@@ -190,17 +197,75 @@ button {
   opacity: 0.6;
 }
 
+.day {
+  transition:
+    background-color 180ms var(--ease-out),
+    color 180ms var(--ease-out),
+    transform 120ms var(--ease-out);
+}
+
 .day.active {
   background: var(--accent);
   color: var(--accent-text);
 }
 
 .card {
+  position: relative;
   padding: 14px;
   margin-bottom: 10px;
   background: var(--card);
-  border-radius: 12px;
+  border-radius: 14px;
   border-left: 3px solid transparent;
+  overflow: hidden;
+}
+
+/* --- Пара, которая идёт прямо сейчас --- */
+
+.card--now {
+  --mark: var(--accent);
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--card));
+}
+
+.card--now .slot {
+  color: var(--accent-text);
+  background: var(--accent);
+}
+
+.now {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.now-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 2s var(--ease-in-out) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.72); }
+}
+
+/* Полоса прогресса пары. Прогресс не должен ускоряться — только linear. */
+.now-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  transform: scaleX(var(--progress, 0));
+  transform-origin: left;
+  background: var(--accent);
+  transition: transform 600ms linear;
 }
 
 /* Цвета не зависят от чётности недели: они говорят про тип занятия,
@@ -295,6 +360,47 @@ button {
   padding: 32px 0;
   text-align: center;
   color: var(--muted);
+}
+
+/* --- Движение --- */
+
+/* Смена дня видна десятки раз в день, поэтому появление короткое и почти
+   незаметное, а задержка каскада ограничена — иначе длинный день ждал бы
+   свою анимацию дольше, чем читался. */
+#lessons > * {
+  opacity: 0;
+  transform: translateY(6px);
+  animation: rise 180ms var(--ease-out) forwards;
+  animation-delay: min(calc(var(--i, 0) * 25ms), 120ms);
+}
+
+@keyframes rise {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+section {
+  animation: appear 200ms var(--ease-out);
+}
+
+@keyframes appear {
+  from { opacity: 0; transform: translateY(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Смысл сохраняем, движение убираем. */
+  #lessons > *,
+  section {
+    animation-name: fade;
+  }
+
+  .now-dot { animation: none; }
+  .now-bar { transition: none; }
+  button:active { transform: none; }
+}
+
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .error {
