@@ -4,3 +4,5 @@ __pycache__/
 .venv/
 venv/
 source/*.pdf
+node_modules/
+.wrangler/

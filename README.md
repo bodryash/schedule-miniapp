@@ -12,7 +12,8 @@
 | Страница мини-приложения | `docs/` — статика, без сборки |
 | Данные расписания | `docs/data/schedule.json` |
 | Парсер PDF | `tools/parse_pdf.py` |
-| Бот с кнопкой | `bot.py` |
+| Бот на вебхуке (боевой) | `worker/` — Cloudflare Worker |
+| Бот на опросе (локальный) | `bot.py` |
 
 ## Обновить расписание
 
@@ -29,17 +30,34 @@ GitHub Pages раздаёт папку `docs/` с ветки `main`.
 python -m http.server 8123 --directory docs
 ```
 
-## Запустить бота
+## Бот
+
+Боевой бот живёт в Cloudflare Worker и работает без включённого
+компьютера: Telegram сам шлёт обновления на вебхук. Разворачивается из
+папки `worker/`:
 
 ```bash
-pip install -r requirements.txt
+npx wrangler deploy
 ```
 
-Скопировать `.env.example` в `.env`, вписать токен, затем:
+Токен и секрет вебхука в файлах не лежат — они задаются один раз:
 
 ```bash
-python bot.py
+npx wrangler secret put BOT_TOKEN
 ```
+
+```bash
+npx wrangler secret put WEBHOOK_SECRET
+```
+
+Секрет вебхука Telegram присылает в заголовке `X-Telegram-Bot-Api-Secret-Token`.
+Без этой проверки на публичный адрес воркера мог бы слать поддельные
+обновления кто угодно.
+
+Локальный `bot.py` остаётся для отладки, но **одновременно с вебхуком он не
+работает**: Telegram отдаёт обновления либо туда, либо сюда. Чтобы вернуться к
+опросу, вебхук надо удалить (`deleteWebhook`), и наоборот. Для `bot.py` нужен
+`.env` с `BOT_TOKEN`.
 
 ## Формат данных
 
