@@ -46,8 +46,29 @@ RE_SLOT = re.compile(r"^(\d+)\s*пара\s*\n([\d.]+)\s*\n([\d.]+)", re.MULTILIN
 RE_COURSE = re.compile(r"(\d)\s*курса")
 RE_PERIOD = re.compile(r"\((\d{2}\.\d{2}\.\d{4})\s*-\s*(\d{2}\.\d{2}\.\d{4})\)")
 
-RE_KIND = re.compile(r",?\s*\b(Лк|Сем|Лб|Пз|Пр)\b\s*,")
-RE_HAS_KIND = re.compile(r"\b(Лк|Сем|Лб|Пз|Пр)\b\s*,")
+# Вид занятия иногда набран капсом («ЛК»), поэтому регистр игнорируем.
+RE_KIND = re.compile(r",?\s*\b(лк|сем|лб|пз|пр)\b\s*,", re.IGNORECASE)
+RE_KIND_MARK = re.compile(r"\b(?:лк|сем|лб|пз|пр)\b\s*,", re.IGNORECASE)
+
+# Пара заканчивается инициалами преподавателя и необязательной пометкой
+# в скобках. Инициалов может быть два или один («пр. Дзанолетти И.»), а
+# точка в конце иногда потеряна («доц. Билюга С.Э»). Занятие без
+# преподавателя обрывается на аудитории.
+# Проверка на строчную букву следом отсекает сокращения вроде «ауд.В.каф.».
+RE_TEACHER_END = re.compile(
+    r"[А-ЯЁ]\.\s*(?:[А-ЯЁ]\.?)?(?![а-яё])(?:\s*\([^)]*\))?"
+)
+RE_ROOM_SEGMENT = re.compile(r"ауд\.?[^,]*,")
+
+# Не у всех преподавателей есть инициалы («пр. Хуа Цзя»), поэтому запасной
+# признак конца пары — должность и следом слова с заглавной буквы.
+RE_TEACHER_PLAIN = re.compile(
+    r"(?:проф|доц|ст\.?\s?пр|пр|зав\.каф|асс)\.\s*"
+    r"(?:[А-ЯЁ][а-яё]+|[А-ЯЁ]\.)(?:\s+(?:[А-ЯЁ][а-яё]+|[А-ЯЁ]\.))*"
+)
+
+# В исходнике пометка иногда обрезана шириной ячейки: «(четная» без скобки.
+RE_PAREN_OPEN = re.compile(r"\s*\(([^)]*)$")
 
 # Приставки к названию пишутся слитно: дв — дисциплина по выбору,
 # ф — факультатив. Стоят либо в начале, либо после номера языка
@@ -80,16 +101,24 @@ def parse_lesson(chunk):
     # Пометки в скобках: чётность недели либо произвольное примечание
     # («с 11.09.2026 года», «необходим ноутбук»).
     notes = []
-    for paren in RE_PAREN.findall(text):
+    parens = RE_PAREN.findall(text)
+    text = RE_PAREN.sub("", text)
+    # Незакрытая пометка в конце — обрезанная шириной ячейки исходника.
+    unclosed = RE_PAREN_OPEN.search(text)
+    if unclosed:
+        parens.append(unclosed.group(1))
+        text = text[: unclosed.start()]
+
+    for paren in parens:
         value = norm(paren).lower()
-        if value == "нечетная неделя":
+        if value.startswith("нечетная"):
             lesson["week"] = "odd"
-        elif value == "четная неделя":
+        elif value.startswith("четная"):
             lesson["week"] = "even"
         else:
             notes.append(norm(paren))
     lesson["note"] = "; ".join(notes)
-    text = RE_PAREN.sub("", text).strip()
+    text = text.strip()
 
     sub = RE_SUBGROUP.search(text)
     if sub:
@@ -98,7 +127,7 @@ def parse_lesson(chunk):
 
     kind = RE_KIND.search(text)
     if kind:
-        lesson["type"] = KINDS[kind.group(1)]
+        lesson["type"] = KINDS[kind.group(1).capitalize()]
         subject = text[: kind.start()]
         tail = text[kind.end():]
     else:
@@ -107,6 +136,10 @@ def parse_lesson(chunk):
         tail = ""
 
     subject = subject.strip().strip(",").strip()
+    # Ячейка может начинаться обрывком пометки из склеенной строки выше
+    # («неделя) Микроэкономика») — закрывающая скобка без открывающей.
+    if ")" in subject and "(" not in subject:
+        subject = subject.split(")", 1)[1].strip()
     prefix = RE_PREFIX.search(subject)
     if prefix:
         lesson["elective"] = PREFIXES[prefix.group(1)]
@@ -130,26 +163,51 @@ def parse_lesson(chunk):
 def split_lessons(cell):
     """Одна ячейка может содержать несколько пар — режет её на куски.
 
-    Длинное название переносится на следующую строку, поэтому просто по
-    строкам резать нельзя. Признак новой пары: в накопленном куске уже есть
-    вид занятия («Лк,», «Лб,»…) и в следующей строке он тоже есть. Хвост
-    вроде «ГУМ, проф. Суриков В.В.» вида занятия не содержит и приклеивается
-    к предыдущей паре.
-    """
-    text = RE_DASHES.sub("", cell or "")
-    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    Резать по началу следующей пары нельзя: название переносится на
+    несколько строк, и граница уезжает — начало следующей пары прилипает к
+    предыдущей, а её собственное название теряется. Поэтому ищем конец пары.
 
-    chunks, buffer = [], []
-    for i, line in enumerate(lines):
-        buffer.append(line)
-        nxt = lines[i + 1] if i + 1 < len(lines) else None
-        starts_new = nxt is not None and bool(RE_HAS_KIND.search(nxt))
-        if starts_new and RE_HAS_KIND.search(" ".join(buffer)):
-            chunks.append(" ".join(buffer))
-            buffer = []
-    if buffer:
-        chunks.append(" ".join(buffer))
-    return chunks
+    После вида занятия идёт «ауд.X, преподаватель», и пара кончается
+    инициалами плюс возможной пометкой в скобках. Если преподавателя нет —
+    как у военной подготовки, — кончается на аудитории.
+    """
+    text = norm(RE_DASHES.sub(" ", cell or ""))
+    if not text:
+        return []
+
+    marks = list(RE_KIND_MARK.finditer(text))
+    if not marks:
+        return [text]
+
+    chunks = []
+    start = 0
+    for i, mark in enumerate(marks):
+        tail_from = mark.end()
+        tail_to = marks[i + 1].start() if i + 1 < len(marks) else len(text)
+        tail = text[tail_from:tail_to]
+
+        ends = list(RE_TEACHER_END.finditer(tail))
+        plain = list(RE_TEACHER_PLAIN.finditer(tail))
+        if ends:
+            end = tail_from + ends[-1].end()
+        elif plain:
+            end = tail_from + plain[-1].end()
+        else:
+            room = RE_ROOM_SEGMENT.search(tail)
+            end = tail_from + (room.end() if room else len(tail))
+
+        chunks.append(text[start:end].strip())
+        start = end
+
+    rest = text[start:].strip()
+    if rest:
+        # Обрезанная пометка «(четная» относится к предыдущей паре, а не
+        # начинает новую.
+        if chunks and rest.startswith("(") and ")" not in rest:
+            chunks[-1] += " " + rest
+        else:
+            chunks.append(rest)
+    return [chunk for chunk in chunks if chunk]
 
 
 def parse_weeks(text, period):
