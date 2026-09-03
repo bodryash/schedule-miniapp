@@ -1,9 +1,19 @@
 import os
+import sys
 
+from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-BOT_TOKEN = os.environ["BOT_TOKEN"]
+load_dotenv()
+
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+if not BOT_TOKEN:
+    sys.exit(
+        "Не найден токен бота.\n"
+        "Создайте рядом с bot.py файл .env со строкой:\n"
+        "BOT_TOKEN=токен_от_BotFather"
+    )
 
 # Обязательно https — Telegram не откроет Mini App по http.
 WEB_APP_URL = os.environ.get(
