@@ -461,6 +461,10 @@ const SWIPE_DISTANCE = 0.22; // доля ширины экрана
 const SWIPE_VELOCITY = 0.35; // px/мс — быстрый флик засчитываем без дистанции
 
 function initSwipe() {
+  // Слушаем весь экран, а не список пар: в пустую субботу список — одна
+  // строчка «Пар нет», и тянуть было бы не за что. Едет при этом только
+  // список.
+  const surface = els.schedule;
   const strip = els.lessons;
   let pointer = null;
   let startX = 0;
@@ -476,8 +480,10 @@ function initSwipe() {
     strip.style.opacity = "";
   };
 
-  strip.addEventListener("pointerdown", (event) => {
+  surface.addEventListener("pointerdown", (event) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    // Полоса дней листается сама по себе, кнопки должны нажиматься.
+    if (event.target.closest(".days, button")) return;
     pointer = event.pointerId;
     startX = event.clientX;
     startY = event.clientY;
@@ -488,7 +494,7 @@ function initSwipe() {
     strip.style.transition = "none";
   });
 
-  strip.addEventListener("pointermove", (event) => {
+  surface.addEventListener("pointermove", (event) => {
     if (event.pointerId !== pointer) return;
     const dx = event.clientX - startX;
     const dy = event.clientY - startY;
@@ -499,7 +505,7 @@ function initSwipe() {
       if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
       decided = true;
       dragging = Math.abs(dx) > Math.abs(dy);
-      if (dragging) strip.setPointerCapture(pointer);
+      if (dragging) surface.setPointerCapture(pointer);
     }
     if (!dragging) return;
 
@@ -541,8 +547,8 @@ function initSwipe() {
     strip.addEventListener("transitionend", release, { once: true });
   };
 
-  strip.addEventListener("pointerup", finish);
-  strip.addEventListener("pointercancel", finish);
+  surface.addEventListener("pointerup", finish);
+  surface.addEventListener("pointercancel", finish);
 }
 
 /** При открытии подводим к идущей паре, если она не попала на экран. */
