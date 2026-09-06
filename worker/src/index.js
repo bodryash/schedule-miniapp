@@ -36,6 +36,19 @@ export default {
     const message = update.message;
     const text = message?.text ?? "";
 
+    // Запоминаем, кому потом можно написать. Telegram список пользователей
+    // не отдаёт, так что кроме этой записи взять его неоткуда.
+    if (message?.chat?.id && env.USERS) {
+      await env.USERS.put(
+        String(message.chat.id),
+        JSON.stringify({
+          id: message.chat.id,
+          name: message.chat.first_name ?? "",
+          seen: new Date().toISOString().slice(0, 10),
+        })
+      );
+    }
+
     // Отвечаем только на /start; на всё остальное молчим, но подтверждаем
     // приём — иначе Telegram будет слать этот апдейт снова и снова.
     if (message && text.startsWith("/start")) {
