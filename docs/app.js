@@ -11,8 +11,10 @@ const MAIN_LANGS = [
   "Русский язык как иностранный",
   "Профессиональный русский язык",
 ];
-// Второй и третий языки подписаны порядковым номером.
-const EXTRA_LANG = /^\d+-(ой|ий)\s/;
+// Второй и третий языки подписаны порядковым номером. Это разные предметы:
+// третий берут вдобавок ко второму, а не вместо него.
+const LANG2 = /^2-ой\s/;
+const LANG3 = /^3-ий\s/;
 
 const FULL_DATE = new Intl.DateTimeFormat("ru-RU", {
   weekday: "long",
@@ -42,6 +44,8 @@ const els = {
   lang2: document.getElementById("lang2"),
   lang2GroupRow: document.getElementById("lang2-group-row"),
   lang2Group: document.getElementById("lang2-group"),
+  lang3Row: document.getElementById("lang3-row"),
+  lang3: document.getElementById("lang3"),
   electivesRow: document.getElementById("electives-row"),
   electives: document.getElementById("electives"),
   save: document.getElementById("save"),
@@ -226,16 +230,28 @@ function fillLanguages() {
   }
   fillMainSubgroups();
 
-  // Второй и третий языки: студент ходит только на один.
-  const extras = subjects.filter((s) => EXTRA_LANG.test(s)).sort();
-  els.lang2Row.hidden = extras.length === 0;
-  if (extras.length) {
+  const second = subjects.filter((s) => LANG2.test(s)).sort();
+  els.lang2Row.hidden = second.length === 0;
+  if (second.length) {
     els.lang2.replaceChildren(
       new Option("не выбран — показывать все", ANY),
-      ...extras.map((s) => new Option(s, s))
+      ...second.map((s) => new Option(s, s))
     );
-    els.lang2.value = extras.includes(prefs.lang2) ? prefs.lang2 : ANY;
+    els.lang2.value = second.includes(prefs.lang2) ? prefs.lang2 : ANY;
   }
+
+  // Третий язык берут вдобавок ко второму, поэтому спрашиваем отдельно.
+  // По умолчанию его не показываем: ходят на него единицы.
+  const third = subjects.filter((s) => LANG3.test(s)).sort();
+  els.lang3Row.hidden = third.length === 0;
+  if (third.length) {
+    els.lang3.replaceChildren(
+      new Option("не хожу", ANY),
+      ...third.map((s) => new Option(s, s))
+    );
+    els.lang3.value = third.includes(prefs.lang3) ? prefs.lang3 : ANY;
+  }
+
   fillLang2Subgroups();
   fillElectives();
 }
@@ -313,6 +329,7 @@ function collectPrefs() {
       els.lang2GroupRow.hidden || !els.lang2Group.value
         ? null
         : Number(els.lang2Group.value),
+    lang3: (els.lang3Row.hidden ? "" : els.lang3.value) || null,
     electives: [...els.electives.querySelectorAll("input:checked")].map(
       (box) => box.value
     ),
@@ -406,18 +423,26 @@ function matchesPrefs(lesson) {
     if (!prefs.electives.includes(lesson.subject)) return false;
   }
 
-  if (!lesson.subgroup) return true;
-
+  // Языки проверяем до подгрупп: у третьего языка подгруппы нет вовсе, и
+  // проверка «нет подгруппы — показываем» пропускала бы его мимо фильтра.
   if (MAIN_LANGS.includes(lesson.subject)) {
     if (!prefs.main) return true;
     if (lesson.subject !== prefs.main) return false;
-    return prefs.mainGroup == null || lesson.subgroup === prefs.mainGroup;
+    return !lesson.subgroup || prefs.mainGroup == null
+      ? true
+      : lesson.subgroup === prefs.mainGroup;
   }
-  if (EXTRA_LANG.test(lesson.subject)) {
+  if (LANG2.test(lesson.subject)) {
     if (!prefs.lang2) return true;
     if (lesson.subject !== prefs.lang2) return false;
-    return prefs.lang2Group == null || lesson.subgroup === prefs.lang2Group;
+    return !lesson.subgroup || prefs.lang2Group == null
+      ? true
+      : lesson.subgroup === prefs.lang2Group;
   }
+  if (LANG3.test(lesson.subject)) {
+    return lesson.subject === prefs.lang3;
+  }
+
   // Остальные подгруппы (русский как иностранный и т.п.) не спрашиваем.
   return true;
 }

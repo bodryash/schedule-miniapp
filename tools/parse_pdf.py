@@ -250,6 +250,33 @@ def parse_weeks(text, period):
     return out
 
 
+# Какую долю колонки должна накрыть ячейка, чтобы пара считалась и её тоже.
+COVER = 0.6
+
+
+def spread(cell_row, values, columns):
+    """Раскладывает ячейки строки по группам.
+
+    Пара, общая для нескольких групп, — это одна объединённая ячейка. Её
+    границы заданы линиями таблицы, поэтому какие колонки она накрывает,
+    видно прямо из координат. Раньше разворот шёл по признаку «в соседней
+    колонке None», и пары расползались шире реального прямоугольника.
+    """
+    result = {}
+    for col, box in enumerate(cell_row.cells):
+        if col < 2 or box is None:
+            continue
+        cell = values[col] if col < len(values) else ""
+        if not (cell or "").strip():
+            continue
+        for gid, (left, right) in columns.items():
+            width = right - left
+            covered = min(box[2], right) - max(box[0], left)
+            if width > 0 and covered / width >= COVER:
+                result[gid] = (result.get(gid, "") + "\n" + cell).strip()
+    return result
+
+
 def read_blocks(pdf, groups, weeks, state):
     """Режет страницы на блоки «шапка → строки пар» и проставляет дни.
 
@@ -274,11 +301,18 @@ def read_blocks(pdf, groups, weeks, state):
                 state["period"] = found.groups()
         weeks.extend(parse_weeks(text, state["period"]))
 
-        for table in page.extract_tables():
-            for row in table:
+        for table in page.find_tables():
+            values_of = table.extract()
+            for index, cell_row in enumerate(table.rows):
+                row = values_of[index]
                 first = norm(row[0])
 
                 if first == "Время":
+                    columns = {}
+                    for col, box in enumerate(cell_row.cells):
+                        name = norm(row[col]) if col < len(row) else ""
+                        if col >= 2 and name and box:
+                            columns[name] = (box[0], box[2])
                     for col, name in enumerate(row):
                         if col < 2 or not name:
                             continue
@@ -292,7 +326,7 @@ def read_blocks(pdf, groups, weeks, state):
                                 "level": level,
                             },
                         )
-                    blocks.append({"header": row, "day": None, "rows": []})
+                    blocks.append({"columns": columns, "day": None, "rows": []})
                     continue
 
                 if not blocks:
@@ -308,12 +342,12 @@ def read_blocks(pdf, groups, weeks, state):
                     # иначе день переписался бы у всех строк предыдущего.
                     if block["rows"] and block["day"] not in (None, day):
                         blocks.append(
-                            {"header": block["header"], "day": day, "rows": []}
+                            {"columns": block["columns"], "day": day, "rows": []}
                         )
                     else:
                         block["day"] = day
 
-                blocks[-1]["rows"].append(row)
+                blocks[-1]["rows"].append((row, cell_row))
 
     # Блок без подписи — начало дня в конце страницы. День у следующего блока.
     for i in range(len(blocks) - 2, -1, -1):
@@ -396,9 +430,9 @@ def parse(pdf_path):
 
     with pdfplumber.open(pdf_path) as pdf:
         for block in read_blocks(pdf, groups, weeks, state):
-            header, day = block["header"], block["day"]
+            columns, day = block["columns"], block["day"]
 
-            for row in block["rows"]:
+            for row, cell_row in block["rows"]:
                 slot_match = RE_SLOT.search(row[1] or "")
                 if not slot_match:
                     continue
@@ -412,24 +446,7 @@ def parse(pdf_path):
                     },
                 )
 
-                # Разворачиваем объединённые ячейки: None — продолжение
-                # пары слева, '' — действительно пустая клетка.
-                owner = None
-                for col in range(2, len(header)):
-                    gid = norm(header[col]) if header[col] else None
-                    if not gid:
-                        continue
-                    cell = row[col] if col < len(row) else ""
-
-                    if cell is None:
-                        if owner is None:
-                            continue
-                        cell = owner
-                    else:
-                        owner = cell if cell.strip() else None
-                        if not cell.strip():
-                            continue
-
+                for gid, cell in spread(cell_row, row, columns).items():
                     for chunk in split_lessons(cell):
                         lesson = parse_lesson(chunk)
                         if lesson:
