@@ -51,7 +51,14 @@ const els = {
   dateLabel: document.getElementById("date-label"),
   weekLabel: document.getElementById("week-label"),
   days: document.getElementById("days"),
+  next: document.getElementById("next"),
   lessons: document.getElementById("lessons"),
+  find: document.getElementById("find"),
+  search: document.getElementById("search"),
+  searchClose: document.getElementById("search-close"),
+  query: document.getElementById("query"),
+  searchHint: document.getElementById("search-hint"),
+  results: document.getElementById("results"),
   error: document.getElementById("error"),
 };
 
@@ -427,8 +434,11 @@ function renderLessons(group, parity) {
     )
     .sort((a, b) => a.slot - b.slot);
 
+  visible = list;
+
   if (list.length === 0) {
     els.lessons.replaceChildren(el("p", "empty", "Пар нет 🎉"));
+    refreshNext();
     return;
   }
 
@@ -464,7 +474,92 @@ function renderLessons(group, parity) {
 
   els.lessons.replaceChildren(...nodes);
   refreshNow();
+  refreshNext();
   scrollToNow();
+}
+
+/* ---------- Поиск ---------- */
+
+const SEARCH_LIMIT = 80;
+
+function showSearch() {
+  els.schedule.hidden = true;
+  els.picker.hidden = true;
+  els.search.hidden = false;
+  els.query.focus();
+}
+
+function closeSearch() {
+  els.search.hidden = true;
+  showSchedule();
+}
+
+/** Ищем по преподавателю, аудитории, предмету и номеру группы разом. */
+function runSearch() {
+  const query = els.query.value.trim().toLowerCase();
+  if (query.length < 2) {
+    els.results.replaceChildren();
+    els.searchHint.textContent = "Например: Шестова, 614, микроэкономика";
+    return;
+  }
+
+  const found = data.lessons.filter((l) =>
+    [l.teacher, l.room, l.subject, l.group].some((field) =>
+      (field || "").toLowerCase().includes(query)
+    )
+  );
+
+  // Одну лекцию читают сразу нескольким группам. Показывать её шесть раз
+  // подряд бессмысленно — сводим в строку и перечисляем группы.
+  const merged = new Map();
+  for (const lesson of found) {
+    const key = [
+      lesson.day,
+      lesson.slot,
+      lesson.week,
+      lesson.subject,
+      lesson.teacher,
+      lesson.room,
+    ].join("|");
+    if (!merged.has(key)) merged.set(key, { lesson, groups: [] });
+    merged.get(key).groups.push(lesson.group);
+  }
+
+  const rows = [...merged.values()].sort(
+    (a, b) => a.lesson.day - b.lesson.day || a.lesson.slot - b.lesson.slot
+  );
+
+  if (!rows.length) {
+    els.results.replaceChildren();
+    els.searchHint.textContent = "Ничего не нашлось";
+    return;
+  }
+
+  const shown = rows.slice(0, SEARCH_LIMIT);
+  els.searchHint.textContent =
+    rows.length > SEARCH_LIMIT
+      ? `Найдено ${rows.length}, показаны первые ${SEARCH_LIMIT}`
+      : `Найдено ${rows.length}`;
+
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  els.results.replaceChildren(
+    ...shown.map(({ lesson, groups }) => {
+      const bell = bells.get(lesson.slot);
+      const row = el("article", "card");
+
+      const head = el("div", "time");
+      head.append(el("span", "slot", `${DAYS[lesson.day - 1]}, ${lesson.slot} пара`));
+      if (bell) head.append(el("span", null, `${bell.start} – ${bell.end}`));
+      if (lesson.week !== "all") {
+        head.append(el("span", "tag", lesson.week === "odd" ? "нечётная" : "чётная"));
+      }
+
+      row.append(head, el("div", "subject", lesson.subject));
+      row.append(el("div", "meta", describe(lesson)));
+      row.append(el("div", "groups", [...new Set(groups)].join(", ")));
+      return row;
+    })
+  );
 }
 
 /* ---------- Листание дней ---------- */
@@ -597,6 +692,9 @@ function currentLesson() {
   const nowMinutes = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
 
   for (const bell of data.bells) {
+    // Звонок звенит для всех, но пара идёт только если она есть в
+    // расписании этой группы.
+    if (!visible.some((l) => l.slot === bell.n)) continue;
     const start = minutes(bell.start);
     const end = minutes(bell.end);
     if (nowMinutes >= start && nowMinutes <= end) {
@@ -620,6 +718,51 @@ function humanLeft(value) {
   if (hours && rest) return `${hours} ч ${rest} мин`;
   if (hours) return `${hours} ч`;
   return `${rest} мин`;
+}
+
+// Пары показанного дня после фильтров — нужны и для «дальше», и для «сейчас».
+let visible = [];
+
+/** Ближайшая пара сегодня, которая ещё не началась. */
+function nextLesson() {
+  if (isoDate(dateOfDay(selectedDay)) !== isoDate(new Date())) return null;
+
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+
+  let best = null;
+  for (const lesson of visible) {
+    const bell = bells.get(lesson.slot);
+    if (!bell) continue;
+    const start = minutes(bell.start);
+    if (start <= nowMinutes) continue;
+    if (!best || start < best.start) best = { lesson, start };
+  }
+  return best && { ...best, left: best.start - nowMinutes };
+}
+
+/** Строка «дальше» под днями: что и через сколько. */
+function refreshNext() {
+  const today = isoDate(dateOfDay(selectedDay)) === isoDate(new Date());
+  if (!today || !visible.length) {
+    els.next.hidden = true;
+    return;
+  }
+
+  const upcoming = nextLesson();
+  els.next.hidden = false;
+
+  if (!upcoming) {
+    els.next.textContent = currentLesson() ? "Это последняя пара" : "Пары закончились";
+    return;
+  }
+
+  const where = upcoming.lesson.room ? `, ${roomLabel(upcoming.lesson.room)}` : "";
+  els.next.replaceChildren(
+    el("span", "next-when", `через ${humanLeft(upcoming.left)}`),
+    el("span", null, `${upcoming.lesson.subject}${where}`)
+  );
 }
 
 /**
@@ -681,11 +824,15 @@ function renderWindow(slot, bell) {
 // «дистант» и «вирт» — не аудитории, приписывать к ним «ауд.» незачем.
 const REMOTE_ROOMS = ["дистант", "дистанционно", "онлайн", "вирт"];
 
+function roomLabel(room) {
+  if (!room) return "";
+  return REMOTE_ROOMS.includes(room.toLowerCase()) ? room : `ауд. ${room}`;
+}
+
 function describe(lesson) {
-  const room = REMOTE_ROOMS.includes(lesson.room.toLowerCase())
-    ? lesson.room
-    : lesson.room && `ауд. ${lesson.room}`;
-  return [lesson.type, lesson.teacher, room].filter(Boolean).join(" · ");
+  return [lesson.type, lesson.teacher, roomLabel(lesson.room)]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function renderCard(entries, bells) {
@@ -697,6 +844,7 @@ function renderCard(entries, bells) {
   let kind = "";
   if (first.subject === MFK) kind = " card--mfk";
   else if (first.elective === ELECTIVE) kind = " card--elective";
+  else if (first.elective) kind = " card--optional";
   const card = el("article", `card${kind}`);
   card.dataset.slot = first.slot;
 
@@ -765,6 +913,9 @@ async function init() {
     showSchedule();
   });
   els.change.addEventListener("click", showPicker);
+  els.find.addEventListener("click", showSearch);
+  els.searchClose.addEventListener("click", closeSearch);
+  els.query.addEventListener("input", runSearch);
   initSwipe();
   // Крестик закрывает настройки, не сохраняя изменений.
   els.close.addEventListener("click", showSchedule);
@@ -780,7 +931,10 @@ async function init() {
     // Приложение могли оставить открытым до следующего дня — тогда неделя и
     // выбранный день устарели, и точечного обновления уже мало.
     if (isoDate(new Date()) !== openedOn) return location.reload();
-    if (!els.schedule.hidden) refreshNow();
+    if (!els.schedule.hidden) {
+      refreshNow();
+      refreshNext();
+    }
   }, 30_000);
 
   if (prefs.group && groupById(prefs.group)) showSchedule();

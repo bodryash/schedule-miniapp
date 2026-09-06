@@ -235,6 +235,57 @@ button:active { transform: scale(0.97); }
   color: var(--accent-text);
 }
 
+/* --- Строка «дальше» --- */
+
+.next {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  font-size: 14px;
+  background: var(--accent-soft);
+  border-radius: 12px;
+}
+
+.next-when {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* --- Поиск --- */
+
+.bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+input[type="search"] {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--card);
+  border: none;
+  border-radius: 10px;
+  -webkit-appearance: none;
+}
+
+#results {
+  margin-top: 14px;
+}
+
+.groups {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+}
+
 .card {
   position: relative;
   padding: 14px;
@@ -299,6 +350,24 @@ button:active { transform: scale(0.97); }
   transform: scaleX(0);
   transform-origin: left;
   background: var(--accent);
+}
+
+/* Факультатив посещают не все, и он может занимать полдня подряд. Гасим,
+   чтобы обязательные пары читались первыми. */
+.card--optional {
+  background: transparent;
+  border: 1px solid var(--card);
+  border-left-color: var(--card);
+}
+
+.card--optional .subject {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.card--optional .slot {
+  color: var(--muted);
+  background: var(--card);
 }
 
 /* Цвета не зависят от чётности недели: они говорят про тип занятия,

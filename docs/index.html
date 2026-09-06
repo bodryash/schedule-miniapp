@@ -63,11 +63,28 @@
         <div class="group-name" id="current-group"></div>
         <div class="week" id="week-label"></div>
       </div>
-      <button id="change" class="ghost">Настройки</button>
+      <div class="bar-actions">
+        <button id="find" class="icon" type="button" aria-label="Поиск">⌕</button>
+        <button id="change" class="ghost">Настройки</button>
+      </div>
     </header>
 
     <nav class="days" id="days"></nav>
+    <p id="next" class="next" hidden></p>
     <div id="lessons"></div>
+  </section>
+
+  <!-- Поиск по преподавателю, аудитории и предмету -->
+  <section id="search" hidden>
+    <header class="bar">
+      <h1>Поиск</h1>
+      <button id="search-close" class="icon" type="button" aria-label="Закрыть">×</button>
+    </header>
+
+    <input id="query" type="search" autocomplete="off"
+           placeholder="Преподаватель, аудитория или предмет">
+    <p class="hint" id="search-hint">Например: Шестова, 614, микроэкономика</p>
+    <div id="results"></div>
   </section>
 
   <p id="error" class="error" hidden></p>
