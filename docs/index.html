@@ -5,7 +5,13 @@
   <title>Расписание</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="style.css">
+  <!-- Telegram кэширует файлы надолго, и после обновления студенты
+       продолжают открывать старую версию. Метка не даёт этому случиться. -->
+  <script>
+    window.__v = Date.now();
+    document.write('<link rel="stylesheet" href="style.css?v=' + window.__v + '">');
+  </script>
+  <noscript><link rel="stylesheet" href="style.css"></noscript>
 </head>
 <body>
 
@@ -99,6 +105,8 @@
 
   <p id="error" class="error" hidden></p>
 
-  <script src="app.js"></script>
+  <script>
+    document.write('<scr' + 'ipt src="app.js?v=' + window.__v + '"><\/scr' + 'ipt>');
+  </script>
 </body>
 </html>
