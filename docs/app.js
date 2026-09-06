@@ -168,19 +168,34 @@ function subgroupsOf(groupId, subject) {
 
 /* ---------- Экран настройки ---------- */
 
+/** «1 курс» бакалавриата и магистратуры — разные вещи, поэтому ключ общий. */
+function courseKey(group) {
+  return `${group.level}|${group.course}`;
+}
+
+function courseTitle(group) {
+  return group.level === "магистратура"
+    ? `${group.course} курс магистратуры`
+    : `${group.course} курс`;
+}
+
 function fillCourses() {
-  const courses = [...new Set(data.groups.map((g) => g.course))].sort((a, b) => a - b);
-  els.course.replaceChildren(...courses.map((c) => new Option(`${c} курс`, String(c))));
-  if (prefs.group) {
-    const group = groupById(prefs.group);
-    if (group) els.course.value = String(group.course);
+  const seen = new Map();
+  for (const group of data.groups) {
+    if (!seen.has(courseKey(group))) seen.set(courseKey(group), group);
   }
+  els.course.replaceChildren(
+    ...[...seen].map(([key, group]) => new Option(courseTitle(group), key))
+  );
+
+  const saved = prefs.group && groupById(prefs.group);
+  if (saved) els.course.value = courseKey(saved);
   fillGroups();
 }
 
 function fillGroups() {
-  const course = Number(els.course.value);
-  const groups = data.groups.filter((g) => g.course === course);
+  const key = els.course.value;
+  const groups = data.groups.filter((g) => courseKey(g) === key);
   els.group.replaceChildren(...groups.map((g) => new Option(g.title, g.id)));
   if (prefs.group && groups.some((g) => g.id === prefs.group)) {
     els.group.value = prefs.group;
@@ -663,10 +678,14 @@ function renderWindow(slot, bell) {
   return node;
 }
 
+// «дистант» и «вирт» — не аудитории, приписывать к ним «ауд.» незачем.
+const REMOTE_ROOMS = ["дистант", "дистанционно", "онлайн", "вирт"];
+
 function describe(lesson) {
-  return [lesson.type, lesson.teacher, lesson.room && `ауд. ${lesson.room}`]
-    .filter(Boolean)
-    .join(" · ");
+  const room = REMOTE_ROOMS.includes(lesson.room.toLowerCase())
+    ? lesson.room
+    : lesson.room && `ауд. ${lesson.room}`;
+  return [lesson.type, lesson.teacher, room].filter(Boolean).join(" · ");
 }
 
 function renderCard(entries, bells) {
@@ -703,6 +722,18 @@ function renderCard(entries, bells) {
 
   const notes = [...new Set(entries.map((e) => e.note).filter(Boolean))];
   if (notes.length) card.append(el("div", "note", notes.join("; ")));
+
+  // Занятие на удалёнке — ссылка на встречу прямо в карточке.
+  const link = entries.find((e) => e.link)?.link;
+  if (link) {
+    const button = el("button", "link", "Подключиться");
+    button.type = "button";
+    button.addEventListener("click", () => {
+      if (tg?.openLink) tg.openLink(link);
+      else window.open(link, "_blank", "noopener");
+    });
+    card.append(button);
+  }
   return card;
 }
 

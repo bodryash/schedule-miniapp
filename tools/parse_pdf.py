@@ -43,7 +43,10 @@ KINDS = {
 }
 
 RE_SLOT = re.compile(r"^(\d+)\s*пара\s*\n([\d.]+)\s*\n([\d.]+)", re.MULTILINE)
-RE_COURSE = re.compile(r"(\d)\s*курса")
+# «1 курса магистратуры» и «1 курса бакалавриата» — разные вещи, поэтому
+# уровень запоминаем вместе с номером курса.
+RE_COURSE = re.compile(r"(\d)\s*курса\s+(бакалавриата|магистратуры)")
+LEVELS = {"бакалавриата": "бакалавриат", "магистратуры": "магистратура"}
 RE_PERIOD = re.compile(r"\((\d{2}\.\d{2}\.\d{4})\s*-\s*(\d{2}\.\d{2}\.\d{4})\)")
 
 # Вид занятия иногда набран капсом («ЛК»), поэтому регистр игнорируем.
@@ -74,7 +77,12 @@ RE_PAREN_OPEN = re.compile(r"\s*\(([^)]*)$")
 # ф — факультатив. Стоят либо в начале, либо после номера языка
 # («3-ий фНемецкий язык»), а дальше сразу заглавная буква.
 PREFIXES = {"дв": "по выбору", "ф": "факультатив"}
-RE_PREFIX = re.compile(r"(?:^|(?<=\s))(дв|ф)(?=[А-ЯЁ])")
+# Часть магистерских курсов названа по-английски: «двConflictology».
+RE_PREFIX = re.compile(r"(?:^|(?<=\s))(дв|ф)(?=[А-ЯЁA-Z])")
+
+# Занятия на удалёнке приходят со ссылкой на встречу, разорванной переносом.
+RE_URL = re.compile(r"https?://.*$", re.DOTALL)
+REMOTE_ROOMS = {"дистант", "дистанционно", "онлайн", "вирт"}
 RE_ROOM = re.compile(r"ауд\.?\s*")
 RE_SUBGROUP = re.compile(r",?\s*гр\.\s*(\d+)\s*,")
 RE_PAREN = re.compile(r"\s*\(([^)]*)\)")
@@ -96,7 +104,13 @@ def parse_lesson(chunk):
     if not text:
         return None
 
-    lesson = {"subgroup": None, "elective": None, "week": "all", "note": ""}
+    lesson = {"subgroup": None, "elective": None, "week": "all", "note": "", "link": ""}
+
+    # Ссылка на встречу стоит в конце и разорвана переносом строки.
+    url = RE_URL.search(text)
+    if url:
+        lesson["link"] = re.sub(r"\s+", "", url.group(0))
+        text = text[: url.start()].strip().strip(",").strip()
 
     # Пометки в скобках: чётность недели либо произвольное примечание
     # («с 11.09.2026 года», «необходим ноутбук»).
@@ -152,6 +166,9 @@ def parse_lesson(chunk):
         for part in parts:
             if RE_ROOM.match(part):
                 room = RE_ROOM.sub("", part).strip()
+            elif part.lower() in REMOTE_ROOMS:
+                # «дистант» пишут вместо аудитории, без слова «ауд.».
+                room = part
             elif part:
                 teacher = f"{teacher}, {part}" if teacher else part
     lesson["room"] = room
@@ -201,9 +218,9 @@ def split_lessons(cell):
 
     rest = text[start:].strip()
     if rest:
-        # Обрезанная пометка «(четная» относится к предыдущей паре, а не
-        # начинает новую.
-        if chunks and rest.startswith("(") and ")" not in rest:
+        # Обрезанная пометка «(четная» и ссылка на встречу относятся к
+        # предыдущей паре, а не начинают новую.
+        if chunks and (rest.startswith("http") or (rest.startswith("(") and ")" not in rest)):
             chunks[-1] += " " + rest
         else:
             chunks.append(rest)
@@ -243,12 +260,14 @@ def read_blocks(pdf, groups, weeks, state):
     """
     blocks = []
     course = None
+    level = None
 
     for page in pdf.pages:
         text = page.extract_text() or ""
         found = RE_COURSE.search(text)
         if found:
             course = int(found.group(1))
+            level = LEVELS[found.group(2)]
         if state["period"] is None:
             found = RE_PERIOD.search(text)
             if found:
@@ -265,7 +284,13 @@ def read_blocks(pdf, groups, weeks, state):
                             continue
                         gid = norm(name)
                         groups.setdefault(
-                            gid, {"id": gid, "title": gid, "course": course}
+                            gid,
+                            {
+                                "id": gid,
+                                "title": gid,
+                                "course": course,
+                                "level": level,
+                            },
                         )
                     blocks.append({"header": row, "day": None, "rows": []})
                     continue
@@ -276,7 +301,17 @@ def read_blocks(pdf, groups, weeks, state):
                 # Название дня записано вертикально и приходит развёрнутым.
                 reversed_first = first[::-1].lower()
                 if reversed_first in DAYS:
-                    blocks[-1]["day"] = DAYS[reversed_first]
+                    day = DAYS[reversed_first]
+                    block = blocks[-1]
+                    # Новый день может начаться на следующей странице без
+                    # своей шапки. Тогда это отдельный блок с той же шапкой,
+                    # иначе день переписался бы у всех строк предыдущего.
+                    if block["rows"] and block["day"] not in (None, day):
+                        blocks.append(
+                            {"header": block["header"], "day": day, "rows": []}
+                        )
+                    else:
+                        block["day"] = day
 
                 blocks[-1]["rows"].append(row)
 
@@ -286,6 +321,70 @@ def read_blocks(pdf, groups, weeks, state):
             blocks[i]["day"] = blocks[i + 1]["day"]
 
     return [b for b in blocks if b["day"]]
+
+
+def repair_truncated(lessons):
+    """Достраивает пары, обрезанные шириной колонки в самом PDF.
+
+    Узкая колонка обрезает текст на полуслове: остаётся название без вида
+    занятия, аудитории и преподавателя. Та же пара в соседней широкой
+    колонке набрана целиком — по ней и восстанавливаем.
+    """
+    whole = [l for l in lessons if l["type"] and l["teacher"]]
+    by_slot = {}
+    for lesson in whole:
+        by_slot.setdefault((lesson["day"], lesson["slot"]), []).append(lesson)
+
+    spilled = []
+    for lesson in lessons:
+        subject = lesson["subject"]
+
+        # Хвост со строчной буквы — перелив длинного названия в соседнюю
+        # клетку. Если у той же группы рядом есть эта пара целиком, обрывок
+        # надо выбросить: занятие идёт там, а не здесь.
+        if subject[:1].islower():
+            near = (
+                l
+                for slot in (lesson["slot"], lesson["slot"] - 1, lesson["slot"] + 1)
+                for l in by_slot.get((lesson["day"], slot), ())
+                if l["group"] == lesson["group"]
+            )
+            if any(l["subject"].endswith(subject) for l in near):
+                spilled.append(lesson)
+            continue
+
+        # Начало пары без остальных полей — обрезано по ширине колонки.
+        if lesson["type"] or lesson["room"] or lesson["teacher"]:
+            continue
+        for full in by_slot.get((lesson["day"], lesson["slot"]), ()):
+            if len(full["subject"]) > len(subject) and full["subject"].startswith(
+                subject
+            ):
+                lesson.update(
+                    subject=full["subject"],
+                    type=full["type"],
+                    room=full["room"],
+                    teacher=full["teacher"],
+                    elective=full["elective"],
+                    link=full["link"] or lesson["link"],
+                )
+                break
+
+    for lesson in spilled:
+        lessons.remove(lesson)
+
+
+def drop_duplicates(lessons):
+    """Одна пара могла прийти дважды: из объединённой ячейки и из обрывка."""
+    seen = set()
+    unique = []
+    for lesson in lessons:
+        key = tuple(lesson[f] for f in sorted(lesson))
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(lesson)
+    return unique
 
 
 def parse(pdf_path):
@@ -338,6 +437,9 @@ def parse(pdf_path):
                                 {"group": gid, "day": day, "slot": slot, **lesson}
                             )
 
+    repair_truncated(lessons)
+    lessons = drop_duplicates(lessons)
+
     data = {
         "meta": {
             "updated": date.today().isoformat(),
@@ -355,7 +457,10 @@ def parse(pdf_path):
             for f, t, p in sorted({(w["from"], w["to"], w["parity"]) for w in weeks})
         ],
         "bells": [bells[n] for n in sorted(bells)],
-        "groups": sorted(groups.values(), key=lambda g: (g["course"] or 0, g["id"])),
+        "groups": sorted(
+            groups.values(),
+            key=lambda g: (g["level"] != "бакалавриат", g["course"] or 0, g["id"]),
+        ),
         "lessons": lessons,
     }
     return data

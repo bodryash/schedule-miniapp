@@ -321,6 +321,11 @@ button:active { transform: scale(0.97); }
   background: color-mix(in srgb, var(--mark) 16%, transparent);
 }
 
+.card--elective .link,
+.card--mfk .link {
+  background: var(--mark);
+}
+
 .card--elective .tag,
 .card--mfk .tag {
   color: var(--mark);
@@ -382,6 +387,15 @@ button:active { transform: scale(0.97); }
 .subgroups summary::-webkit-details-marker { display: none; }
 .subgroups[open] summary { margin-bottom: 4px; }
 .subgroups .meta { margin-top: 4px; }
+
+.link {
+  margin-top: 10px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent-text);
+  background: var(--accent);
+}
 
 .note {
   margin-top: 6px;
