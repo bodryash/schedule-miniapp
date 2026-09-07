@@ -596,9 +596,13 @@ function runSearch() {
         head.append(el("span", "tag", lesson.week === "odd" ? "нечётная" : "чётная"));
       }
 
-      row.append(head, el("div", "subject", lesson.subject));
-      row.append(metaLine(lesson));
-      row.append(el("div", "groups", [...new Set(groups)].join(", ")));
+      const body = el("div", "card-body");
+      body.append(head, el("div", "subject", lesson.subject));
+      body.append(metaLine(lesson, "", false));
+      body.append(el("div", "groups", [...new Set(groups)].join(", ")));
+
+      row.append(body);
+      if (lesson.room) row.append(roomBadge(lesson.room));
       return row;
     })
   );
@@ -916,20 +920,38 @@ function describe(lesson) {
 }
 
 /**
- * Строка под названием. Аудиторию выделяем: когда бегут на пару, ищут
- * глазами именно её, а раньше она стояла последней и тем же серым.
+ * Строка под названием. Аудиторию сюда не пишем, когда она вынесена в
+ * отдельную плашку справа — иначе она стояла бы дважды.
  */
-function metaLine(lesson, prefix = "") {
+function metaLine(lesson, prefix = "", withRoom = true) {
   const line = el("div", "meta");
   const before = [prefix, lesson.type, lesson.teacher].filter(Boolean).join(" · ");
   if (before) line.append(document.createTextNode(before));
 
-  const room = roomLabel(lesson.room);
+  const room = withRoom ? roomLabel(lesson.room) : "";
   if (room) {
     if (before) line.append(document.createTextNode(" · "));
     line.append(el("span", "room", room));
   }
   return line;
+}
+
+/**
+ * Аудитория отдельной плашкой справа. Когда бегут на пару, глазами ищут
+ * именно её, а в общей серой строке она терялась. Вынесенная вправо, она
+ * ещё и читается колонкой при пролистывании дня.
+ */
+function roomBadge(room) {
+  const badge = el("div", "room-badge");
+  if (REMOTE_ROOMS.includes(room.toLowerCase())) {
+    badge.classList.add("room-badge--remote");
+    badge.textContent = room;
+  } else {
+    badge.append(el("span", "room-badge-label", "ауд."), el("span", null, room));
+  }
+  // Длинные имена вроде «П6 1 ГУМ» набираем мельче, чтобы плашка не росла.
+  if (room.length > 5) badge.classList.add("room-badge--long");
+  return badge;
 }
 
 function renderCard(entries, bells) {
@@ -950,21 +972,25 @@ function renderCard(entries, bells) {
   if (bell) head.append(el("span", null, `${bell.start} – ${bell.end}`));
   if (first.subject === MFK) head.append(el("span", "tag", "МФК"));
   else if (first.elective) head.append(el("span", "tag", first.elective));
-  card.append(head, el("div", "subject", first.subject));
+  // Аудитория выносится вправо отдельной плашкой — но только когда она одна
+  // на всю карточку. У подгрупп аудитории разные, и в списке они остаются.
+  const single = entries.length === 1;
+  const body = el("div", "card-body");
+  body.append(head, el("div", "subject", first.subject));
 
-  if (entries.length === 1) {
-    card.append(metaLine(first));
+  if (single) {
+    body.append(metaLine(first, "", false));
   } else {
     const details = el("details", "subgroups");
     details.append(el("summary", null, `${entries.length} подгрупп — показать`));
     for (const entry of entries) {
       details.append(metaLine(entry, entry.subgroup ? `гр. ${entry.subgroup}` : ""));
     }
-    card.append(details);
+    body.append(details);
   }
 
   const notes = [...new Set(entries.map((e) => e.note).filter(Boolean))];
-  if (notes.length) card.append(el("div", "note", notes.join("; ")));
+  if (notes.length) body.append(el("div", "note", notes.join("; ")));
 
   // Занятие на удалёнке — ссылка на встречу прямо в карточке.
   const link = entries.find((e) => e.link)?.link;
@@ -975,8 +1001,11 @@ function renderCard(entries, bells) {
       if (tg?.openLink) tg.openLink(link);
       else window.open(link, "_blank", "noopener");
     });
-    card.append(button);
+    body.append(button);
   }
+
+  card.append(body);
+  if (single && first.room) card.append(roomBadge(first.room));
   return card;
 }
 

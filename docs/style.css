@@ -351,6 +351,9 @@ input[type="search"] {
 
 .card {
   position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
   padding: 14px;
   margin-bottom: 10px;
   background: var(--card);
@@ -529,10 +532,59 @@ input[type="search"] {
   color: var(--muted);
 }
 
-/* Аудиторию ищут глазами первой — она не должна теряться в общем сером. */
+/* Аудитория внутри списка подгрупп: там их несколько, плашка не подходит. */
 .room {
   font-weight: 600;
   color: var(--text);
+}
+
+/* --- Аудитория отдельной плашкой --- */
+
+.card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Свой цвет, не зависящий от чётности недели и типа занятия: аудитория —
+   не категория, а место, и путать её с ними не нужно. */
+.room-badge {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 62px;
+  padding: 10px 8px;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+  color: #ffffff;
+  background: #4c6ef5;
+  border-radius: 12px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.room-badge-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+/* «П6 1 ГУМ» и подобные длинные имена не должны раздувать плашку. */
+.room-badge--long {
+  font-size: 13px;
+  min-width: 70px;
+}
+
+/* Дистант — тоже ответ на вопрос «где», поэтому цвет тот же. Свой оттенок
+   здесь спорил бы с зелёной кнопкой «Подключиться» на той же карточке. */
+.room-badge--remote {
+  font-size: 13px;
 }
 
 .subgroups summary {
