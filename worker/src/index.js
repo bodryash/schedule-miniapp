@@ -120,7 +120,7 @@ async function buildStats(env) {
   const today = new Date().toISOString().slice(0, 10);
   const week = daysAgo(7);
 
-  const [todayRow, weekRow, people, top] = await Promise.all([
+  const [todayRow, weekRow, people, top, total, fresh, wrote] = await Promise.all([
     env.STATS.prepare("SELECT COALESCE(SUM(count), 0) AS n FROM opens WHERE day = ?")
       .bind(today)
       .first(),
@@ -138,11 +138,25 @@ async function buildStats(env) {
     )
       .bind(week)
       .all(),
+    env.STATS.prepare(
+      `SELECT COUNT(*) AS people, COALESCE(
+         (SELECT SUM(count) FROM opens), 0) AS opens FROM people`
+    ).first(),
+    env.STATS.prepare("SELECT COUNT(*) AS n FROM people WHERE first >= ?")
+      .bind(today)
+      .first(),
+    // Писали боту — это другая величина: кнопка меню открывает приложение
+    // мимо бота, а часть людей наоборот только нажала /start и не вернулась.
+    env.USERS ? env.USERS.list({ limit: 1000 }) : Promise.resolve(null),
   ]);
 
   const lines = [
+    `<b>За всё время</b>`,
+    `Людей: ${total.people}, открытий: ${total.opens}`,
+    `Писали боту: ${wrote ? wrote.keys.length : "—"}`,
+    "",
     `<b>Открытия</b>`,
-    `Сегодня: ${todayRow.n}`,
+    `Сегодня: ${todayRow.n}${fresh.n ? `, новых людей ${fresh.n}` : ""}`,
     `За неделю: ${weekRow.n}, людей ${people.n}`,
   ];
 
