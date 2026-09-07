@@ -110,6 +110,35 @@ async function recordOpen(env, user, group) {
     .run();
 }
 
+const REPO = "bodryash/schedule-miniapp";
+
+/**
+ * Запускает сборку на GitHub: разбор PDF живёт там, потому что парсер
+ * написан на Python, а здесь JavaScript.
+ */
+async function startUpdate(env, document) {
+  if (!env.GITHUB_TOKEN) return "Обновление не настроено: нет доступа к GitHub.";
+
+  const response = await fetch(`https://api.github.com/repos/${REPO}/dispatches`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      accept: "application/vnd.github+json",
+      "content-type": "application/json",
+      "user-agent": "fgp-schedule-bot",
+    },
+    body: JSON.stringify({
+      event_type: "new-schedule",
+      client_payload: { file_id: document.file_id },
+    }),
+  });
+
+  if (!response.ok) {
+    return `GitHub отказал: ${response.status}. Проверьте права токена.`;
+  }
+  return `Принял «${document.file_name || "файл"}». Разбираю и проверяю, отчитаюсь через пару минут.`;
+}
+
 function daysAgo(count) {
   return new Date(Date.now() - count * 86400000).toISOString().slice(0, 10);
 }
@@ -310,6 +339,27 @@ export default {
             [{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }],
           ],
         },
+      });
+    }
+
+    // Присланный PDF обновляет расписание. Только от владельца: иначе кто
+    // угодно опубликовал бы поддельное расписание для всего факультета.
+    const document = message?.document;
+    if (document) {
+      const owner = String(message.chat.id) === String(env.OWNER_ID);
+      const pdf =
+        document.mime_type === "application/pdf" ||
+        (document.file_name || "").toLowerCase().endsWith(".pdf");
+
+      let reply = "Файлы принимаю только от владельца.";
+      if (owner) {
+        reply = pdf
+          ? await startUpdate(env, document)
+          : "Это не PDF. Пришлите файл расписания.";
+      }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: reply,
       });
     }
 

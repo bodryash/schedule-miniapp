@@ -1,0 +1,97 @@
+name: Обновление расписания
+
+# Запускается, когда владелец присылает боту PDF: воркер дёргает этот
+# workflow. Парсер написан на Python, а воркер — JavaScript в Cloudflare,
+# где Python не запустить, поэтому разбор живёт здесь.
+on:
+  repository_dispatch:
+    types: [new-schedule]
+  workflow_dispatch:
+    inputs:
+      file_id:
+        description: Идентификатор файла в Telegram
+        required: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Установить зависимости
+        run: pip install --quiet pdfplumber
+
+      - name: Скачать присланный PDF
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          FILE_ID: ${{ github.event.client_payload.file_id || inputs.file_id }}
+        run: |
+          set -e
+          path=$(curl -sf "https://api.telegram.org/bot$BOT_TOKEN/getFile?file_id=$FILE_ID" \
+                 | python -c "import json,sys; print(json.load(sys.stdin)['result']['file_path'])")
+          curl -sf -o schedule.pdf "https://api.telegram.org/file/bot$BOT_TOKEN/$path"
+          ls -l schedule.pdf
+
+      - name: Сохранить прежнюю версию для сравнения
+        run: cp docs/data/schedule.json /tmp/before.json || true
+
+      - name: Разобрать расписание
+        run: python tools/parse_pdf.py schedule.pdf
+
+      # Предохранитель: если новая вёрстка сломала разбор, публикации не
+      # будет. Лучше устаревшее расписание, чем неверное.
+      - name: Сверить с исходником
+        id: check
+        run: python tools/check.py schedule.pdf
+
+      - name: Что изменилось
+        id: diff
+        run: |
+          {
+            echo "text<<КОНЕЦ"
+            python tools/diff_schedule.py /tmp/before.json docs/data/schedule.json
+            echo "КОНЕЦ"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Опубликовать
+        id: publish
+        run: |
+          git config user.name "schedule-bot"
+          git config user.email "noreply@github.com"
+          git add docs/data
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Расписание не изменилось, коммита нет."
+          else
+            git commit -m "Расписание обновлено из присланного PDF"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Отчитаться в Telegram
+        if: always()
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          OWNER_ID: ${{ secrets.OWNER_ID }}
+          OK: ${{ job.status }}
+          CHANGED: ${{ steps.publish.outputs.changed }}
+          DIFF: ${{ steps.diff.outputs.text }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$OK" = "success" ] && [ "$CHANGED" = "true" ]; then
+            text="✅ Расписание обновлено.%0A%0A$DIFF%0A%0AСтуденты увидят через пару минут."
+          elif [ "$OK" = "success" ]; then
+            text="Расписание совпало с прежним, менять нечего."
+          else
+            text="⚠️ Обновление не прошло, расписание осталось прежним.%0AПодробности: $RUN"
+          fi
+          curl -sf -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
+            --data-urlencode "chat_id=$OWNER_ID" \
+            --data "text=$text" > /dev/null
