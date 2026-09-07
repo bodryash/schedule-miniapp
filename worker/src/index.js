@@ -81,11 +81,23 @@ async function recordOpen(env, user, group) {
     .first();
   const lastSeen = seen ? Math.floor(new Date(seen.last).getTime() / 1000) : 0;
 
+  const stamp = new Date().toISOString();
   await env.STATS.prepare(
-    `INSERT INTO people (uid, first, last, grp) VALUES (?, ?, ?, ?)
-     ON CONFLICT(uid) DO UPDATE SET last = excluded.last, grp = excluded.grp`
+    `INSERT INTO people (uid, first, last, grp, tg_id, name, username)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(uid) DO UPDATE SET
+       last = excluded.last, grp = excluded.grp,
+       name = excluded.name, username = excluded.username`
   )
-    .bind(uid, new Date().toISOString(), new Date().toISOString(), group.id || null)
+    .bind(
+      uid,
+      stamp,
+      stamp,
+      group.id || null,
+      user.id,
+      [user.first_name, user.last_name].filter(Boolean).join(" ") || null,
+      user.username || null
+    )
     .run();
 
   if (now - lastSeen < HIT_COOLDOWN) return;
@@ -156,6 +168,41 @@ async function buildStats(env) {
   }
 
   return lines.join("\n");
+}
+
+/** Поимённый список заходивших. `/who 311гэу` — только по этой группе. */
+async function buildWho(env, filter) {
+  if (!env.STATS) return "Статистика не подключена.";
+
+  const limit = 60;
+  const query = filter
+    ? env.STATS.prepare(
+        `SELECT name, username, grp, last FROM people
+         WHERE grp = ? ORDER BY last DESC LIMIT ?`
+      ).bind(filter, limit + 1)
+    : env.STATS.prepare(
+        `SELECT name, username, grp, last FROM people
+         ORDER BY last DESC LIMIT ?`
+      ).bind(limit + 1);
+
+  const { results = [] } = await query.all();
+  if (!results.length) {
+    return filter ? `Из ${escape(filter)} никто не заходил.` : "Пока никто не заходил.";
+  }
+
+  const head = filter ? `<b>Заходили из ${escape(filter)}</b>` : "<b>Кто заходил</b>";
+  const lines = results.slice(0, limit).map((row) => {
+    const who = row.username ? `@${row.username}` : escape(row.name || "без имени");
+    const where = filter ? "" : ` · ${escape(row.grp || "—")}`;
+    return `${who}${where} · ${row.last.slice(0, 10)}`;
+  });
+
+  if (results.length > limit) lines.push(`… показаны последние ${limit}`);
+  return [head, "", ...lines].join("\n");
+}
+
+function escape(text) {
+  return String(text).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c]);
 }
 
 async function silentGroups(env, since) {
@@ -240,12 +287,18 @@ export default {
       });
     }
 
-    // Сводка только владельцу: цифры чужие, показывать их всем незачем.
-    if (message && text.startsWith("/stats")) {
+    // Сводка и список — только владельцу: данные чужие.
+    if (message && (text.startsWith("/stats") || text.startsWith("/who"))) {
       const allowed = String(message.chat.id) === String(env.OWNER_ID);
+      let reply = "Команда недоступна.";
+      if (allowed) {
+        reply = text.startsWith("/stats")
+          ? await buildStats(env)
+          : await buildWho(env, text.split(/\s+/)[1] || null);
+      }
       await callTelegram(env.BOT_TOKEN, "sendMessage", {
         chat_id: message.chat.id,
-        text: allowed ? await buildStats(env) : "Команда недоступна.",
+        text: reply,
         parse_mode: "HTML",
       });
     }
