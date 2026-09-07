@@ -569,7 +569,7 @@ function runSearch() {
   const bells = new Map(data.bells.map((b) => [b.n, b]));
   els.results.replaceChildren(
     ...shown.map(({ lesson, groups }) => {
-      const bell = bells.get(lesson.slot);
+      const bell = timesOf(lesson, bells);
       const row = el("article", "card");
 
       const head = el("div", "time");
@@ -707,6 +707,15 @@ function minutes(time) {
 }
 
 /**
+ * Время пары. Часть занятий идёт не по сетке звонков и несёт своё время —
+ * показывать для них звонок было бы враньём.
+ */
+function timesOf(lesson, bells) {
+  if (lesson.start && lesson.end) return lesson;
+  return bells.get(lesson.slot) || null;
+}
+
+/**
  * Какая пара идёт по часам телефона и насколько она прошла.
  * Только для сегодняшнего дня — в чужом дне «сейчас» не существует.
  */
@@ -716,15 +725,17 @@ function currentLesson() {
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
 
-  for (const bell of data.bells) {
-    // Звонок звенит для всех, но пара идёт только если она есть в
-    // расписании этой группы.
-    if (!visible.some((l) => l.slot === bell.n)) continue;
-    const start = minutes(bell.start);
-    const end = minutes(bell.end);
+  // Идём по парам этой группы, а не по звонкам: звонок звенит для всех, но
+  // пары в это время может не быть, а у части занятий время своё.
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  for (const lesson of visible) {
+    const time = timesOf(lesson, bells);
+    if (!time) continue;
+    const start = minutes(time.start);
+    const end = minutes(time.end);
     if (nowMinutes >= start && nowMinutes <= end) {
       return {
-        slot: bell.n,
+        slot: lesson.slot,
         elapsed: nowMinutes - start,
         total: end - start,
         left: end - nowMinutes,
@@ -758,9 +769,9 @@ function nextLesson() {
 
   let best = null;
   for (const lesson of visible) {
-    const bell = bells.get(lesson.slot);
-    if (!bell) continue;
-    const start = minutes(bell.start);
+    const time = timesOf(lesson, bells);
+    if (!time) continue;
+    const start = minutes(time.start);
     if (start <= nowMinutes) continue;
     if (!best || start < best.start) best = { lesson, start };
   }
@@ -862,7 +873,7 @@ function describe(lesson) {
 
 function renderCard(entries, bells) {
   const first = entries[0];
-  const bell = bells.get(first.slot);
+  const bell = timesOf(first, bells);
 
   // Дисциплины по выбору и межфакультетские курсы выделены цветом: их
   // посещают не все, и в общем списке их надо отличать с одного взгляда.

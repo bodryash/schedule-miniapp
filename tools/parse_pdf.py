@@ -73,6 +73,12 @@ RE_TEACHER_PLAIN = re.compile(
 # В исходнике пометка иногда обрезана шириной ячейки: «(четная» без скобки.
 RE_PAREN_OPEN = re.compile(r"\s*\(([^)]*)$")
 
+# Часть пар идёт не по сетке звонков, и своё время приписано к названию:
+# «12.00-13.30 2-ой Немецкий язык».
+RE_OWN_TIME = re.compile(
+    r"^(\d{1,2})[.:](\d{2})\s*[-–—]\s*(\d{1,2})[.:](\d{2})\s+"
+)
+
 # Приставки к названию пишутся слитно: дв — дисциплина по выбору,
 # ф — факультатив. Стоят либо в начале, либо после номера языка
 # («3-ий фНемецкий язык»), а дальше сразу заглавная буква.
@@ -104,7 +110,23 @@ def parse_lesson(chunk):
     if not text:
         return None
 
-    lesson = {"subgroup": None, "elective": None, "week": "all", "note": "", "link": ""}
+    lesson = {
+        "subgroup": None,
+        "elective": None,
+        "week": "all",
+        "note": "",
+        "link": "",
+        "start": "",
+        "end": "",
+    }
+
+    # Своё время пары. Без этого оно осталось бы в названии, предмет не
+    # совпал бы с обычным, а студент видел бы время из сетки звонков.
+    own = RE_OWN_TIME.match(text)
+    if own:
+        lesson["start"] = f"{int(own.group(1)):02d}:{own.group(2)}"
+        lesson["end"] = f"{int(own.group(3)):02d}:{own.group(4)}"
+        text = text[own.end():]
 
     # Ссылка на встречу стоит в конце и разорвана переносом строки.
     url = RE_URL.search(text)
