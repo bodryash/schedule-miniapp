@@ -112,6 +112,134 @@ async function recordOpen(env, user, group) {
 
 const REPO = "bodryash/schedule-miniapp";
 
+// За один запуск воркер успевает немного: обращений наружу разрешено около
+// полусотни. Поэтому за раз рассылаем порцию, остальное — на следующей
+// минуте.
+const BATCH = 40;
+
+/** Готовит черновик рассылки и показывает его с кнопками подтверждения. */
+async function draftBroadcast(env, chatId, text) {
+  const { count } = await env.STATS.prepare(
+    "SELECT COUNT(*) AS count FROM users"
+  ).first();
+
+  const draft = await env.STATS.prepare(
+    "INSERT INTO broadcasts (text, created) VALUES (?, ?) RETURNING id"
+  )
+    .bind(text, new Date().toISOString())
+    .first();
+
+  await callTelegram(env.BOT_TOKEN, "sendMessage", {
+    chat_id: chatId,
+    text: `Разослать это ${count} получателям?\n\n———\n${text}\n———`,
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: `Отправить (${count})`, callback_data: `send:${draft.id}` },
+          { text: "Отмена", callback_data: `drop:${draft.id}` },
+        ],
+      ],
+    },
+  });
+}
+
+/** Кнопки под черновиком. Нажать может только владелец. */
+async function handleButton(env, query) {
+  const [action, rawId] = (query.data || "").split(":");
+  const id = Number(rawId);
+  const owner = String(query.from?.id) === String(env.OWNER_ID);
+
+  let notice = "Недоступно";
+  if (owner && id) {
+    if (action === "drop") {
+      await env.STATS.prepare(
+        "UPDATE broadcasts SET status = 'cancelled' WHERE id = ? AND status = 'draft'"
+      )
+        .bind(id)
+        .run();
+      notice = "Отменено";
+    } else if (action === "send") {
+      // Очередь наполняем разом, а разбираем порциями по расписанию.
+      await env.STATS.batch([
+        env.STATS.prepare(
+          "INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM users"
+        ).bind(id),
+        env.STATS.prepare(
+          "UPDATE broadcasts SET status = 'sending' WHERE id = ? AND status = 'draft'"
+        ).bind(id),
+      ]);
+      notice = "Отправляю";
+    }
+  }
+
+  await callTelegram(env.BOT_TOKEN, "answerCallbackQuery", {
+    callback_query_id: query.id,
+    text: notice,
+  });
+
+  if (owner && id) {
+    await callTelegram(env.BOT_TOKEN, "editMessageReplyMarkup", {
+      chat_id: query.message.chat.id,
+      message_id: query.message.message_id,
+      reply_markup: { inline_keyboard: [] },
+    });
+  }
+}
+
+/** Разбирает очередь порциями. Вызывается задачей по расписанию. */
+async function drainOutbox(env) {
+  const job = await env.STATS.prepare(
+    "SELECT id, text FROM broadcasts WHERE status = 'sending' ORDER BY id LIMIT 1"
+  ).first();
+  if (!job) return;
+
+  const { results = [] } = await env.STATS.prepare(
+    "SELECT chat_id FROM outbox WHERE broadcast = ? AND state = 'pending' LIMIT ?"
+  )
+    .bind(job.id, BATCH)
+    .all();
+
+  if (!results.length) {
+    const totals = await env.STATS.prepare(
+      `SELECT SUM(state = 'sent') AS sent, SUM(state = 'failed') AS failed
+       FROM outbox WHERE broadcast = ?`
+    )
+      .bind(job.id)
+      .first();
+
+    await env.STATS.prepare(
+      "UPDATE broadcasts SET status = 'done', sent = ?, failed = ? WHERE id = ?"
+    )
+      .bind(totals.sent || 0, totals.failed || 0, job.id)
+      .run();
+
+    await callTelegram(env.BOT_TOKEN, "sendMessage", {
+      chat_id: env.OWNER_ID,
+      text: `Рассылка закончена. Доставлено ${totals.sent || 0}, не дошло ${totals.failed || 0}.`,
+    });
+    return;
+  }
+
+  for (const row of results) {
+    let state = "sent";
+    try {
+      const response = await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: row.chat_id,
+        text: job.text,
+      });
+      // Заблокировавшие бота и удалённые аккаунты — не ошибка рассылки.
+      if (!response.ok) state = "failed";
+    } catch {
+      state = "failed";
+    }
+    await env.STATS.prepare(
+      "UPDATE outbox SET state = ? WHERE broadcast = ? AND chat_id = ?"
+    )
+      .bind(state, job.id, row.chat_id)
+      .run();
+  }
+}
+
 /**
  * Запускает сборку на GitHub: разбор PDF живёт там, потому что парсер
  * написан на Python, а здесь JavaScript.
@@ -300,6 +428,11 @@ export default {
       return new Response("ok");
     }
 
+    if (update.callback_query) {
+      await handleButton(env, update.callback_query);
+      return new Response("ok");
+    }
+
     const message = update.message;
     const text = message?.text ?? "";
 
@@ -363,6 +496,26 @@ export default {
       });
     }
 
+    // Рассылка: сперва черновик с кнопками, отправка — только по нажатию.
+    // Отозвать её нельзя, поэтому подтверждение обязательно.
+    if (message && text.startsWith("/broadcast")) {
+      const owner = String(message.chat.id) === String(env.OWNER_ID);
+      const body = text.slice("/broadcast".length).trim();
+      if (!owner) {
+        await callTelegram(env.BOT_TOKEN, "sendMessage", {
+          chat_id: message.chat.id,
+          text: "Команда недоступна.",
+        });
+      } else if (!body) {
+        await callTelegram(env.BOT_TOKEN, "sendMessage", {
+          chat_id: message.chat.id,
+          text: "Напишите текст следом: /broadcast Завтра занятий нет.",
+        });
+      } else {
+        await draftBroadcast(env, message.chat.id, body);
+      }
+    }
+
     // Сводка и список — только владельцу: данные чужие.
     if (message && (text.startsWith("/stats") || text.startsWith("/who"))) {
       const allowed = String(message.chat.id) === String(env.OWNER_ID);
@@ -380,5 +533,10 @@ export default {
     }
 
     return new Response("ok");
+  },
+
+  // Раз в минуту разбираем очередь рассылки.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(drainOutbox(env));
   },
 };

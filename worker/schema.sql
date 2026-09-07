@@ -39,5 +39,25 @@ CREATE TABLE IF NOT EXISTS users (
   last     TEXT
 );
 
+-- Рассылка. Отправляем не сразу: воркеру нельзя делать больше полусотни
+-- обращений наружу за один запрос, а получателей сотни. Поэтому письма
+-- складываются в очередь, а разбирает её задача по расписанию.
+CREATE TABLE IF NOT EXISTS broadcasts (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  text    TEXT NOT NULL,
+  created TEXT NOT NULL,
+  status  TEXT NOT NULL DEFAULT 'draft',  -- draft | sending | done | cancelled
+  sent    INTEGER NOT NULL DEFAULT 0,
+  failed  INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS outbox (
+  broadcast INTEGER NOT NULL,
+  chat_id   INTEGER NOT NULL,
+  state     TEXT NOT NULL DEFAULT 'pending',  -- pending | sent | failed
+  PRIMARY KEY (broadcast, chat_id)
+);
+
+CREATE INDEX IF NOT EXISTS outbox_pending ON outbox (broadcast, state);
 CREATE INDEX IF NOT EXISTS people_last ON people (last);
 CREATE INDEX IF NOT EXISTS opens_day ON opens (day);
