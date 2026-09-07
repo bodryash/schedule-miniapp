@@ -597,7 +597,7 @@ function runSearch() {
       }
 
       row.append(head, el("div", "subject", lesson.subject));
-      row.append(el("div", "meta", describe(lesson)));
+      row.append(metaLine(lesson));
       row.append(el("div", "groups", [...new Set(groups)].join(", ")));
       return row;
     })
@@ -915,6 +915,23 @@ function describe(lesson) {
     .join(" · ");
 }
 
+/**
+ * Строка под названием. Аудиторию выделяем: когда бегут на пару, ищут
+ * глазами именно её, а раньше она стояла последней и тем же серым.
+ */
+function metaLine(lesson, prefix = "") {
+  const line = el("div", "meta");
+  const before = [prefix, lesson.type, lesson.teacher].filter(Boolean).join(" · ");
+  if (before) line.append(document.createTextNode(before));
+
+  const room = roomLabel(lesson.room);
+  if (room) {
+    if (before) line.append(document.createTextNode(" · "));
+    line.append(el("span", "room", room));
+  }
+  return line;
+}
+
 function renderCard(entries, bells) {
   const first = entries[0];
   const bell = timesOf(first, bells);
@@ -936,14 +953,12 @@ function renderCard(entries, bells) {
   card.append(head, el("div", "subject", first.subject));
 
   if (entries.length === 1) {
-    const meta = describe(first);
-    if (meta) card.append(el("div", "meta", meta));
+    card.append(metaLine(first));
   } else {
     const details = el("details", "subgroups");
     details.append(el("summary", null, `${entries.length} подгрупп — показать`));
     for (const entry of entries) {
-      const label = entry.subgroup ? `гр. ${entry.subgroup} · ` : "";
-      details.append(el("div", "meta", label + describe(entry)));
+      details.append(metaLine(entry, entry.subgroup ? `гр. ${entry.subgroup}` : ""));
     }
     card.append(details);
   }

@@ -43,8 +43,26 @@ h1 {
   margin: 4px 0;
 }
 
+/* Крупно то, что меняется. Группа выбирается один раз и дальше остаётся
+   контекстом, а листают именно дни — взгляд должен попадать на дату. */
 .date {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+}
+
+.group-name {
   font-size: 13px;
+  font-weight: 400;
   color: var(--muted);
 }
 
@@ -72,9 +90,20 @@ h1 {
   stroke-linecap: round;
 }
 
+/* Цифры одинаковой ширины: в расписании они половина содержания и должны
+   вставать колонкой, а не плясать от строки к строке. */
+.time,
+.day-date,
+.slot,
+.window-time,
+.next-when,
+.room,
+.date {
+  font-variant-numeric: tabular-nums;
+}
+
 .week {
   display: inline-block;
-  margin-top: 4px;
   padding: 2px 9px;
   font-size: 12px;
   font-weight: 500;
@@ -180,8 +209,6 @@ button:active { transform: scale(0.97); }
   gap: 12px;
   margin-bottom: 16px;
 }
-
-.group-name { font-size: 20px; font-weight: 600; }
 
 .days {
   display: flex;
@@ -292,11 +319,13 @@ input[type="search"] {
   margin-top: 14px;
 }
 
+/* Группы важны, но акцент в приложении означает «сейчас» и чётность недели.
+   Здесь он спорил бы с аудиторией и превращался в фон. */
 .groups {
   margin-top: 6px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--accent);
+  color: var(--muted);
 }
 
 .card {
@@ -401,11 +430,8 @@ input[type="search"] {
   background: color-mix(in srgb, #8b5cf6 9%, var(--card));
 }
 
-.card--elective .slot,
-.card--mfk .slot {
-  color: var(--mark);
-  background: color-mix(in srgb, var(--mark) 16%, transparent);
-}
+/* Номер пары намеренно не красим по типу занятия: тип уже назван полосой
+   слева и плашкой, третий повтор ничего не добавляет. */
 
 .card--elective .link,
 .card--mfk .link {
@@ -427,11 +453,14 @@ input[type="search"] {
   color: var(--muted);
 }
 
+/* Номер пары — служебная метка, а не акцент. Раньше она красилась цветом
+   недели, и восемь одинаковых плашек подряд повторяли факт, уже сказанный
+   один раз сверху, а идущая пара терялась среди них. */
 .slot {
   padding: 1px 7px;
-  font-weight: 600;
-  color: var(--accent);
-  background: var(--accent-soft);
+  font-weight: 500;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 14%, transparent);
   border-radius: 6px;
 }
 
@@ -461,7 +490,18 @@ input[type="search"] {
   border-radius: 6px;
 }
 .subject { margin-top: 2px; font-size: 16px; font-weight: 600; }
-.meta { margin-top: 6px; font-size: 13px; color: var(--muted); }
+.meta {
+  margin-top: 7px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* Аудиторию ищут глазами первой — она не должна теряться в общем сером. */
+.room {
+  font-weight: 600;
+  color: var(--text);
+}
 
 .subgroups summary {
   margin-top: 6px;
