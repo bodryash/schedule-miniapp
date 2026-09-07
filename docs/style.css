@@ -328,11 +328,15 @@ input[type="search"] {
   gap: 6px;
   margin-top: 8px;
   font-size: 12px;
+  /* Без этого строка выше букв на место нижних выносных элементов, и точка,
+     отцентрованная по строке, выглядит смещённой вверх. */
+  line-height: 1;
   font-weight: 600;
   color: var(--accent);
 }
 
 .now-dot {
+  flex: 0 0 auto;
   width: 7px;
   height: 7px;
   border-radius: 50%;
