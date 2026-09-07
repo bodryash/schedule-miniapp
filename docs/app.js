@@ -1,5 +1,22 @@
 const tg = window.Telegram?.WebApp;
 const STORAGE_KEY = "schedule.prefs";
+const HIT_URL = "https://fgp-schedule-bot.bodryash.workers.dev/hit";
+
+/**
+ * Сообщает воркеру, что расписание открыли: обезличенный счётчик, чтобы
+ * понимать, каким курсам приложение нужно, а до кого ссылка не дошла.
+ * Отправляем подписанный Telegram initData — иначе счётчик накрутит кто
+ * угодно одной командой. Вне Telegram не считаем.
+ */
+function countOpen(group) {
+  if (!tg?.initData) return;
+  try {
+    const body = JSON.stringify({ initData: tg.initData, group });
+    navigator.sendBeacon(HIT_URL, new Blob([body], { type: "text/plain" }));
+  } catch {
+    // Счётчик не должен мешать расписанию работать.
+  }
+}
 
 const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 
@@ -1000,8 +1017,13 @@ async function init() {
     }
   }, 30_000);
 
-  if (prefs.group && groupById(prefs.group)) showSchedule();
-  else showPicker();
+  const group = prefs.group && groupById(prefs.group);
+  if (group) {
+    showSchedule();
+    countOpen({ id: group.id, course: group.course, level: group.level });
+  } else {
+    showPicker();
+  }
 }
 
 init();

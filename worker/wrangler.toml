@@ -10,3 +10,9 @@ compatibility_date = "2026-09-03"
 [[kv_namespaces]]
 binding = "USERS"
 id = "9e4ce61ec63a4543a66ad2cefc391a85"
+
+# Обезличенная статистика открытий: сколько людей и каких групп заходит.
+[[d1_databases]]
+binding = "STATS"
+database_name = "schedule-stats"
+database_id = "2441ab71-d521-4771-8dbc-4d34771dd732"

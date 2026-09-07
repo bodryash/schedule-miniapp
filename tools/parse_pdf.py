@@ -23,6 +23,7 @@ import pdfplumber
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "data" / "schedule.json"
+GROUPS = ROOT / "docs" / "data" / "groups.json"
 
 DAYS = {
     "понедельник": 1,
@@ -511,6 +512,13 @@ def main():
     data = parse(sys.argv[1])
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    # Отдельный маленький список групп: воркеру он нужен, чтобы показать,
+    # какие группы не заходили ни разу, а тянуть ради этого мегабайт пар —
+    # расточительство.
+    GROUPS.write_text(
+        json.dumps(data["groups"], ensure_ascii=False, indent=1), encoding="utf-8"
+    )
     print(f"групп: {len(data['groups'])}, пар: {len(data['lessons'])} → {OUT}")
 
 
