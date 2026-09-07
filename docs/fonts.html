@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Сравнение шрифтов</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Страница только для выбора шрифта, в приложение не входит. */
+    @font-face {
+      font-family: "Golos Text";
+      src: url("fonts/golos.woff2") format("woff2");
+      font-weight: 400 600;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Inter";
+      src: url("fonts/inter.woff2") format("woff2");
+      font-weight: 400 600;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Onest";
+      src: url("fonts/onest.woff2") format("woff2");
+      font-weight: 400 600;
+      font-display: swap;
+    }
+
+    body { padding-bottom: 40px; }
+
+    .sample + .sample { margin-top: 26px; }
+
+    .sample h2 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .sample .card { margin-bottom: 8px; }
+
+    .system { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    .golos  { font-family: "Golos Text", sans-serif; }
+    .inter  { font-family: "Inter", sans-serif; }
+    .onest  { font-family: "Onest", sans-serif; }
+  </style>
+</head>
+<body>
+
+  <div id="samples"></div>
+
+  <script>
+    const FONTS = [
+      ["Системный — сейчас", "system", "0 КБ"],
+      ["Golos Text", "golos", "17 КБ"],
+      ["Inter", "inter", "25 КБ"],
+      ["Onest", "onest", "10 КБ"],
+    ];
+
+    // Те же карточки, что в приложении: сравнивать надо на настоящем тексте,
+    // а не на «Съешь ещё этих мягких булок».
+    const LESSONS = [
+      {
+        slot: "3 пара", time: "13:00 – 14:30", now: true,
+        subject: "Теория международных отношений",
+        meta: "лекция · проф. Кочетков В.В. · ", room: "ауд. П6 1 ГУМ",
+      },
+      {
+        slot: "4 пара", time: "14:45 – 16:15",
+        subject: "Стратегическое управление персоналом в условиях глобализации",
+        meta: "семинар · доц. Алешковский И.А. · ", room: "ауд. 509",
+      },
+      {
+        slot: "5 пара", time: "16:30 – 18:00", kind: "card--elective", tag: "по выбору",
+        subject: "Международные финансово-экономические отношения",
+        meta: "лекция · проф. Молчанова Н.П. · ", room: "ауд. 611Б",
+      },
+    ];
+
+    const box = document.getElementById("samples");
+    const only = new URLSearchParams(location.search).get("only");
+    const wanted = only ? only.split(",") : null;
+
+    for (const [title, css, weight] of FONTS) {
+      if (wanted && !wanted.includes(css)) continue;
+      const block = document.createElement("section");
+      block.className = "sample " + css;
+      block.innerHTML = `<h2>${title} · ${weight}</h2>`;
+
+      for (const l of LESSONS) {
+        const card = document.createElement("article");
+        card.className = "card " + (l.kind || "") + (l.now ? " card--now" : "");
+        card.innerHTML =
+          `<div class="time"><span class="slot">${l.slot}</span><span>${l.time}</span>` +
+          (l.tag ? `<span class="tag">${l.tag}</span>` : "") + `</div>` +
+          `<div class="subject">${l.subject}</div>` +
+          `<div class="meta">${l.meta}<span class="room">${l.room}</span></div>` +
+          (l.now ? `<div class="now"><span class="now-dot"></span><span>идёт сейчас</span><span class="now-left">осталось 1 ч</span></div>` : "");
+        block.append(card);
+      }
+
+      box.append(block);
+    }
+  </script>
+</body>
+</html>
