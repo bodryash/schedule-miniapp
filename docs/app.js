@@ -594,16 +594,28 @@ let enterFrom = 0;
 
 const SWIPE_DISTANCE = 0.22; // доля ширины экрана
 const SWIPE_VELOCITY = 0.35; // px/мс — быстрый флик засчитываем без дистанции
+const TAP_ZONE = 0.22; // доля ширины: касание у края листает, как в сторис
+const TAP_SLOP = 8; // px — больше этого уже не касание, а жест
+
+/** Переход на соседний день с анимацией въезда с нужной стороны. */
+function goToDay(direction) {
+  const next = dayIndex() + direction;
+  if (next < 0 || next >= DAY_COUNT) return false;
+  setDayIndex(next);
+  enterFrom = direction;
+  showSchedule();
+  return true;
+}
 
 function initSwipe() {
-  // Слушаем весь экран, а не список пар: в пустую субботу список — одна
-  // строчка «Пар нет», и тянуть было бы не за что. Едет при этом только
-  // список.
-  const surface = els.schedule;
+  // Слушаем документ, а не блок расписания: у body есть отступ, и крайние
+  // пиксели экрана блоку не принадлежат — именно туда и приходится
+  // касание у края. Заодно решается случай пустого дня, где тянуть не за что.
   const strip = els.lessons;
   let pointer = null;
   let startX = 0;
   let startY = 0;
+  let startTarget = null;
   let startedAt = 0;
   let shift = 0;
   let dragging = false;
@@ -615,13 +627,15 @@ function initSwipe() {
     strip.style.opacity = "";
   };
 
-  surface.addEventListener("pointerdown", (event) => {
+  document.addEventListener("pointerdown", (event) => {
+    if (els.schedule.hidden) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
     // Полоса дней листается сама по себе, кнопки должны нажиматься.
-    if (event.target.closest(".days, button")) return;
+    if (event.target.closest?.(".days, button")) return;
     pointer = event.pointerId;
     startX = event.clientX;
     startY = event.clientY;
+    startTarget = event.target;
     startedAt = performance.now();
     shift = 0;
     dragging = false;
@@ -629,7 +643,7 @@ function initSwipe() {
     strip.style.transition = "none";
   });
 
-  surface.addEventListener("pointermove", (event) => {
+  document.addEventListener("pointermove", (event) => {
     if (event.pointerId !== pointer) return;
     const dx = event.clientX - startX;
     const dy = event.clientY - startY;
@@ -640,7 +654,6 @@ function initSwipe() {
       if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
       decided = true;
       dragging = Math.abs(dx) > Math.abs(dy);
-      if (dragging) surface.setPointerCapture(pointer);
     }
     if (!dragging) return;
 
@@ -658,19 +671,33 @@ function initSwipe() {
   const finish = (event) => {
     if (event.pointerId !== pointer) return;
     pointer = null;
-    if (!dragging) return;
+
+    if (!dragging) {
+      // Палец не поехал — это касание. У края экрана листаем, как в сторис.
+      const moved =
+        Math.abs(event.clientX - startX) > TAP_SLOP ||
+        Math.abs(event.clientY - startY) > TAP_SLOP;
+      // Смотрим, на чём нажали, а не где отпустили: палец мог сместиться.
+      const onControl = startTarget?.closest("summary, a, input, select, .link");
+      if (!moved && !onControl) {
+        const width = document.documentElement.clientWidth;
+        const zone = width * TAP_ZONE;
+        if (startX < zone) goToDay(-1);
+        else if (startX > width - zone) goToDay(1);
+      }
+      release();
+      return;
+    }
     dragging = false;
 
     const velocity = Math.abs(shift) / Math.max(1, performance.now() - startedAt);
     const far = Math.abs(shift) > strip.clientWidth * SWIPE_DISTANCE;
     const direction = shift < 0 ? 1 : -1;
-    const next = dayIndex() + direction;
 
+    const next = dayIndex() + direction;
     if ((far || velocity > SWIPE_VELOCITY) && next >= 0 && next < DAY_COUNT) {
-      setDayIndex(next);
-      enterFrom = direction;
       release();
-      showSchedule();
+      goToDay(direction);
       return;
     }
 
@@ -682,8 +709,8 @@ function initSwipe() {
     strip.addEventListener("transitionend", release, { once: true });
   };
 
-  surface.addEventListener("pointerup", finish);
-  surface.addEventListener("pointercancel", finish);
+  document.addEventListener("pointerup", finish);
+  document.addEventListener("pointercancel", finish);
 }
 
 /** При открытии подводим к идущей паре, если она не попала на экран. */
