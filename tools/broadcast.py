@@ -3,8 +3,8 @@
     python tools/broadcast.py message.txt          # показать, кому уйдёт
     python tools/broadcast.py message.txt --send   # отправить
 
-Список получателей лежит в KV-хранилище воркера: Telegram его не отдаёт, и
-кроме собственной записи взять его неоткуда. Без `--send` скрипт ничего не
+Список получателей лежит в базе воркера: Telegram его не отдаёт, и кроме
+собственной записи взять его неоткуда. Без `--send` скрипт ничего не
 отправляет — только показывает текст и число адресатов.
 
 Заблокировавшие бота удаляются из списка: Telegram отвечает на них 403, и
@@ -30,33 +30,31 @@ WORKER = ROOT / "worker"
 PAUSE = 0.05
 
 
-def recipients():
-    """Идентификаторы чатов из KV воркера."""
+def d1(command, as_json=False):
+    args = ["npx", "--yes", "wrangler@4", "d1", "execute", "schedule-stats",
+            "--remote", "--yes", "--command", command]
+    if as_json:
+        args.append("--json")
     raw = subprocess.run(
-        ["npx", "--yes", "wrangler@4", "kv", "key", "list", "--binding", "USERS", "--remote"],
-        cwd=WORKER,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        shell=os.name == "nt",
+        args, cwd=WORKER, capture_output=True, text=True,
+        encoding="utf-8", shell=os.name == "nt",
     )
     if raw.returncode != 0:
-        sys.exit(f"Не удалось прочитать список: {raw.stderr.strip()[:400]}")
+        sys.exit(f"Не удалось обратиться к базе: {raw.stderr.strip()[:400]}")
+    return raw.stdout
 
-    start = raw.stdout.find("[")
+
+def recipients():
+    """Идентификаторы чатов из базы воркера."""
+    out = d1("SELECT id FROM users ORDER BY id", as_json=True)
+    start = out.find("[")
     if start < 0:
         return []
-    return [int(item["name"]) for item in json.loads(raw.stdout[start:])]
+    return [row["id"] for row in json.loads(out[start:])[0]["results"]]
 
 
 def forget(chat_id):
-    subprocess.run(
-        ["npx", "--yes", "wrangler@4", "kv", "key", "delete", str(chat_id),
-         "--binding", "USERS", "--remote"],
-        cwd=WORKER,
-        capture_output=True,
-        shell=os.name == "nt",
-    )
+    d1(f"DELETE FROM users WHERE id = {int(chat_id)}")
 
 
 async def main():

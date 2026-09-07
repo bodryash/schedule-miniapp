@@ -147,13 +147,13 @@ async function buildStats(env) {
       .first(),
     // Писали боту — это другая величина: кнопка меню открывает приложение
     // мимо бота, а часть людей наоборот только нажала /start и не вернулась.
-    env.USERS ? env.USERS.list({ limit: 1000 }) : Promise.resolve(null),
+    env.STATS.prepare("SELECT COUNT(*) AS n FROM users").first(),
   ]);
 
   const lines = [
     `<b>За всё время</b>`,
     `Людей: ${total.people}, открытий: ${total.opens}`,
-    `Писали боту: ${wrote ? wrote.keys.length : "—"}`,
+    `Писали боту: ${wrote ? wrote.n : "—"}`,
     "",
     `<b>Открытия</b>`,
     `Сегодня: ${todayRow.n}${fresh.n ? `, новых людей ${fresh.n}` : ""}`,
@@ -275,16 +275,28 @@ export default {
     const text = message?.text ?? "";
 
     // Запоминаем, кому потом можно написать. Telegram список пользователей
-    // не отдаёт, так что кроме этой записи взять его неоткуда.
-    if (message?.chat?.id && env.USERS) {
-      await env.USERS.put(
-        String(message.chat.id),
-        JSON.stringify({
-          id: message.chat.id,
-          name: message.chat.first_name ?? "",
-          seen: new Date().toISOString().slice(0, 10),
-        })
-      );
+    // не отдаёт, так что кроме этой записи взять его неоткуда. Лежит в базе,
+    // а не в KV: там всего тысяча записей в сутки, и в день массовой раздачи
+    // ссылки лишние молча не попали бы в список.
+    if (message?.chat?.id && env.STATS) {
+      const stamp = new Date().toISOString();
+      await env.STATS.prepare(
+        `INSERT INTO users (id, name, username, first, last)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           name = excluded.name, username = excluded.username,
+           last = excluded.last`
+      )
+        .bind(
+          message.chat.id,
+          [message.chat.first_name, message.chat.last_name]
+            .filter(Boolean)
+            .join(" ") || null,
+          message.chat.username || null,
+          stamp,
+          stamp
+        )
+        .run();
     }
 
     // Отвечаем только на команды; на всё остальное молчим, но подтверждаем

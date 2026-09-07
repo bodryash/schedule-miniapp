@@ -27,5 +27,17 @@ CREATE TABLE IF NOT EXISTS people (
   username TEXT
 );
 
+-- Кому можно написать. Telegram список пользователей бота не отдаёт, так
+-- что кроме этой записи взять его неоткуда. Раньше лежало в KV, но там
+-- всего 1000 записей в сутки — в день массовой раздачи ссылки лишние
+-- молча не попали бы в список.
+CREATE TABLE IF NOT EXISTS users (
+  id       INTEGER PRIMARY KEY,   -- chat_id
+  name     TEXT,
+  username TEXT,
+  first    TEXT,
+  last     TEXT
+);
+
 CREATE INDEX IF NOT EXISTS people_last ON people (last);
 CREATE INDEX IF NOT EXISTS opens_day ON opens (day);
