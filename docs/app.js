@@ -66,6 +66,8 @@ const els = {
   electivesRow: document.getElementById("electives-row"),
   electives: document.getElementById("electives"),
   save: document.getElementById("save"),
+  home: document.getElementById("home"),
+  homeHint: document.getElementById("home-hint"),
   change: document.getElementById("change"),
   close: document.getElementById("close"),
   currentGroup: document.getElementById("current-group"),
@@ -518,6 +520,44 @@ function renderLessons(group, parity) {
   refreshNow();
   refreshNext();
   scrollToNow();
+}
+
+/* ---------- Ярлык на главном экране ---------- */
+
+/**
+ * Позволяет вынести расписание на рабочий стол телефона: тогда оно
+ * открывается одним касанием, минуя Telegram и чат с ботом.
+ *
+ * Кнопку показываем, только если клиент это умеет и ярлыка ещё нет —
+ * предлагать то, что не сработает или уже сделано, незачем.
+ */
+function initHomeScreen() {
+  // Библиотека Telegram объявляет метод даже в старых клиентах и бросает
+  // ошибку при вызове, поэтому спрашиваем версию, а не наличие функции.
+  if (!tg?.isVersionAtLeast?.("8.0")) return;
+
+  const show = (visible) => {
+    els.home.hidden = !visible;
+    els.homeHint.hidden = !visible;
+  };
+
+  try {
+    tg.checkHomeScreenStatus((status) =>
+      show(status === "missed" || status === "unknown")
+    );
+  } catch {
+    return;
+  }
+
+  els.home.addEventListener("click", () => {
+    try {
+      tg.addToHomeScreen();
+    } catch {
+      // Клиент передумал — кнопка просто останется на месте.
+    }
+  });
+
+  tg.onEvent?.("homeScreenAdded", () => show(false));
 }
 
 /* ---------- Поиск ---------- */
@@ -1040,6 +1080,7 @@ async function init() {
     showSchedule();
   });
   els.change.addEventListener("click", showPicker);
+  initHomeScreen();
   els.find.addEventListener("click", showSearch);
   els.searchClose.addEventListener("click", closeSearch);
   els.query.addEventListener("input", runSearch);

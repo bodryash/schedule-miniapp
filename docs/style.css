@@ -214,6 +214,15 @@ button:active { transform: scale(0.97); }
   color: var(--accent-text);
 }
 
+.secondary {
+  width: 100%;
+  margin-top: 10px;
+  padding: 13px;
+  font-size: 15px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .ghost {
   padding: 8px 12px;
   font-size: 14px;
