@@ -69,7 +69,7 @@ const els = {
   home: document.getElementById("home"),
   homeHint: document.getElementById("home-hint"),
   homeIos: document.getElementById("home-ios"),
-  homeUrl: document.getElementById("home-url"),
+  homeCopy: document.getElementById("home-copy"),
   change: document.getElementById("change"),
   close: document.getElementById("close"),
   currentGroup: document.getElementById("current-group"),
@@ -533,6 +533,49 @@ function renderLessons(group, parity) {
  * Кнопку показываем, только если клиент это умеет и ярлыка ещё нет —
  * предлагать то, что не сработает или уже сделано, незачем.
  */
+/**
+ * Копирует адрес приложения в буфер. Внутри Telegram обычный
+ * `navigator.clipboard` доступен не всегда, поэтому есть запасной путь
+ * через скрытое поле — иначе кнопка молча ничего бы не делала.
+ */
+async function copyAddress(button) {
+  const address = location.origin + location.pathname;
+  let done = false;
+
+  try {
+    await navigator.clipboard.writeText(address);
+    done = true;
+  } catch {
+    const field = document.createElement("textarea");
+    field.value = address;
+    field.setAttribute("readonly", "");
+    field.style.position = "fixed";
+    field.style.opacity = "0";
+    document.body.append(field);
+    field.select();
+    try {
+      done = document.execCommand("copy");
+    } catch {
+      done = false;
+    }
+    field.remove();
+  }
+
+  const was = button.dataset.label || button.textContent.trim();
+  button.dataset.label = was;
+
+  if (done) {
+    button.textContent = "Адрес скопирован";
+    setTimeout(() => (button.textContent = was), 2500);
+    return;
+  }
+
+  // Скопировать не вышло — оставляем адрес на виду, чтобы его можно было
+  // выделить руками. Прятать его обратно значило бы оставить ни с чем.
+  button.textContent = address;
+  button.classList.add("secondary--plain");
+}
+
 function initHomeScreen() {
   // Уже на рабочем столе — предлагать нечего.
   if (window.matchMedia("(display-mode: standalone)").matches) return;
@@ -540,8 +583,8 @@ function initHomeScreen() {
   // На айфоне Telegram ярлык создать не может: iOS не даёт приложениям их
   // добавлять. Зато это умеет Safari — показываем, как.
   if (tg?.platform === "ios") {
-    els.homeUrl.textContent = location.origin + location.pathname;
     els.homeIos.hidden = false;
+    els.homeCopy.addEventListener("click", () => copyAddress(els.homeCopy));
     return;
   }
 
