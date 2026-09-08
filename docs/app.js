@@ -876,7 +876,10 @@ function refreshNow() {
         el("span", null, "идёт сейчас"),
         el("span", "now-left")
       );
-      card.append(badge);
+      // Именно в тело карточки: сама карточка — горизонтальный ряд, и
+      // строка, добавленная в неё, встала бы третьей колонкой рядом с
+      // плашкой аудитории.
+      (card.querySelector(".card-body") || card).append(badge);
     }
     badge.querySelector(".now-left").textContent = `осталось ${humanLeft(current.left)}`;
 

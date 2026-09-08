@@ -549,6 +549,9 @@ input[type="search"] {
    не категория, а место, и путать её с ними не нужно. */
 .room-badge {
   flex: 0 0 auto;
+  /* Прижата к низу карточки: рядом с названием она спорила с номером пары,
+     а внизу справа стоит там, где взгляд её и ищет. */
+  align-self: flex-end;
   display: flex;
   flex-direction: column;
   align-items: center;
