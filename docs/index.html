@@ -8,6 +8,16 @@
        Одного touch-action там оказалось мало. -->
   <meta name="viewport"
         content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <!-- Чтобы приложение можно было поставить на экран телефона. На айфоне
+       Telegram ярлык создать не может — там это делается через Safari,
+       и без этих строк ярлык открывался бы как обычная вкладка. -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Расписание">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#4c6ef5">
+
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <!-- Telegram кэширует файлы надолго, и после обновления студенты
        продолжают открывать старую версию. Метка не даёт этому случиться. -->
@@ -75,6 +85,16 @@
     <p class="hint" id="home-hint" hidden>
       Тогда расписание будет открываться с рабочего стола, минуя Telegram.
     </p>
+
+    <div class="hint" id="home-ios" hidden>
+      <p>Чтобы вынести расписание на экран айфона:</p>
+      <ol>
+        <li>Скопируйте адрес <code id="home-url"></code></li>
+        <li>Откройте его в Safari</li>
+        <li>Кнопка «Поделиться» → «На экран «Домой»</li>
+      </ol>
+      <p>Telegram на айфоне ярлыки создавать не умеет — это ограничение iOS.</p>
+    </div>
   </section>
 
   <!-- Основной экран -->

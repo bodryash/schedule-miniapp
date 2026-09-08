@@ -196,6 +196,20 @@ legend {
   color: var(--muted);
 }
 
+#home-ios p { margin: 0 0 6px; }
+#home-ios ol { margin: 0 0 8px; padding-left: 18px; }
+#home-ios li { margin-bottom: 3px; }
+
+#home-ios code {
+  display: inline-block;
+  padding: 1px 5px;
+  font-size: 11px;
+  color: var(--text);
+  background: var(--card);
+  border-radius: 5px;
+  word-break: break-all;
+}
+
 button {
   font: inherit;
   cursor: pointer;

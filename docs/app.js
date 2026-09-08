@@ -68,6 +68,8 @@ const els = {
   save: document.getElementById("save"),
   home: document.getElementById("home"),
   homeHint: document.getElementById("home-hint"),
+  homeIos: document.getElementById("home-ios"),
+  homeUrl: document.getElementById("home-url"),
   change: document.getElementById("change"),
   close: document.getElementById("close"),
   currentGroup: document.getElementById("current-group"),
@@ -532,6 +534,17 @@ function renderLessons(group, parity) {
  * предлагать то, что не сработает или уже сделано, незачем.
  */
 function initHomeScreen() {
+  // Уже на рабочем столе — предлагать нечего.
+  if (window.matchMedia("(display-mode: standalone)").matches) return;
+
+  // На айфоне Telegram ярлык создать не может: iOS не даёт приложениям их
+  // добавлять. Зато это умеет Safari — показываем, как.
+  if (tg?.platform === "ios") {
+    els.homeUrl.textContent = location.origin + location.pathname;
+    els.homeIos.hidden = false;
+    return;
+  }
+
   // Библиотека Telegram объявляет метод даже в старых клиентах и бросает
   // ошибку при вызове, поэтому спрашиваем версию, а не наличие функции.
   if (!tg?.isVersionAtLeast?.("8.0")) return;
