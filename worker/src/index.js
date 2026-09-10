@@ -489,6 +489,7 @@ const NOTICE_HELP = [
   "/notice маг1 Текст — курсу магистратуры (маг1, маг2)",
   "/notice все Текст — всему факультету",
   "/unnotice 12 — снять объявление №12",
+  "/unnotice все — снять все разом",
 ].join("\n");
 
 /** «311гэу,312гэу», «3курс», «маг1», «все» → ключи адресатов для /notice и /cancel. */
@@ -665,7 +666,17 @@ function targetLabel(grp) {
 }
 
 async function handleUnnotice(env, text) {
-  const id = Number(text.split(/\s+/)[1]);
+  const arg = (text.split(/\s+/)[1] || "").toLowerCase();
+  if (["все", "всё", "all"].includes(arg)) {
+    const now = new Date().toISOString();
+    const result = await env.STATS.prepare("UPDATE notices SET expires = ? WHERE expires > ?")
+      .bind(now, now)
+      .run();
+    const count = result.meta?.changes || 0;
+    return count ? `Сняты все объявления: ${count}.` : "Действующих объявлений нет.";
+  }
+
+  const id = Number(arg);
   if (!id) return "Укажите номер: /unnotice 12. Список — /notice";
   const result = await env.STATS.prepare(
     "UPDATE notices SET expires = ? WHERE id = ? AND expires > ?"
