@@ -747,11 +747,26 @@ section {
   from { opacity: 0; transform: translateY(4px); }
 }
 
+/* Свободные аудитории появляются так же, как карточки пар. Пару переключают
+   много раз подряд, поэтому шаг каскада меньше, а потолок задержки короткий:
+   плитки не должны ждать своей очереди дольше, чем читаются. */
+#free-list .floor h2,
+#free-list .free-room {
+  opacity: 0;
+  transform: translateY(6px);
+  animation: rise 180ms var(--ease-out) forwards;
+  animation-delay: min(calc(var(--i, 0) * 16ms), 140ms);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  /* Смысл сохраняем, движение убираем. */
+  /* Смысл сохраняем, движение убираем. Смещение сбрасываем явно: затухание
+     его не трогает, и без этого элементы оставались бы сдвинуты на 6px. */
   #lessons > *,
+  #free-list .floor h2,
+  #free-list .free-room,
   section {
     animation-name: fade;
+    transform: none;
   }
 
   /* Полосу прогресса оставляем: это не украшение, а сколько осталось. */

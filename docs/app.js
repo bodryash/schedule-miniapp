@@ -816,6 +816,14 @@ function renderFree() {
   }
 
   els.freeHint.textContent = `Свободно ${free.length} из ${all.length} · ${bell.start} – ${bell.end}`;
+  // Итог меняется вместе с парой. Сам элемент не пересоздаётся, поэтому
+  // CSS-анимация сработала бы один раз при открытии — запускаем явно.
+  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    els.freeHint.animate([{ opacity: 0.35 }, { opacity: 1 }], {
+      duration: 180,
+      easing: "cubic-bezier(0.23, 1, 0.32, 1)",
+    });
+  }
 
   if (!free.length) {
     els.freeList.replaceChildren(el("p", "empty", "Все аудитории заняты"));
@@ -830,13 +838,19 @@ function renderFree() {
     floors.get(floor).push(item);
   }
 
+  // Сквозной порядок появления: этажи и плитки въезжают каскадом сверху вниз.
+  let order = 0;
+
   els.freeList.replaceChildren(
     ...[...floors].map(([floor, items]) => {
       const block = el("div", "floor");
-      block.append(el("h2", null, `${floor} этаж`));
+      const heading = el("h2", null, `${floor} этаж`);
+      heading.style.setProperty("--i", order++);
+      block.append(heading);
       const grid = el("div", "free-grid");
       for (const item of items) {
         const tile = el("div", "free-room");
+        tile.style.setProperty("--i", order++);
         tile.append(
           el("span", "free-num", item.room),
           el("span", "free-until", item.until === null ? "до конца дня" : `до ${clock(item.until)}`)
