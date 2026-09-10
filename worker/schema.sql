@@ -69,6 +69,20 @@ CREATE TABLE IF NOT EXISTS notices (
 );
 
 CREATE INDEX IF NOT EXISTS notices_grp ON notices (grp, expires);
+
+-- Отменённые пары: /cancel. grp — как в notices. day — ISO-дата,
+-- slots — номера пар через запятую, пусто — весь день.
+CREATE TABLE IF NOT EXISTS cancels (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  grp     TEXT NOT NULL,
+  day     TEXT NOT NULL,
+  slots   TEXT NOT NULL DEFAULT '',
+  reason  TEXT NOT NULL DEFAULT '',
+  created TEXT NOT NULL,
+  removed INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS cancels_grp ON cancels (grp, day);
 CREATE INDEX IF NOT EXISTS outbox_pending ON outbox (broadcast, state);
 CREATE INDEX IF NOT EXISTS people_last ON people (last);
 CREATE INDEX IF NOT EXISTS opens_day ON opens (day);

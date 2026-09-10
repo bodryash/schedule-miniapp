@@ -53,16 +53,42 @@ function plural(n, one, few, many) {
 }
 
 /** Полночь сегодняшнего дня по Москве; дальше работаем с UTC-полями. */
-function today() {
+export function today() {
   const now = new Date(Date.now() + MSK);
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
-function addDays(date, count) {
+export function addDays(date, count) {
   return new Date(date.getTime() + count * 86400000);
 }
 
-const iso = (date) => date.toISOString().slice(0, 10);
+export const iso = (date) => date.toISOString().slice(0, 10);
+
+/** «14.09», «14.09.2026», «сегодня», «завтра», «чт» → дата по Москве. */
+export function parseDay(word) {
+  const key = String(word).toLowerCase().replace(/ё/g, "е");
+  const now = today();
+  if (key === "сегодня") return now;
+  if (key === "завтра") return addDays(now, 1);
+  if (key === "послезавтра") return addDays(now, 2);
+  // «Чт» — ближайший четверг, сегодняшний тоже считается.
+  if (DAY_WORDS.has(key)) return addDays(now, (DAY_WORDS.get(key) - now.getUTCDay() + 7) % 7);
+
+  const match = key.match(/^(\d{1,2})\.(\d{1,2})(?:\.(\d{2}|\d{4}))?$/);
+  if (!match) return null;
+  const year = match[3] ? Number(match[3].length === 2 ? `20${match[3]}` : match[3]) : now.getUTCFullYear();
+  const date = new Date(Date.UTC(year, Number(match[2]) - 1, Number(match[1])));
+  // 31.02 Date молча превратил бы в 3 марта.
+  if (date.getUTCDate() !== Number(match[1]) || date.getUTCMonth() !== Number(match[2]) - 1) return null;
+  // Без года «12.01», набранное в декабре, — это январь следующего года.
+  if (!match[3] && date < addDays(now, -180)) date.setUTCFullYear(year + 1);
+  return date;
+}
+
+/** Отмена, которая касается пары: по дате и номеру; без номеров — весь день. */
+export function cancelOf(cancels, day, slot) {
+  return cancels.find((c) => c.day === day && (!c.slots.length || c.slots.includes(slot))) || null;
+}
 
 /** Понедельник недели; для воскресенья — следующей, как в приложении. */
 function mondayOf(date) {
@@ -79,7 +105,7 @@ function parityOf(weeks, date) {
   return week ? week.parity : null;
 }
 
-function dateLabel(date) {
+export function dateLabel(date) {
   return `${WEEKDAYS[date.getUTCDay()]}, ${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}`;
 }
 
@@ -109,7 +135,7 @@ export function findGroups(groups, token) {
 }
 
 /** Пары группы на дату, сведённые по номеру пары и предмету. */
-function lessonsOn(file, date) {
+function lessonsOn(file, date, cancels = []) {
   const day = date.getUTCDay();
   const parity = parityOf(file.weeks, date);
   const list = file.lessons
@@ -122,7 +148,9 @@ function lessonsOn(file, date) {
     if (!buckets.has(key)) buckets.set(key, []);
     buckets.get(key).push(lesson);
   }
-  return { parity, buckets: [...buckets.values()] };
+  const values = [...buckets.values()];
+  for (const entries of values) entries.cancel = cancelOf(cancels, iso(date), entries[0].slot);
+  return { parity, buckets: values };
 }
 
 function timesOf(lesson, bells) {
@@ -150,20 +178,24 @@ function lessonLines(file, buckets) {
   for (const entries of buckets) {
     const first = entries[0];
     const key = `${first.slot}|${kindOf(first.subject)}`;
-    if (!cells.has(key)) cells.set(key, { slot: first.slot, entries: [] });
+    if (!cells.has(key)) cells.set(key, { slot: first.slot, entries: [], cancel: null });
     cells.get(key).entries.push(...entries);
+    if (entries.cancel) cells.get(key).cancel = entries.cancel;
   }
 
   // Одно и то же несколько пар подряд — одной строкой «1–6»: военная
   // кафедра на весь день иначе заняла бы полэкрана.
   const rows = [];
-  for (const { slot, entries } of cells.values()) {
+  for (const { slot, entries, cancel } of cells.values()) {
     const first = entries[0];
     const subjects = new Set(entries.map((e) => e.subject));
     const label = subjects.size === 1 ? first.subject : kindOf(first.subject);
     const where = entries.length > 1 ? "по подгруппам" : first.room ? `ауд. ${first.room}` : "";
     const tag = first.elective ? ` <i>(${escape(first.elective)})</i>` : "";
-    const text = `${escape(label)}${tag}${where ? ` · ${escape(where)}` : ""}`;
+    const plain = `${escape(label)}${tag}${where ? ` · ${escape(where)}` : ""}`;
+    const text = cancel
+      ? `<s>${plain}</s> — <b>отменена</b>${cancel.reason ? `: ${escape(cancel.reason)}` : ""}`
+      : plain;
     const time = timesOf(first, file.bells);
 
     const same = rows.find((r) => r.text === text && r.to === slot - 1);
@@ -196,8 +228,8 @@ function noticeLines(notices) {
   return notices.map((n) => `📌 ${escape(n.text)}`);
 }
 
-function dayMessage(file, date, notices) {
-  const { parity, buckets } = lessonsOn(file, date);
+function dayMessage(file, date, { notices = [], cancels = [] } = {}) {
+  const { parity, buckets } = lessonsOn(file, date, cancels);
   const week = parity ? ` · ${parity === "odd" ? "нечётная" : "чётная"} неделя` : "";
   const head = `📅 <b>${escape(file.group.title)}</b> · ${dateLabel(date)}${week}`;
   const body = buckets.length ? lessonLines(file, buckets) : ["Пар нет 🎉"];
@@ -205,7 +237,7 @@ function dayMessage(file, date, notices) {
   return [head, "", ...top, ...body].join("\n");
 }
 
-function weekMessage(file, monday, notices) {
+function weekMessage(file, monday, { notices = [], cancels = [] } = {}) {
   const parity = parityOf(file.weeks, monday);
   const week = parity ? ` · ${parity === "odd" ? "нечётная" : "чётная"}` : "";
   const saturday = addDays(monday, 5);
@@ -217,7 +249,7 @@ function weekMessage(file, monday, notices) {
   if (notices.length) lines.push("", ...noticeLines(notices));
   for (let i = 0; i < 6; i++) {
     const date = addDays(monday, i);
-    const { buckets } = lessonsOn(file, date);
+    const { buckets } = lessonsOn(file, date, cancels);
     lines.push("", `<b>${SHORT[date.getUTCDay()]}, ${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}</b>`);
     lines.push(...(buckets.length ? lessonLines(file, buckets) : ["Пар нет"]));
   }
@@ -228,13 +260,20 @@ function weekMessage(file, monday, notices) {
   return text;
 }
 
-function summary(file, date) {
+function summary(file, date, cancels = []) {
   if (date.getUTCDay() === 0) return "Воскресенье";
-  const { buckets } = lessonsOn(file, date);
-  if (!buckets.length) return "Пар нет";
+  const { buckets: all } = lessonsOn(file, date, cancels);
+  if (!all.length) return "Пар нет";
+  const buckets = all.filter((b) => !b.cancel);
+  if (!buckets.length) return "Все пары отменены";
+  const cancelled = new Set(all.filter((b) => b.cancel).map((b) => b[0].slot)).size;
   const slots = new Set(buckets.map((b) => b[0].slot)).size;
   const first = timesOf(buckets[0][0], file.bells);
   const last = timesOf(buckets[buckets.length - 1][0], file.bells);
+  if (cancelled) {
+    const span = first && last ? `, ${first.start}–${last.end}` : "";
+    return `${slots} ${plural(slots, "пара", "пары", "пар")}${span}, отменено ${cancelled}`;
+  }
   const span = first && last ? `, ${first.start}–${last.end}` : "";
   return `${slots} ${plural(slots, "пара", "пары", "пар")}${span}`;
 }
@@ -267,15 +306,15 @@ export const loadGroups = () => loadJson("groups.json");
 const loadGroup = (id) => loadJson(`groups/${encodeURIComponent(id)}.json`);
 
 /** Варианты для одной группы: какие дни предложить. */
-function groupResults(file, when, notices) {
+function groupResults(file, when, extra) {
   const now = today();
   const results = [];
   const day = (date, title) =>
     results.push(
-      article(`d${iso(date)}`, `${title} · ${file.group.title}`, `${dateLabel(date)} — ${summary(file, date)}`, dayMessage(file, date, notices))
+      article(`d${iso(date)}`, `${title} · ${file.group.title}`, `${dateLabel(date)} — ${summary(file, date, extra.cancels)}`, dayMessage(file, date, extra))
     );
   const week = (monday, title) =>
-    results.push(article(`w${iso(monday)}`, `${title} · ${file.group.title}`, "Все дни одним сообщением", weekMessage(file, monday, notices)));
+    results.push(article(`w${iso(monday)}`, `${title} · ${file.group.title}`, "Все дни одним сообщением", weekMessage(file, monday, extra)));
 
   if (when?.kind === "weekday") {
     // «Чт» — ближайший четверг, сегодняшний тоже считается.
@@ -309,8 +348,8 @@ function groupResults(file, when, notices) {
 
 /**
  * Отвечает на inline-запрос. `ctx.groupOf(userId)` — группа из статистики,
- * чтобы пустой запрос сразу показывал своё; `ctx.notices(groupId)` —
- * объявления для группы.
+ * чтобы пустой запрос сразу показывал своё; `ctx.notices(group)` —
+ * объявления для группы, её курса и всех; `ctx.cancels(group)` — отмены пар.
  */
 export async function answerInline(query, ctx) {
   const groups = await loadGroups();
@@ -326,15 +365,21 @@ export async function answerInline(query, ctx) {
 
   let results = [];
   if (matched.length === 1) {
-    const [file, notices] = await Promise.all([loadGroup(matched[0].id), ctx.notices(matched[0].id)]);
-    results = groupResults(file, parsed.when, notices);
+    const [file, notices, cancels] = await Promise.all([
+      loadGroup(matched[0].id),
+      ctx.notices(matched[0]),
+      ctx.cancels(matched[0]),
+    ]);
+    results = groupResults(file, parsed.when, { notices, cancels });
   } else if (matched.length > 1) {
     // Начало названия — подсказываем группы с сегодняшним днём.
     const now = today();
     const date = now.getUTCDay() === 0 ? addDays(now, 1) : now;
-    const files = await Promise.all(matched.slice(0, SUGGEST).map((g) => loadGroup(g.id)));
-    results = files.map((file) =>
-      article(`g${file.group.id}`.slice(0, 64), file.group.title, `${dateLabel(date)} — ${summary(file, date)}`, dayMessage(file, date, []))
+    const files = await Promise.all(
+      matched.slice(0, SUGGEST).map(async (g) => ({ file: await loadGroup(g.id), cancels: await ctx.cancels(g) }))
+    );
+    results = files.map(({ file, cancels }) =>
+      article(`g${file.group.id}`.slice(0, 64), file.group.title, `${dateLabel(date)} — ${summary(file, date, cancels)}`, dayMessage(file, date, { cancels }))
     );
   }
 

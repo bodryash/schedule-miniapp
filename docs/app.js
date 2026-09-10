@@ -25,7 +25,8 @@ function countOpen(group) {
 const NOTICES_URL = "https://fgp-schedule-bot.bodryash.workers.dev/notices";
 const DISMISSED_KEY = "schedule.dismissedNotices";
 
-let notices = { group: null, list: [] };
+// cancels — отменённые пары (/cancel), приходят тем же запросом.
+let notices = { group: null, list: [], cancels: [] };
 
 function readDismissed() {
   try {
@@ -45,17 +46,22 @@ function dismissNotice(id) {
 }
 
 /** Грузим один раз на группу: листание дней не должно дёргать сеть. */
-async function loadNotices(groupId) {
+async function loadNotices(group) {
+  const groupId = group.id;
   if (notices.group === groupId) return;
-  notices = { group: groupId, list: [] };
+  notices = { group: groupId, list: [], cancels: [] };
   renderNotices(false);
   try {
-    const res = await fetch(`${NOTICES_URL}?group=${encodeURIComponent(groupId)}`);
+    // Курс и ступень — для объявлений на весь курс («/notice 3курс»).
+    const query = new URLSearchParams({ group: groupId, course: group.course, level: group.level });
+    const res = await fetch(`${NOTICES_URL}?${query}`);
     if (!res.ok) return;
     const body = await res.json();
     if (notices.group !== groupId) return;
     notices.list = body.notices || [];
+    notices.cancels = body.cancels || [];
     renderNotices(true);
+    applyCancels();
   } catch {
     // Без объявлений расписание остаётся расписанием.
   }
@@ -78,6 +84,39 @@ function renderNotices(animate) {
       return node;
     });
   els.notices.replaceChildren(...nodes);
+}
+
+/** Отмена пары в показанный день: по номеру; отмена без номеров — весь день. */
+function cancelFor(slot) {
+  const day = isoDate(dateOfDay(selectedDay));
+  return (
+    notices.cancels.find((c) => c.day === day && (!c.slots.length || c.slots.includes(slot))) ||
+    null
+  );
+}
+
+/**
+ * Зачёркивает отменённые пары поверх готовых карточек, как refreshNow:
+ * отмены приходят позже расписания, и перерисовка заново проиграла бы
+ * появление списка.
+ */
+function applyCancels() {
+  for (const card of els.lessons.querySelectorAll(".card")) {
+    const cancel = cancelFor(Number(card.dataset.slot));
+    card.classList.toggle("card--cancelled", Boolean(cancel));
+    let note = card.querySelector(".cancel-note");
+    if (!cancel) {
+      note?.remove();
+      continue;
+    }
+    if (!note) {
+      note = el("div", "cancel-note");
+      (card.querySelector(".card-body") || card).append(note);
+    }
+    note.textContent = cancel.reason ? `Отменена · ${cancel.reason}` : "Отменена";
+  }
+  refreshNow();
+  refreshNext();
 }
 
 const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
@@ -459,7 +498,7 @@ function showSchedule() {
 
   renderDays();
   renderLessons(group, parity);
-  loadNotices(group.id);
+  loadNotices(group);
 }
 
 function renderDays() {
@@ -590,8 +629,7 @@ function renderLessons(group, parity) {
   });
 
   els.lessons.replaceChildren(...nodes);
-  refreshNow();
-  refreshNext();
+  applyCancels();
   scrollToNow();
 }
 
@@ -1097,7 +1135,7 @@ function currentLesson() {
   const bells = new Map(data.bells.map((b) => [b.n, b]));
   for (const lesson of visible) {
     const time = timesOf(lesson, bells);
-    if (!time) continue;
+    if (!time || cancelFor(lesson.slot)) continue;
     const start = minutes(time.start);
     const end = minutes(time.end);
     if (nowMinutes >= start && nowMinutes <= end) {
@@ -1137,7 +1175,7 @@ function nextLesson() {
   let best = null;
   for (const lesson of visible) {
     const time = timesOf(lesson, bells);
-    if (!time) continue;
+    if (!time || cancelFor(lesson.slot)) continue;
     const start = minutes(time.start);
     if (start <= nowMinutes) continue;
     if (!best || start < best.start) best = { lesson, start };
@@ -1153,8 +1191,13 @@ function refreshNext() {
     return;
   }
 
-  const upcoming = nextLesson();
   els.next.hidden = false;
+  if (visible.every((lesson) => cancelFor(lesson.slot))) {
+    els.next.textContent = "Все пары на сегодня отменены";
+    return;
+  }
+
+  const upcoming = nextLesson();
 
   if (!upcoming) {
     els.next.textContent = currentLesson() ? "Это последняя пара" : "Пары закончились";

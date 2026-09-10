@@ -7,7 +7,16 @@
  * Считает обезличенно, см. schema.sql.
  */
 
-import { answerInline, loadGroups, normalize } from "./inline.js";
+import {
+  addDays,
+  answerInline,
+  dateLabel,
+  iso,
+  loadGroups,
+  normalize,
+  parseDay,
+  today,
+} from "./inline.js";
 
 const WEB_APP_URL = "https://bodryash.github.io/schedule-miniapp/";
 
@@ -401,14 +410,62 @@ async function silentGroups(env, since) {
   return groups.map((g) => g.id).filter((id) => !seen.has(id));
 }
 
-/** Действующие объявления группы и общие для всех. */
-async function activeNotices(env, groupId) {
-  if (!env.STATS || !groupId) return [];
+// Объявление на курс хранится одной записью с таким ключом, а не копией на
+// каждую группу: снимается одной командой, и новая группа курса его тоже видит.
+const courseKey = (level, course) => `курс:${level}:${course}`;
+
+function courseLabel(key) {
+  const [, level, course] = key.split(":");
+  return level === "магистратура" ? `маг${course}` : `${course}курс`;
+}
+
+/**
+ * «3 курс» и «маг 1» пишут с пробелом, а адресат — первое слово команды:
+ * без склейки «курс» ушёл бы в текст, а «3» не нашлось бы как группа.
+ */
+const glueCourse = (body) =>
+  body
+    .replace(/^(\d)\s+курс(?=[\s,]|$)/i, "$1курс")
+    .replace(/^маг(?:истратура)?\s+(\d)(?=[\s,]|$)/i, "маг$1");
+
+/** «3курс», «3 курс», «маг1», «1маг» → ключ курса; иначе null. */
+function parseCourse(name) {
+  const key = normalize(name);
+  let match = key.match(/^(\d)курс$/);
+  if (match) return courseKey("бакалавриат", Number(match[1]));
+  match = key.match(/^маг(?:истратура)?(\d)$/) || key.match(/^(\d)маг(?:истратура)?$/);
+  if (match) return courseKey("магистратура", Number(match[1]));
+  return null;
+}
+
+const courseOf = (group) =>
+  group.level && group.course ? courseKey(group.level, group.course) : "—";
+
+/**
+ * Отмены пар группы — с позавчерашнего дня по Москве: часы телефона могут
+ * отставать от сервера, и вчерашняя отмена не должна исчезнуть раньше срока.
+ */
+async function activeCancels(env, group) {
+  if (!env.STATS || !group?.id) return [];
+  const { results = [] } = await env.STATS.prepare(
+    `SELECT id, day, slots, reason FROM cancels
+     WHERE grp IN (?, ?, '*') AND removed = 0 AND day >= ?
+     ORDER BY day, id LIMIT 40`
+  )
+    .bind(group.id, courseOf(group), iso(addDays(today(), -1)))
+    .all();
+  return results.map((c) => ({ ...c, slots: c.slots ? c.slots.split(",").map(Number) : [] }));
+}
+
+/** Объявления группы: её собственные, её курса и общие для всех. */
+async function activeNotices(env, group) {
+  if (!env.STATS || !group?.id) return [];
+  const course = courseOf(group);
   const { results = [] } = await env.STATS.prepare(
     `SELECT id, text, created FROM notices
-     WHERE grp IN (?, '*') AND expires > ? ORDER BY id DESC LIMIT 5`
+     WHERE grp IN (?, ?, '*') AND expires > ? ORDER BY id DESC LIMIT 5`
   )
-    .bind(groupId, new Date().toISOString())
+    .bind(group.id, course, new Date().toISOString())
     .all();
   return results;
 }
@@ -428,13 +485,140 @@ const NOTICE_HELP = [
   "",
   "/notice 311гэу Пара в четверг переносится в 614",
   "/notice 311гэу,312гэу Текст — нескольким группам",
+  "/notice 3курс Текст — курсу бакалавриата (1курс … 4курс)",
+  "/notice маг1 Текст — курсу магистратуры (маг1, маг2)",
   "/notice все Текст — всему факультету",
   "/unnotice 12 — снять объявление №12",
 ].join("\n");
 
+/** «311гэу,312гэу», «3курс», «маг1», «все» → ключи адресатов для /notice и /cancel. */
+async function resolveTargets(target) {
+  if (["все", "всем", "*"].includes(target.toLowerCase())) return { ids: ["*"] };
+
+  let groups;
+  try {
+    groups = await loadGroups();
+  } catch {
+    return { error: "Не удалось загрузить список групп. Попробуйте позже." };
+  }
+  // Только точное совпадение: «31» не должно уйти десятку групп разом.
+  const byName = new Map(groups.map((g) => [normalize(g.id), g.id]));
+  const courses = new Set(groups.map((g) => courseKey(g.level, g.course)));
+  const ids = [];
+  const unknown = [];
+  for (const name of target.split(",").filter(Boolean)) {
+    const course = parseCourse(name);
+    const id = course && courses.has(course) ? course : byName.get(normalize(name));
+    if (id) ids.push(id);
+    else unknown.push(name);
+  }
+  if (unknown.length) {
+    return {
+      error: `Не нашёл: ${escape(unknown.join(", "))}. Пишите группу полностью (311гэу), курс (3курс, маг1) или «все».`,
+    };
+  }
+  return { ids: [...new Set(ids)] };
+}
+
+const CANCEL_HELP = [
+  "<b>Отмена пар</b> — пара зачёркивается в приложении и в расписании в чатах.",
+  "",
+  "/cancel 311гэу 14.09 3 Преподаватель заболел",
+  "/cancel 3курс завтра — весь день",
+  "/cancel 311гэу,312гэу пт 1-2",
+  "/cancel все 15.09 5,6",
+  "/uncancel 7 — вернуть пару",
+  "",
+  "Порядок: кому, день, номера пар, причина. Кому — как в /notice. День — 14.09, сегодня, завтра или пн…сб. Без номеров отменяется весь день. Причину можно не писать.",
+].join("\n");
+
+const SLOT_LIST = /^\d(?:[-–,]\d)*$/;
+
+function parseSlots(token) {
+  const slots = new Set();
+  for (const part of token.split(",")) {
+    const [from, to = from] = part.split(/[-–]/).map(Number);
+    for (let n = Math.min(from, to); n <= Math.max(from, to); n++) slots.add(n);
+  }
+  return [...slots].sort((a, b) => a - b);
+}
+
+function slotsLabel(slots) {
+  if (!slots.length) return "весь день";
+  return `${slots.join(", ")} ${slots.length === 1 ? "пара" : "пары"}`;
+}
+
+async function handleCancel(env, text) {
+  const body = glueCourse(text.replace(/^\/cancel(@\w+)?/, "").trim());
+
+  if (!body) {
+    const { results = [] } = await env.STATS.prepare(
+      `SELECT id, grp, day, slots, reason FROM cancels
+       WHERE removed = 0 AND day >= ? ORDER BY day, id LIMIT 30`
+    )
+      .bind(iso(today()))
+      .all();
+    const list = results.map((c) => {
+      const date = new Date(`${c.day}T00:00:00Z`);
+      const slots = c.slots ? c.slots.split(",").map(Number) : [];
+      const reason = c.reason ? `\n${escape(c.reason)}` : "";
+      return `№${c.id} · ${escape(targetLabel(c.grp))} · ${dateLabel(date)} · ${slotsLabel(slots)}${reason}`;
+    });
+    return [CANCEL_HELP, "", list.length ? list.join("\n\n") : "Отменённых пар впереди нет."].join("\n");
+  }
+
+  const words = body.split(/\s+/);
+  const [target, dayWord, slotWord] = words;
+  if (!dayWord) return `Не хватает дня.\n\n${CANCEL_HELP}`;
+
+  const date = parseDay(dayWord);
+  if (!date) return `Не понял день «${escape(dayWord)}». Пишите 14.09, завтра или чт.`;
+  if (date < today()) return "Эта дата уже прошла.";
+  if (date.getUTCDay() === 0) return `${dateLabel(date)} — пар нет.`;
+
+  let slots = [];
+  let rest = words.slice(2);
+  if (slotWord && SLOT_LIST.test(slotWord)) {
+    slots = parseSlots(slotWord);
+    rest = words.slice(3);
+    if (slots.some((n) => n < 1 || n > 7)) return "Номера пар — от 1 до 7.";
+  }
+  const reason = rest.join(" ");
+  if (reason.length > 200) return "Причина слишком длинная: до 200 знаков.";
+
+  const resolved = await resolveTargets(target);
+  if (resolved.error) return resolved.error;
+
+  const stamp = new Date().toISOString();
+  const created = await env.STATS.batch(
+    resolved.ids.map((grp) =>
+      env.STATS.prepare(
+        "INSERT INTO cancels (grp, day, slots, reason, created) VALUES (?, ?, ?, ?, ?) RETURNING id"
+      ).bind(grp, iso(date), slots.join(","), reason, stamp)
+    )
+  );
+  const numbers = created.map((r) => r.results[0].id);
+  return [
+    `Отменено: ${escape(resolved.ids.map(targetLabel).join(", "))} · ${dateLabel(date)} · ${slotsLabel(slots)}${reason ? ` · ${escape(reason)}` : ""}.`,
+    "В приложении и в расписании в чатах пара уже зачёркнута.",
+    `Вернуть: ${numbers.map((n) => `/uncancel ${n}`).join(", ")}`,
+  ].join("\n");
+}
+
+async function handleUncancel(env, text) {
+  const id = Number(text.split(/\s+/)[1]);
+  if (!id) return "Укажите номер: /uncancel 7. Список — /cancel";
+  const result = await env.STATS.prepare(
+    "UPDATE cancels SET removed = 1 WHERE id = ? AND removed = 0"
+  )
+    .bind(id)
+    .run();
+  return result.meta?.changes ? `Отмена №${id} снята — пара снова в расписании.` : `Действующей отмены №${id} нет.`;
+}
+
 /** `/notice` без текста — список действующих; с текстом — новое объявление. */
 async function handleNotice(env, text) {
-  const body = text.replace(/^\/notice(@\w+)?/, "").trim();
+  const body = glueCourse(text.replace(/^\/notice(@\w+)?/, "").trim());
   const now = new Date();
 
   if (!body) {
@@ -444,7 +628,7 @@ async function handleNotice(env, text) {
       .bind(now.toISOString())
       .all();
     const list = results.map(
-      (n) => `№${n.id} · ${escape(n.grp === "*" ? "все" : n.grp)} · до ${n.expires.slice(5, 10)}\n${escape(n.text)}`
+      (n) => `№${n.id} · ${escape(targetLabel(n.grp))} · до ${n.expires.slice(5, 10)}\n${escape(n.text)}`
     );
     return [NOTICE_HELP, "", list.length ? list.join("\n\n") : "Действующих объявлений нет."].join("\n");
   }
@@ -454,27 +638,9 @@ async function handleNotice(env, text) {
   if (!message) return `Не хватает текста.\n\n${NOTICE_HELP}`;
   if (message.length > 500) return "Слишком длинно: до 500 знаков.";
 
-  let ids;
-  if (["все", "всем", "*"].includes(target.toLowerCase())) {
-    ids = ["*"];
-  } else {
-    let groups;
-    try {
-      groups = await loadGroups();
-    } catch {
-      return "Не удалось загрузить список групп. Попробуйте позже.";
-    }
-    // Только точное совпадение: «31» не должно уйти десятку групп разом.
-    const byName = new Map(groups.map((g) => [normalize(g.id), g.id]));
-    ids = [];
-    const unknown = [];
-    for (const name of target.split(",").filter(Boolean)) {
-      const id = byName.get(normalize(name));
-      if (id) ids.push(id);
-      else unknown.push(name);
-    }
-    if (unknown.length) return `Не нашёл группу: ${escape(unknown.join(", "))}. Пишите полностью, например 311гэу.`;
-  }
+  const resolved = await resolveTargets(target);
+  if (resolved.error) return resolved.error;
+  const { ids } = resolved;
 
   const expires = new Date(now.getTime() + NOTICE_DAYS * 86400000);
   const created = await env.STATS.batch(
@@ -485,12 +651,17 @@ async function handleNotice(env, text) {
     )
   );
   const numbers = created.map((r) => r.results[0].id);
-  const whom = ids[0] === "*" ? "всех групп" : ids.join(", ");
+  const whom = ids.map(targetLabel).join(", ");
   return [
     `Готово: объявление для ${escape(whom)}, висит до ${expires.toISOString().slice(0, 10)}.`,
     "Появится у студентов при следующем открытии приложения и в расписании в чатах.",
     `Снять: ${numbers.map((n) => `/unnotice ${n}`).join(", ")}`,
   ].join("\n");
+}
+
+function targetLabel(grp) {
+  if (grp === "*") return "всех групп";
+  return grp.startsWith("курс:") ? courseLabel(grp) : grp;
 }
 
 async function handleUnnotice(env, text) {
@@ -511,13 +682,17 @@ export default {
     // Приложение спрашивает объявления своей группы. Сайт на другом адресе,
     // поэтому разрешаем чтение отовсюду: здесь только публичные тексты.
     if (url.pathname === "/notices" && request.method === "GET") {
-      let notices = [];
-      try {
-        notices = await activeNotices(env, url.searchParams.get("group"));
-      } catch {
-        // Без объявлений расписание всё равно должно открыться.
-      }
-      return new Response(JSON.stringify({ notices }), {
+      const group = {
+        id: url.searchParams.get("group"),
+        level: url.searchParams.get("level"),
+        course: Number(url.searchParams.get("course")) || null,
+      };
+      // Без объявлений и отмен расписание всё равно должно открыться.
+      const [notices, cancels] = await Promise.all([
+        activeNotices(env, group).catch(() => []),
+        activeCancels(env, group).catch(() => []),
+      ]);
+      return new Response(JSON.stringify({ notices, cancels }), {
         headers: {
           "content-type": "application/json; charset=utf-8",
           "access-control-allow-origin": "*",
@@ -565,7 +740,8 @@ export default {
       try {
         const payload = await answerInline(update.inline_query, {
           groupOf: (id) => groupOfUser(env, id).catch(() => null),
-          notices: (id) => activeNotices(env, id).catch(() => []),
+          notices: (group) => activeNotices(env, group).catch(() => []),
+          cancels: (group) => activeCancels(env, group).catch(() => []),
         });
         const response = await callTelegram(env.BOT_TOKEN, "answerInlineQuery", payload);
         // Telegram отвергает ответ целиком из-за одной ошибки в разметке —
@@ -658,6 +834,22 @@ export default {
       } else {
         await draftBroadcast(env, message.chat.id, body);
       }
+    }
+
+    // Отмена пар меняет расписание всем — только владелец.
+    if (message && (text.startsWith("/cancel") || text.startsWith("/uncancel"))) {
+      const owner = String(message.chat.id) === String(env.OWNER_ID);
+      let reply = "Команда недоступна.";
+      if (owner) {
+        reply = text.startsWith("/uncancel")
+          ? await handleUncancel(env, text)
+          : await handleCancel(env, text);
+      }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: reply,
+        parse_mode: "HTML",
+      });
     }
 
     // Объявления публикуются от имени расписания — тоже только владелец.

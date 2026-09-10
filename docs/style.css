@@ -384,6 +384,26 @@ button:active { transform: scale(0.97); }
   }
 }
 
+/* --- Отменённые пары --- */
+
+/* Карточка остаётся на месте, но гаснет: видно и что было, и что отменено. */
+.card--cancelled .card-body > :not(.cancel-note),
+.card--cancelled .room-badge {
+  opacity: 0.45;
+}
+
+.card--cancelled .subject {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+.cancel-note {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e03131;
+}
+
 /* --- Поиск --- */
 
 .bar-actions {
