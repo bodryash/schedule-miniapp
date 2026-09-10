@@ -84,6 +84,13 @@ const els = {
   query: document.getElementById("query"),
   searchHint: document.getElementById("search-hint"),
   results: document.getElementById("results"),
+  rooms: document.getElementById("rooms"),
+  free: document.getElementById("free"),
+  freeClose: document.getElementById("free-close"),
+  freeDate: document.getElementById("free-date"),
+  freeSlots: document.getElementById("free-slots"),
+  freeHint: document.getElementById("free-hint"),
+  freeList: document.getElementById("free-list"),
   error: document.getElementById("error"),
 };
 
@@ -704,6 +711,144 @@ function runSearch() {
   );
 }
 
+/* ---------- Свободные аудитории ---------- */
+
+// Считаем только аудитории своего корпуса. «638Б ЮФ» и «558 ВШССН» —
+// аудитории других факультетов: по расписанию ФГП они «свободны» почти
+// всегда, а на деле заняты своими. Военная кафедра, спортбаза, дистант и
+// виртуальные — не место, где можно сесть.
+const OWN_ROOM = /^\d{3}[А-ЯЁ]?$/;
+
+let freeSlot = null;
+
+function clock(total) {
+  const h = String(Math.floor(total / 60)).padStart(2, "0");
+  return `${h}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function roomsOfBuilding() {
+  return [
+    ...new Set(data.lessons.map((l) => l.room.trim()).filter((r) => OWN_ROOM.test(r))),
+  ].sort((a, b) => a.localeCompare(b, "ru", { numeric: true }));
+}
+
+/**
+ * Когда каждая аудитория занята в этот день. По времени, а не по номеру
+ * пары: у части занятий своё время, и «12:00–13:30» задевает сразу две
+ * соседние пары. Занятия всех групп, а не только своей.
+ */
+function busyIntervals(day, parity) {
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  const busy = new Map();
+  for (const lesson of data.lessons) {
+    if (lesson.day !== day) continue;
+    if (!(lesson.week === "all" || parity === null || lesson.week === parity)) continue;
+    const room = lesson.room.trim();
+    if (!OWN_ROOM.test(room)) continue;
+    const time = timesOf(lesson, bells);
+    if (!time) continue;
+    if (!busy.has(room)) busy.set(room, []);
+    busy.get(room).push([minutes(time.start), minutes(time.end)]);
+  }
+  return busy;
+}
+
+/** По умолчанию — идущая пара или ближайшая следующая, если смотрим сегодня. */
+function defaultFreeSlot() {
+  const bells = data.bells;
+  if (isoDate(dateOfDay(selectedDay)) !== isoDate(new Date())) return bells[0].n;
+  const now = new Date();
+  const current = now.getHours() * 60 + now.getMinutes();
+  const bell = bells.find((b) => current < minutes(b.end));
+  return (bell || bells[bells.length - 1]).n;
+}
+
+function showFree() {
+  els.schedule.hidden = true;
+  els.search.hidden = true;
+  els.picker.hidden = true;
+  els.free.hidden = false;
+  freeSlot = defaultFreeSlot();
+  renderFree();
+  window.scrollTo(0, 0);
+}
+
+function closeFree() {
+  els.free.hidden = true;
+  showSchedule();
+}
+
+function renderFree() {
+  const bells = data.bells;
+  const bell = bells.find((b) => b.n === freeSlot) || bells[0];
+
+  const label = FULL_DATE.format(dateOfDay(selectedDay));
+  els.freeDate.textContent = label[0].toUpperCase() + label.slice(1);
+
+  els.freeSlots.replaceChildren(
+    ...bells.map((b) => {
+      const button = el("button", b.n === bell.n ? "day active" : "day");
+      button.type = "button";
+      button.append(el("span", null, `${b.n} пара`), el("span", "day-date", b.start));
+      button.addEventListener("click", () => {
+        freeSlot = b.n;
+        renderFree();
+      });
+      return button;
+    })
+  );
+
+  // Поздние пары за правым краем полосы — подводим выбранную к центру.
+  els.freeSlots.querySelector(".active")?.scrollIntoView({ inline: "center", block: "nearest" });
+
+  const all = roomsOfBuilding();
+  const busy = busyIntervals(selectedDay, weekParity(data.weeks));
+  const from = minutes(bell.start);
+  const to = minutes(bell.end);
+
+  const free = [];
+  for (const room of all) {
+    const spans = busy.get(room) || [];
+    if (spans.some(([start, end]) => start < to && end > from)) continue;
+    // До какого времени свободна: до ближайшего занятия после этой пары.
+    const later = spans.filter(([start]) => start >= to).map(([start]) => start);
+    free.push({ room, until: later.length ? Math.min(...later) : null });
+  }
+
+  els.freeHint.textContent = `Свободно ${free.length} из ${all.length} · ${bell.start} – ${bell.end}`;
+
+  if (!free.length) {
+    els.freeList.replaceChildren(el("p", "empty", "Все аудитории заняты"));
+    return;
+  }
+
+  // Группируем по этажу — по первой цифре номера.
+  const floors = new Map();
+  for (const item of free) {
+    const floor = item.room[0];
+    if (!floors.has(floor)) floors.set(floor, []);
+    floors.get(floor).push(item);
+  }
+
+  els.freeList.replaceChildren(
+    ...[...floors].map(([floor, items]) => {
+      const block = el("div", "floor");
+      block.append(el("h2", null, `${floor} этаж`));
+      const grid = el("div", "free-grid");
+      for (const item of items) {
+        const tile = el("div", "free-room");
+        tile.append(
+          el("span", "free-num", item.room),
+          el("span", "free-until", item.until === null ? "до конца дня" : `до ${clock(item.until)}`)
+        );
+        grid.append(tile);
+      }
+      block.append(grid);
+      return block;
+    })
+  );
+}
+
 /* ---------- Листание дней ---------- */
 
 // Куда «уезжает» новый день при появлении: -1 — пришли справа, 1 — слева.
@@ -1138,6 +1283,8 @@ async function init() {
   els.change.addEventListener("click", showPicker);
   initHomeScreen();
   els.find.addEventListener("click", showSearch);
+  els.rooms.addEventListener("click", showFree);
+  els.freeClose.addEventListener("click", closeFree);
   els.searchClose.addEventListener("click", closeSearch);
   els.query.addEventListener("input", runSearch);
   initSwipe();
