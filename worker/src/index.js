@@ -117,12 +117,48 @@ async function recordOpen(env, user, group) {
 
   if (now - lastSeen < HIT_COOLDOWN) return;
 
-  await env.STATS.prepare(
-    `INSERT INTO opens (day, grp, course, level, count) VALUES (?, ?, ?, ?, 1)
-     ON CONFLICT(day, grp) DO UPDATE SET count = count + 1`
+  // «zh-hans» и «zh» — один язык.
+  const lang = String(user.language_code || "—").toLowerCase().split("-")[0];
+  await env.STATS.batch([
+    env.STATS.prepare(
+      `INSERT INTO opens (day, grp, course, level, count) VALUES (?, ?, ?, ?, 1)
+       ON CONFLICT(day, grp) DO UPDATE SET count = count + 1`
+    ).bind(today, group.id || "—", group.course ?? null, group.level ?? null),
+    env.STATS.prepare(
+      `INSERT INTO langs (day, lang, count) VALUES (?, ?, 1)
+       ON CONFLICT(day, lang) DO UPDATE SET count = count + 1`
+    ).bind(today, lang),
+  ]);
+}
+
+const LANG_NAMES = {
+  ru: "русский", en: "английский", zh: "китайский", uk: "украинский",
+  be: "белорусский", kk: "казахский", uz: "узбекский", ky: "киргизский",
+  tg: "таджикский", az: "азербайджанский", hy: "армянский", ka: "грузинский",
+  tr: "турецкий", ar: "арабский", fa: "персидский", ko: "корейский",
+  ja: "японский", vi: "вьетнамский", mn: "монгольский", fr: "французский",
+  de: "немецкий", es: "испанский", it: "итальянский", pt: "португальский",
+  "—": "не указан",
+};
+
+/** Языки Telegram за неделю — доля открытий, чтобы решить про перевод. */
+async function languageLines(env, since) {
+  const { results = [] } = await env.STATS.prepare(
+    `SELECT lang, SUM(count) AS n FROM langs WHERE day >= ?
+     GROUP BY lang ORDER BY n DESC`
   )
-    .bind(today, group.id || "—", group.course ?? null, group.level ?? null)
-    .run();
+    .bind(since)
+    .all();
+  if (!results.length) return ["", "<b>Языки Telegram</b>", "Данных пока нет — копятся с открытий."];
+
+  const total = results.reduce((sum, r) => sum + r.n, 0);
+  const shown = results.slice(0, 8).map((r) => {
+    const share = Math.round((r.n / total) * 100);
+    return `${escape(LANG_NAMES[r.lang] || r.lang)} — ${r.n} (${share < 1 ? "<1" : share}%)`;
+  });
+  const rest = results.slice(8).reduce((sum, r) => sum + r.n, 0);
+  if (rest) shown.push(`другие — ${rest}`);
+  return ["", "<b>Языки Telegram</b> (открытия за неделю)", ...shown];
 }
 
 const REPO = "bodryash/schedule-miniapp";
@@ -338,6 +374,8 @@ async function buildStats(env) {
   } else {
     lines.push("", "Пока ни одного открытия.");
   }
+
+  lines.push(...(await languageLines(env, week)));
 
   // Молчащие группы — самое полезное здесь: они отвечают на вопрос, до кого
   // ссылка не дошла. Целый курс без единого открытия — это не про

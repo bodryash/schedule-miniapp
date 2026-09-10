@@ -70,6 +70,15 @@ CREATE TABLE IF NOT EXISTS notices (
 
 CREATE INDEX IF NOT EXISTS notices_grp ON notices (grp, expires);
 
+-- Язык Telegram при открытии: только сумма за день, без людей. Нужна,
+-- чтобы понять, стоит ли переводить приложение (иностранцы, китайцы).
+CREATE TABLE IF NOT EXISTS langs (
+  day   TEXT NOT NULL,
+  lang  TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, lang)
+);
+
 -- Отменённые пары: /cancel. grp — как в notices. day — ISO-дата,
 -- slots — номера пар через запятую, пусто — весь день.
 CREATE TABLE IF NOT EXISTS cancels (
