@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Расписание</title>
+  <title data-i18n>Расписание</title>
   <!-- Листание по краям — быстрые повторные тапы, и без запрета масштаба
        WebView Telegram принимает их за двойной тап, то есть за «увеличить».
        Одного touch-action там оказалось мало. -->
@@ -24,6 +24,27 @@
   <script>
     window.__v = Date.now();
     document.write('<link rel="stylesheet" href="style.css?v=' + window.__v + '">');
+
+    // Язык: выбранный в настройках, иначе китайский — если Telegram или
+    // браузер по-китайски. Английский сам не включаем: многие русские
+    // студенты держат Telegram на английском.
+    window.__lang = (function () {
+      // Из адреса — сразу после переключения: память телефона может быть
+      // недоступна, и тогда выбор иначе бы не применился.
+      var asked = new URLSearchParams(location.search).get("lang");
+      if (asked === "ru" || asked === "en" || asked === "zh") return asked;
+      try {
+        var saved = localStorage.getItem("schedule.lang");
+        if (saved === "ru" || saved === "en" || saved === "zh") return saved;
+      } catch (e) {}
+      var user = (window.Telegram && Telegram.WebApp.initDataUnsafe || {}).user || {};
+      var code = String(user.language_code || navigator.language || "").toLowerCase();
+      return code.indexOf("zh") === 0 ? "zh" : "ru";
+    })();
+    document.documentElement.lang = window.__lang;
+    if (window.__lang !== "ru") {
+      document.write('<scr' + 'ipt src="i18n.js?v=' + window.__v + '"><\/scr' + 'ipt>');
+    }
   </script>
   <noscript><link rel="stylesheet" href="style.css"></noscript>
 </head>
@@ -32,71 +53,82 @@
   <!-- Первый заход: кто вы и что показывать -->
   <section id="picker" hidden>
     <header class="bar">
-      <h1>Настройка расписания</h1>
+      <h1 data-i18n>Настройка расписания</h1>
       <button id="close" class="icon" type="button" aria-label="Вернуться к расписанию" hidden>×</button>
     </header>
 
+    <!-- Подпись на трёх языках сразу: кто не читает по-русски, должен
+         найти переключатель, не зная, как он называется. -->
     <label>
-      Курс
+      Язык · Language · 语言
+      <select id="lang">
+        <option value="ru">Русский</option>
+        <option value="en">English</option>
+        <option value="zh">中文</option>
+      </select>
+    </label>
+
+    <label>
+      <span data-i18n>Курс</span>
       <select id="course"></select>
     </label>
 
     <label>
-      Группа
+      <span data-i18n>Группа</span>
       <select id="group"></select>
     </label>
 
     <label id="main-row" hidden>
-      Основной язык
+      <span data-i18n>Основной язык</span>
       <select id="main"></select>
     </label>
 
     <label id="main-group-row" hidden>
-      Подгруппа основного языка
+      <span data-i18n>Подгруппа основного языка</span>
       <select id="main-group"></select>
     </label>
 
     <label id="lang2-row" hidden>
-      Второй язык
+      <span data-i18n>Второй язык</span>
       <select id="lang2"></select>
     </label>
 
     <label id="lang2-group-row" hidden>
-      Подгруппа второго языка
+      <span data-i18n>Подгруппа второго языка</span>
       <select id="lang2-group"></select>
     </label>
 
     <label id="lang3-row" hidden>
-      Третий язык
+      <span data-i18n>Третий язык</span>
       <select id="lang3"></select>
     </label>
 
     <fieldset id="electives-row" hidden>
-      <legend>Дисциплины по выбору</legend>
+      <legend data-i18n>Дисциплины по выбору</legend>
       <div id="electives"></div>
-      <p class="hint">Если не отмечено ничего, показываются все.</p>
+      <p class="hint" data-i18n>Если не отмечено ничего, показываются все.</p>
     </fieldset>
 
-    <button id="save" class="primary">Сохранить</button>
+    <button id="save" class="primary" data-i18n>Сохранить</button>
 
-    <button id="home" class="secondary" type="button" hidden>
+    <button id="home" class="secondary" type="button" hidden data-i18n>
       Вынести на главный экран
     </button>
-    <p class="hint" id="home-hint" hidden>
+    <p class="hint" id="home-hint" hidden data-i18n>
       Тогда расписание будет открываться с рабочего стола, минуя Telegram.
     </p>
 
     <div id="home-ios" hidden>
-      <button id="home-copy" class="secondary" type="button">
+      <button id="home-copy" class="secondary" type="button" data-i18n>
         Скопировать адрес расписания
       </button>
       <div class="hint">
-        <p>Дальше на айфоне:</p>
+        <p data-i18n>Дальше на айфоне:</p>
         <ol>
-          <li>Откройте Safari и вставьте адрес</li>
-          <li>Кнопка «Поделиться» → «На экран «Домой»</li>
+          <li data-i18n>Откройте Safari и вставьте адрес</li>
+          <li data-i18n>Кнопка «Поделиться» → «На экран «Домой»</li>
         </ol>
-        <p>Telegram на айфоне ярлыки создавать не умеет — это ограничение iOS.</p>
+        <p data-i18n>Telegram на айфоне ярлыки создавать не умеет — это ограничение iOS.</p>
       </div>
     </div>
   </section>
@@ -125,7 +157,7 @@
             <line x1="3" y1="17" x2="17" y2="17" />
           </svg>
         </button>
-        <button id="change" class="ghost">Настройки</button>
+        <button id="change" class="ghost" data-i18n>Настройки</button>
       </div>
     </header>
 
@@ -138,13 +170,13 @@
   <!-- Поиск по преподавателю, аудитории и предмету -->
   <section id="search" hidden>
     <header class="bar">
-      <h1>Поиск</h1>
+      <h1 data-i18n>Поиск</h1>
       <button id="search-close" class="icon" type="button" aria-label="Закрыть">×</button>
     </header>
 
     <input id="query" type="search" autocomplete="off"
            placeholder="Преподаватель, аудитория или предмет">
-    <p class="hint" id="search-hint">Например: Шестова, 614, микроэкономика</p>
+    <p class="hint" id="search-hint" data-i18n>Например: Шестова, 614, микроэкономика</p>
     <div id="results"></div>
   </section>
 
@@ -152,7 +184,7 @@
   <section id="free" hidden>
     <header class="bar">
       <div>
-        <h1>Свободные аудитории</h1>
+        <h1 data-i18n>Свободные аудитории</h1>
         <div class="group-name" id="free-date"></div>
       </div>
       <button id="free-close" class="icon" type="button" aria-label="Закрыть">×</button>
@@ -161,7 +193,7 @@
     <nav class="days" id="free-slots"></nav>
     <p class="hint" id="free-hint"></p>
     <div id="free-list"></div>
-    <p class="hint free-note">
+    <p class="hint free-note" data-i18n>
       По расписанию ФГП. Мероприятия вне расписания и аудитории других
       факультетов не учтены.
     </p>

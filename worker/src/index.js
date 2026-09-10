@@ -833,12 +833,21 @@ export default {
     // Отвечаем только на команды; на всё остальное молчим, но подтверждаем
     // приём — иначе Telegram будет слать этот апдейт снова и снова.
     if (message && text.startsWith("/start")) {
+      // Китайский — сам по языку Telegram. Английский только подсказкой:
+      // многие русские студенты держат Telegram на английском.
+      const code = String(message.from?.language_code || "").toLowerCase();
+      const zh = code.startsWith("zh");
+      const greeting = zh
+        ? "打开课表 👇\n语言可在“设置”中切换。"
+        : code.startsWith("en")
+          ? "Открывай расписание 👇\n\nOpen the schedule 👇 English: Настройки → Language."
+          : "Открывай расписание 👇";
       await callTelegram(env.BOT_TOKEN, "sendMessage", {
         chat_id: message.chat.id,
-        text: "Открывай расписание 👇",
+        text: greeting,
         reply_markup: {
           inline_keyboard: [
-            [{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }],
+            [{ text: zh ? "📅 打开课表" : "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }],
           ],
         },
       });

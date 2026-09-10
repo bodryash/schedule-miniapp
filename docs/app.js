@@ -1,4 +1,66 @@
 const tg = window.Telegram?.WebApp;
+
+/* ---------- Язык ---------- */
+
+// Язык выбирает index.html до загрузки: словарь (i18n.js) подключается
+// только для нерусского, русским он не стоит ни байта.
+const LANG = window.__lang || "ru";
+const DICT = window.I18N?.[LANG] || {};
+const LOCALE = { ru: "ru-RU", en: "en-GB", zh: "zh-CN" }[LANG] || "ru-RU";
+const LANG_KEY = "schedule.lang";
+
+/** Перевод по русской строке-ключу; {n} подставляются. Нет перевода — русский. */
+function t(text, vars) {
+  const template = DICT[text] ?? text;
+  return vars ? template.replace(/\{(\w+)\}/g, (_, key) => vars[key]) : template;
+}
+
+// Названия предметов: data/subjects.json, общий с ботом. Новый предмет без
+// перевода показывается по-русски — ничего не ломается.
+let SUBJECTS = {};
+
+function tr(subject) {
+  return (LANG !== "ru" && SUBJECTS[subject]?.[LANG]) || subject;
+}
+
+const MONTHS_GENITIVE = [
+  "января", "февраля", "марта", "апреля", "мая", "июня",
+  "июля", "августа", "сентября", "октября", "ноября", "декабря",
+];
+
+/** Пометки из PDF: «с 16.09.2026 года; на английском языке». */
+function trNote(note) {
+  if (LANG === "ru") return note;
+  return note
+    .split("; ")
+    .map((part) => {
+      let match = part.match(/^с (\d{1,2}\.\d{2})\.\d{4}(?: года)?$/);
+      if (match) return t("с {date}", { date: match[1] });
+      match = part.match(/^с (\d{1,2}) ([а-я]+) \d{4} года$/);
+      if (match && MONTHS_GENITIVE.includes(match[2])) {
+        const month = String(MONTHS_GENITIVE.indexOf(match[2]) + 1).padStart(2, "0");
+        return t("с {date}", { date: `${match[1].padStart(2, "0")}.${month}` });
+      }
+      match = part.match(/^(\d{2}\.\d{2})\.\d{4} разово отмена$/);
+      if (match) return t("{date} — разовая отмена", { date: match[1] });
+      return t(part);
+    })
+    .join("; ");
+}
+
+/** Статичные тексты из index.html: помечены data-i18n, ключ — сам текст. */
+function translatePage() {
+  if (LANG === "ru") return;
+  for (const node of document.querySelectorAll("[data-i18n]")) {
+    node.textContent = t(node.textContent.replace(/\s+/g, " ").trim());
+  }
+  for (const node of document.querySelectorAll("[placeholder]")) {
+    node.placeholder = t(node.placeholder);
+  }
+  for (const node of document.querySelectorAll("[aria-label]")) {
+    node.setAttribute("aria-label", t(node.getAttribute("aria-label")));
+  }
+}
 const STORAGE_KEY = "schedule.prefs";
 const HIT_URL = "https://fgp-schedule-bot.bodryash.workers.dev/hit";
 
@@ -75,7 +137,7 @@ function renderNotices(animate) {
       const node = el("div", animate ? "notice notice--enter" : "notice");
       const close = el("button", "notice-close", "×");
       close.type = "button";
-      close.setAttribute("aria-label", "Скрыть объявление");
+      close.setAttribute("aria-label", t("Скрыть объявление"));
       close.addEventListener("click", () => {
         dismissNotice(n.id);
         node.remove();
@@ -113,13 +175,15 @@ function applyCancels() {
       note = el("div", "cancel-note");
       (card.querySelector(".card-body") || card).append(note);
     }
-    note.textContent = cancel.reason ? `Отменена · ${cancel.reason}` : "Отменена";
+    note.textContent = cancel.reason
+      ? t("Отменена · {reason}", { reason: cancel.reason })
+      : t("Отменена");
   }
   refreshNow();
   refreshNext();
 }
 
-const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"].map((day) => t(day));
 
 // Основной язык: английский либо русский для иностранцев. Одновременно их
 // не бывает, поэтому в опросе это один вопрос. Название зависит от курса.
@@ -134,12 +198,12 @@ const MAIN_LANGS = [
 const LANG2 = /^2-ой\s/;
 const LANG3 = /^3-ий\s/;
 
-const FULL_DATE = new Intl.DateTimeFormat("ru-RU", {
+const FULL_DATE = new Intl.DateTimeFormat(LOCALE, {
   weekday: "long",
   day: "numeric",
   month: "long",
 });
-const SHORT_DATE = new Intl.DateTimeFormat("ru-RU", {
+const SHORT_DATE = new Intl.DateTimeFormat(LOCALE, {
   day: "numeric",
   month: "numeric",
 });
@@ -167,6 +231,7 @@ const els = {
   electivesRow: document.getElementById("electives-row"),
   electives: document.getElementById("electives"),
   save: document.getElementById("save"),
+  lang: document.getElementById("lang"),
   home: document.getElementById("home"),
   homeHint: document.getElementById("home-hint"),
   homeIos: document.getElementById("home-ios"),
@@ -316,8 +381,8 @@ function courseKey(group) {
 
 function courseTitle(group) {
   return group.level === "магистратура"
-    ? `${group.course} курс магистратуры`
-    : `${group.course} курс`;
+    ? t("{n} курс магистратуры", { n: group.course })
+    : t("{n} курс", { n: group.course });
 }
 
 function fillCourses() {
@@ -353,8 +418,8 @@ function fillLanguages() {
   els.mainRow.hidden = mains.length === 0;
   if (mains.length) {
     els.main.replaceChildren(
-      new Option("не выбран — показывать все", ANY),
-      ...mains.map((s) => new Option(s, s))
+      new Option(t("не выбран — показывать все"), ANY),
+      ...mains.map((s) => new Option(tr(s), s))
     );
     els.main.value = mains.includes(prefs.main) ? prefs.main : ANY;
   }
@@ -364,8 +429,8 @@ function fillLanguages() {
   els.lang2Row.hidden = second.length === 0;
   if (second.length) {
     els.lang2.replaceChildren(
-      new Option("не выбран — показывать все", ANY),
-      ...second.map((s) => new Option(s, s))
+      new Option(t("не выбран — показывать все"), ANY),
+      ...second.map((s) => new Option(tr(s), s))
     );
     els.lang2.value = second.includes(prefs.lang2) ? prefs.lang2 : ANY;
   }
@@ -376,8 +441,8 @@ function fillLanguages() {
   els.lang3Row.hidden = third.length === 0;
   if (third.length) {
     els.lang3.replaceChildren(
-      new Option("не хожу", ANY),
-      ...third.map((s) => new Option(s, s))
+      new Option(t("не хожу"), ANY),
+      ...third.map((s) => new Option(tr(s), s))
     );
     els.lang3.value = third.includes(prefs.lang3) ? prefs.lang3 : ANY;
   }
@@ -410,7 +475,7 @@ function fillElectives() {
       box.type = "checkbox";
       box.value = subject;
       box.checked = chosen.has(subject);
-      row.append(box, el("span", null, subject));
+      row.append(box, el("span", null, tr(subject)));
       return row;
     })
   );
@@ -423,8 +488,8 @@ function fillMainSubgroups() {
   els.mainGroupRow.hidden = subgroups.length < 2;
   if (subgroups.length >= 2) {
     els.mainGroup.replaceChildren(
-      new Option("показывать все", ANY),
-      ...subgroups.map((n) => new Option(`гр. ${n}`, String(n)))
+      new Option(t("показывать все"), ANY),
+      ...subgroups.map((n) => new Option(t("гр. {n}", { n }), String(n)))
     );
     els.mainGroup.value = prefs.mainGroup != null ? String(prefs.mainGroup) : ANY;
   }
@@ -437,8 +502,8 @@ function fillLang2Subgroups() {
   els.lang2GroupRow.hidden = subgroups.length < 2;
   if (subgroups.length >= 2) {
     els.lang2Group.replaceChildren(
-      new Option("показывать все", ANY),
-      ...subgroups.map((n) => new Option(`гр. ${n}`, String(n)))
+      new Option(t("показывать все"), ANY),
+      ...subgroups.map((n) => new Option(t("гр. {n}", { n }), String(n)))
     );
     els.lang2Group.value = prefs.lang2Group != null ? String(prefs.lang2Group) : ANY;
   }
@@ -482,7 +547,7 @@ function showSchedule() {
 
   els.picker.hidden = true;
   els.schedule.hidden = false;
-  els.currentGroup.textContent = `Группа ${group.title}`;
+  els.currentGroup.textContent = t("Группа {g}", { g: group.title });
 
   const label = FULL_DATE.format(dateOfDay(selectedDay));
   els.dateLabel.textContent = label[0].toUpperCase() + label.slice(1);
@@ -491,10 +556,10 @@ function showSchedule() {
   document.body.dataset.parity = parity || "none";
   els.weekLabel.textContent =
     parity === "odd"
-      ? "Нечётная неделя"
+      ? t("Нечётная неделя")
       : parity === "even"
-        ? "Чётная неделя"
-        : "Вне семестра";
+        ? t("Чётная неделя")
+        : t("Вне семестра");
 
   renderDays();
   renderLessons(group, parity);
@@ -593,7 +658,7 @@ function renderLessons(group, parity) {
   visible = list;
 
   if (list.length === 0) {
-    els.lessons.replaceChildren(el("p", "empty", "Пар нет 🎉"));
+    els.lessons.replaceChildren(el("p", "empty", t("Пар нет 🎉")));
     refreshNext();
     return;
   }
@@ -674,7 +739,7 @@ async function copyAddress(button) {
   button.dataset.label = was;
 
   if (done) {
-    button.textContent = "Адрес скопирован";
+    button.textContent = t("Адрес скопирован");
     setTimeout(() => (button.textContent = was), 2500);
     return;
   }
@@ -746,12 +811,13 @@ function runSearch() {
   const query = els.query.value.trim().toLowerCase();
   if (query.length < 2) {
     els.results.replaceChildren();
-    els.searchHint.textContent = "Например: Шестова, 614, микроэкономика";
+    els.searchHint.textContent = t("Например: Шестова, 614, микроэкономика");
     return;
   }
 
+  // Переведённое название тоже ищем: китаец наберёт «经济», а не «экономика».
   const found = data.lessons.filter((l) =>
-    [l.teacher, l.room, l.subject, l.group].some((field) =>
+    [l.teacher, l.room, l.subject, tr(l.subject), l.group].some((field) =>
       (field || "").toLowerCase().includes(query)
     )
   );
@@ -778,15 +844,15 @@ function runSearch() {
 
   if (!rows.length) {
     els.results.replaceChildren();
-    els.searchHint.textContent = "Ничего не нашлось";
+    els.searchHint.textContent = t("Ничего не нашлось");
     return;
   }
 
   const shown = rows.slice(0, SEARCH_LIMIT);
   els.searchHint.textContent =
     rows.length > SEARCH_LIMIT
-      ? `Найдено ${rows.length}, показаны первые ${SEARCH_LIMIT}`
-      : `Найдено ${rows.length}`;
+      ? t("Найдено {n}, показаны первые {limit}", { n: rows.length, limit: SEARCH_LIMIT })
+      : t("Найдено {n}", { n: rows.length });
 
   const bells = new Map(data.bells.map((b) => [b.n, b]));
   els.results.replaceChildren(
@@ -795,14 +861,16 @@ function runSearch() {
       const row = el("article", "card");
 
       const head = el("div", "time");
-      head.append(el("span", "slot", `${DAYS[lesson.day - 1]}, ${lesson.slot} пара`));
+      head.append(
+        el("span", "slot", t("{day}, {n} пара", { day: DAYS[lesson.day - 1], n: lesson.slot }))
+      );
       if (bell) head.append(el("span", null, `${bell.start} – ${bell.end}`));
       if (lesson.week !== "all") {
-        head.append(el("span", "tag", lesson.week === "odd" ? "нечётная" : "чётная"));
+        head.append(el("span", "tag", t(lesson.week === "odd" ? "нечётная" : "чётная")));
       }
 
       const body = el("div", "card-body");
-      body.append(head, el("div", "subject", lesson.subject));
+      body.append(head, el("div", "subject", tr(lesson.subject)));
       body.append(metaLine(lesson, "", false));
       body.append(el("div", "groups", [...new Set(groups)].join(", ")));
 
@@ -891,7 +959,7 @@ function renderFree() {
     ...bells.map((b) => {
       const button = el("button", b.n === bell.n ? "day active" : "day");
       button.type = "button";
-      button.append(el("span", null, `${b.n} пара`), el("span", "day-date", b.start));
+      button.append(el("span", null, t("{n} пара", { n: b.n })), el("span", "day-date", b.start));
       button.addEventListener("click", () => {
         freeSlot = b.n;
         renderFree();
@@ -917,7 +985,12 @@ function renderFree() {
     free.push({ room, until: later.length ? Math.min(...later) : null });
   }
 
-  els.freeHint.textContent = `Свободно ${free.length} из ${all.length} · ${bell.start} – ${bell.end}`;
+  els.freeHint.textContent = t("Свободно {free} из {all} · {start} – {end}", {
+    free: free.length,
+    all: all.length,
+    start: bell.start,
+    end: bell.end,
+  });
   // Итог меняется вместе с парой. Сам элемент не пересоздаётся, поэтому
   // CSS-анимация сработала бы один раз при открытии — запускаем явно.
   if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -928,7 +1001,7 @@ function renderFree() {
   }
 
   if (!free.length) {
-    els.freeList.replaceChildren(el("p", "empty", "Все аудитории заняты"));
+    els.freeList.replaceChildren(el("p", "empty", t("Все аудитории заняты")));
     return;
   }
 
@@ -946,7 +1019,7 @@ function renderFree() {
   els.freeList.replaceChildren(
     ...[...floors].map(([floor, items]) => {
       const block = el("div", "floor");
-      const heading = el("h2", null, `${floor} этаж`);
+      const heading = el("h2", null, t("{n} этаж", { n: floor }));
       heading.style.setProperty("--i", order++);
       block.append(heading);
       const grid = el("div", "free-grid");
@@ -955,7 +1028,11 @@ function renderFree() {
         tile.style.setProperty("--i", order++);
         tile.append(
           el("span", "free-num", item.room),
-          el("span", "free-until", item.until === null ? "до конца дня" : `до ${clock(item.until)}`)
+          el(
+            "span",
+            "free-until",
+            item.until === null ? t("до конца дня") : t("до {time}", { time: clock(item.until) })
+          )
         );
         grid.append(tile);
       }
@@ -1153,12 +1230,12 @@ function currentLesson() {
 /** «47 мин», «1 ч 5 мин» — сколько осталось до конца пары. */
 function humanLeft(value) {
   const left = Math.max(0, Math.round(value));
-  if (left < 1) return "меньше минуты";
+  if (left < 1) return t("меньше минуты");
   const hours = Math.floor(left / 60);
   const rest = left % 60;
-  if (hours && rest) return `${hours} ч ${rest} мин`;
-  if (hours) return `${hours} ч`;
-  return `${rest} мин`;
+  if (hours && rest) return t("{h} ч {m} мин", { h: hours, m: rest });
+  if (hours) return t("{h} ч", { h: hours });
+  return t("{m} мин", { m: rest });
 }
 
 // Пары показанного дня после фильтров — нужны и для «дальше», и для «сейчас».
@@ -1193,21 +1270,21 @@ function refreshNext() {
 
   els.next.hidden = false;
   if (visible.every((lesson) => cancelFor(lesson.slot))) {
-    els.next.textContent = "Все пары на сегодня отменены";
+    els.next.textContent = t("Все пары на сегодня отменены");
     return;
   }
 
   const upcoming = nextLesson();
 
   if (!upcoming) {
-    els.next.textContent = currentLesson() ? "Это последняя пара" : "Пары закончились";
+    els.next.textContent = t(currentLesson() ? "Это последняя пара" : "Пары закончились");
     return;
   }
 
   const where = upcoming.lesson.room ? `, ${roomLabel(upcoming.lesson.room)}` : "";
   els.next.replaceChildren(
-    el("span", "next-when", `через ${humanLeft(upcoming.left)}`),
-    el("span", null, `${upcoming.lesson.subject}${where}`)
+    el("span", "next-when", t("через {time}", { time: humanLeft(upcoming.left) })),
+    el("span", null, `${tr(upcoming.lesson.subject)}${where}`)
   );
 }
 
@@ -1235,7 +1312,7 @@ function refreshNow() {
       badge = el("div", "now");
       badge.append(
         el("span", "now-dot"),
-        el("span", null, "идёт сейчас"),
+        el("span", null, t("идёт сейчас")),
         el("span", "now-left")
       );
       // Именно в тело карточки: сама карточка — горизонтальный ряд, и
@@ -1243,7 +1320,9 @@ function refreshNow() {
       // плашкой аудитории.
       (card.querySelector(".card-body") || card).append(badge);
     }
-    badge.querySelector(".now-left").textContent = `осталось ${humanLeft(current.left)}`;
+    badge.querySelector(".now-left").textContent = t("осталось {time}", {
+      time: humanLeft(current.left),
+    });
 
     if (!bar) {
       bar = el("div", "now-bar");
@@ -1264,8 +1343,8 @@ function refreshNow() {
 
 function renderWindow(slot, bell) {
   const node = el("div", "window");
-  node.append(el("span", "window-slot", `${slot} пара`));
-  node.append(el("span", null, "ОКНО"));
+  node.append(el("span", "window-slot", t("{n} пара", { n: slot })));
+  node.append(el("span", null, t("ОКНО")));
   if (bell) node.append(el("span", "window-time", `${bell.start} – ${bell.end}`));
   return node;
 }
@@ -1275,11 +1354,14 @@ const REMOTE_ROOMS = ["дистант", "дистанционно", "онлай�
 
 function roomLabel(room) {
   if (!room) return "";
-  return REMOTE_ROOMS.includes(room.toLowerCase()) ? room : `ауд. ${room}`;
+  if (REMOTE_ROOMS.includes(room.toLowerCase())) return t(room);
+  // «В.каф.», «с/база» — не номера: в переводе это слова, «ауд.» к ним не пишем.
+  const named = t(room);
+  return named !== room ? named : t("ауд. {room}", { room });
 }
 
 function describe(lesson) {
-  return [lesson.type, lesson.teacher, roomLabel(lesson.room)]
+  return [t(lesson.type), lesson.teacher, roomLabel(lesson.room)]
     .filter(Boolean)
     .join(" · ");
 }
@@ -1290,7 +1372,7 @@ function describe(lesson) {
  */
 function metaLine(lesson, prefix = "", withRoom = true) {
   const line = el("div", "meta");
-  const before = [prefix, lesson.type, lesson.teacher].filter(Boolean).join(" · ");
+  const before = [prefix, t(lesson.type), lesson.teacher].filter(Boolean).join(" · ");
   if (before) line.append(document.createTextNode(before));
 
   const room = withRoom ? roomLabel(lesson.room) : "";
@@ -1308,14 +1390,15 @@ function metaLine(lesson, prefix = "", withRoom = true) {
  */
 function roomBadge(room) {
   const badge = el("div", "room-badge");
-  if (REMOTE_ROOMS.includes(room.toLowerCase())) {
+  const named = t(room);
+  if (REMOTE_ROOMS.includes(room.toLowerCase()) || named !== room) {
     badge.classList.add("room-badge--remote");
-    badge.textContent = room;
+    badge.textContent = named;
   } else {
-    badge.append(el("span", "room-badge-label", "ауд."), el("span", null, room));
+    badge.append(el("span", "room-badge-label", t("ауд.")), el("span", null, room));
   }
   // Длинные имена вроде «П6 1 ГУМ» набираем мельче, чтобы плашка не росла.
-  if (room.length > 5) badge.classList.add("room-badge--long");
+  if (named.length > 5) badge.classList.add("room-badge--long");
   return badge;
 }
 
@@ -1333,34 +1416,34 @@ function renderCard(entries, bells) {
   card.dataset.slot = first.slot;
 
   const head = el("div", "time");
-  head.append(el("span", "slot", `${first.slot} пара`));
+  head.append(el("span", "slot", t("{n} пара", { n: first.slot })));
   if (bell) head.append(el("span", null, `${bell.start} – ${bell.end}`));
-  if (first.subject === MFK) head.append(el("span", "tag", "МФК"));
-  else if (first.elective) head.append(el("span", "tag", first.elective));
+  if (first.subject === MFK) head.append(el("span", "tag", t("МФК")));
+  else if (first.elective) head.append(el("span", "tag", t(first.elective)));
   // Аудитория выносится вправо отдельной плашкой — но только когда она одна
   // на всю карточку. У подгрупп аудитории разные, и в списке они остаются.
   const single = entries.length === 1;
   const body = el("div", "card-body");
-  body.append(head, el("div", "subject", first.subject));
+  body.append(head, el("div", "subject", tr(first.subject)));
 
   if (single) {
     body.append(metaLine(first, "", false));
   } else {
     const details = el("details", "subgroups");
-    details.append(el("summary", null, `${entries.length} подгрупп — показать`));
+    details.append(el("summary", null, t("{n} подгрупп — показать", { n: entries.length })));
     for (const entry of entries) {
-      details.append(metaLine(entry, entry.subgroup ? `гр. ${entry.subgroup}` : ""));
+      details.append(metaLine(entry, entry.subgroup ? t("гр. {n}", { n: entry.subgroup }) : ""));
     }
     body.append(details);
   }
 
   const notes = [...new Set(entries.map((e) => e.note).filter(Boolean))];
-  if (notes.length) body.append(el("div", "note", notes.join("; ")));
+  if (notes.length) body.append(el("div", "note", notes.map(trNote).join("; ")));
 
   // Занятие на удалёнке — ссылка на встречу прямо в карточке.
   const link = entries.find((e) => e.link)?.link;
   if (link) {
-    const button = el("button", "link", "Подключиться");
+    const button = el("button", "link", t("Подключиться"));
     button.type = "button";
     button.addEventListener("click", () => {
       if (tg?.openLink) tg.openLink(link);
@@ -1379,16 +1462,43 @@ function renderCard(entries, bells) {
 async function init() {
   tg?.ready();
   tg?.expand();
+  translatePage();
+
+  // Переводы названий грузим вместе с расписанием; не загрузились —
+  // покажем по-русски, но расписание откроется.
+  const subjects =
+    LANG === "ru"
+      ? Promise.resolve({})
+      : fetch("data/subjects.json", { cache: "no-cache" })
+          .then((res) => (res.ok ? res.json() : {}))
+          .catch(() => ({}));
 
   try {
     const res = await fetch("data/schedule.json", { cache: "no-cache" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     data = await res.json();
   } catch (e) {
-    fail("Не удалось загрузить расписание. Попробуйте позже.");
+    fail(t("Не удалось загрузить расписание. Попробуйте позже."));
     console.error(e);
     return;
   }
+  SUBJECTS = await subjects;
+
+  // Telegram может отдать из кэша старый index.html без переключателя при
+  // свежем app.js — без проверки расписание не открылось бы вовсе.
+  if (els.lang) els.lang.value = LANG;
+  els.lang?.addEventListener("change", () => {
+    try {
+      localStorage.setItem(LANG_KEY, els.lang.value);
+    } catch {
+      // Не запомнилось — язык всё равно сменится до закрытия.
+    }
+    // Проще перезагрузить, чем перерисовывать каждый экран: словарь
+    // подключается при загрузке страницы.
+    const url = new URL(location.href);
+    url.searchParams.set("lang", els.lang.value);
+    location.replace(url);
+  });
 
   prefs = readPrefs();
 
