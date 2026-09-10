@@ -567,9 +567,12 @@ export default {
           groupOf: (id) => groupOfUser(env, id).catch(() => null),
           notices: (id) => activeNotices(env, id).catch(() => []),
         });
-        await callTelegram(env.BOT_TOKEN, "answerInlineQuery", payload);
-      } catch {
-        // Не ответили — Telegram просто покажет пустой список.
+        const response = await callTelegram(env.BOT_TOKEN, "answerInlineQuery", payload);
+        // Telegram отвергает ответ целиком из-за одной ошибки в разметке —
+        // без записи в журнал это выглядит как «бот молчит».
+        if (!response.ok) console.log("inline rejected", await response.text());
+      } catch (error) {
+        console.log("inline failed", String(error?.stack || error));
       }
       return new Response("ok");
     }
