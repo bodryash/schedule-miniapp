@@ -23,8 +23,9 @@ WORKER = ROOT / "worker"
 URL = "https://fgp-schedule-bot.bodryash.workers.dev"
 
 # Нажатия кнопок приходят отдельным типом обновления: без него
-# подтверждение рассылки просто не дойдёт до воркера.
-UPDATES = ["message", "callback_query"]
+# подтверждение рассылки просто не дойдёт до воркера. Так же и с запросами
+# «@FGPshedulebot 311гэу» из чатов.
+UPDATES = ["message", "callback_query", "inline_query"]
 
 
 async def main():

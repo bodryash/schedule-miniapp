@@ -341,6 +341,49 @@ button:active { transform: scale(0.97); }
   color: var(--accent);
 }
 
+/* --- Объявления --- */
+
+/* Жёлтый — не цвет недели и не цвет пар: плашку не спутать ни с чем. */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 10px 8px 10px 14px;
+  font-size: 14px;
+  line-height: 1.4;
+  background: rgba(245, 180, 0, 0.16);
+  border-left: 3px solid #f5b400;
+  border-radius: 12px;
+}
+
+.notice-text {
+  flex: 1;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.notice-close {
+  flex: none;
+  padding: 0 6px;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.notice--enter {
+  animation: rise 180ms var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notice--enter {
+    animation-name: fade;
+  }
+}
+
 /* --- Поиск --- */
 
 .bar-actions {

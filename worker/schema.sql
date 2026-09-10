@@ -58,6 +58,17 @@ CREATE TABLE IF NOT EXISTS outbox (
   PRIMARY KEY (broadcast, chat_id)
 );
 
+-- Объявления об изменениях: владелец пишет /notice, приложение показывает
+-- плашку у группы. grp = '*' — для всех. Сами исчезают после expires.
+CREATE TABLE IF NOT EXISTS notices (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  grp     TEXT NOT NULL,
+  text    TEXT NOT NULL,
+  created TEXT NOT NULL,
+  expires TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS notices_grp ON notices (grp, expires);
 CREATE INDEX IF NOT EXISTS outbox_pending ON outbox (broadcast, state);
 CREATE INDEX IF NOT EXISTS people_last ON people (last);
 CREATE INDEX IF NOT EXISTS opens_day ON opens (day);

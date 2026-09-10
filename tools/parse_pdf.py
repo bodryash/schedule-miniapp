@@ -15,6 +15,7 @@
 
 import json
 import re
+import shutil
 import sys
 from datetime import date
 from pathlib import Path
@@ -24,6 +25,7 @@ import pdfplumber
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "data" / "schedule.json"
 GROUPS = ROOT / "docs" / "data" / "groups.json"
+BY_GROUP = ROOT / "docs" / "data" / "groups"
 
 DAYS = {
     "понедельник": 1,
@@ -519,6 +521,22 @@ def main():
     GROUPS.write_text(
         json.dumps(data["groups"], ensure_ascii=False, indent=1), encoding="utf-8"
     )
+    # И по файлу на группу — для расписания в чатах: воркер отвечает на
+    # запрос за доли секунды и не может ради одной группы разбирать мегабайт.
+    # Папку чистим целиком, чтобы исчезнувшие из PDF группы не остались.
+    shutil.rmtree(BY_GROUP, ignore_errors=True)
+    BY_GROUP.mkdir(parents=True)
+    for group in data["groups"]:
+        part = {
+            "meta": data["meta"],
+            "weeks": data["weeks"],
+            "bells": data["bells"],
+            "group": group,
+            "lessons": [l for l in data["lessons"] if l["group"] == group["id"]],
+        }
+        (BY_GROUP / f"{group['id']}.json").write_text(
+            json.dumps(part, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
+        )
     print(f"групп: {len(data['groups'])}, пар: {len(data['lessons'])} → {OUT}")
 
 

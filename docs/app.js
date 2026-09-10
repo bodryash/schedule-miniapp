@@ -18,6 +18,68 @@ function countOpen(group) {
   }
 }
 
+/* ---------- Объявления ---------- */
+
+// Объявления об изменениях публикует владелец командой /notice боту. Сайт
+// статический, поэтому за ними ходим к воркеру.
+const NOTICES_URL = "https://fgp-schedule-bot.bodryash.workers.dev/notices";
+const DISMISSED_KEY = "schedule.dismissedNotices";
+
+let notices = { group: null, list: [] };
+
+function readDismissed() {
+  try {
+    return JSON.parse(localStorage.getItem(DISMISSED_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function dismissNotice(id) {
+  try {
+    const ids = [...readDismissed(), id].slice(-50);
+    localStorage.setItem(DISMISSED_KEY, JSON.stringify(ids));
+  } catch {
+    // Не запомнили — плашка вернётся при следующем открытии, и только.
+  }
+}
+
+/** Грузим один раз на группу: листание дней не должно дёргать сеть. */
+async function loadNotices(groupId) {
+  if (notices.group === groupId) return;
+  notices = { group: groupId, list: [] };
+  renderNotices(false);
+  try {
+    const res = await fetch(`${NOTICES_URL}?group=${encodeURIComponent(groupId)}`);
+    if (!res.ok) return;
+    const body = await res.json();
+    if (notices.group !== groupId) return;
+    notices.list = body.notices || [];
+    renderNotices(true);
+  } catch {
+    // Без объявлений расписание остаётся расписанием.
+  }
+}
+
+function renderNotices(animate) {
+  const dismissed = readDismissed();
+  const nodes = notices.list
+    .filter((n) => !dismissed.includes(n.id))
+    .map((n) => {
+      const node = el("div", animate ? "notice notice--enter" : "notice");
+      const close = el("button", "notice-close", "×");
+      close.type = "button";
+      close.setAttribute("aria-label", "Скрыть объявление");
+      close.addEventListener("click", () => {
+        dismissNotice(n.id);
+        node.remove();
+      });
+      node.append(el("div", "notice-text", n.text), close);
+      return node;
+    });
+  els.notices.replaceChildren(...nodes);
+}
+
 const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 
 // Основной язык: английский либо русский для иностранцев. Одновременно их
@@ -76,6 +138,7 @@ const els = {
   dateLabel: document.getElementById("date-label"),
   weekLabel: document.getElementById("week-label"),
   days: document.getElementById("days"),
+  notices: document.getElementById("notices"),
   next: document.getElementById("next"),
   lessons: document.getElementById("lessons"),
   find: document.getElementById("find"),
@@ -396,6 +459,7 @@ function showSchedule() {
 
   renderDays();
   renderLessons(group, parity);
+  loadNotices(group.id);
 }
 
 function renderDays() {

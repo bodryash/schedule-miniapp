@@ -7,7 +7,13 @@
  * Считает обезличенно, см. schema.sql.
  */
 
+import { answerInline, loadGroups, normalize } from "./inline.js";
+
 const WEB_APP_URL = "https://bodryash.github.io/schedule-miniapp/";
+
+// Объявление само снимается через неделю: забытая плашка «пара перенесена»
+// через месяц вводила бы в заблуждение сильнее, чем её отсутствие.
+const NOTICE_DAYS = 7;
 
 // Открытие засчитываем не чаще раза в час на человека, иначе тот, кто за
 // пару десять раз посмотрел расписание, перевесит целую группу.
@@ -395,9 +401,130 @@ async function silentGroups(env, since) {
   return groups.map((g) => g.id).filter((id) => !seen.has(id));
 }
 
+/** Действующие объявления группы и общие для всех. */
+async function activeNotices(env, groupId) {
+  if (!env.STATS || !groupId) return [];
+  const { results = [] } = await env.STATS.prepare(
+    `SELECT id, text, created FROM notices
+     WHERE grp IN (?, '*') AND expires > ? ORDER BY id DESC LIMIT 5`
+  )
+    .bind(groupId, new Date().toISOString())
+    .all();
+  return results;
+}
+
+async function groupOfUser(env, userId) {
+  if (!env.STATS || !userId) return null;
+  const row = await env.STATS.prepare(
+    "SELECT grp FROM people WHERE tg_id = ? ORDER BY last DESC LIMIT 1"
+  )
+    .bind(userId)
+    .first();
+  return row?.grp || null;
+}
+
+const NOTICE_HELP = [
+  "<b>Объявления</b> — плашка в приложении у группы, висит неделю.",
+  "",
+  "/notice 311гэу Пара в четверг переносится в 614",
+  "/notice 311гэу,312гэу Текст — нескольким группам",
+  "/notice все Текст — всему факультету",
+  "/unnotice 12 — снять объявление №12",
+].join("\n");
+
+/** `/notice` без текста — список действующих; с текстом — новое объявление. */
+async function handleNotice(env, text) {
+  const body = text.replace(/^\/notice(@\w+)?/, "").trim();
+  const now = new Date();
+
+  if (!body) {
+    const { results = [] } = await env.STATS.prepare(
+      "SELECT id, grp, text, expires FROM notices WHERE expires > ? ORDER BY id DESC LIMIT 30"
+    )
+      .bind(now.toISOString())
+      .all();
+    const list = results.map(
+      (n) => `№${n.id} · ${escape(n.grp === "*" ? "все" : n.grp)} · до ${n.expires.slice(5, 10)}\n${escape(n.text)}`
+    );
+    return [NOTICE_HELP, "", list.length ? list.join("\n\n") : "Действующих объявлений нет."].join("\n");
+  }
+
+  const [target, ...words] = body.split(/\s+/);
+  const message = body.slice(target.length).trim();
+  if (!message) return `Не хватает текста.\n\n${NOTICE_HELP}`;
+  if (message.length > 500) return "Слишком длинно: до 500 знаков.";
+
+  let ids;
+  if (["все", "всем", "*"].includes(target.toLowerCase())) {
+    ids = ["*"];
+  } else {
+    let groups;
+    try {
+      groups = await loadGroups();
+    } catch {
+      return "Не удалось загрузить список групп. Попробуйте позже.";
+    }
+    // Только точное совпадение: «31» не должно уйти десятку групп разом.
+    const byName = new Map(groups.map((g) => [normalize(g.id), g.id]));
+    ids = [];
+    const unknown = [];
+    for (const name of target.split(",").filter(Boolean)) {
+      const id = byName.get(normalize(name));
+      if (id) ids.push(id);
+      else unknown.push(name);
+    }
+    if (unknown.length) return `Не нашёл группу: ${escape(unknown.join(", "))}. Пишите полностью, например 311гэу.`;
+  }
+
+  const expires = new Date(now.getTime() + NOTICE_DAYS * 86400000);
+  const created = await env.STATS.batch(
+    ids.map((grp) =>
+      env.STATS.prepare(
+        "INSERT INTO notices (grp, text, created, expires) VALUES (?, ?, ?, ?) RETURNING id"
+      ).bind(grp, message, now.toISOString(), expires.toISOString())
+    )
+  );
+  const numbers = created.map((r) => r.results[0].id);
+  const whom = ids[0] === "*" ? "всех групп" : ids.join(", ");
+  return [
+    `Готово: объявление для ${escape(whom)}, висит до ${expires.toISOString().slice(0, 10)}.`,
+    "Появится у студентов при следующем открытии приложения и в расписании в чатах.",
+    `Снять: ${numbers.map((n) => `/unnotice ${n}`).join(", ")}`,
+  ].join("\n");
+}
+
+async function handleUnnotice(env, text) {
+  const id = Number(text.split(/\s+/)[1]);
+  if (!id) return "Укажите номер: /unnotice 12. Список — /notice";
+  const result = await env.STATS.prepare(
+    "UPDATE notices SET expires = ? WHERE id = ? AND expires > ?"
+  )
+    .bind(new Date().toISOString(), id, new Date().toISOString())
+    .run();
+  return result.meta?.changes ? `Объявление №${id} снято.` : `Действующего объявления №${id} нет.`;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // Приложение спрашивает объявления своей группы. Сайт на другом адресе,
+    // поэтому разрешаем чтение отовсюду: здесь только публичные тексты.
+    if (url.pathname === "/notices" && request.method === "GET") {
+      let notices = [];
+      try {
+        notices = await activeNotices(env, url.searchParams.get("group"));
+      } catch {
+        // Без объявлений расписание всё равно должно открыться.
+      }
+      return new Response(JSON.stringify({ notices }), {
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "public, max-age=60",
+        },
+      });
+    }
 
     // Мини-приложение сообщает, что его открыли.
     if (url.pathname === "/hit" && request.method === "POST") {
@@ -430,6 +557,20 @@ export default {
 
     if (update.callback_query) {
       await handleButton(env, update.callback_query);
+      return new Response("ok");
+    }
+
+    // «@FGPshedulebot 311гэу завтра» в любом чате.
+    if (update.inline_query) {
+      try {
+        const payload = await answerInline(update.inline_query, {
+          groupOf: (id) => groupOfUser(env, id).catch(() => null),
+          notices: (id) => activeNotices(env, id).catch(() => []),
+        });
+        await callTelegram(env.BOT_TOKEN, "answerInlineQuery", payload);
+      } catch {
+        // Не ответили — Telegram просто покажет пустой список.
+      }
       return new Response("ok");
     }
 
@@ -514,6 +655,22 @@ export default {
       } else {
         await draftBroadcast(env, message.chat.id, body);
       }
+    }
+
+    // Объявления публикуются от имени расписания — тоже только владелец.
+    if (message && (text.startsWith("/notice") || text.startsWith("/unnotice"))) {
+      const owner = String(message.chat.id) === String(env.OWNER_ID);
+      let reply = "Команда недоступна.";
+      if (owner) {
+        reply = text.startsWith("/unnotice")
+          ? await handleUnnotice(env, text)
+          : await handleNotice(env, text);
+      }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: reply,
+        parse_mode: "HTML",
+      });
     }
 
     // Сводка и список — только владельцу: данные чужие.
