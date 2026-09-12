@@ -29,11 +29,17 @@ const NOTICE_DAYS = 7;
 const HIT_COOLDOWN = 3600;
 
 async function callTelegram(token, method, payload) {
-  return fetch(`https://api.telegram.org/bot${token}/${method}`, {
+  const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
   });
+  // Telegram отвергает сообщение целиком из-за одной ошибки в разметке или
+  // длины — без записи в журнал это выглядит как «бот молчит».
+  if (!response.ok) {
+    console.log(`${method} rejected ${response.status}`, (await response.clone().text()).slice(0, 300));
+  }
+  return response;
 }
 
 async function hmac(key, message) {
@@ -154,7 +160,9 @@ async function languageLines(env, since) {
   const total = results.reduce((sum, r) => sum + r.n, 0);
   const shown = results.slice(0, 8).map((r) => {
     const share = Math.round((r.n / total) * 100);
-    return `${escape(LANG_NAMES[r.lang] || r.lang)} — ${r.n} (${share < 1 ? "<1" : share}%)`;
+    // «<1» пишем как &lt;1: иначе Telegram примет это за начало тега и
+    // отвергнет всё сообщение целиком.
+    return `${escape(LANG_NAMES[r.lang] || r.lang)} — ${r.n} (${share < 1 ? "&lt;1" : share}%)`;
   });
   const rest = results.slice(8).reduce((sum, r) => sum + r.n, 0);
   if (rest) shown.push(`другие — ${rest}`);
