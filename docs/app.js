@@ -1653,6 +1653,62 @@ function renderCard(entries, bells) {
   return card;
 }
 
+/* ---------- Обновление версии ---------- */
+
+// Ярлык на экране айфона iOS не перезагружает: при возврате показывает
+// страницу из памяти, и студент сидит на старой версии, пока не выгрузит
+// приложение. Поэтому сверяем дату index.html на сервере с датой той
+// страницы, что загружена сейчас, и перезагружаемся сами. Запрос идёт к
+// GitHub Pages — нагрузки на бота нет.
+const UPDATE_CHECK_INTERVAL = 5 * 60_000;
+const RELOADED_KEY = "schedule.reloadedFor";
+let lastUpdateCheck = 0;
+
+async function serverPageDate() {
+  try {
+    const res = await fetch(location.pathname, { method: "HEAD", cache: "no-store" });
+    const header = res.ok && res.headers.get("last-modified");
+    return header ? Date.parse(header) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function checkForUpdate() {
+  // Вне сайта (локальный файл) и чаще раза в пять минут не проверяем.
+  if (!location.protocol.startsWith("http")) return;
+  const now = Date.now();
+  if (now - lastUpdateCheck < UPDATE_CHECK_INTERVAL) return;
+  lastUpdateCheck = now;
+
+  const server = await serverPageDate();
+  // Дата загруженной страницы. Без заголовка браузер ставит «сейчас» —
+  // тогда сервер окажется старше, и мы ничего не сделаем: безопасно.
+  const loaded = Date.parse(document.lastModified);
+  if (!server || !loaded || server <= loaded + 2000) return;
+
+  // Если после перезагрузки кэш опять отдал старое, второй раз не пробуем:
+  // иначе страница перезагружалась бы бесконечно.
+  try {
+    if (sessionStorage.getItem(RELOADED_KEY) === String(server)) return;
+    sessionStorage.setItem(RELOADED_KEY, String(server));
+  } catch {
+    return;
+  }
+  // Не перезагружаем посреди ввода домашки или настроек — проверим позже.
+  if (!els.hwSheet.hidden || !els.picker.hidden) {
+    lastUpdateCheck = 0;
+    try {
+      sessionStorage.removeItem(RELOADED_KEY);
+    } catch {}
+    return;
+  }
+  // Свежая страница мимо кэша: метка в адресе, как у app.js и style.css.
+  const url = new URL(location.href);
+  url.searchParams.set("v", String(server));
+  location.replace(url);
+}
+
 /* ---------- Запуск ---------- */
 
 async function init() {
@@ -1730,7 +1786,13 @@ async function init() {
   // максимально, а следующий тик ещё не наступил.
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden && !els.schedule.hidden) refreshNow();
+    if (!document.hidden) checkForUpdate();
   });
+  // iOS возвращает ярлык с экрана «Домой» из памяти, без visibilitychange.
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) checkForUpdate();
+  });
+  checkForUpdate();
 
   const openedOn = isoDate(new Date());
   setInterval(() => {
