@@ -805,6 +805,7 @@ const CANCEL_HELP = [
   "/cancel все 15.09 5,6",
   "/cancel преп Шестова 14.09 Заболела — все пары преподавателя",
   "/cancel преп Иванов А.А. пт 3-4 — однофамильцев различают инициалы",
+  "/cancel 3курс преп Шестова ср — только у курса или групп (101,102)",
   "/uncancel 7 — вернуть пару, /uncancel 7,8,9 — несколько",
   "",
   "Порядок: кому, день, номера пар, причина. Кому — как в /notice. День — 14.09, сегодня, завтра или пн…сб. Без номеров отменяется весь день. Причину можно не писать.",
@@ -851,6 +852,10 @@ async function handleCancel(env, text) {
 
   const words = body.split(/\s+/);
   if (TEACHER_WORDS.has(words[0].toLowerCase())) return cancelByTeacher(env, words.slice(1));
+  // «/cancel 3курс преп Шестова ср» — преподаватель, но только у этих групп.
+  if (words[1] && TEACHER_WORDS.has(words[1].toLowerCase())) {
+    return cancelByTeacher(env, words.slice(2), words[0]);
+  }
   const [target, dayWord, slotWord] = words;
   if (!dayWord) return `Не хватает дня.\n\n${CANCEL_HELP}`;
 
@@ -901,7 +906,24 @@ const nameKey = (text) => String(text).toLowerCase().replace(/ё/g, "е").replac
  * все пары преподавателя в этот день и отменяет именно их: предмет и
  * подгруппу, а не всю пару группы.
  */
-async function cancelByTeacher(env, words) {
+async function cancelByTeacher(env, words, target = null) {
+  // Адресат перед «преп» — группы и курсы, как в /notice. Разбираем до
+  // указателя: на опечатку в группе ответ нужен раньше, чем поиск фамилии.
+  let allowed = null;
+  if (target) {
+    const resolved = await resolveTargets(target);
+    if (resolved.error) return resolved.error;
+    if (!resolved.ids.includes("*")) {
+      const groups = await loadGroups();
+      allowed = new Set(
+        groups
+          .filter((g) => resolved.ids.includes(g.id) || resolved.ids.includes(courseKey(g.level, g.course)))
+          .map((g) => g.id)
+      );
+    }
+  }
+  const whom = target && allowed ? ` у ${escape(glueCourse(target))}` : "";
+
   const dayAt = words.findIndex((word, i) => i > 0 && parseDay(word));
   if (!words.length || dayAt < 1) {
     return `Нужны фамилия и день: /cancel преп Шестова 14.09 Заболела\n\n${CANCEL_HELP}`;
@@ -960,12 +982,18 @@ async function cancelByTeacher(env, words) {
       (week === 0 || parity === null || week === WEEK_CODES[parity]) &&
       (!slots.length || slots.includes(slot))
   );
+  const scoped = allowed ? lessons.filter(([, g]) => allowed.has(index.groups[g])) : lessons;
   const when = `${dateLabel(date)}${slots.length ? `, ${slotsLabel(slots)}` : ""}`;
   if (!lessons.length) return `У ${escape(teacher.name)} ${when} пар по расписанию нет.`;
+  if (!scoped.length) {
+    // Пары у него есть, но у других — подскажем у каких, чтобы не гадать.
+    const elsewhere = [...new Set(lessons.map(([, g]) => index.groups[g]))].join(", ");
+    return `У ${escape(teacher.name)} ${when}${whom} пар нет. В этот день пары у групп: ${escape(elsewhere)}.`;
+  }
 
   // Одна запись на группу, предмет и подгруппу — со всеми парами дня.
   const groups = new Map();
-  for (const [, g, , slot, , s, subgroup] of lessons) {
+  for (const [, g, , slot, , s, subgroup] of scoped) {
     const key = `${g}|${s}|${subgroup}`;
     if (!groups.has(key)) {
       groups.set(key, { grp: index.groups[g], subject: index.subjects[s], subgroup, slots: [] });
@@ -1000,11 +1028,11 @@ async function cancelByTeacher(env, words) {
     return `• ${escape(item.grp)} — ${escape(item.subject)}${sub} · ${pairs}`;
   });
   return [
-    `Отменены пары ${escape(teacher.name)} · ${dateLabel(date)}${reason ? ` · ${escape(reason)}` : ""}:`,
+    `Отменены пары ${escape(teacher.name)}${whom} · ${dateLabel(date)}${reason ? ` · ${escape(reason)}` : ""}:`,
     ...lines,
     "",
     "В приложении и в расписании в чатах они уже зачёркнуты.",
-    `Вернуть все: /uncancel ${numbers.join(",")}`,
+    `${numbers.length > 1 ? "Вернуть все" : "Вернуть"}: /uncancel ${numbers.join(",")}`,
   ].join("\n");
 }
 
