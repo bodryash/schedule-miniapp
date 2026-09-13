@@ -48,7 +48,10 @@ CREATE TABLE IF NOT EXISTS broadcasts (
   created TEXT NOT NULL,
   status  TEXT NOT NULL DEFAULT 'draft',  -- draft | sending | done | cancelled
   sent    INTEGER NOT NULL DEFAULT 0,
-  failed  INTEGER NOT NULL DEFAULT 0
+  failed  INTEGER NOT NULL DEFAULT 0,
+  -- 1 — под сообщением кнопка «Открыть расписание». В уже созданную базу
+  -- столбец добавляет migrations/0002_broadcast_button.sql.
+  button  INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS outbox (

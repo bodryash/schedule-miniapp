@@ -85,8 +85,11 @@ jobs:
           DIFF: ${{ steps.diff.outputs.text }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          markup='{"inline_keyboard":[]}'
           if [ "$OK" = "success" ] && [ "$CHANGED" = "true" ]; then
             text="✅ Расписание обновлено.%0A%0A$DIFF%0A%0AСтуденты увидят через пару минут."
+            # Кнопка готовит черновик рассылки «расписание обновлено» (/updated).
+            markup='{"inline_keyboard":[[{"text":"📢 Сообщить студентам","callback_data":"upd"}]]}'
           elif [ "$OK" = "success" ]; then
             text="Расписание совпало с прежним, менять нечего."
           else
@@ -94,4 +97,5 @@ jobs:
           fi
           curl -sf -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
             --data-urlencode "chat_id=$OWNER_ID" \
-            --data "text=$text" > /dev/null
+            --data "text=$text" \
+            --data-urlencode "reply_markup=$markup" > /dev/null

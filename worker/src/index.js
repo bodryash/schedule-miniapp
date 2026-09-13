@@ -182,20 +182,21 @@ const REPO = "bodryash/schedule-miniapp";
 const BATCH = 40;
 
 /** Готовит черновик рассылки и показывает его с кнопками подтверждения. */
-async function draftBroadcast(env, chatId, text) {
+async function draftBroadcast(env, chatId, text, { button = false } = {}) {
   const { count } = await env.STATS.prepare(
     "SELECT COUNT(*) AS count FROM users"
   ).first();
 
   const draft = await env.STATS.prepare(
-    "INSERT INTO broadcasts (text, created) VALUES (?, ?) RETURNING id"
+    "INSERT INTO broadcasts (text, created, button) VALUES (?, ?, ?) RETURNING id"
   )
-    .bind(text, new Date().toISOString())
+    .bind(text, new Date().toISOString(), button ? 1 : 0)
     .first();
 
+  const extra = button ? "\n(с кнопкой «📅 Открыть расписание»)" : "";
   await callTelegram(env.BOT_TOKEN, "sendMessage", {
     chat_id: chatId,
-    text: `Разослать это ${count} получателям?\n\n———\n${text}\n———`,
+    text: `Разослать это ${count} получателям?${extra}\n\n———\n${text}\n———`,
     reply_markup: {
       inline_keyboard: [
         [
@@ -205,6 +206,45 @@ async function draftBroadcast(env, chatId, text) {
       ],
     },
   });
+}
+
+const MONTHS_RU = [
+  "января", "февраля", "марта", "апреля", "мая", "июня",
+  "июля", "августа", "сентября", "октября", "ноября", "декабря",
+];
+const MONTHS_EN = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+/**
+ * Дата версии расписания — когда разобран последний PDF. Берём из файла
+ * одной группы: у всех одинаковая, а целое расписание весит мегабайт.
+ */
+async function scheduleVersionDate() {
+  try {
+    const [group] = await loadGroups();
+    const response = await fetch(`${WEB_APP_URL}data/groups/${encodeURIComponent(group.id)}.json`);
+    const updated = (await response.json()).meta?.updated;
+    return ISO_DAY.test(updated || "") ? new Date(`${updated}T00:00:00Z`) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Текст «расписание обновлено» на русском и английском; extra — от владельца. */
+async function updatedText(extra) {
+  const date = await scheduleVersionDate();
+  const ru = date ? ` (от ${date.getUTCDate()} ${MONTHS_RU[date.getUTCMonth()]})` : "";
+  const en = date ? ` (${date.getUTCDate()} ${MONTHS_EN[date.getUTCMonth()]})` : "";
+  return [
+    `📅 Расписание обновлено по последней версии из деканата${ru}.`,
+    "Проверьте свои пары: изменения уже в приложении.",
+    ...(extra ? ["", extra] : []),
+    "",
+    `📅 The schedule has been updated to the latest version from the dean's office${en}.`,
+    "Please check your classes: the changes are already in the app.",
+  ].join("\n");
 }
 
 /** Кнопки под черновиком. Нажать может только владелец. */
@@ -253,7 +293,7 @@ async function handleButton(env, query) {
 /** Разбирает очередь порциями. Вызывается задачей по расписанию. */
 async function drainOutbox(env) {
   const job = await env.STATS.prepare(
-    "SELECT id, text FROM broadcasts WHERE status = 'sending' ORDER BY id LIMIT 1"
+    "SELECT id, text, button FROM broadcasts WHERE status = 'sending' ORDER BY id LIMIT 1"
   ).first();
   if (!job) return;
 
@@ -290,6 +330,10 @@ async function drainOutbox(env) {
       const response = await callTelegram(env.BOT_TOKEN, "sendMessage", {
         chat_id: row.chat_id,
         text: job.text,
+        // Рассылка идёт в личные чаты — там кнопка web_app разрешена.
+        reply_markup: job.button
+          ? { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] }
+          : undefined,
       });
       // Заблокировавшие бота и удалённые аккаунты — не ошибка рассылки.
       if (!response.ok) state = "failed";
@@ -1025,6 +1069,26 @@ export default {
       return new Response("ok");
     }
 
+    // «📢 Сообщить студентам» под отчётом об обновлении расписания.
+    if (update.callback_query?.data === "upd") {
+      const query = update.callback_query;
+      const owner = isOwner(env, query.from?.id);
+      await callTelegram(env.BOT_TOKEN, "answerCallbackQuery", {
+        callback_query_id: query.id,
+        text: owner ? "Черновик рассылки ниже" : "Недоступно",
+      });
+      if (owner && query.message) {
+        // Кнопку убираем, чтобы второй черновик не сделать случайно.
+        await callTelegram(env.BOT_TOKEN, "editMessageReplyMarkup", {
+          chat_id: query.message.chat.id,
+          message_id: query.message.message_id,
+          reply_markup: { inline_keyboard: [] },
+        });
+        await draftBroadcast(env, query.message.chat.id, await updatedText(""), { button: true });
+      }
+      return new Response("ok");
+    }
+
     if (update.callback_query) {
       await handleButton(env, update.callback_query);
       return new Response("ok");
@@ -1137,6 +1201,20 @@ export default {
         });
       } else {
         await draftBroadcast(env, message.chat.id, body);
+      }
+    }
+
+    // «Расписание обновлено» всем — готовый текст на двух языках, с датой
+    // версии и кнопкой. Тоже через черновик: отозвать рассылку нельзя.
+    if (message && text.startsWith("/updated")) {
+      if (!isOwner(env, message.chat.id)) {
+        await callTelegram(env.BOT_TOKEN, "sendMessage", {
+          chat_id: message.chat.id,
+          text: "Команда недоступна.",
+        });
+      } else {
+        const extra = text.replace(/^\/updated(@\w+)?/, "").trim();
+        await draftBroadcast(env, message.chat.id, await updatedText(extra), { button: true });
       }
     }
 
