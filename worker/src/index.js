@@ -548,15 +548,31 @@ const NOTICE_HELP = [
 const HOMEWORK_MAX = 1000;
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Домашка группы за неделю назад и три вперёд — всё, что можно пролистать. */
-async function groupHomework(env, groupId) {
-  if (!env.STATS || !groupId) return [];
+// Больше двух недель за запрос не отдаём: приложение показывает по неделе,
+// а без предела один запрос мог бы вычитать всю таблицу.
+const HOMEWORK_SPAN_DAYS = 14;
+
+/**
+ * Диапазон дат из запроса. Приложение просит неделю, которую показывает;
+ * без диапазона (старые версии) — неделя назад и неделя вперёд.
+ */
+function homeworkRange(from, to) {
+  if (ISO_DAY.test(from || "") && ISO_DAY.test(to || "") && from <= to) {
+    const span = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000;
+    if (span <= HOMEWORK_SPAN_DAYS) return { from, to };
+  }
   const now = today();
+  return { from: iso(addDays(now, -7)), to: iso(addDays(now, 7)) };
+}
+
+async function groupHomework(env, groupId, range) {
+  if (!env.STATS || !groupId) return [];
+  const { from, to } = range || homeworkRange();
   const { results = [] } = await env.STATS.prepare(
     `SELECT subject, subgroup, day, text FROM homework
-     WHERE grp = ? AND day >= ? AND day <= ? ORDER BY day LIMIT 300`
+     WHERE grp = ? AND day >= ? AND day <= ? ORDER BY day LIMIT 200`
   )
-    .bind(groupId, iso(addDays(now, -7)), iso(addDays(now, 21)))
+    .bind(groupId, from, to)
     .all();
   return results;
 }
@@ -607,7 +623,9 @@ async function saveHomework(env, body) {
       .bind(groupId, subject, subgroup, day, text, user.id, new Date().toISOString())
       .run();
   }
-  return { ok: true, homework: await groupHomework(env, groupId) };
+  // Возвращаем только этот день: приложение заменит его у себя, остальное
+  // у него уже есть.
+  return { ok: true, day, homework: await groupHomework(env, groupId, { from: day, to: day }) };
 }
 
 /** «@ivanov» или числовой id → человек из тех, кто писал боту или открывал приложение. */
@@ -928,7 +946,7 @@ export default {
       const [notices, cancels, homework, canEdit] = await Promise.all([
         activeNotices(env, group).catch(() => []),
         activeCancels(env, group).catch(() => []),
-        groupHomework(env, group.id).catch(() => []),
+        groupHomework(env, group.id, homeworkRange(source.get("from"), source.get("to"))).catch(() => []),
         initData ? canEditHomework(env, initData, group.id).catch(() => false) : false,
       ]);
       return new Response(JSON.stringify({ notices, cancels, homework, canEdit }), {
@@ -937,6 +955,25 @@ export default {
           "access-control-allow-origin": "*",
           // Ответ с правами старосты — личный, общий кэш его не должен хранить.
           "cache-control": request.method === "GET" ? "public, max-age=60" : "no-store",
+        },
+      });
+    }
+
+    // Домашка другой недели — когда её пролистали. Читать может любой:
+    // домашку и так видит вся группа, подпись здесь не нужна.
+    if (url.pathname === "/homework/list" && request.method === "POST") {
+      let homework = [];
+      try {
+        const body = JSON.parse(await request.text());
+        homework = await groupHomework(env, String(body.group || ""), homeworkRange(body.from, body.to));
+      } catch {
+        // Не догрузилось — пары всё равно на месте, просто без домашки.
+      }
+      return new Response(JSON.stringify({ homework }), {
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "no-store",
         },
       });
     }

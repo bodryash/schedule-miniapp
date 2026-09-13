@@ -88,8 +88,9 @@ const NOTICES_URL = "https://fgp-schedule-bot.bodryash.workers.dev/notices";
 const DISMISSED_KEY = "schedule.dismissedNotices";
 
 // cancels — отменённые пары (/cancel), приходят тем же запросом.
-// homework — домашка группы, canEdit — открыл староста этой группы.
-let notices = { group: null, list: [], cancels: [], homework: [], canEdit: false };
+// homework — домашка группы, canEdit — открыл староста этой группы,
+// weeks — недели, чья домашка уже загружена или грузится.
+let notices = { group: null, list: [], cancels: [], homework: [], canEdit: false, weeks: new Set() };
 
 function readDismissed() {
   try {
@@ -112,7 +113,16 @@ function dismissNotice(id) {
 async function loadNotices(group) {
   const groupId = group.id;
   if (notices.group === groupId) return;
-  notices = { group: groupId, list: [], cancels: [], homework: [], canEdit: false };
+  // Домашку при открытии берём только на показанную неделю; вторую —
+  // когда до неё долистают. Так запрос вдвое легче.
+  notices = {
+    group: groupId,
+    list: [],
+    cancels: [],
+    homework: [],
+    canEdit: false,
+    weeks: new Set([selectedWeek]),
+  };
   renderNotices(false);
   try {
     // Курс и ступень — для объявлений на весь курс («/notice 3курс»).
@@ -126,6 +136,7 @@ async function loadNotices(group) {
         course: group.course,
         level: group.level,
         initData: tg?.initData || "",
+        ...weekRange(selectedWeek),
       }),
     });
     if (!res.ok) return;
@@ -200,6 +211,35 @@ function applyCancels() {
 /* ---------- Домашка ---------- */
 
 const HOMEWORK_URL = "https://fgp-schedule-bot.bodryash.workers.dev/homework";
+
+/** Понедельник–суббота недели ленты (0 — текущая) для запроса домашки. */
+function weekRange(week) {
+  return { from: isoDate(dateOfDay(1, week)), to: isoDate(dateOfDay(DAYS.length, week)) };
+}
+
+/** Догружает домашку недели, когда её пролистали. Каждую — один раз. */
+async function ensureHomeworkWeek(week) {
+  const groupId = notices.group;
+  if (!groupId || notices.weeks.has(week)) return;
+  notices.weeks.add(week);
+  try {
+    const res = await fetch(`${HOMEWORK_URL}/list`, {
+      method: "POST",
+      body: JSON.stringify({ group: groupId, ...weekRange(week) }),
+    });
+    if (!res.ok) throw new Error(res.status);
+    const body = await res.json();
+    if (notices.group !== groupId) return;
+    const { from, to } = weekRange(week);
+    notices.homework = notices.homework
+      .filter((h) => h.day < from || h.day > to)
+      .concat(body.homework || []);
+    applyHomework();
+  } catch {
+    // Не вышло — попробуем при следующем заходе на эту неделю.
+    if (notices.group === groupId) notices.weeks.delete(week);
+  }
+}
 
 /** Подгруппы карточки: у языковых пар в одной карточке их несколько. */
 function cardSubgroups(card) {
@@ -309,7 +349,10 @@ async function submitHomework(text) {
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok || !body.ok) throw new Error(body.error || res.status);
-    notices.homework = body.homework || [];
+    // Бот возвращает только сохранённый день — заменяем его, остальное не трогаем.
+    notices.homework = notices.homework
+      .filter((h) => h.day !== body.day)
+      .concat(body.homework || []);
     closeHomework();
     applyHomework();
   } catch {
@@ -711,6 +754,7 @@ function showSchedule() {
   renderDays();
   renderLessons(group, parity);
   loadNotices(group);
+  ensureHomeworkWeek(selectedWeek);
 }
 
 function renderDays() {
