@@ -538,6 +538,167 @@ const NOTICE_HELP = [
   "/unnotice все — снять все разом",
 ].join("\n");
 
+/* ---------- Домашка и старосты ---------- */
+
+const HOMEWORK_MAX = 1000;
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Домашка группы за неделю назад и три вперёд — всё, что можно пролистать. */
+async function groupHomework(env, groupId) {
+  if (!env.STATS || !groupId) return [];
+  const now = today();
+  const { results = [] } = await env.STATS.prepare(
+    `SELECT subject, subgroup, day, text FROM homework
+     WHERE grp = ? AND day >= ? AND day <= ? ORDER BY day LIMIT 300`
+  )
+    .bind(groupId, iso(addDays(now, -7)), iso(addDays(now, 21)))
+    .all();
+  return results;
+}
+
+const isOwner = (env, id) => String(id) === String(env.OWNER_ID);
+
+/** Может ли человек с этой подписью Telegram вносить домашку группе. */
+async function canEditHomework(env, initData, groupId) {
+  if (!groupId) return false;
+  const user = await verifyInitData(initData, env.BOT_TOKEN);
+  if (!user?.id) return false;
+  // Владелец может везде — чтобы проверить и чтобы подменить старосту.
+  if (isOwner(env, user.id)) return true;
+  const row = await env.STATS.prepare("SELECT 1 AS ok FROM starostas WHERE grp = ? AND tg_id = ?")
+    .bind(groupId, user.id)
+    .first();
+  return Boolean(row);
+}
+
+async function saveHomework(env, body) {
+  const groupId = String(body.group || "");
+  const subject = String(body.subject || "").trim();
+  const subgroup = Number(body.subgroup) || 0;
+  const day = String(body.day || "");
+  const text = String(body.text || "").trim();
+
+  if (!groupId || !subject || subject.length > 200 || !ISO_DAY.test(day)) {
+    return { ok: false, error: "bad request" };
+  }
+  if (!Number.isInteger(subgroup) || subgroup < 0 || subgroup > 30) return { ok: false, error: "bad subgroup" };
+  if (text.length > HOMEWORK_MAX) return { ok: false, error: "too long" };
+
+  const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+  if (!user?.id) return { ok: false, error: "unauthorized" };
+  if (!(await canEditHomework(env, body.initData, groupId))) return { ok: false, error: "forbidden" };
+
+  if (!text) {
+    await env.STATS.prepare("DELETE FROM homework WHERE grp = ? AND subject = ? AND subgroup = ? AND day = ?")
+      .bind(groupId, subject, subgroup, day)
+      .run();
+  } else {
+    await env.STATS.prepare(
+      `INSERT INTO homework (grp, subject, subgroup, day, text, author, updated)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(grp, subject, subgroup, day) DO UPDATE SET
+         text = excluded.text, author = excluded.author, updated = excluded.updated`
+    )
+      .bind(groupId, subject, subgroup, day, text, user.id, new Date().toISOString())
+      .run();
+  }
+  return { ok: true, homework: await groupHomework(env, groupId) };
+}
+
+/** «@ivanov» или числовой id → человек из тех, кто писал боту или открывал приложение. */
+async function findPerson(env, token) {
+  const raw = String(token || "").trim();
+  if (/^\d+$/.test(raw)) {
+    const row =
+      (await env.STATS.prepare("SELECT id AS tg_id, name, username FROM users WHERE id = ?").bind(Number(raw)).first()) ||
+      (await env.STATS.prepare("SELECT tg_id, name, username FROM people WHERE tg_id = ? LIMIT 1").bind(Number(raw)).first());
+    return row || { tg_id: Number(raw), name: null, username: null };
+  }
+  const username = raw.replace(/^@/, "");
+  if (!/^\w{3,32}$/.test(username)) return null;
+  return (
+    (await env.STATS.prepare(
+      "SELECT id AS tg_id, name, username FROM users WHERE lower(username) = lower(?) LIMIT 1"
+    ).bind(username).first()) ||
+    (await env.STATS.prepare(
+      "SELECT tg_id, name, username FROM people WHERE lower(username) = lower(?) AND tg_id IS NOT NULL LIMIT 1"
+    ).bind(username).first())
+  );
+}
+
+const personLabel = (p) => (p.username ? `@${p.username}` : p.name || `id ${p.tg_id}`);
+
+const STAROSTA_HELP = [
+  "<b>Старосты</b> — вносят домашку своей группе прямо в расписании.",
+  "",
+  "/starosta 311гэу @ivanov — назначить",
+  "/unstarosta @ivanov — снять со всех групп",
+  "/unstarosta @ivanov 311гэу — снять с одной",
+  "/starosta — список",
+  "",
+  "Человек должен хоть раз написать боту или открыть расписание — иначе Telegram не даёт узнать его по @username. Можно указать и числовой id.",
+].join("\n");
+
+async function handleStarosta(env, text) {
+  const [, groupName, who] = text.trim().split(/\s+/);
+
+  if (!groupName) {
+    const { results = [] } = await env.STATS.prepare(
+      "SELECT grp, tg_id, name, username FROM starostas ORDER BY grp, created"
+    ).all();
+    const list = results.map((r) => `${escape(r.grp)} — ${escape(personLabel(r))}`);
+    return [STAROSTA_HELP, "", list.length ? list.join("\n") : "Старост пока нет."].join("\n");
+  }
+  if (!who) return `Не хватает человека.\n\n${STAROSTA_HELP}`;
+
+  let groups;
+  try {
+    groups = await loadGroups();
+  } catch {
+    return "Не удалось загрузить список групп. Попробуйте позже.";
+  }
+  const group = groups.find((g) => normalize(g.id) === normalize(groupName));
+  if (!group) return `Не нашёл группу ${escape(groupName)}. Пишите полностью, например 311гэу.`;
+
+  const person = await findPerson(env, who);
+  if (!person) {
+    return `Не нашёл ${escape(who)}. Пусть сначала напишет боту /start или откроет расписание, затем повторите.`;
+  }
+
+  await env.STATS.prepare(
+    `INSERT INTO starostas (grp, tg_id, name, username, created) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(grp, tg_id) DO UPDATE SET name = excluded.name, username = excluded.username`
+  )
+    .bind(group.id, person.tg_id, person.name || null, person.username || null, new Date().toISOString())
+    .run();
+
+  // Предупреждаем самого старосту. Не дошло — не беда: кнопка и так появится.
+  await callTelegram(env.BOT_TOKEN, "sendMessage", {
+    chat_id: person.tg_id,
+    text: `Вас назначили старостой группы ${group.title}.\n\nОткройте расписание: у пар появилась кнопка «＋ ДЗ». Домашку увидит вся группа.`,
+    reply_markup: { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] },
+  }).catch(() => null);
+
+  return `Готово: ${escape(personLabel(person))} — староста ${escape(group.title)}. Кнопка «＋ ДЗ» появится у него при следующем открытии расписания.`;
+}
+
+async function handleUnstarosta(env, text) {
+  const [, who, groupName] = text.trim().split(/\s+/);
+  if (!who) return `Укажите человека.\n\n${STAROSTA_HELP}`;
+  const person = await findPerson(env, who);
+  if (!person) return `Не нашёл ${escape(who)}.`;
+
+  const result = groupName
+    ? await env.STATS.prepare("DELETE FROM starostas WHERE tg_id = ? AND lower(grp) = lower(?)")
+        .bind(person.tg_id, groupName)
+        .run()
+    : await env.STATS.prepare("DELETE FROM starostas WHERE tg_id = ?").bind(person.tg_id).run();
+  const count = result.meta?.changes || 0;
+  return count
+    ? `${escape(personLabel(person))} больше не староста${groupName ? ` ${escape(groupName)}` : ""}. Внесённая домашка остаётся.`
+    : `${escape(personLabel(person))} не был старостой${groupName ? ` ${escape(groupName)}` : ""}.`;
+}
+
 /** «311гэу,312гэу», «3курс», «маг1», «все» → ключи адресатов для /notice и /cancel. */
 async function resolveTargets(target) {
   if (["все", "всем", "*"].includes(target.toLowerCase())) return { ids: ["*"] };
@@ -738,22 +899,57 @@ export default {
 
     // Приложение спрашивает объявления своей группы. Сайт на другом адресе,
     // поэтому разрешаем чтение отовсюду: здесь только публичные тексты.
-    if (url.pathname === "/notices" && request.method === "GET") {
+    // GET — от старых версий приложения, которые Telegram ещё держит в кэше.
+    // POST — с подписью Telegram в теле: по ней понимаем, староста ли это.
+    // В адрес подпись не кладём — адреса оседают в журналах.
+    if (url.pathname === "/notices" && (request.method === "GET" || request.method === "POST")) {
+      let source = url.searchParams;
+      let initData = "";
+      if (request.method === "POST") {
+        try {
+          const body = JSON.parse(await request.text());
+          source = new Map(Object.entries(body).map(([k, v]) => [k, v == null ? null : String(v)]));
+          initData = body.initData || "";
+        } catch {
+          source = new Map();
+        }
+      }
       const group = {
-        id: url.searchParams.get("group"),
-        level: url.searchParams.get("level"),
-        course: Number(url.searchParams.get("course")) || null,
+        id: source.get("group"),
+        level: source.get("level"),
+        course: Number(source.get("course")) || null,
       };
-      // Без объявлений и отмен расписание всё равно должно открыться.
-      const [notices, cancels] = await Promise.all([
+      // Без объявлений, отмен и домашки расписание всё равно должно открыться.
+      const [notices, cancels, homework, canEdit] = await Promise.all([
         activeNotices(env, group).catch(() => []),
         activeCancels(env, group).catch(() => []),
+        groupHomework(env, group.id).catch(() => []),
+        initData ? canEditHomework(env, initData, group.id).catch(() => false) : false,
       ]);
-      return new Response(JSON.stringify({ notices, cancels }), {
+      return new Response(JSON.stringify({ notices, cancels, homework, canEdit }), {
         headers: {
           "content-type": "application/json; charset=utf-8",
           "access-control-allow-origin": "*",
-          "cache-control": "public, max-age=60",
+          // Ответ с правами старосты — личный, общий кэш его не должен хранить.
+          "cache-control": request.method === "GET" ? "public, max-age=60" : "no-store",
+        },
+      });
+    }
+
+    // Староста вносит, меняет или удаляет домашку своей группы.
+    if (url.pathname === "/homework" && request.method === "POST") {
+      let result;
+      try {
+        result = await saveHomework(env, JSON.parse(await request.text()));
+      } catch {
+        result = { ok: false, error: "bad request" };
+      }
+      return new Response(JSON.stringify(result), {
+        status: result.ok ? 200 : 400,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "no-store",
         },
       });
     }
@@ -900,6 +1096,21 @@ export default {
       } else {
         await draftBroadcast(env, message.chat.id, body);
       }
+    }
+
+    // Назначать старост может только владелец.
+    if (message && (text.startsWith("/starosta") || text.startsWith("/unstarosta"))) {
+      let reply = "Команда недоступна.";
+      if (isOwner(env, message.chat.id)) {
+        reply = text.startsWith("/unstarosta")
+          ? await handleUnstarosta(env, text)
+          : await handleStarosta(env, text);
+      }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: reply,
+        parse_mode: "HTML",
+      });
     }
 
     // Отмена пар меняет расписание всем — только владелец.

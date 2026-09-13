@@ -88,7 +88,8 @@ const NOTICES_URL = "https://fgp-schedule-bot.bodryash.workers.dev/notices";
 const DISMISSED_KEY = "schedule.dismissedNotices";
 
 // cancels — отменённые пары (/cancel), приходят тем же запросом.
-let notices = { group: null, list: [], cancels: [] };
+// homework — домашка группы, canEdit — открыл староста этой группы.
+let notices = { group: null, list: [], cancels: [], homework: [], canEdit: false };
 
 function readDismissed() {
   try {
@@ -111,19 +112,32 @@ function dismissNotice(id) {
 async function loadNotices(group) {
   const groupId = group.id;
   if (notices.group === groupId) return;
-  notices = { group: groupId, list: [], cancels: [] };
+  notices = { group: groupId, list: [], cancels: [], homework: [], canEdit: false };
   renderNotices(false);
   try {
     // Курс и ступень — для объявлений на весь курс («/notice 3курс»).
-    const query = new URLSearchParams({ group: groupId, course: group.course, level: group.level });
-    const res = await fetch(`${NOTICES_URL}?${query}`);
+    // Подпись Telegram — чтобы воркер узнал старосту; в теле, не в адресе.
+    // Тело без content-type уходит как text/plain — без лишнего
+    // предварительного запроса, который браузер шлёт для JSON.
+    const res = await fetch(NOTICES_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        group: groupId,
+        course: group.course,
+        level: group.level,
+        initData: tg?.initData || "",
+      }),
+    });
     if (!res.ok) return;
     const body = await res.json();
     if (notices.group !== groupId) return;
     notices.list = body.notices || [];
     notices.cancels = body.cancels || [];
+    notices.homework = body.homework || [];
+    notices.canEdit = Boolean(body.canEdit);
     renderNotices(true);
     applyCancels();
+    applyHomework();
   } catch {
     // Без объявлений расписание остаётся расписанием.
   }
@@ -181,6 +195,129 @@ function applyCancels() {
   }
   refreshNow();
   refreshNext();
+}
+
+/* ---------- Домашка ---------- */
+
+const HOMEWORK_URL = "https://fgp-schedule-bot.bodryash.workers.dev/homework";
+
+/** Подгруппы карточки: у языковых пар в одной карточке их несколько. */
+function cardSubgroups(card) {
+  return (card.dataset.subgroups || "").split(",").filter(Boolean).map(Number);
+}
+
+/** Домашка к карточке в показанный день: всей группе или своим подгруппам. */
+function homeworkFor(card) {
+  const day = isoDate(dateOfDay(selectedDay));
+  const subgroups = cardSubgroups(card);
+  return notices.homework.filter(
+    (h) =>
+      h.day === day &&
+      h.subject === card.dataset.subject &&
+      (!h.subgroup || !subgroups.length || subgroups.includes(h.subgroup))
+  );
+}
+
+/**
+ * Домашка под парой — поверх готовых карточек, как отмены. Предмет,
+ * который идёт двумя парами подряд, получает её только у первой: иначе
+ * одно задание стояло бы дважды.
+ */
+function applyHomework() {
+  const seen = new Set();
+  for (const card of els.lessons.querySelectorAll(".card")) {
+    card.querySelector(".hw")?.remove();
+    const subject = card.dataset.subject;
+    if (!subject || seen.has(subject)) continue;
+    seen.add(subject);
+
+    const items = homeworkFor(card);
+    if (!items.length && !notices.canEdit) continue;
+
+    const block = el("div", "hw");
+    for (const item of items) {
+      const line = el("div", "hw-item");
+      line.append(el("span", "hw-label", t("ДЗ")));
+      const prefix = item.subgroup ? `${t("гр. {n}", { n: item.subgroup })}: ` : "";
+      line.append(el("span", "hw-text", prefix + item.text));
+      block.append(line);
+    }
+    if (notices.canEdit) {
+      const button = el("button", "hw-edit", t(items.length ? "Изменить ДЗ" : "＋ ДЗ"));
+      button.type = "button";
+      button.addEventListener("click", () => openHomework(card));
+      block.append(button);
+    }
+    (card.querySelector(".card-body") || card).append(block);
+  }
+}
+
+let editing = null;
+
+function openHomework(card) {
+  const subgroups = cardSubgroups(card);
+  editing = { subject: card.dataset.subject, day: isoDate(dateOfDay(selectedDay)) };
+
+  const label = FULL_DATE.format(dateOfDay(selectedDay));
+  els.hwTitle.textContent = tr(editing.subject);
+  els.hwDate.textContent = label[0].toUpperCase() + label.slice(1);
+
+  // Подгруппу спрашиваем, только когда в карточке их несколько.
+  els.hwSubgroupRow.hidden = subgroups.length < 2;
+  els.hwSubgroup.replaceChildren(
+    new Option(t("вся группа"), "0"),
+    ...subgroups.map((n) => new Option(t("гр. {n}", { n }), String(n)))
+  );
+  els.hwSubgroup.value = "0";
+  fillHomeworkText();
+
+  els.hwError.hidden = true;
+  els.hwSheet.hidden = false;
+  els.hwText.focus();
+}
+
+function fillHomeworkText() {
+  const subgroup = Number(els.hwSubgroup.value) || 0;
+  const existing = notices.homework.find(
+    (h) => h.day === editing.day && h.subject === editing.subject && (h.subgroup || 0) === subgroup
+  );
+  els.hwText.value = existing?.text || "";
+  els.hwDelete.hidden = !existing;
+}
+
+function closeHomework() {
+  els.hwSheet.hidden = true;
+  editing = null;
+}
+
+/** Пустой текст удаляет задание — так же ведёт себя и кнопка «Удалить». */
+async function submitHomework(text) {
+  if (!editing) return;
+  els.hwSave.disabled = els.hwDelete.disabled = true;
+  els.hwError.hidden = true;
+  try {
+    const res = await fetch(HOMEWORK_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        initData: tg?.initData || "",
+        group: notices.group,
+        subject: editing.subject,
+        subgroup: Number(els.hwSubgroup.value) || 0,
+        day: editing.day,
+        text,
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.error || res.status);
+    notices.homework = body.homework || [];
+    closeHomework();
+    applyHomework();
+  } catch {
+    els.hwError.textContent = t("Не удалось сохранить. Попробуйте ещё раз.");
+    els.hwError.hidden = false;
+  } finally {
+    els.hwSave.disabled = els.hwDelete.disabled = false;
+  }
 }
 
 const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"].map((day) => t(day));
@@ -259,6 +396,16 @@ const els = {
   freeHint: document.getElementById("free-hint"),
   freeList: document.getElementById("free-list"),
   error: document.getElementById("error"),
+  hwSheet: document.getElementById("hw-sheet"),
+  hwTitle: document.getElementById("hw-title"),
+  hwDate: document.getElementById("hw-date"),
+  hwSubgroupRow: document.getElementById("hw-subgroup-row"),
+  hwSubgroup: document.getElementById("hw-subgroup"),
+  hwText: document.getElementById("hw-text"),
+  hwError: document.getElementById("hw-error"),
+  hwSave: document.getElementById("hw-save"),
+  hwDelete: document.getElementById("hw-delete"),
+  hwCancel: document.getElementById("hw-cancel"),
 };
 
 let data = null;
@@ -695,6 +842,7 @@ function renderLessons(group, parity) {
 
   els.lessons.replaceChildren(...nodes);
   applyCancels();
+  applyHomework();
   scrollToNow();
 }
 
@@ -1086,7 +1234,9 @@ function initSwipe() {
     if (els.schedule.hidden) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
     // Полоса дней листается сама по себе, кнопки должны нажиматься.
-    if (event.target.closest?.(".days, button")) return;
+    // Окно домашки лежит поверх расписания: печать в нём не должна листать дни.
+    if (event.target.closest?.(".days, button, .sheet")) return;
+    if (!els.hwSheet.hidden) return;
     pointer = event.pointerId;
     startX = event.clientX;
     startY = event.clientY;
@@ -1414,6 +1564,8 @@ function renderCard(entries, bells) {
   else if (first.elective) kind = " card--optional";
   const card = el("article", `card${kind}`);
   card.dataset.slot = first.slot;
+  card.dataset.subject = first.subject;
+  card.dataset.subgroups = [...new Set(entries.map((e) => e.subgroup).filter(Boolean))].join(",");
 
   const head = el("div", "time");
   head.append(el("span", "slot", t("{n} пара", { n: first.slot })));
@@ -1519,6 +1671,14 @@ async function init() {
   els.searchClose.addEventListener("click", closeSearch);
   els.query.addEventListener("input", runSearch);
   initSwipe();
+  els.hwSubgroup.addEventListener("change", fillHomeworkText);
+  els.hwSave.addEventListener("click", () => submitHomework(els.hwText.value.trim()));
+  els.hwDelete.addEventListener("click", () => submitHomework(""));
+  els.hwCancel.addEventListener("click", closeHomework);
+  // Тап по затемнению вокруг окна закрывает его, как принято на телефонах.
+  els.hwSheet.addEventListener("click", (event) => {
+    if (event.target === els.hwSheet) closeHomework();
+  });
   // Крестик закрывает настройки, не сохраняя изменений.
   els.close.addEventListener("click", showSchedule);
 

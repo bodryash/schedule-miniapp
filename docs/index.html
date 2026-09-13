@@ -199,6 +199,31 @@
     </p>
   </section>
 
+  <!-- Домашка: только для старост, открывается кнопкой «＋ ДЗ» у пары -->
+  <div id="hw-sheet" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="hw-title">
+      <div class="group-name" id="hw-date"></div>
+      <h2 id="hw-title"></h2>
+
+      <label id="hw-subgroup-row" hidden>
+        <span data-i18n>Для кого</span>
+        <select id="hw-subgroup"></select>
+      </label>
+
+      <label>
+        <span data-i18n>Что задано</span>
+        <textarea id="hw-text" rows="5" maxlength="1000"></textarea>
+      </label>
+      <p class="error" id="hw-error" hidden></p>
+
+      <button id="hw-save" class="primary" type="button" data-i18n>Сохранить</button>
+      <div class="sheet-actions">
+        <button id="hw-delete" class="ghost" type="button" hidden data-i18n>Удалить</button>
+        <button id="hw-cancel" class="ghost" type="button" data-i18n>Отмена</button>
+      </div>
+    </div>
+  </div>
+
   <p id="error" class="error" hidden></p>
 
   <script>

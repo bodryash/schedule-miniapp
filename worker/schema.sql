@@ -79,6 +79,34 @@ CREATE TABLE IF NOT EXISTS langs (
   PRIMARY KEY (day, lang)
 );
 
+-- Старосты: назначает владелец командой /starosta. Только они вносят
+-- домашку своей группы. У группы может быть несколько старост.
+CREATE TABLE IF NOT EXISTS starostas (
+  grp      TEXT NOT NULL,
+  tg_id    INTEGER NOT NULL,
+  name     TEXT,
+  username TEXT,
+  created  TEXT NOT NULL,
+  PRIMARY KEY (grp, tg_id)
+);
+
+CREATE INDEX IF NOT EXISTS starostas_user ON starostas (tg_id);
+
+-- Домашка: одна запись на предмет, подгруппу и дату пары. subgroup 0 —
+-- всей группе. Пустой текст из приложения удаляет запись.
+CREATE TABLE IF NOT EXISTS homework (
+  grp      TEXT NOT NULL,
+  subject  TEXT NOT NULL,
+  subgroup INTEGER NOT NULL DEFAULT 0,
+  day      TEXT NOT NULL,
+  text     TEXT NOT NULL,
+  author   INTEGER NOT NULL,
+  updated  TEXT NOT NULL,
+  PRIMARY KEY (grp, subject, subgroup, day)
+);
+
+CREATE INDEX IF NOT EXISTS homework_grp ON homework (grp, day);
+
 -- Отменённые пары: /cancel. grp — как в notices. day — ISO-дата,
 -- slots — номера пар через запятую, пусто — весь день.
 CREATE TABLE IF NOT EXISTS cancels (
