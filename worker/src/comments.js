@@ -10,7 +10,7 @@
  * обращений за пару часов.
  */
 
-import { addDays, iso, today } from "./inline.js";
+import { addDays, iso, loadGroups, normalize, today } from "./inline.js";
 
 export const COMMENT_MAX = 300;
 const PER_USER_DAY = 10;
@@ -42,19 +42,22 @@ async function isStarosta(env, userId, groupId) {
 }
 
 /**
- * Член группы — по последнему открытию приложения: другого знания о группе
- * человека у нас нет. Староста и владелец — всегда.
+ * Писать и читать может любой, кто открыл приложение в Telegram, в любой
+ * группе — так решил владелец. Сдерживают лимиты, жалобы и то, что
+ * владелец видит всех авторов командой /comments.
  */
 export async function canComment(env, user, groupId) {
-  if (!user?.id || !groupId) return false;
-  if (isOwner(env, user.id)) return true;
-  const row = await env.STATS.prepare(
-    "SELECT grp FROM people WHERE tg_id = ? ORDER BY last DESC LIMIT 1"
-  )
-    .bind(user.id)
-    .first();
-  if (row?.grp === groupId) return true;
-  return isStarosta(env, user.id, groupId);
+  return Boolean(user?.id && groupId);
+}
+
+/** Группа должна быть в расписании — иначе через API писали бы в выдуманные. */
+async function groupExists(groupId) {
+  try {
+    return (await loadGroups()).some((g) => g.id === groupId);
+  } catch {
+    // Список не загрузился — не мешаем писать в группу из самого приложения.
+    return true;
+  }
 }
 
 /** Счётчики «💬 N» на диапазон дат: строка на пару, где что-то написано. */
@@ -127,6 +130,7 @@ export async function commentsApi(env, action, body, user, notify) {
     const lesson = lessonParams(body);
     if (!lesson) return fail("bad request");
     if (!(await canComment(env, user, lesson.group))) return fail("forbidden", 403);
+    if (!(await groupExists(lesson.group))) return fail("bad request");
 
     if (action === "add") {
       const text = String(body.text || "").trim();
@@ -147,9 +151,18 @@ export async function commentsApi(env, action, body, user, notify) {
 
       await env.STATS.batch([
         env.STATS.prepare(
-          `INSERT INTO comments (grp, day, subject, tg_id, name, text, created)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
-        ).bind(lesson.group, lesson.day, lesson.subject, user.id, displayName(user), text, new Date(Date.now()).toISOString()),
+          `INSERT INTO comments (grp, day, subject, tg_id, name, username, text, created)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          lesson.group,
+          lesson.day,
+          lesson.subject,
+          user.id,
+          displayName(user),
+          user.username || null,
+          text,
+          new Date(Date.now()).toISOString()
+        ),
         await addCount(env, lesson, 1),
       ]);
     }
@@ -240,6 +253,101 @@ export async function moderateComment(env, action, id) {
     ...(comment.hidden === 0 ? [await addCount(env, lesson, -1)] : []),
   ]);
   return "Удалил";
+}
+
+const LIST_LIMIT = 40;
+const STATUS = { 0: "", 1: " · 🚫 скрыт жалобами", 2: " · 🗑 удалён" };
+const TIME = new Intl.DateTimeFormat("ru-RU", {
+  day: "2-digit",
+  month: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Europe/Moscow",
+});
+
+export const COMMENTS_HELP = [
+  "<b>Комментарии</b> — последние сверху, со всеми авторами.",
+  "/comments — все группы",
+  "/comments 311гэу — по группе",
+  "/comments @ivanov или /comments 123456 — по человеку",
+  "/delcomment 12 — удалить",
+].join("\n");
+
+/**
+ * /comments [группа | @username | id] — кто, куда и что писал. Владельцу
+ * видно всё, включая удалённое и скрытое: отвечать за ленту ему.
+ * Возвращает несколько сообщений: у Telegram предел 4096 знаков.
+ */
+export async function listCommentsCommand(env, text) {
+  const arg = String(text).replace(/^\/comments(@\w+)?/, "").trim().split(/\s+/)[0] || "";
+
+  let where = "1 = 1";
+  let bind = [];
+  let title = "все группы";
+  if (/^@?\w+$/.test(arg) && (arg.startsWith("@") || /[a-z]/i.test(arg)) && !/[а-яё]/i.test(arg)) {
+    where = "lower(username) = lower(?)";
+    bind = [arg.replace(/^@/, "")];
+    title = `@${bind[0]}`;
+  } else if (/^\d{5,}$/.test(arg)) {
+    where = "tg_id = ?";
+    bind = [Number(arg)];
+    title = `id ${arg}`;
+  } else if (arg) {
+    let groups = [];
+    try {
+      groups = await loadGroups();
+    } catch {
+      // без списка групп сравним как написано
+    }
+    const group = groups.find((g) => normalize(g.id) === normalize(arg));
+    where = "grp = ?";
+    bind = [group ? group.id : arg];
+    title = bind[0];
+  }
+
+  const [{ results = [] }, total] = await Promise.all([
+    env.STATS.prepare(
+      `SELECT id, grp, day, subject, tg_id, name, username, text, created, hidden, reports
+       FROM comments WHERE ${where} ORDER BY id DESC LIMIT ?`
+    )
+      .bind(...bind, LIST_LIMIT)
+      .all(),
+    env.STATS.prepare(`SELECT COUNT(*) AS n, COUNT(DISTINCT tg_id) AS people FROM comments WHERE ${where}`)
+      .bind(...bind)
+      .first(),
+  ]);
+
+  const head = `<b>Комментарии: ${escape(title)}</b> — всего ${total.n}, авторов ${total.people}${
+    total.n > LIST_LIMIT ? `, показаны последние ${LIST_LIMIT}` : ""
+  }`;
+  if (!results.length) return [`${head}\n\nПусто.\n\n${COMMENTS_HELP}`];
+
+  const blocks = results.map((c) => {
+    // Ссылка на профиль работает и без @username.
+    const who = `<a href="tg://user?id=${c.tg_id}">${escape(c.name)}</a>${c.username ? ` @${escape(c.username)}` : ""} · id ${c.tg_id}`;
+    const lesson = `${escape(c.grp)} · ${escape(c.subject)} · пара ${c.day.slice(8, 10)}.${c.day.slice(5, 7)}`;
+    const reports = c.reports && c.hidden !== 1 ? ` · жалоб ${c.reports}` : "";
+    const body = c.text.length > 300 ? `${c.text.slice(0, 300)}…` : c.text;
+    return [
+      `№${c.id} · ${TIME.format(new Date(c.created))}${STATUS[c.hidden] || ""}${reports}`,
+      who,
+      lesson,
+      escape(body),
+    ].join("\n");
+  });
+
+  const messages = [];
+  let current = head;
+  for (const block of blocks) {
+    if (current.length + block.length + 2 > 3900) {
+      messages.push(current);
+      current = block;
+    } else {
+      current += `\n\n${block}`;
+    }
+  }
+  messages.push(current);
+  return messages;
 }
 
 /** /delcomment 12 — владелец удаляет комментарий по номеру. */

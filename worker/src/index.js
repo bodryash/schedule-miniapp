@@ -18,7 +18,14 @@ import {
   parseDay,
   today,
 } from "./inline.js";
-import { canComment, commentCounts, commentsApi, deleteCommentCommand, moderateComment } from "./comments.js";
+import {
+  canComment,
+  commentCounts,
+  commentsApi,
+  deleteCommentCommand,
+  listCommentsCommand,
+  moderateComment,
+} from "./comments.js";
 
 const WEB_APP_URL = "https://bodryash.github.io/schedule-miniapp/";
 
@@ -1462,6 +1469,21 @@ export default {
         ? await deleteCommentCommand(env, text)
         : "Команда недоступна.";
       await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: reply });
+    }
+
+    // Кто, куда и что писал — только владелец.
+    if (message && text.startsWith("/comments")) {
+      const replies = isOwner(env, message.chat.id)
+        ? await listCommentsCommand(env, text)
+        : ["Команда недоступна."];
+      for (const reply of replies) {
+        await callTelegram(env.BOT_TOKEN, "sendMessage", {
+          chat_id: message.chat.id,
+          text: reply,
+          parse_mode: "HTML",
+          link_preview_options: { is_disabled: true },
+        });
+      }
     }
 
     // Назначать старост может только владелец.

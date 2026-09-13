@@ -391,7 +391,6 @@ const COMMENT_ERRORS = {
   "user limit": "На сегодня хватит: не больше 10 комментариев в день.",
   "group limit": "Группа сегодня уже написала 300 комментариев. Продолжим завтра.",
   "too long": "Слишком длинно: до 300 знаков.",
-  forbidden: "Комментарии видит только своя группа.",
   unauthorized: "Комментарии работают только в Telegram.",
 };
 
@@ -2002,8 +2001,7 @@ async function init() {
     prefs = collectPrefs();
     savePrefs(prefs);
     showSchedule();
-    // Сменили группу — сообщаем боту: по последнему открытию он решает, в
-    // какой группе человек может комментировать.
+    // Сменили группу — сообщаем боту, чтобы статистика знала новую группу.
     const group = groupById(prefs.group);
     if (group && group.id !== before) countOpen({ id: group.id, course: group.course, level: group.level });
   });

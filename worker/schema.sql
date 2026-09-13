@@ -120,6 +120,9 @@ CREATE TABLE IF NOT EXISTS comments (
   subject TEXT NOT NULL,
   tg_id   INTEGER NOT NULL,
   name    TEXT NOT NULL,
+  -- @username автора — для /comments. В уже созданную таблицу добавляет
+  -- migrations/0004_comment_username.sql.
+  username TEXT,
   text    TEXT NOT NULL,
   created TEXT NOT NULL,
   hidden  INTEGER NOT NULL DEFAULT 0,
