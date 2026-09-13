@@ -532,6 +532,16 @@ button:active { transform: scale(0.97); }
   overflow-wrap: anywhere;
 }
 
+.cm-banned {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+  background: rgba(229, 57, 53, 0.1);
+  border-radius: 10px;
+}
+
 .cm-compose {
   position: relative;
   margin-bottom: 0;

@@ -1,9 +1,9 @@
 /**
  * Комментарии к парам: «начнём на 10 минут позже», «взять ноутбук».
  *
- * Пишет и читает своя группа — по последнему открытию приложения, плюс
- * староста группы и владелец. Подпись Telegram проверяет index.js; сюда
- * приходит уже проверенный пользователь.
+ * Пишет и читает любой, кто открыл приложение в Telegram, в любой группе;
+ * сдерживают лимиты, жалобы и баны (/ban). Подпись Telegram проверяет
+ * index.js; сюда приходит уже проверенный пользователь.
  *
  * Новые комментарии не прилетают сами: окно обновляется при открытии и по
  * кнопке. Живой опрос сервера каждые несколько секунд съел бы дневной лимит
@@ -110,7 +110,19 @@ function lessonParams(body) {
   return { group, day, subject };
 }
 
-const fail = (error, status = 400) => ({ status, json: { ok: false, error } });
+const fail = (error, status = 400, extra = {}) => ({ status, json: { ok: false, error, ...extra } });
+
+/* ---------- Баны ---------- */
+
+/** Действующий бан: без срока или срок ещё не вышел. */
+async function activeBan(env, tgId) {
+  const row = await env.STATS.prepare("SELECT reason, until FROM comment_bans WHERE tg_id = ?")
+    .bind(tgId)
+    .first();
+  if (!row) return null;
+  if (row.until && row.until <= new Date(Date.now()).toISOString()) return null;
+  return { until: row.until || null, reason: row.reason || "" };
+}
 
 async function addCount(env, { group, day, subject }, delta) {
   return env.STATS.prepare(
@@ -125,6 +137,11 @@ async function addCount(env, { group, day, subject }, delta) {
  */
 export async function commentsApi(env, action, body, user, notify) {
   if (!user?.id) return fail("unauthorized", 401);
+
+  // Забаненный читает, но не пишет и не жалуется: жалобы — тоже способ
+  // вредить ленте.
+  const ban = isOwner(env, user.id) ? null : await activeBan(env, user.id);
+  if (ban && (action === "add" || action === "report")) return fail("banned", 403, { banned: ban });
 
   if (action === "list" || action === "add") {
     const lesson = lessonParams(body);
@@ -169,7 +186,7 @@ export async function commentsApi(env, action, body, user, notify) {
 
     return {
       status: 200,
-      json: { ok: true, comments: await listFor(env, user, lesson.group, lesson.day, lesson.subject) },
+      json: { ok: true, banned: ban, comments: await listFor(env, user, lesson.group, lesson.day, lesson.subject) },
     };
   }
 
@@ -222,7 +239,7 @@ export async function commentsApi(env, action, body, user, notify) {
 
     return {
       status: 200,
-      json: { ok: true, comments: await listFor(env, user, lesson.group, lesson.day, lesson.subject) },
+      json: { ok: true, banned: ban, comments: await listFor(env, user, lesson.group, lesson.day, lesson.subject) },
     };
   }
 
@@ -271,7 +288,148 @@ export const COMMENTS_HELP = [
   "/comments 311гэу — по группе",
   "/comments @ivanov или /comments 123456 — по человеку",
   "/delcomment 12 — удалить",
+  "/ban @ivanov [дни] [причина] — запретить писать, /unban, /bans",
 ].join("\n");
+
+const BAN_HELP = [
+  "<b>Бан в комментариях</b> — читать можно, писать и жаловаться нельзя.",
+  "",
+  "/ban @ivanov — навсегда",
+  "/ban @ivanov 7 спам — на 7 дней, с причиной",
+  "/ban №12 — автора комментария №12 (видно в /comments)",
+  "/ban 123456 — по id Telegram",
+  "/unban @ivanov — снять",
+  "/bans — список",
+].join("\n");
+
+const DAY_MS = 86400000;
+const shortDate = (isoString) =>
+  new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", timeZone: "Europe/Moscow" }).format(
+    new Date(isoString)
+  );
+
+/**
+ * Кого банить: «№12» — автор комментария; иначе @username или id через
+ * findPerson из index.js, а если человек только комментировал — из самих
+ * комментариев.
+ */
+async function resolveAuthor(env, token, findPerson) {
+  const number = String(token).match(/^[№#](\d+)$/);
+  if (number) {
+    return env.STATS.prepare("SELECT tg_id, name, username FROM comments WHERE id = ?")
+      .bind(Number(number[1]))
+      .first();
+  }
+  const person = await findPerson(env, token);
+  if (person?.name || person?.username) return person;
+  const username = String(token).replace(/^@/, "");
+  const fromComments = /^\d+$/.test(username)
+    ? await env.STATS.prepare("SELECT tg_id, name, username FROM comments WHERE tg_id = ? ORDER BY id DESC LIMIT 1")
+        .bind(Number(username))
+        .first()
+    : await env.STATS.prepare(
+        "SELECT tg_id, name, username FROM comments WHERE lower(username) = lower(?) ORDER BY id DESC LIMIT 1"
+      )
+        .bind(username)
+        .first();
+  return fromComments || person;
+}
+
+const authorLabel = (p) =>
+  [p.name, p.username ? `@${p.username}` : null, `id ${p.tg_id}`].filter(Boolean).join(" · ");
+
+/** /ban — возвращает { text, keyboard } для ответа владельцу. */
+export async function banCommand(env, text, findPerson) {
+  const [, who, ...rest] = String(text).trim().split(/\s+/);
+  if (!who) return { text: BAN_HELP };
+
+  const person = await resolveAuthor(env, who, findPerson);
+  if (!person?.tg_id) {
+    return { text: `Не нашёл ${escape(who)}. Проще всего банить по номеру комментария: /ban №12.` };
+  }
+  if (isOwner(env, person.tg_id)) return { text: "Себя забанить нельзя." };
+
+  let days = null;
+  if (rest[0] && /^\d{1,4}$/.test(rest[0])) days = Number(rest.shift());
+  if (days === 0) return { text: "Срок — от 1 дня. Без срока — навсегда: /ban @ivanov" };
+  const reason = rest.join(" ").slice(0, 200);
+  const now = new Date(Date.now());
+  const until = days ? new Date(now.getTime() + days * DAY_MS).toISOString() : null;
+
+  await env.STATS.prepare(
+    `INSERT INTO comment_bans (tg_id, name, username, reason, created, until) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(tg_id) DO UPDATE SET name = excluded.name, username = excluded.username,
+       reason = excluded.reason, created = excluded.created, until = excluded.until`
+  )
+    .bind(person.tg_id, person.name || null, person.username || null, reason, now.toISOString(), until)
+    .run();
+
+  const { n } = await env.STATS.prepare("SELECT COUNT(*) AS n FROM comments WHERE tg_id = ? AND hidden = 0")
+    .bind(person.tg_id)
+    .first();
+  const term = until ? `до ${shortDate(until)}` : "навсегда";
+  return {
+    text: [
+      `⛔ ${escape(authorLabel(person))} — запрет писать комментарии ${term}.`,
+      reason ? `Причина: ${escape(reason)}` : null,
+      n ? `Комментариев автора на виду: ${n}.` : "Видимых комментариев у автора нет.",
+      `Снять: /unban ${person.username ? `@${escape(person.username)}` : person.tg_id}`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    keyboard: n ? [[{ text: `Удалить все комментарии автора (${n})`, callback_data: `cmpurge:${person.tg_id}` }]] : null,
+  };
+}
+
+export async function unbanCommand(env, text, findPerson) {
+  const who = String(text).trim().split(/\s+/)[1];
+  if (!who) return "Укажите кого: /unban @ivanov. Список — /bans";
+  const person = await resolveAuthor(env, who, findPerson);
+  if (!person?.tg_id) return `Не нашёл ${escape(who)}.`;
+  const result = await env.STATS.prepare("DELETE FROM comment_bans WHERE tg_id = ?").bind(person.tg_id).run();
+  return result.meta?.changes
+    ? `${escape(authorLabel(person))} снова может писать комментарии.`
+    : `${escape(authorLabel(person))} не был забанен.`;
+}
+
+export async function bansList(env) {
+  const { results = [] } = await env.STATS.prepare(
+    `SELECT tg_id, name, username, reason, created, until FROM comment_bans
+     WHERE until IS NULL OR until > ? ORDER BY created DESC LIMIT 60`
+  )
+    .bind(new Date(Date.now()).toISOString())
+    .all();
+  if (!results.length) return `Забаненных нет.\n\n${BAN_HELP}`;
+  return [
+    `<b>Забанены в комментариях</b> (${results.length})`,
+    "",
+    ...results.map(
+      (b) =>
+        `⛔ <a href="tg://user?id=${b.tg_id}">${escape(b.name || `id ${b.tg_id}`)}</a>${b.username ? ` @${escape(b.username)}` : ""} · id ${b.tg_id} · ${b.until ? `до ${shortDate(b.until)}` : "навсегда"}${b.reason ? ` · ${escape(b.reason)}` : ""}`
+    ),
+  ].join("\n");
+}
+
+/** «Удалить все его комментарии» — прячет видимые и поправляет счётчики. */
+export async function purgeAuthor(env, tgId) {
+  const { results = [] } = await env.STATS.prepare(
+    "SELECT id, grp, day, subject FROM comments WHERE tg_id = ? AND hidden = 0"
+  )
+    .bind(tgId)
+    .all();
+  if (!results.length) return 0;
+  const perLesson = new Map();
+  for (const c of results) {
+    const key = `${c.grp}|${c.day}|${c.subject}`;
+    if (!perLesson.has(key)) perLesson.set(key, { group: c.grp, day: c.day, subject: c.subject, n: 0 });
+    perLesson.get(key).n += 1;
+  }
+  await env.STATS.batch([
+    env.STATS.prepare("UPDATE comments SET hidden = 2 WHERE tg_id = ? AND hidden = 0").bind(tgId),
+    ...(await Promise.all([...perLesson.values()].map((l) => addCount(env, l, -l.n)))),
+  ]);
+  return results.length;
+}
 
 /**
  * /comments [группа | @username | id] — кто, куда и что писал. Владельцу
@@ -322,9 +480,20 @@ export async function listCommentsCommand(env, text) {
   }`;
   if (!results.length) return [`${head}\n\nПусто.\n\n${COMMENTS_HELP}`];
 
+  // Кто из авторов сейчас забанен — одной выборкой на весь список.
+  const authors = [...new Set(results.map((c) => c.tg_id))];
+  const { results: banned = [] } = await env.STATS.prepare(
+    `SELECT tg_id FROM comment_bans WHERE tg_id IN (${authors.map(() => "?").join(",")})
+     AND (until IS NULL OR until > ?)`
+  )
+    .bind(...authors, new Date(Date.now()).toISOString())
+    .all();
+  const bannedIds = new Set(banned.map((b) => b.tg_id));
+
   const blocks = results.map((c) => {
     // Ссылка на профиль работает и без @username.
-    const who = `<a href="tg://user?id=${c.tg_id}">${escape(c.name)}</a>${c.username ? ` @${escape(c.username)}` : ""} · id ${c.tg_id}`;
+    const mark = bannedIds.has(c.tg_id) ? " ⛔" : "";
+    const who = `<a href="tg://user?id=${c.tg_id}">${escape(c.name)}</a>${c.username ? ` @${escape(c.username)}` : ""} · id ${c.tg_id}${mark}`;
     const lesson = `${escape(c.grp)} · ${escape(c.subject)} · пара ${c.day.slice(8, 10)}.${c.day.slice(5, 7)}`;
     const reports = c.reports && c.hidden !== 1 ? ` · жалоб ${c.reports}` : "";
     const body = c.text.length > 300 ? `${c.text.slice(0, 300)}…` : c.text;

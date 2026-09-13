@@ -19,12 +19,16 @@ import {
   today,
 } from "./inline.js";
 import {
+  banCommand,
+  bansList,
   canComment,
   commentCounts,
   commentsApi,
   deleteCommentCommand,
   listCommentsCommand,
   moderateComment,
+  purgeAuthor,
+  unbanCommand,
 } from "./comments.js";
 
 const WEB_APP_URL = "https://bodryash.github.io/schedule-miniapp/";
@@ -1284,6 +1288,26 @@ export default {
       return new Response("ok");
     }
 
+    // «Удалить все его комментарии» под ответом на /ban.
+    const purge = update.callback_query?.data?.match(/^cmpurge:(\d+)$/);
+    if (purge) {
+      const query = update.callback_query;
+      const owner = isOwner(env, query.from?.id);
+      const removed = owner ? await purgeAuthor(env, Number(purge[1])) : 0;
+      await callTelegram(env.BOT_TOKEN, "answerCallbackQuery", {
+        callback_query_id: query.id,
+        text: owner ? `Удалено: ${removed}` : "Недоступно",
+      });
+      if (owner && query.message) {
+        await callTelegram(env.BOT_TOKEN, "editMessageReplyMarkup", {
+          chat_id: query.message.chat.id,
+          message_id: query.message.message_id,
+          reply_markup: { inline_keyboard: [] },
+        });
+      }
+      return new Response("ok");
+    }
+
     // «Вернуть» / «Удалить» под уведомлением о скрытом жалобами комментарии.
     const moderation = update.callback_query?.data?.match(/^(cmr|cmd):(\d+)$/);
     if (moderation) {
@@ -1469,6 +1493,25 @@ export default {
         ? await deleteCommentCommand(env, text)
         : "Команда недоступна.";
       await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: reply });
+    }
+
+    // Бан в комментариях — только владелец. Сверяем целое слово: «/bans»
+    // начинается с «/ban».
+    const banCmd = text.match(/^\/(ban|unban|bans)(?:@\w+)?(?:\s|$)/)?.[1];
+    if (message && banCmd) {
+      let reply = { text: "Команда недоступна." };
+      if (isOwner(env, message.chat.id)) {
+        if (banCmd === "ban") reply = await banCommand(env, text, findPerson);
+        else if (banCmd === "unban") reply = { text: await unbanCommand(env, text, findPerson) };
+        else reply = { text: await bansList(env) };
+      }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: reply.text,
+        parse_mode: "HTML",
+        link_preview_options: { is_disabled: true },
+        reply_markup: reply.keyboard ? { inline_keyboard: reply.keyboard } : undefined,
+      });
     }
 
     // Кто, куда и что писал — только владелец.

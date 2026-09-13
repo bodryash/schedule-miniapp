@@ -383,8 +383,32 @@ async function commentsRequest(action, payload) {
     body: JSON.stringify({ initData: tg?.initData || "", ...payload }),
   });
   const body = await res.json().catch(() => ({}));
+  // Состояние бана приходит и с успешным ответом, и с отказом.
+  if ("banned" in body) applyCommentBan(body.banned);
   if (!res.ok || !body.ok) throw new Error(body.error || String(res.status));
   return body.comments || [];
+}
+
+/**
+ * Забаненный читает, но не пишет: прячем поле ввода и говорим до какого
+ * числа. Плашки может не быть в закэшированном index.html — тогда просто
+ * прячем поле.
+ */
+function applyCommentBan(ban) {
+  const compose = els.cmSheet?.querySelector(".cm-compose");
+  const note = document.getElementById("cm-banned");
+  const blocked = Boolean(ban);
+  if (compose) compose.hidden = blocked;
+  els.cmSend.hidden = blocked;
+  if (!note) return;
+  note.hidden = !blocked;
+  if (!blocked) return;
+  const until = ban.until
+    ? t("Вы не можете оставлять комментарии до {date}.", {
+        date: new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "long" }).format(new Date(ban.until)),
+      })
+    : t("Вам запрещено оставлять комментарии.");
+  note.textContent = ban.reason ? `${until} ${t("Причина: {reason}", { reason: ban.reason })}` : until;
 }
 
 const COMMENT_ERRORS = {
@@ -395,6 +419,8 @@ const COMMENT_ERRORS = {
 };
 
 function commentError(error) {
+  // Про бан уже сказала плашка вместо поля ввода.
+  if (error.message === "banned") return;
   els.cmError.textContent = t(COMMENT_ERRORS[error.message] || "Не получилось. Попробуйте ещё раз.");
   els.cmError.hidden = false;
 }
@@ -411,6 +437,8 @@ function openComments(card) {
   els.cmList.replaceChildren(el("p", "hint", t("Загружаю…")));
   els.cmText.value = "";
   els.cmError.hidden = true;
+  // Поле ввода — до ответа бота; бан, если есть, спрячет его.
+  applyCommentBan(null);
   updateCommentCounter();
   els.cmSheet.hidden = false;
   loadComments();

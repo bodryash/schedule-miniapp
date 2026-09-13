@@ -143,6 +143,17 @@ CREATE TABLE IF NOT EXISTS comment_counts (
   PRIMARY KEY (grp, day, subject)
 );
 
+-- Запрет писать комментарии (/ban). until пустой — навсегда. Читать
+-- забаненный может, писать и жаловаться — нет.
+CREATE TABLE IF NOT EXISTS comment_bans (
+  tg_id    INTEGER PRIMARY KEY,
+  name     TEXT,
+  username TEXT,
+  reason   TEXT NOT NULL DEFAULT '',
+  created  TEXT NOT NULL,
+  until    TEXT
+);
+
 -- Кто на что пожаловался: один голос на человека.
 CREATE TABLE IF NOT EXISTS comment_reports (
   comment INTEGER NOT NULL,
