@@ -110,6 +110,43 @@ CREATE TABLE IF NOT EXISTS homework (
 
 CREATE INDEX IF NOT EXISTS homework_grp ON homework (grp, day);
 
+-- Комментарии к паре в конкретный день. Пишет и читает своя группа, с
+-- именем из Telegram. hidden: 0 — виден, 1 — скрыт жалобами до решения
+-- владельца, 2 — удалён.
+CREATE TABLE IF NOT EXISTS comments (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  grp     TEXT NOT NULL,
+  day     TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  tg_id   INTEGER NOT NULL,
+  name    TEXT NOT NULL,
+  text    TEXT NOT NULL,
+  created TEXT NOT NULL,
+  hidden  INTEGER NOT NULL DEFAULT 0,
+  reports INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS comments_lesson ON comments (grp, day, subject, hidden);
+CREATE INDEX IF NOT EXISTS comments_author ON comments (tg_id, created);
+CREATE INDEX IF NOT EXISTS comments_group_day ON comments (grp, created);
+
+-- Счётчики «💬 N» под парами: отдельной таблицей, чтобы открытие
+-- расписания не пересчитывало комментарии, а читало по строке на пару.
+CREATE TABLE IF NOT EXISTS comment_counts (
+  grp     TEXT NOT NULL,
+  day     TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  count   INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (grp, day, subject)
+);
+
+-- Кто на что пожаловался: один голос на человека.
+CREATE TABLE IF NOT EXISTS comment_reports (
+  comment INTEGER NOT NULL,
+  tg_id   INTEGER NOT NULL,
+  PRIMARY KEY (comment, tg_id)
+);
+
 -- Отменённые пары: /cancel. grp — как в notices. day — ISO-дата,
 -- slots — номера пар через запятую, пусто — весь день.
 CREATE TABLE IF NOT EXISTS cancels (

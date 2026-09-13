@@ -431,6 +431,149 @@ button:active { transform: scale(0.97); }
   border-radius: 8px;
 }
 
+/* Кнопки под парой: домашка и комментарии в один ряд. */
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cm-open {
+  margin-top: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+.cm-open--has {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* --- Комментарии --- */
+
+.sheet--comments {
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+}
+
+.sheet-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cm-list {
+  flex: 1;
+  min-height: 80px;
+  overflow-y: auto;
+  margin: 4px 0 10px;
+  overscroll-behavior: contain;
+}
+
+.cm-item {
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: var(--card);
+  border-radius: 12px;
+}
+
+.cm-item--mine {
+  background: var(--accent-soft);
+}
+
+.cm-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.cm-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cm-time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-action {
+  padding: 0;
+  font-size: 12px;
+  color: var(--muted);
+  background: none;
+}
+
+.cm-action--delete {
+  margin-left: auto;
+}
+
+.cm-head .cm-action--report {
+  margin-left: auto;
+}
+
+.cm-head .cm-action--delete + .cm-action--report {
+  margin-left: 0;
+}
+
+.cm-text {
+  margin-top: 2px;
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.cm-compose {
+  position: relative;
+  margin-bottom: 0;
+}
+
+.cm-compose textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 44px 10px 12px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--card);
+  border: none;
+  border-radius: 10px;
+  resize: none;
+}
+
+.cm-counter {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-counter--low {
+  color: var(--tg-theme-destructive-text-color, #e53935);
+}
+
+.cm-send {
+  width: auto;
+  padding: 10px 20px;
+  font-size: 15px;
+}
+
+.sheet--comments .sheet-actions {
+  align-items: center;
+}
+
 /* Окно редактирования снизу, как принято на телефонах. */
 .sheet-backdrop {
   position: fixed;

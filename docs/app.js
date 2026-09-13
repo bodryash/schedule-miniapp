@@ -90,7 +90,16 @@ const DISMISSED_KEY = "schedule.dismissedNotices";
 // cancels — отменённые пары (/cancel), приходят тем же запросом.
 // homework — домашка группы, canEdit — открыл староста этой группы,
 // weeks — недели, чья домашка уже загружена или грузится.
-let notices = { group: null, list: [], cancels: [], homework: [], canEdit: false, weeks: new Set() };
+let notices = {
+  group: null,
+  list: [],
+  cancels: [],
+  homework: [],
+  canEdit: false,
+  canComment: false,
+  comments: new Map(),
+  weeks: new Set(),
+};
 
 function readDismissed() {
   try {
@@ -121,6 +130,9 @@ async function loadNotices(group) {
     cancels: [],
     homework: [],
     canEdit: false,
+    // Комментарии: право писать и счётчики «день|предмет» → число.
+    canComment: false,
+    comments: new Map(),
     weeks: new Set([selectedWeek]),
   };
   renderNotices(false);
@@ -146,6 +158,8 @@ async function loadNotices(group) {
     notices.cancels = body.cancels || [];
     notices.homework = body.homework || [];
     notices.canEdit = Boolean(body.canEdit);
+    notices.canComment = Boolean(body.canComment);
+    mergeCommentCounts(weekRange(selectedWeek), body.comments);
     renderNotices(true);
     applyCancels();
     applyHomework();
@@ -259,7 +273,8 @@ async function ensureHomeworkWeek(week) {
   try {
     const res = await fetch(`${HOMEWORK_URL}/list`, {
       method: "POST",
-      body: JSON.stringify({ group: groupId, ...weekRange(week) }),
+      // Подпись — только ради счётчиков комментариев своей группы.
+      body: JSON.stringify({ group: groupId, initData: tg?.initData || "", ...weekRange(week) }),
     });
     if (!res.ok) throw new Error(res.status);
     const body = await res.json();
@@ -268,6 +283,7 @@ async function ensureHomeworkWeek(week) {
     notices.homework = notices.homework
       .filter((h) => h.day < from || h.day > to)
       .concat(body.homework || []);
+    mergeCommentCounts({ from, to }, body.comments);
     applyHomework();
   } catch {
     // Не вышло — попробуем при следующем заходе на эту неделю.
@@ -306,7 +322,7 @@ function applyHomework() {
     seen.add(subject);
 
     const items = homeworkFor(card);
-    if (!items.length && !notices.canEdit) continue;
+    if (!items.length && !notices.canEdit && !notices.canComment) continue;
 
     const block = el("div", "hw");
     for (const item of items) {
@@ -316,14 +332,193 @@ function applyHomework() {
       line.append(el("span", "hw-text", prefix + item.text));
       block.append(line);
     }
-    if (notices.canEdit) {
+
+    // Кнопки под парой в один ряд: домашка у старосты, комментарии у группы.
+    const actions = el("div", "card-actions");
+    if (notices.canEdit && els.hwSheet) {
       const button = el("button", "hw-edit", t(items.length ? "Изменить ДЗ" : "＋ ДЗ"));
       button.type = "button";
       button.addEventListener("click", () => openHomework(card));
-      block.append(button);
+      actions.append(button);
     }
+    if (notices.canComment && els.cmSheet) {
+      const count = notices.comments.get(commentKey(isoDate(dateOfDay(selectedDay)), subject)) || 0;
+      const button = el("button", count ? "cm-open cm-open--has" : "cm-open", count ? `💬 ${count}` : "💬");
+      button.type = "button";
+      button.setAttribute("aria-label", t("Комментарии"));
+      button.addEventListener("click", () => openComments(card));
+      actions.append(button);
+    }
+    if (actions.children.length) block.append(actions);
     (card.querySelector(".card-body") || card).append(block);
   }
+}
+
+/* ---------- Комментарии ---------- */
+
+const COMMENTS_URL = "https://fgp-schedule-bot.bodryash.workers.dev/comments";
+const COMMENT_MAX = 300;
+
+const commentKey = (day, subject) => `${day}|${subject}`;
+
+/** Открыто ли окно снизу. Окон может не быть в закэшированном index.html. */
+function sheetOpen() {
+  return [els.hwSheet, els.cmSheet].some((sheet) => sheet && !sheet.hidden);
+}
+
+/** Счётчики недели приходят целиком — заменяем её дни, остальные не трогаем. */
+function mergeCommentCounts({ from, to }, list) {
+  for (const key of [...notices.comments.keys()]) {
+    const day = key.slice(0, 10);
+    if (day >= from && day <= to) notices.comments.delete(key);
+  }
+  for (const item of list || []) notices.comments.set(commentKey(item.day, item.subject), item.count);
+}
+
+let commenting = null;
+
+async function commentsRequest(action, payload) {
+  const res = await fetch(`${COMMENTS_URL}/${action}`, {
+    method: "POST",
+    body: JSON.stringify({ initData: tg?.initData || "", ...payload }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.ok) throw new Error(body.error || String(res.status));
+  return body.comments || [];
+}
+
+const COMMENT_ERRORS = {
+  "user limit": "На сегодня хватит: не больше 10 комментариев в день.",
+  "group limit": "Группа сегодня уже написала 300 комментариев. Продолжим завтра.",
+  "too long": "Слишком длинно: до 300 знаков.",
+  forbidden: "Комментарии видит только своя группа.",
+  unauthorized: "Комментарии работают только в Telegram.",
+};
+
+function commentError(error) {
+  els.cmError.textContent = t(COMMENT_ERRORS[error.message] || "Не получилось. Попробуйте ещё раз.");
+  els.cmError.hidden = false;
+}
+
+function openComments(card) {
+  commenting = {
+    group: notices.group,
+    subject: card.dataset.subject,
+    day: isoDate(dateOfDay(selectedDay)),
+  };
+  const label = FULL_DATE.format(dateOfDay(selectedDay));
+  els.cmTitle.textContent = tr(commenting.subject);
+  els.cmDate.textContent = label[0].toUpperCase() + label.slice(1);
+  els.cmList.replaceChildren(el("p", "hint", t("Загружаю…")));
+  els.cmText.value = "";
+  els.cmError.hidden = true;
+  updateCommentCounter();
+  els.cmSheet.hidden = false;
+  loadComments();
+}
+
+function closeComments() {
+  els.cmSheet.hidden = true;
+  commenting = null;
+}
+
+async function loadComments() {
+  if (!commenting) return;
+  const current = commenting;
+  els.cmRefresh.disabled = true;
+  try {
+    const list = await commentsRequest("list", current);
+    if (commenting === current) renderComments(list);
+  } catch (error) {
+    if (commenting === current) {
+      els.cmList.replaceChildren();
+      commentError(error);
+    }
+  } finally {
+    els.cmRefresh.disabled = false;
+  }
+}
+
+const COMMENT_TIME = new Intl.DateTimeFormat(LOCALE, {
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function renderComments(list) {
+  // Счётчик под парой — по фактическому списку, без лишнего запроса.
+  notices.comments.set(commentKey(commenting.day, commenting.subject), list.length);
+  applyHomework();
+
+  if (!list.length) {
+    els.cmList.replaceChildren(el("p", "hint", t("Пока никто не писал. Напишите первым.")));
+    return;
+  }
+  els.cmList.replaceChildren(
+    ...list.map((comment) => {
+      const item = el("div", comment.mine ? "cm-item cm-item--mine" : "cm-item");
+      const head = el("div", "cm-head");
+      head.append(
+        el("span", "cm-name", comment.name),
+        el("span", "cm-time", COMMENT_TIME.format(new Date(comment.created)))
+      );
+      if (comment.canDelete) head.append(commentAction(t("Удалить"), "delete", comment.id));
+      if (!comment.mine) head.append(commentAction(t("Пожаловаться"), "report", comment.id));
+      item.append(head, el("div", "cm-text", comment.text));
+      return item;
+    })
+  );
+  els.cmList.scrollTop = els.cmList.scrollHeight;
+}
+
+function commentAction(label, action, id) {
+  const button = el("button", `cm-action cm-action--${action}`, label);
+  button.type = "button";
+  button.addEventListener("click", async () => {
+    if (action === "delete" && !confirm(t("Удалить комментарий?"))) return;
+    if (action === "report" && !confirm(t("Пожаловаться на комментарий? После трёх жалоб он скроется."))) return;
+    button.disabled = true;
+    els.cmError.hidden = true;
+    const current = commenting;
+    try {
+      const list = await commentsRequest(action, { id });
+      if (commenting === current) renderComments(list);
+      if (action === "report") {
+        els.cmError.textContent = t("Жалоба отправлена.");
+        els.cmError.hidden = false;
+      }
+    } catch (error) {
+      button.disabled = false;
+      commentError(error);
+    }
+  });
+  return button;
+}
+
+async function sendComment() {
+  const text = els.cmText.value.trim();
+  if (!commenting || !text) return;
+  const current = commenting;
+  els.cmSend.disabled = true;
+  els.cmError.hidden = true;
+  try {
+    const list = await commentsRequest("add", { ...current, text });
+    if (commenting !== current) return;
+    els.cmText.value = "";
+    updateCommentCounter();
+    renderComments(list);
+  } catch (error) {
+    commentError(error);
+  } finally {
+    els.cmSend.disabled = false;
+  }
+}
+
+function updateCommentCounter() {
+  const left = COMMENT_MAX - els.cmText.value.length;
+  els.cmCounter.textContent = String(left);
+  els.cmCounter.classList.toggle("cm-counter--low", left < 30);
 }
 
 let editing = null;
@@ -483,6 +678,16 @@ const els = {
   hwSave: document.getElementById("hw-save"),
   hwDelete: document.getElementById("hw-delete"),
   hwCancel: document.getElementById("hw-cancel"),
+  cmSheet: document.getElementById("cm-sheet"),
+  cmTitle: document.getElementById("cm-title"),
+  cmDate: document.getElementById("cm-date"),
+  cmList: document.getElementById("cm-list"),
+  cmText: document.getElementById("cm-text"),
+  cmCounter: document.getElementById("cm-counter"),
+  cmError: document.getElementById("cm-error"),
+  cmSend: document.getElementById("cm-send"),
+  cmRefresh: document.getElementById("cm-refresh"),
+  cmClose: document.getElementById("cm-close"),
 };
 
 let data = null;
@@ -1314,7 +1519,7 @@ function initSwipe() {
     // Полоса дней листается сама по себе, кнопки должны нажиматься.
     // Окно домашки лежит поверх расписания: печать в нём не должна листать дни.
     if (event.target.closest?.(".days, button, .sheet")) return;
-    if (!els.hwSheet.hidden) return;
+    if (sheetOpen()) return;
     pointer = event.pointerId;
     startX = event.clientX;
     startY = event.clientY;
@@ -1730,7 +1935,7 @@ async function checkForUpdate() {
     return;
   }
   // Не перезагружаем посреди ввода домашки или настроек — проверим позже.
-  if (!els.hwSheet.hidden || !els.picker.hidden) {
+  if (sheetOpen() || !els.picker.hidden) {
     lastUpdateCheck = 0;
     try {
       sessionStorage.removeItem(RELOADED_KEY);
@@ -1793,10 +1998,26 @@ async function init() {
   els.main.addEventListener("change", fillMainSubgroups);
   els.lang2.addEventListener("change", fillLang2Subgroups);
   els.save.addEventListener("click", () => {
+    const before = prefs.group;
     prefs = collectPrefs();
     savePrefs(prefs);
     showSchedule();
+    // Сменили группу — сообщаем боту: по последнему открытию он решает, в
+    // какой группе человек может комментировать.
+    const group = groupById(prefs.group);
+    if (group && group.id !== before) countOpen({ id: group.id, course: group.course, level: group.level });
   });
+  // Telegram может отдать из кэша старый index.html без окна комментариев
+  // при свежем app.js. Тогда комментариев просто нет, но расписание открывается.
+  if (els.cmSheet) {
+    els.cmSend.addEventListener("click", sendComment);
+    els.cmRefresh.addEventListener("click", loadComments);
+    els.cmClose.addEventListener("click", closeComments);
+    els.cmText.addEventListener("input", updateCommentCounter);
+    els.cmSheet.addEventListener("click", (event) => {
+      if (event.target === els.cmSheet) closeComments();
+    });
+  }
   els.change.addEventListener("click", showPicker);
   initHomeScreen();
   els.find.addEventListener("click", showSearch);
@@ -1805,14 +2026,18 @@ async function init() {
   els.searchClose.addEventListener("click", closeSearch);
   els.query.addEventListener("input", runSearch);
   initSwipe();
-  els.hwSubgroup.addEventListener("change", fillHomeworkText);
-  els.hwSave.addEventListener("click", () => submitHomework(els.hwText.value.trim()));
-  els.hwDelete.addEventListener("click", () => submitHomework(""));
-  els.hwCancel.addEventListener("click", closeHomework);
-  // Тап по затемнению вокруг окна закрывает его, как принято на телефонах.
-  els.hwSheet.addEventListener("click", (event) => {
-    if (event.target === els.hwSheet) closeHomework();
-  });
+  // Как и с комментариями: без окна в закэшированном index.html домашка
+  // просто не редактируется, а расписание открывается.
+  if (els.hwSheet) {
+    els.hwSubgroup.addEventListener("change", fillHomeworkText);
+    els.hwSave.addEventListener("click", () => submitHomework(els.hwText.value.trim()));
+    els.hwDelete.addEventListener("click", () => submitHomework(""));
+    els.hwCancel.addEventListener("click", closeHomework);
+    // Тап по затемнению вокруг окна закрывает его, как принято на телефонах.
+    els.hwSheet.addEventListener("click", (event) => {
+      if (event.target === els.hwSheet) closeHomework();
+    });
+  }
   // Крестик закрывает настройки, не сохраняя изменений.
   els.close.addEventListener("click", showSchedule);
 

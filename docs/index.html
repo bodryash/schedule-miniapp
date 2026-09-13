@@ -224,6 +224,31 @@
     </div>
   </div>
 
+  <!-- Комментарии к паре: своя группа, с именем из Telegram -->
+  <div id="cm-sheet" class="sheet-backdrop" hidden>
+    <div class="sheet sheet--comments" role="dialog" aria-modal="true" aria-labelledby="cm-title">
+      <div class="sheet-top">
+        <div>
+          <div class="group-name" id="cm-date"></div>
+          <h2 id="cm-title"></h2>
+        </div>
+        <button id="cm-close" class="icon" type="button" aria-label="Закрыть">×</button>
+      </div>
+
+      <div id="cm-list" class="cm-list"></div>
+      <p class="error" id="cm-error" hidden></p>
+
+      <label class="cm-compose">
+        <textarea id="cm-text" rows="2" maxlength="300" placeholder="Комментарий для группы"></textarea>
+        <span id="cm-counter" class="cm-counter">300</span>
+      </label>
+      <div class="sheet-actions">
+        <button id="cm-refresh" class="ghost" type="button" data-i18n>Обновить</button>
+        <button id="cm-send" class="primary cm-send" type="button" data-i18n>Отправить</button>
+      </div>
+    </div>
+  </div>
+
   <p id="error" class="error" hidden></p>
 
   <script>

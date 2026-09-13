@@ -18,6 +18,7 @@ import {
   parseDay,
   today,
 } from "./inline.js";
+import { canComment, commentCounts, commentsApi, deleteCommentCommand, moderateComment } from "./comments.js";
 
 const WEB_APP_URL = "https://bodryash.github.io/schedule-miniapp/";
 
@@ -1152,13 +1153,19 @@ export default {
         course: Number(source.get("course")) || null,
       };
       // Без объявлений, отмен и домашки расписание всё равно должно открыться.
-      const [notices, cancels, homework, canEdit] = await Promise.all([
+      const range = homeworkRange(source.get("from"), source.get("to"));
+      const user = initData ? await verifyInitData(initData, env.BOT_TOKEN).catch(() => null) : null;
+      const [notices, cancels, homework, canEdit, commenter] = await Promise.all([
         activeNotices(env, group).catch(() => []),
         activeCancels(env, group).catch(() => []),
-        groupHomework(env, group.id, homeworkRange(source.get("from"), source.get("to"))).catch(() => []),
-        initData ? canEditHomework(env, initData, group.id).catch(() => false) : false,
+        groupHomework(env, group.id, range).catch(() => []),
+        user ? canEditHomework(env, initData, group.id).catch(() => false) : false,
+        user ? canComment(env, user, group.id).catch(() => false) : false,
       ]);
-      return new Response(JSON.stringify({ notices, cancels, homework, canEdit }), {
+      // Счётчики комментариев — только своей группе: чужим они ни к чему.
+      const comments = commenter ? await commentCounts(env, group.id, range).catch(() => []) : [];
+      const payload = { notices, cancels, homework, canEdit, canComment: commenter, comments };
+      return new Response(JSON.stringify(payload), {
         headers: {
           "content-type": "application/json; charset=utf-8",
           "access-control-allow-origin": "*",
@@ -1172,13 +1179,49 @@ export default {
     // домашку и так видит вся группа, подпись здесь не нужна.
     if (url.pathname === "/homework/list" && request.method === "POST") {
       let homework = [];
+      let comments = [];
       try {
         const body = JSON.parse(await request.text());
-        homework = await groupHomework(env, String(body.group || ""), homeworkRange(body.from, body.to));
+        const groupId = String(body.group || "");
+        const range = homeworkRange(body.from, body.to);
+        homework = await groupHomework(env, groupId, range);
+        // Счётчики комментариев следующей недели — тем же запросом, своей группе.
+        const user = body.initData ? await verifyInitData(body.initData, env.BOT_TOKEN) : null;
+        if (user && (await canComment(env, user, groupId))) {
+          comments = await commentCounts(env, groupId, range);
+        }
       } catch {
         // Не догрузилось — пары всё равно на месте, просто без домашки.
       }
-      return new Response(JSON.stringify({ homework }), {
+      return new Response(JSON.stringify({ homework, comments }), {
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "no-store",
+        },
+      });
+    }
+
+    // Комментарии к парам: список, новый, удалить, пожаловаться.
+    const commentAction = url.pathname.match(/^\/comments\/(list|add|delete|report)$/)?.[1];
+    if (commentAction && request.method === "POST") {
+      let result;
+      try {
+        const body = JSON.parse(await request.text());
+        const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+        const notify = (text, keyboard) =>
+          callTelegram(env.BOT_TOKEN, "sendMessage", {
+            chat_id: env.OWNER_ID,
+            text,
+            parse_mode: "HTML",
+            reply_markup: { inline_keyboard: keyboard },
+          });
+        result = await commentsApi(env, commentAction, body, user, notify);
+      } catch {
+        result = { status: 400, json: { ok: false, error: "bad request" } };
+      }
+      return new Response(JSON.stringify(result.json), {
+        status: result.status,
         headers: {
           "content-type": "application/json; charset=utf-8",
           "access-control-allow-origin": "*",
@@ -1231,6 +1274,23 @@ export default {
     try {
       update = await request.json();
     } catch {
+      return new Response("ok");
+    }
+
+    // «Вернуть» / «Удалить» под уведомлением о скрытом жалобами комментарии.
+    const moderation = update.callback_query?.data?.match(/^(cmr|cmd):(\d+)$/);
+    if (moderation) {
+      const query = update.callback_query;
+      const owner = isOwner(env, query.from?.id);
+      const answer = owner ? await moderateComment(env, moderation[1], Number(moderation[2])) : "Недоступно";
+      await callTelegram(env.BOT_TOKEN, "answerCallbackQuery", { callback_query_id: query.id, text: answer });
+      if (owner && query.message) {
+        await callTelegram(env.BOT_TOKEN, "editMessageReplyMarkup", {
+          chat_id: query.message.chat.id,
+          message_id: query.message.message_id,
+          reply_markup: { inline_keyboard: [] },
+        });
+      }
       return new Response("ok");
     }
 
@@ -1394,6 +1454,14 @@ export default {
           ? { inline_keyboard: [[{ text: "🧪 Открыть тестовую версию", web_app: { url: BETA_URL } }]] }
           : undefined,
       });
+    }
+
+    // Удалить комментарий по номеру — только владелец.
+    if (message && text.startsWith("/delcomment")) {
+      const reply = isOwner(env, message.chat.id)
+        ? await deleteCommentCommand(env, text)
+        : "Команда недоступна.";
+      await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: reply });
     }
 
     // Назначать старост может только владелец.
