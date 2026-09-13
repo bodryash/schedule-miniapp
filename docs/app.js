@@ -173,12 +173,29 @@ function renderNotices(animate) {
   els.notices.replaceChildren(...nodes);
 }
 
-/** Отмена пары в показанный день: по номеру; отмена без номеров — весь день. */
-function cancelFor(slot) {
+/**
+ * Отмены в показанный день, задевающие пару и предмет. Отмена по номеру
+ * пары (без предмета) задевает всё; без номеров — весь день.
+ */
+function cancelsFor(slot, subject) {
   const day = isoDate(dateOfDay(selectedDay));
+  return notices.cancels.filter(
+    (c) =>
+      c.day === day &&
+      (!c.slots.length || c.slots.includes(slot)) &&
+      (!c.subject || c.subject === subject)
+  );
+}
+
+/**
+ * Отменено ли конкретное занятие. Отмена по преподавателю несёт подгруппу:
+ * заболел преподаватель одной языковой подгруппы — у остальных пара идёт.
+ */
+function lessonCancel(lesson) {
   return (
-    notices.cancels.find((c) => c.day === day && (!c.slots.length || c.slots.includes(slot))) ||
-    null
+    cancelsFor(lesson.slot, lesson.subject).find(
+      (c) => !c.subgroup || c.subgroup === lesson.subgroup
+    ) || null
   );
 }
 
@@ -189,10 +206,20 @@ function cancelFor(slot) {
  */
 function applyCancels() {
   for (const card of els.lessons.querySelectorAll(".card")) {
-    const cancel = cancelFor(Number(card.dataset.slot));
-    card.classList.toggle("card--cancelled", Boolean(cancel));
+    const subgroups = cardSubgroups(card);
+    const matches = cancelsFor(Number(card.dataset.slot), card.dataset.subject);
+    // Целиком — если отмена без подгруппы или отменены все подгруппы карточки.
+    const whole =
+      matches.find((c) => !c.subgroup) ||
+      (subgroups.length && subgroups.every((n) => matches.some((c) => c.subgroup === n))
+        ? matches[0]
+        : null);
+    // Иначе — только у части подгрупп: карточка не гаснет, но это видно.
+    const partial = whole ? [] : matches.filter((c) => c.subgroup && subgroups.includes(c.subgroup));
+
+    card.classList.toggle("card--cancelled", Boolean(whole));
     let note = card.querySelector(".cancel-note");
-    if (!cancel) {
+    if (!whole && !partial.length) {
       note?.remove();
       continue;
     }
@@ -200,9 +227,16 @@ function applyCancels() {
       note = el("div", "cancel-note");
       (card.querySelector(".card-body") || card).append(note);
     }
-    note.textContent = cancel.reason
-      ? t("Отменена · {reason}", { reason: cancel.reason })
-      : t("Отменена");
+    const cancel = whole || partial[0];
+    const label = whole
+      ? t("Отменена")
+      : t("Отменена у {groups}", {
+          groups: [...new Set(partial.map((c) => c.subgroup))]
+            .sort((a, b) => a - b)
+            .map((n) => t("гр. {n}", { n }))
+            .join(", "),
+        });
+    note.textContent = cancel.reason ? `${label} · ${cancel.reason}` : label;
   }
   refreshNow();
   refreshNext();
@@ -1406,7 +1440,7 @@ function currentLesson() {
   const bells = new Map(data.bells.map((b) => [b.n, b]));
   for (const lesson of visible) {
     const time = timesOf(lesson, bells);
-    if (!time || cancelFor(lesson.slot)) continue;
+    if (!time || lessonCancel(lesson)) continue;
     const start = minutes(time.start);
     const end = minutes(time.end);
     if (nowMinutes >= start && nowMinutes <= end) {
@@ -1446,7 +1480,7 @@ function nextLesson() {
   let best = null;
   for (const lesson of visible) {
     const time = timesOf(lesson, bells);
-    if (!time || cancelFor(lesson.slot)) continue;
+    if (!time || lessonCancel(lesson)) continue;
     const start = minutes(time.start);
     if (start <= nowMinutes) continue;
     if (!best || start < best.start) best = { lesson, start };
@@ -1463,7 +1497,7 @@ function refreshNext() {
   }
 
   els.next.hidden = false;
-  if (visible.every((lesson) => cancelFor(lesson.slot))) {
+  if (visible.every((lesson) => lessonCancel(lesson))) {
     els.next.textContent = t("Все пары на сегодня отменены");
     return;
   }

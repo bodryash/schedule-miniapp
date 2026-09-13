@@ -56,6 +56,7 @@ const WORDS = {
     "Все пары отменены": "All classes cancelled", ", отменено {n}": ", {n} cancelled",
     "окно": "free period", "по подгруппам": "by subgroups", "ауд. {room}": "room {room}",
     "отменена": "cancelled", "чётная неделя": "even week", "нечётная неделя": "odd week",
+    "отменена у {groups}": "cancelled for {groups}", "гр. {n}": "group {n}",
     "чётная": "even", "нечётная": "odd", "неделя {span}": "week {span}",
     "📅 Открыть расписание": "📅 Open schedule",
     "Напишите группу, например 311гэу": "Type your group, e.g. 311гэу",
@@ -75,6 +76,7 @@ const WORDS = {
     "Все пары отменены": "课程全部取消", ", отменено {n}": "，取消 {n} 节",
     "окно": "空堂", "по подгруппам": "分小组", "ауд. {room}": "{room}教室",
     "отменена": "已取消", "чётная неделя": "双周", "нечётная неделя": "单周",
+    "отменена у {groups}": "{groups}已取消", "гр. {n}": "{n}组",
     "чётная": "双周", "нечётная": "单周", "неделя {span}": "{span} 这一周",
     "📅 Открыть расписание": "📅 打开课表",
     "Напишите группу, например 311гэу": "输入班级，例如 311гэу",
@@ -150,9 +152,21 @@ export function parseDay(word) {
   return date;
 }
 
-/** Отмена, которая касается пары: по дате и номеру; без номеров — весь день. */
-export function cancelOf(cancels, day, slot) {
-  return cancels.find((c) => c.day === day && (!c.slots.length || c.slots.includes(slot))) || null;
+/**
+ * Отмена, которая касается занятия: по дате и номеру пары (без номеров —
+ * весь день). Отмена по преподавателю ещё и по предмету и подгруппе: иначе
+ * заболевший преподаватель одной языковой подгруппы отменил бы всем.
+ */
+export function cancelOf(cancels, day, lesson) {
+  return (
+    cancels.find(
+      (c) =>
+        c.day === day &&
+        (!c.slots.length || c.slots.includes(lesson.slot)) &&
+        (!c.subject || c.subject === lesson.subject) &&
+        (!c.subgroup || c.subgroup === lesson.subgroup)
+    ) || null
+  );
 }
 
 /** Понедельник недели; для воскресенья — следующей, как в приложении. */
@@ -162,7 +176,7 @@ function mondayOf(date) {
 }
 
 /** Чётность — по календарю из расписания, по пересечению с Пн–Сб. */
-function parityOf(weeks, date) {
+export function parityOf(weeks, date) {
   const monday = addDays(date, 1 - (date.getUTCDay() || 7));
   const from = iso(monday);
   const to = iso(addDays(monday, 5));
@@ -233,7 +247,12 @@ function lessonsOn(file, date, cancels = []) {
     buckets.get(key).push(lesson);
   }
   const values = [...buckets.values()];
-  for (const entries of values) entries.cancel = cancelOf(cancels, iso(date), entries[0].slot);
+  for (const entries of values) {
+    // Отмена у каждого занятия своя: подгруппы одного предмета могут
+    // отменяться по отдельности. Пара отменена целиком, только если все.
+    entries.cancels = entries.map((e) => cancelOf(cancels, iso(date), e));
+    entries.cancel = entries.cancels.every(Boolean) ? entries.cancels[0] : null;
+  }
   return { parity, buckets: values };
 }
 
@@ -273,15 +292,21 @@ function lessonLines(file, buckets, ctx) {
   for (const entries of buckets) {
     const first = entries[0];
     const key = `${first.slot}|${kindOf(first.subject)}`;
-    if (!cells.has(key)) cells.set(key, { slot: first.slot, entries: [], cancel: null });
+    if (!cells.has(key)) cells.set(key, { slot: first.slot, entries: [], cancels: [] });
     cells.get(key).entries.push(...entries);
-    if (entries.cancel) cells.get(key).cancel = entries.cancel;
+    cells.get(key).cancels.push(...entries.cancels);
   }
 
   // Одно и то же несколько пар подряд — одной строкой «1–6»: военная
   // кафедра на весь день иначе заняла бы полэкрана.
   const rows = [];
-  for (const { slot, entries, cancel } of cells.values()) {
+  for (const { slot, entries, cancels } of cells.values()) {
+    const cancel = cancels.every(Boolean) ? cancels[0] : null;
+    // Отменена не у всех — называем, у каких подгрупп.
+    const partial = cancel
+      ? []
+      : [...new Set(entries.filter((e, i) => cancels[i] && e.subgroup).map((e) => e.subgroup))];
+    const partialCancel = partial.length ? cancels.find(Boolean) : null;
     const first = entries[0];
     const subjects = new Set(entries.map((e) => e.subject));
     const label =
@@ -290,9 +315,13 @@ function lessonLines(file, buckets, ctx) {
       entries.length > 1 ? w(lang, "по подгруппам") : first.room ? roomText(first.room, ctx) : "";
     const tag = first.elective ? ` <i>(${escape(w(lang, first.elective))})</i>` : "";
     const plain = `${escape(label)}${tag}${where ? ` · ${escape(where)}` : ""}`;
-    const text = cancel
-      ? `<s>${plain}</s> — <b>${w(lang, "отменена")}</b>${cancel.reason ? `: ${escape(cancel.reason)}` : ""}`
-      : plain;
+    let text = plain;
+    if (cancel) {
+      text = `<s>${plain}</s> — <b>${w(lang, "отменена")}</b>${cancel.reason ? `: ${escape(cancel.reason)}` : ""}`;
+    } else if (partialCancel) {
+      const groups = partial.map((n) => w(lang, "гр. {n}", { n })).join(", ");
+      text = `${plain} — <b>${w(lang, "отменена у {groups}", { groups })}</b>${partialCancel.reason ? `: ${escape(partialCancel.reason)}` : ""}`;
+    }
     const time = timesOf(first, file.bells);
 
     const same = rows.find((r) => r.text === text && r.to === slot - 1);

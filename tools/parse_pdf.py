@@ -22,6 +22,8 @@ from pathlib import Path
 
 import pdfplumber
 
+import teachers_index
+
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "data" / "schedule.json"
 GROUPS = ROOT / "docs" / "data" / "groups.json"
@@ -537,6 +539,8 @@ def main():
         (BY_GROUP / f"{group['id']}.json").write_text(
             json.dumps(part, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
         )
+    # Указатель преподавателей — для отмены пар по фамилии (/cancel преп …).
+    teachers_index.write(data)
     print(f"групп: {len(data['groups'])}, пар: {len(data['lessons'])} → {OUT}")
 
 

@@ -14,6 +14,7 @@ import {
   iso,
   loadGroups,
   normalize,
+  parityOf,
   parseDay,
   today,
 } from "./inline.js";
@@ -543,7 +544,7 @@ const courseOf = (group) =>
 async function activeCancels(env, group) {
   if (!env.STATS || !group?.id) return [];
   const { results = [] } = await env.STATS.prepare(
-    `SELECT id, day, slots, reason FROM cancels
+    `SELECT id, day, slots, reason, subject, subgroup FROM cancels
      WHERE grp IN (?, ?, '*') AND removed = 0 AND day >= ?
      ORDER BY day, id LIMIT 40`
   )
@@ -802,9 +803,12 @@ const CANCEL_HELP = [
   "/cancel 3курс завтра — весь день",
   "/cancel 311гэу,312гэу пт 1-2",
   "/cancel все 15.09 5,6",
-  "/uncancel 7 — вернуть пару",
+  "/cancel преп Шестова 14.09 Заболела — все пары преподавателя",
+  "/cancel преп Иванов А.А. пт 3-4 — однофамильцев различают инициалы",
+  "/uncancel 7 — вернуть пару, /uncancel 7,8,9 — несколько",
   "",
   "Порядок: кому, день, номера пар, причина. Кому — как в /notice. День — 14.09, сегодня, завтра или пн…сб. Без номеров отменяется весь день. Причину можно не писать.",
+  "По преподавателю отменяются только его пары — предмет и подгруппа, а не вся пара группы.",
 ].join("\n");
 
 const SLOT_LIST = /^\d(?:[-–,]\d)*$/;
@@ -828,7 +832,7 @@ async function handleCancel(env, text) {
 
   if (!body) {
     const { results = [] } = await env.STATS.prepare(
-      `SELECT id, grp, day, slots, reason FROM cancels
+      `SELECT id, grp, day, slots, reason, subject, subgroup, teacher FROM cancels
        WHERE removed = 0 AND day >= ? ORDER BY day, id LIMIT 30`
     )
       .bind(iso(today()))
@@ -837,12 +841,16 @@ async function handleCancel(env, text) {
       const date = new Date(`${c.day}T00:00:00Z`);
       const slots = c.slots ? c.slots.split(",").map(Number) : [];
       const reason = c.reason ? `\n${escape(c.reason)}` : "";
-      return `№${c.id} · ${escape(targetLabel(c.grp))} · ${dateLabel(date)} · ${slotsLabel(slots)}${reason}`;
+      const who = c.teacher
+        ? ` · ${escape(c.teacher)}: ${escape(c.subject)}${c.subgroup ? ` (гр. ${c.subgroup})` : ""}`
+        : "";
+      return `№${c.id} · ${escape(targetLabel(c.grp))} · ${dateLabel(date)} · ${slotsLabel(slots)}${who}${reason}`;
     });
     return [CANCEL_HELP, "", list.length ? list.join("\n\n") : "Отменённых пар впереди нет."].join("\n");
   }
 
   const words = body.split(/\s+/);
+  if (TEACHER_WORDS.has(words[0].toLowerCase())) return cancelByTeacher(env, words.slice(1));
   const [target, dayWord, slotWord] = words;
   if (!dayWord) return `Не хватает дня.\n\n${CANCEL_HELP}`;
 
@@ -880,15 +888,144 @@ async function handleCancel(env, text) {
   ].join("\n");
 }
 
+/* ---------- Отмена по преподавателю ---------- */
+
+const TEACHER_WORDS = new Set(["преп", "препод", "преподаватель", "преподавателя"]);
+const WEEK_CODES = { odd: 1, even: 2 };
+
+/** «Шестова» и «шестова», «Королёва» и «Королева» — одно и то же. */
+const nameKey = (text) => String(text).toLowerCase().replace(/ё/g, "е").replace(/[.\s]/g, "");
+
+/**
+ * /cancel преп Шестова [Т.Л.] 14.09 [3-4] [причина] — находит по указателю
+ * все пары преподавателя в этот день и отменяет именно их: предмет и
+ * подгруппу, а не всю пару группы.
+ */
+async function cancelByTeacher(env, words) {
+  const dayAt = words.findIndex((word, i) => i > 0 && parseDay(word));
+  if (!words.length || dayAt < 1) {
+    return `Нужны фамилия и день: /cancel преп Шестова 14.09 Заболела\n\n${CANCEL_HELP}`;
+  }
+  const nameWords = words.slice(0, dayAt);
+  const date = parseDay(words[dayAt]);
+  if (date < today()) return "Эта дата уже прошла.";
+  if (date.getUTCDay() === 0) return `${dateLabel(date)} — пар нет.`;
+
+  let rest = words.slice(dayAt + 1);
+  let slots = [];
+  if (rest[0] && SLOT_LIST.test(rest[0])) {
+    slots = parseSlots(rest[0]);
+    if (slots.some((n) => n < 1 || n > 7)) return "Номера пар — от 1 до 7.";
+    rest = rest.slice(1);
+  }
+  const reason = rest.join(" ");
+  if (reason.length > 200) return "Причина слишком длинная: до 200 знаков.";
+
+  let index;
+  try {
+    const response = await fetch(`${WEB_APP_URL}data/teachers.json`, {
+      cf: { cacheTtl: 300, cacheEverything: true },
+    });
+    if (!response.ok) throw new Error(response.status);
+    index = await response.json();
+  } catch {
+    return "Не удалось загрузить список преподавателей. Попробуйте позже.";
+  }
+
+  // Фамилия — первое слово, остальное — инициалы, если указаны.
+  const surname = nameKey(nameWords[0]);
+  const initials = nameKey(nameWords.slice(1).join(""));
+  const people = index.teachers.map((name, i) => {
+    const [last, ...tail] = name.split(" ");
+    return { i, name, last: nameKey(last), initials: nameKey(tail.join("")) };
+  });
+  let found = people.filter((p) => p.last === surname);
+  // Точной нет — по началу фамилии, но не по двум буквам.
+  if (!found.length && surname.length >= 4) found = people.filter((p) => p.last.startsWith(surname));
+  if (initials) found = found.filter((p) => p.initials.startsWith(initials));
+
+  const typed = escape(nameWords.join(" "));
+  if (!found.length) return `Не нашёл преподавателя «${typed}» в расписании.`;
+  if (found.length > 1) {
+    const names = found.map((p) => p.name).join(", ");
+    return `Под «${typed}» подходят: ${escape(names)}\nУточните инициалы, например: /cancel преп ${escape(found[0].name)} ${words[dayAt]}`;
+  }
+  const teacher = found[0];
+
+  const parity = parityOf(index.weeks, date);
+  const lessons = index.lessons.filter(
+    ([t, , day, slot, week]) =>
+      t === teacher.i &&
+      day === date.getUTCDay() &&
+      (week === 0 || parity === null || week === WEEK_CODES[parity]) &&
+      (!slots.length || slots.includes(slot))
+  );
+  const when = `${dateLabel(date)}${slots.length ? `, ${slotsLabel(slots)}` : ""}`;
+  if (!lessons.length) return `У ${escape(teacher.name)} ${when} пар по расписанию нет.`;
+
+  // Одна запись на группу, предмет и подгруппу — со всеми парами дня.
+  const groups = new Map();
+  for (const [, g, , slot, , s, subgroup] of lessons) {
+    const key = `${g}|${s}|${subgroup}`;
+    if (!groups.has(key)) {
+      groups.set(key, { grp: index.groups[g], subject: index.subjects[s], subgroup, slots: [] });
+    }
+    groups.get(key).slots.push(slot);
+  }
+  const items = [...groups.values()].sort((a, b) => a.grp.localeCompare(b.grp, "ru", { numeric: true }));
+
+  const stamp = new Date().toISOString();
+  const created = await env.STATS.batch(
+    items.map((item) =>
+      env.STATS.prepare(
+        `INSERT INTO cancels (grp, day, slots, reason, created, subject, subgroup, teacher)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+      ).bind(
+        item.grp,
+        iso(date),
+        [...new Set(item.slots)].sort((a, b) => a - b).join(","),
+        reason,
+        stamp,
+        item.subject,
+        item.subgroup,
+        teacher.name
+      )
+    )
+  );
+  const numbers = created.map((r) => r.results[0].id);
+
+  const lines = items.map((item) => {
+    const pairs = slotsLabel([...new Set(item.slots)].sort((a, b) => a - b));
+    const sub = item.subgroup ? ` (гр. ${item.subgroup})` : "";
+    return `• ${escape(item.grp)} — ${escape(item.subject)}${sub} · ${pairs}`;
+  });
+  return [
+    `Отменены пары ${escape(teacher.name)} · ${dateLabel(date)}${reason ? ` · ${escape(reason)}` : ""}:`,
+    ...lines,
+    "",
+    "В приложении и в расписании в чатах они уже зачёркнуты.",
+    `Вернуть все: /uncancel ${numbers.join(",")}`,
+  ].join("\n");
+}
+
 async function handleUncancel(env, text) {
-  const id = Number(text.split(/\s+/)[1]);
-  if (!id) return "Укажите номер: /uncancel 7. Список — /cancel";
-  const result = await env.STATS.prepare(
-    "UPDATE cancels SET removed = 1 WHERE id = ? AND removed = 0"
-  )
-    .bind(id)
-    .run();
-  return result.meta?.changes ? `Отмена №${id} снята — пара снова в расписании.` : `Действующей отмены №${id} нет.`;
+  // Номера через запятую или пробел: отмена по преподавателю даёт несколько.
+  const ids = [...new Set(text.replace(/^\/uncancel(@\w+)?/, "").split(/[\s,]+/).map(Number).filter(Boolean))];
+  if (!ids.length) return "Укажите номер: /uncancel 7 или /uncancel 7,8,9. Список — /cancel";
+  if (ids.length > 50) return "За раз — не больше 50 номеров.";
+
+  const results = await env.STATS.batch(
+    ids.map((id) => env.STATS.prepare("UPDATE cancels SET removed = 1 WHERE id = ? AND removed = 0").bind(id))
+  );
+  const done = ids.filter((_, i) => results[i].meta?.changes);
+  const missing = ids.filter((id) => !done.includes(id));
+  if (ids.length === 1) {
+    return done.length ? `Отмена №${ids[0]} снята — пара снова в расписании.` : `Действующей отмены №${ids[0]} нет.`;
+  }
+  const lines = [];
+  if (done.length) lines.push(`Сняты отмены: ${done.map((n) => `№${n}`).join(", ")} — пары снова в расписании.`);
+  if (missing.length) lines.push(`Не было действующих: ${missing.map((n) => `№${n}`).join(", ")}.`);
+  return lines.join("\n");
 }
 
 /** `/notice` без текста — список действующих; с текстом — новое объявление. */

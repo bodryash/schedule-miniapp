@@ -119,7 +119,12 @@ CREATE TABLE IF NOT EXISTS cancels (
   slots   TEXT NOT NULL DEFAULT '',
   reason  TEXT NOT NULL DEFAULT '',
   created TEXT NOT NULL,
-  removed INTEGER NOT NULL DEFAULT 0
+  removed INTEGER NOT NULL DEFAULT 0,
+  -- Точная отмена по преподавателю: один предмет и подгруппа (0 — все).
+  -- В уже созданную базу — migrations/0003_cancel_precise.sql.
+  subject  TEXT NOT NULL DEFAULT '',
+  subgroup INTEGER NOT NULL DEFAULT 0,
+  teacher  TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS cancels_grp ON cancels (grp, day);
