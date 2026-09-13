@@ -20,6 +20,11 @@ import {
 
 const WEB_APP_URL = "https://bodryash.github.io/schedule-miniapp/";
 
+// Тестовая сборка: папка docs отдельным воркером, чтобы проверить новое до
+// выкладки студентам. Обновить:
+//   npx wrangler deploy --name fgp-schedule-beta --assets docs --compatibility-date 2026-09-11
+const BETA_URL = "https://fgp-schedule-beta.bodryash.workers.dev/";
+
 // Объявление само снимается через неделю: забытая плашка «пара перенесена»
 // через месяц вводила бы в заблуждение сильнее, чем её отсутствие.
 const NOTICE_DAYS = 7;
@@ -1096,6 +1101,19 @@ export default {
       } else {
         await draftBroadcast(env, message.chat.id, body);
       }
+    }
+
+    // Тестовая версия приложения — только владельцу. Кнопка web_app, а не
+    // ссылка: так приложение получает подпись Telegram, как настоящее.
+    if (message && text.startsWith("/beta")) {
+      const owner = isOwner(env, message.chat.id);
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: owner ? "Тестовая версия расписания. Студенты её не видят." : "Команда недоступна.",
+        reply_markup: owner
+          ? { inline_keyboard: [[{ text: "🧪 Открыть тестовую версию", web_app: { url: BETA_URL } }]] }
+          : undefined,
+      });
     }
 
     // Назначать старост может только владелец.
