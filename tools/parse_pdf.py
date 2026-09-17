@@ -126,6 +126,12 @@ RE_PREFIX = re.compile(r"(?:^|(?<=\s))(дв|ф)(?=[А-ЯЁA-Z])")
 RE_URL = re.compile(r"https?://.*$", re.DOTALL)
 REMOTE_ROOMS = {"дистант", "дистанционно", "онлайн", "вирт"}
 RE_ROOM = re.compile(r"ауд\.?\s*")
+# Номер аудитории сам по себе: «631», «113Б», «636Б ЮФ», «П6 1 ГУМ».
+RE_ROOM_NUMBER = re.compile(r"^(?:\d{3}[А-ЯЁ]?(?:\s+[А-ЯЁ]{2,})?|П\d.*)$")
+RE_ROOM_THEN_TEACHER = re.compile(
+    r"^(\d{3}[А-ЯЁ]?(?:\s+[А-ЯЁ]{2,})?)\s+"
+    r"((?:проф|доц|ст\.?\s?пр|пр|зав\.?\s?каф|асс|н\.\s?с|с\.\s?н\.\s?с|акад)\..*)$"
+)
 RE_SUBGROUP = re.compile(r",?\s*гр\.\s*(\d+)\s*,")
 RE_PAREN = re.compile(r"\s*\(([^)]*)\)")
 
@@ -133,6 +139,7 @@ RE_PAREN = re.compile(r"\s*\(([^)]*)\)")
 RE_DASHES = re.compile(r"^[\s\-–—]{3,}$", re.MULTILINE)
 
 RE_WEEKS = re.compile(r"(нечетные|четные)\s+недели:\s*([^\n]+)")
+RE_LEADING_WEEK = re.compile(r"^\s*\((не)?четная\s+неделя\)\s*", re.IGNORECASE)
 RE_RANGE = re.compile(r"(\d{2})\.(\d{2})\s*-\s*(\d{2})\.(\d{2})")
 
 
@@ -223,9 +230,25 @@ def parse_lesson(chunk):
     room, teacher = "", ""
     if tail:
         parts = [p.strip() for p in tail.split(",")]
+        empty_room = False
         for part in parts:
+            if empty_room and not room and RE_ROOM_NUMBER.match(part):
+                # Опечатка в исходнике: «ауд.,631» — запятая после «ауд.».
+                # Без этого номер уходил к преподавателю, а аудитория пустела.
+                room = part
+                empty_room = False
+                continue
+            glued = RE_ROOM_THEN_TEACHER.match(part) if empty_room and not room else None
+            if glued:
+                # Та же опечатка без запятой дальше: «ауд.,619 ст.пр. Иванова».
+                room = glued.group(1)
+                teacher = f"{teacher}, {glued.group(2)}" if teacher else glued.group(2)
+                empty_room = False
+                continue
+            empty_room = False
             if RE_ROOM.match(part):
                 room = RE_ROOM.sub("", part).strip()
+                empty_room = not room
             elif part.lower() in REMOTE_ROOMS:
                 # «дистант» пишут вместо аудитории, без слова «ауд.».
                 room = part
@@ -499,6 +522,8 @@ def parse(pdf_path):
     bells = {}
     weeks = []
     state = {"period": None}
+    # Последняя разобранная пара группы в этот день — для перелива пометок.
+    last_lesson = {}
 
     with pdfplumber.open(pdf_path) as pdf:
         for block in read_blocks(pdf, groups, weeks, state):
@@ -519,12 +544,21 @@ def parse(pdf_path):
                 )
 
                 for gid, cell in spread(cell_row, row, columns).items():
+                    # Пометка недели в самом начале ячейки — перелив из ячейки
+                    # выше: «(четная неделя)» от последней пары прошлой строки.
+                    # Иначе та пара показывалась бы каждую неделю.
+                    lead = RE_LEADING_WEEK.match(cell)
+                    if lead:
+                        cell = cell[lead.end():]
+                        above = last_lesson.get((gid, day))
+                        if above and above["slot"] == slot - 1 and above["week"] == "all":
+                            above["week"] = "odd" if lead.group(1) else "even"
                     for chunk in split_lessons(cell):
                         lesson = parse_lesson(chunk)
                         if lesson:
-                            lessons.append(
-                                {"group": gid, "day": day, "slot": slot, **lesson}
-                            )
+                            entry = {"group": gid, "day": day, "slot": slot, **lesson}
+                            lessons.append(entry)
+                            last_lesson[(gid, day)] = entry
 
     repair_truncated(lessons)
     lessons = drop_duplicates(lessons)
