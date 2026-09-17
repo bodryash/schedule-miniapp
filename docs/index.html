@@ -148,30 +148,39 @@
 
   <!-- Основной экран -->
   <section id="schedule" hidden>
-    <header class="bar">
-      <div>
-        <div class="date" id="date-label"></div>
+    <!-- Дата — крупно и на всю ширину: её меняют листанием десятки раз в
+         день. Группа и неделя — контекст, им хватает строки сверху. -->
+    <header class="bar bar--schedule">
+      <div class="bar-top">
         <div class="context">
           <span class="group-name" id="current-group"></span>
           <span class="week" id="week-label"></span>
         </div>
+        <div class="bar-actions">
+          <button id="find" class="icon" type="button" aria-label="Поиск">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <circle cx="9" cy="9" r="5.5" />
+              <line x1="13.2" y1="13.2" x2="17" y2="17" />
+            </svg>
+          </button>
+          <button id="rooms" class="icon" type="button" aria-label="Свободные аудитории">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <rect x="5" y="3" width="10" height="14" rx="1.5" />
+              <circle cx="12" cy="10.5" r="0.9" />
+              <line x1="3" y1="17" x2="17" y2="17" />
+            </svg>
+          </button>
+          <button id="change" class="icon" type="button" aria-label="Настройки">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <line x1="3" y1="6" x2="17" y2="6" />
+              <line x1="3" y1="14" x2="17" y2="14" />
+              <circle cx="7.5" cy="6" r="2" class="icon-fill" />
+              <circle cx="12.5" cy="14" r="2" class="icon-fill" />
+            </svg>
+          </button>
+        </div>
       </div>
-      <div class="bar-actions">
-        <button id="find" class="icon" type="button" aria-label="Поиск">
-          <svg viewBox="0 0 20 20" aria-hidden="true">
-            <circle cx="9" cy="9" r="5.5" />
-            <line x1="13.2" y1="13.2" x2="17" y2="17" />
-          </svg>
-        </button>
-        <button id="rooms" class="icon" type="button" aria-label="Свободные аудитории">
-          <svg viewBox="0 0 20 20" aria-hidden="true">
-            <rect x="5" y="3" width="10" height="14" rx="1.5" />
-            <circle cx="12" cy="10.5" r="0.9" />
-            <line x1="3" y1="17" x2="17" y2="17" />
-          </svg>
-        </button>
-        <button id="change" class="ghost" data-i18n>Настройки</button>
-      </div>
+      <div class="date" id="date-label"></div>
     </header>
 
     <div id="notices"></div>

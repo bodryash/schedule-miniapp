@@ -221,6 +221,33 @@ function lessonCancel(lesson) {
 function applyCancels() {
   for (const card of els.lessons.querySelectorAll(".card")) {
     const subgroups = cardSubgroups(card);
+    const slotsOfCard = cardSlots(card);
+
+    // Склеенная карточка «1–6 пара»: отменены все пары — гаснет целиком,
+    // часть — подписываем, какие именно.
+    if (slotsOfCard.length > 1) {
+      const cancelled = slotsOfCard
+        .map((slot) => ({ slot, cancel: cancelsFor(slot, card.dataset.subject).find((c) => !c.subgroup) }))
+        .filter((x) => x.cancel);
+      const all = cancelled.length === slotsOfCard.length;
+      card.classList.toggle("card--cancelled", all);
+      let note = card.querySelector(".cancel-note");
+      if (!cancelled.length) {
+        note?.remove();
+        continue;
+      }
+      if (!note) {
+        note = el("div", "cancel-note");
+        (card.querySelector(".card-body") || card).append(note);
+      }
+      const label = all
+        ? t("Отменена")
+        : t("Отменена: {slots} пара", { slots: cancelled.map((x) => x.slot).join(", ") });
+      const reason = cancelled[0].cancel.reason;
+      note.textContent = reason ? `${label} · ${reason}` : label;
+      continue;
+    }
+
     const matches = cancelsFor(Number(card.dataset.slot), card.dataset.subject);
     // Целиком — если отмена без подгруппы или отменены все подгруппы карточки.
     const whole =
@@ -1140,6 +1167,24 @@ function matchesPrefs(lesson) {
   return true;
 }
 
+/**
+ * Подпись занятия для склейки соседних пар: всё, что видно на карточке,
+ * кроме номера пары. Пары со своим временем не склеиваются — null.
+ */
+function lessonSignature(entries) {
+  if (entries.some((e) => e.start || e.end)) return null;
+  return JSON.stringify(
+    entries
+      .map((e) => [e.subgroup, e.type, e.room, e.teacher, e.week, e.elective, e.note, e.link])
+      .sort()
+  );
+}
+
+/** Номера пар карточки: у склеенной их несколько. */
+function cardSlots(card) {
+  return (card.dataset.slots || card.dataset.slot || "").split(",").filter(Boolean).map(Number);
+}
+
 function renderLessons(group, parity) {
   const bells = new Map(data.bells.map((b) => [b.n, b]));
   const list = data.lessons
@@ -1170,11 +1215,32 @@ function renderLessons(group, parity) {
   }
 
   const slots = [...bySlot.keys()].sort((a, b) => a - b);
+
+  // Одно и то же несколько пар подряд — одна карточка «1–6 пара». Военная
+  // кафедра на весь день иначе занимала полтора экрана одинаковых карточек.
+  // Пары со своим временем не склеиваем: диапазон звонков соврал бы.
+  const runs = [];
+  const open = new Map();
+  for (const slot of slots) {
+    for (const [subject, entries] of bySlot.get(slot)) {
+      const signature = lessonSignature(entries);
+      const run = open.get(subject);
+      if (signature && run && run.signature === signature && run.slots.at(-1) === slot - 1) {
+        run.slots.push(slot);
+      } else {
+        const fresh = { entries, signature, slots: [slot] };
+        open.set(subject, fresh);
+        runs.push(fresh);
+      }
+    }
+  }
+
   const nodes = [];
   for (let slot = slots[0]; slot <= slots[slots.length - 1]; slot++) {
-    const buckets = bySlot.get(slot);
-    if (buckets) {
-      for (const entries of buckets.values()) nodes.push(renderCard(entries, bells));
+    if (bySlot.has(slot)) {
+      for (const run of runs) {
+        if (run.slots[0] === slot) nodes.push(renderCard(run.entries, bells, run.slots));
+      }
     } else {
       // Свободная пара между занятыми — показываем как окно, чтобы её было
       // видно прямо в расписании, а не считать по времени.
@@ -1742,6 +1808,24 @@ function humanLeft(value) {
 let visible = [];
 
 /** Ближайшая пара сегодня, которая ещё не началась. */
+/**
+ * Та же пара шла номером раньше — значит, это продолжение, а не новая.
+ * Отменённая предыдущая не в счёт: после неё пара начинается заново.
+ */
+function continuesPrevious(lesson) {
+  if (lesson.start) return false;
+  return visible.some(
+    (l) =>
+      l.slot === lesson.slot - 1 &&
+      !l.start &&
+      l.subject === lesson.subject &&
+      l.room === lesson.room &&
+      l.teacher === lesson.teacher &&
+      (l.subgroup || 0) === (lesson.subgroup || 0) &&
+      !lessonCancel(l)
+  );
+}
+
 function nextLesson() {
   if (isoDate(dateOfDay(selectedDay)) !== isoDate(new Date())) return null;
 
@@ -1755,6 +1839,8 @@ function nextLesson() {
     if (!time || lessonCancel(lesson)) continue;
     const start = minutes(time.start);
     if (start <= nowMinutes) continue;
+    // Продолжение той же склеенной карточки («1–6 пара») — не «следующая пара».
+    if (continuesPrevious(lesson)) continue;
     if (!best || start < best.start) best = { lesson, start };
   }
   return best && { ...best, left: best.start - nowMinutes };
@@ -1796,7 +1882,7 @@ function refreshNow() {
   const current = currentLesson();
 
   for (const card of els.lessons.querySelectorAll(".card")) {
-    const isNow = current && Number(card.dataset.slot) === current.slot;
+    const isNow = current && cardSlots(card).includes(current.slot);
     card.classList.toggle("card--now", Boolean(isNow));
 
     let badge = card.querySelector(".now");
@@ -1902,9 +1988,19 @@ function roomBadge(room) {
   return badge;
 }
 
-function renderCard(entries, bells) {
+/** «2 подгруппы», «5 подгрупп» — по-русски склоняем, у переводов своё. */
+function subgroupsLabel(n) {
+  if (LANG !== "ru") return t("{n} подгрупп — показать", { n });
+  const tens = n % 100;
+  const ones = n % 10;
+  const word = tens >= 11 && tens <= 14 ? "подгрупп" : ones === 1 ? "подгруппа" : ones >= 2 && ones <= 4 ? "подгруппы" : "подгрупп";
+  return `${n} ${word} — показать`;
+}
+
+function renderCard(entries, bells, slots = [entries[0].slot]) {
   const first = entries[0];
   const bell = timesOf(first, bells);
+  const lastBell = bells.get(slots[slots.length - 1]);
 
   // Дисциплины по выбору и межфакультетские курсы выделены цветом: их
   // посещают не все, и в общем списке их надо отличать с одного взгляда.
@@ -1914,12 +2010,25 @@ function renderCard(entries, bells) {
   else if (first.elective) kind = " card--optional";
   const card = el("article", `card${kind}`);
   card.dataset.slot = first.slot;
+  card.dataset.slots = slots.join(",");
   card.dataset.subject = first.subject;
   card.dataset.subgroups = [...new Set(entries.map((e) => e.subgroup).filter(Boolean))].join(",");
 
   const head = el("div", "time");
-  head.append(el("span", "slot", t("{n} пара", { n: first.slot })));
-  if (bell) head.append(el("span", null, `${bell.start} – ${bell.end}`));
+  const range = slots.length > 1;
+  head.append(
+    el(
+      "span",
+      "slot",
+      range
+        ? t("{from}–{to} пара", { from: slots[0], to: slots[slots.length - 1] })
+        : t("{n} пара", { n: first.slot })
+    )
+  );
+  if (bell) {
+    const end = range && lastBell ? lastBell.end : bell.end;
+    head.append(el("span", null, `${bell.start} – ${end}`));
+  }
   if (first.subject === MFK) head.append(el("span", "tag", t("МФК")));
   else if (first.elective) head.append(el("span", "tag", t(first.elective)));
   // Аудитория выносится вправо отдельной плашкой — но только когда она одна
@@ -1932,7 +2041,7 @@ function renderCard(entries, bells) {
     body.append(metaLine(first, "", false));
   } else {
     const details = el("details", "subgroups");
-    details.append(el("summary", null, t("{n} подгрупп — показать", { n: entries.length })));
+    details.append(el("summary", null, subgroupsLabel(entries.length)));
     for (const entry of entries) {
       details.append(metaLine(entry, entry.subgroup ? t("гр. {n}", { n: entry.subgroup }) : ""));
     }
