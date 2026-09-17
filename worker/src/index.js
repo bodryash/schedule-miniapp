@@ -221,41 +221,21 @@ async function draftBroadcast(env, chatId, text, { button = false } = {}) {
   });
 }
 
-const MONTHS_RU = [
-  "января", "февраля", "марта", "апреля", "мая", "июня",
-  "июля", "августа", "сентября", "октября", "ноября", "декабря",
-];
-const MONTHS_EN = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
 /**
- * Дата версии расписания — когда разобран последний PDF. Берём из файла
- * одной группы: у всех одинаковая, а целое расписание весит мегабайт.
+ * Текст «расписание обновлено» на русском и английском; extra — от владельца.
+ *
+ * Без даты: в самом PDF дата утверждения не заполнена («"_____" августа»),
+ * а дата разбора — это не версия деканата. К тому же сайт отдаёт данные с
+ * кэшем, и бот читал старую дату: в рассылке висело 13 сентября при
+ * опубликованном 16-м. Лучше без даты, чем с неверной.
  */
-async function scheduleVersionDate() {
-  try {
-    const [group] = await loadGroups();
-    const response = await fetch(`${WEB_APP_URL}data/groups/${encodeURIComponent(group.id)}.json`);
-    const updated = (await response.json()).meta?.updated;
-    return ISO_DAY.test(updated || "") ? new Date(`${updated}T00:00:00Z`) : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Текст «расписание обновлено» на русском и английском; extra — от владельца. */
-async function updatedText(extra) {
-  const date = await scheduleVersionDate();
-  const ru = date ? ` (от ${date.getUTCDate()} ${MONTHS_RU[date.getUTCMonth()]})` : "";
-  const en = date ? ` (${date.getUTCDate()} ${MONTHS_EN[date.getUTCMonth()]})` : "";
+function updatedText(extra) {
   return [
-    `📅 Расписание обновлено по последней версии из деканата${ru}.`,
+    "📅 Расписание обновлено по последней версии из деканата.",
     "Проверьте свои пары: изменения уже в приложении.",
     ...(extra ? ["", extra] : []),
     "",
-    `📅 The schedule has been updated to the latest version from the dean's office${en}.`,
+    "📅 The schedule has been updated to the latest version from the dean's office.",
     "Please check your classes: the changes are already in the app.",
   ].join("\n");
 }
