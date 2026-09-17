@@ -1373,6 +1373,10 @@ function showSearch() {
   els.picker.hidden = true;
   els.search.hidden = false;
   els.query.focus();
+  // Имена преподавателей нужны только поиску — грузим при первом открытии.
+  loadTeacherNames().then(() => {
+    if (!els.search.hidden && els.query.value.trim()) runSearch();
+  });
 }
 
 function closeSearch() {
@@ -1381,6 +1385,113 @@ function closeSearch() {
 }
 
 /** Ищем по преподавателю, аудитории, предмету и номеру группы разом. */
+/* ---------- Преподаватели в поиске ---------- */
+
+// Полные имена — из списка сотрудников факультета в «ИСТИНЕ» МГУ: в PDF
+// только инициалы. Кого там нет (часто — языковые кафедры других
+// факультетов), остаётся с инициалами; дописать можно в teacher_names.json.
+let TEACHER_NAMES = null;
+
+async function loadTeacherNames() {
+  if (TEACHER_NAMES) return;
+  try {
+    const res = await fetch("data/teacher_names.json", { cache: "no-cache" });
+    TEACHER_NAMES = res.ok ? await res.json() : {};
+  } catch {
+    TEACHER_NAMES = {};
+  }
+}
+
+// Должность в PDF сокращена и пишется по-разному: «ст.пр.», «ст. пр.».
+const TEACHER_TITLES = [
+  [/^зав\.?\s*каф/i, "заведующий кафедрой"],
+  [/^с\.\s*н\.\s*с/i, "старший научный сотрудник"],
+  [/^н\.\s*с/i, "научный сотрудник"],
+  [/^ст\.?\s*пр/i, "старший преподаватель"],
+  [/^проф/i, "профессор"],
+  [/^доц/i, "доцент"],
+  [/^акад/i, "академик"],
+  [/^асс/i, "ассистент"],
+  [/^пр/i, "преподаватель"],
+];
+
+/**
+ * «зав.каф. Гвозданный В.А., проф. Агафонова Н.В.» → люди с должностями.
+ * То же, что tools/teachers_index.py: одно написание на человека.
+ */
+function teachersOf(field) {
+  const people = [];
+  for (let part of String(field || "").split(/,\s*/)) {
+    part = part.replace(/^\d{3}[А-ЯЁ]?\b\s*/, "").trim();
+    const titled = part.match(/^((?:[а-яё]{1,6}\.*\s*)+)(?=[А-ЯЁA-Z])/);
+    const titleRaw = titled ? titled[1].trim() : "";
+    const rest = titled ? part.slice(titled[0].length) : part;
+    const name = rest.match(/^([А-ЯЁ][а-яё]+(?:-[А-ЯЁ][а-яё]+)?)\s*(?:([А-ЯЁ])\.?\s*(?:([А-ЯЁ])\.?)?)?$/);
+    if (!name) continue;
+    const initials = [name[2], name[3]].filter(Boolean).map((c) => `${c}.`).join("");
+    const key = initials ? `${name[1]} ${initials}` : name[1];
+    const title = TEACHER_TITLES.find(([pattern]) => pattern.test(titleRaw))?.[1] || null;
+    people.push({ key, surname: name[1], title, full: TEACHER_NAMES?.[key] || null });
+  }
+  return people;
+}
+
+const searchKey = (text) => String(text).toLowerCase().replace(/ё/g, "е");
+
+/** «12 пар», «3 пары» — по-русски склоняем, у переводов своё. */
+function lessonsCount(n) {
+  if (LANG !== "ru") return t("{n} пар в расписании", { n });
+  const tens = n % 100;
+  const ones = n % 10;
+  const word = tens >= 11 && tens <= 14 ? "пар" : ones === 1 ? "пара" : ones >= 2 && ones <= 4 ? "пары" : "пар";
+  return `${n} ${word} в расписании`;
+}
+
+/**
+ * Преподаватели, подходящие под запрос: по началу фамилии или по имени и
+ * отчеству. Короче трёх букв не ищем — «Ив» совпало бы с половиной списка.
+ */
+function matchTeachers(query) {
+  const q = searchKey(query);
+  if (q.length < 3) return [];
+  const found = new Map();
+  for (const lesson of data.lessons) {
+    for (const person of teachersOf(lesson.teacher)) {
+      const hit =
+        searchKey(person.surname).startsWith(q) ||
+        searchKey(person.key).startsWith(q) ||
+        (person.full && searchKey(person.full).includes(q));
+      if (!hit) continue;
+      if (!found.has(person.key)) {
+        found.set(person.key, { ...person, titles: new Map(), lessons: new Set(), subjects: new Set(), groups: new Set() });
+      }
+      const entry = found.get(person.key);
+      if (person.title) entry.titles.set(person.title, (entry.titles.get(person.title) || 0) + 1);
+      entry.lessons.add([lesson.day, lesson.slot, lesson.week, lesson.subject].join("|"));
+      entry.subjects.add(lesson.subject);
+      entry.groups.add(lesson.group);
+    }
+  }
+  return [...found.values()].sort((a, b) => b.lessons.size - a.lessons.size);
+}
+
+function renderTeacherCard(teacher) {
+  const card = el("article", "teacher-card");
+  card.append(el("div", "teacher-avatar", teacher.surname[0]));
+  const body = el("div", "teacher-body");
+  body.append(el("div", "teacher-name", teacher.full || teacher.key));
+  // Самая частая должность: в разных строках PDF её пишут по-разному.
+  const title = [...teacher.titles].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const facts = [title ? t(title) : null, lessonsCount(teacher.lessons.size)].filter(Boolean);
+  body.append(el("div", "teacher-meta", facts.join(" · ")));
+  const subjects = el("div", "teacher-subjects");
+  for (const subject of [...teacher.subjects].slice(0, 6)) subjects.append(el("span", "tag", tr(subject)));
+  body.append(subjects);
+  body.append(el("div", "groups", [...teacher.groups].sort().join(", ")));
+  card.append(body);
+  return card;
+}
+
 function runSearch() {
   const query = els.query.value.trim().toLowerCase();
   if (query.length < 2) {
@@ -1390,10 +1501,14 @@ function runSearch() {
   }
 
   // Переведённое название тоже ищем: китаец наберёт «经济», а не «экономика».
-  const found = data.lessons.filter((l) =>
-    [l.teacher, l.room, l.subject, tr(l.subject), l.group].some((field) =>
-      (field || "").toLowerCase().includes(query)
-    )
+  // И по имени-отчеству преподавателя: «Татьяна Львовна» найдёт Шестову.
+  const teachers = matchTeachers(query);
+  const byName = new Set(teachers.filter((x) => x.full).map((x) => x.key));
+  const found = data.lessons.filter(
+    (l) =>
+      [l.teacher, l.room, l.subject, tr(l.subject), l.group].some((field) =>
+        (field || "").toLowerCase().includes(query)
+      ) || (byName.size && teachersOf(l.teacher).some((person) => byName.has(person.key)))
   );
 
   // Одну лекцию читают сразу нескольким группам. Показывать её шесть раз
@@ -1429,7 +1544,11 @@ function runSearch() {
       : t("Найдено {n}", { n: rows.length });
 
   const bells = new Map(data.bells.map((b) => [b.n, b]));
+  // Нашёлся преподаватель — сначала его карточка, потом пары. Больше трёх
+  // карточек не показываем: при коротком запросе это уже не поиск человека.
+  const people = teachers.length <= 3 ? teachers.map(renderTeacherCard) : [];
   els.results.replaceChildren(
+    ...people,
     ...shown.map(({ lesson, groups }) => {
       const bell = timesOf(lesson, bells);
       const row = el("article", "card");
@@ -1825,16 +1944,45 @@ let visible = [];
  */
 function continuesPrevious(lesson) {
   if (lesson.start) return false;
-  return visible.some(
-    (l) =>
-      l.slot === lesson.slot - 1 &&
-      !l.start &&
-      l.subject === lesson.subject &&
-      l.room === lesson.room &&
-      l.teacher === lesson.teacher &&
-      (l.subgroup || 0) === (lesson.subgroup || 0) &&
-      !lessonCancel(l)
-  );
+  // Продолжение пропускаем, только пока предыдущая пара того же блока ещё
+  // идёт. В перемене внутри блока следующая пара — и есть ближайшая, иначе
+  // строка писала бы «Пары закончились» посреди дня.
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  const same = (l, slot) =>
+    l.slot === slot &&
+    !l.start &&
+    l.subject === lesson.subject &&
+    l.room === lesson.room &&
+    l.teacher === lesson.teacher &&
+    (l.subgroup || 0) === (lesson.subgroup || 0) &&
+    !lessonCancel(l);
+
+  // Идём назад по цепочке одинаковых пар: 6-я — продолжение, если идёт 4-я,
+  // а 5-я ещё впереди. Закончившаяся пара рвёт цепочку: значит, сейчас
+  // перемена, и ближайшая пара — настоящая «следующая».
+  for (let slot = lesson.slot - 1; slot >= 1; slot--) {
+    const prev = visible.find((l) => same(l, slot));
+    if (!prev) return false;
+    const time = timesOf(prev, bells);
+    if (!time) return false;
+    if (nowMinutes >= minutes(time.end)) return false;
+    if (nowMinutes >= minutes(time.start)) return true;
+  }
+  return false;
+}
+
+/** Когда кончаются сегодняшние пары — самое позднее окончание неотменённой. */
+function lastEndToday() {
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  let last = null;
+  for (const lesson of visible) {
+    const time = timesOf(lesson, bells);
+    if (!time || lessonCancel(lesson)) continue;
+    if (!last || minutes(time.end) > minutes(last)) last = time.end;
+  }
+  return last;
 }
 
 function nextLesson() {
@@ -1874,7 +2022,19 @@ function refreshNext() {
   const upcoming = nextLesson();
 
   if (!upcoming) {
-    els.next.textContent = t(currentLesson() ? "Это последняя пара" : "Пары закончились");
+    if (!currentLesson()) {
+      els.next.textContent = t("Пары закончились");
+      return;
+    }
+    // Новых пар нет, но идущий блок ещё не кончился («1–6 пара»): это не
+    // «последняя пара», а пары до такого-то времени.
+    const now = new Date();
+    const end = lastEndToday();
+    const current = currentLesson();
+    const blockContinues = end && minutes(end) > now.getHours() * 60 + now.getMinutes() + current.left;
+    els.next.textContent = blockContinues
+      ? t("Пары до {time}", { time: end })
+      : t("Это последняя пара");
     return;
   }
 
