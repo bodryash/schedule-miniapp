@@ -6,7 +6,7 @@ const tg = window.Telegram?.WebApp;
 // только для нерусского, русским он не стоит ни байта.
 const LANG = window.__lang || "ru";
 const DICT = window.I18N?.[LANG] || {};
-const LOCALE = { ru: "ru-RU", en: "en-GB", zh: "zh-CN" }[LANG] || "ru-RU";
+const LOCALE = { ru: "ru-RU", en: "en-GB", zh: "zh-CN", ko: "ko-KR" }[LANG] || "ru-RU";
 const LANG_KEY = "schedule.lang";
 
 /** Перевод по русской строке-ключу; {n} подставляются. Нет перевода — русский. */
@@ -634,6 +634,35 @@ const MAIN_LANGS = [
 const LANG2 = /^2-ой\s/;
 const LANG3 = /^3-ий\s/;
 
+// Флаг у каждого языка — чтобы свой находился в списке и в расписании с
+// одного взгляда. Суахили — язык Танзании, арабский — Саудовской Аравии.
+const LANGUAGE_FLAGS = [
+  [/английск/i, "🇬🇧"],
+  [/арабск/i, "🇸🇦"],
+  [/испанск/i, "🇪🇸"],
+  [/итальянск/i, "🇮🇹"],
+  [/китайск/i, "🇨🇳"],
+  [/корейск/i, "🇰🇷"],
+  [/немецк/i, "🇩🇪"],
+  [/русск/i, "🇷🇺"],
+  [/суахили/i, "🇹🇿"],
+  [/турецк/i, "🇹🇷"],
+  [/французск/i, "🇫🇷"],
+  [/японск/i, "🇯🇵"],
+];
+
+/** «🇪🇸 2-ой Испанский язык» — флаг только у языков, название переводится. */
+function withFlag(subject) {
+  const label = tr(subject);
+  if (!/язык/i.test(subject)) return label;
+  const flag = LANGUAGE_FLAGS.find(([pattern]) => pattern.test(subject))?.[1];
+  return flag ? `${flag} ${label}` : label;
+}
+
+// Военная кафедра — факультатив, на который ходят не все. «Военно-
+// политическое измерение…» — обычная дисциплина по выбору, её не трогаем.
+const MILITARY = /^Военная подготовка/;
+
 const FULL_DATE = new Intl.DateTimeFormat(LOCALE, {
   weekday: "long",
   day: "numeric",
@@ -664,6 +693,8 @@ const els = {
   lang2Group: document.getElementById("lang2-group"),
   lang3Row: document.getElementById("lang3-row"),
   lang3: document.getElementById("lang3"),
+  militaryRow: document.getElementById("military-row"),
+  military: document.getElementById("military"),
   electivesRow: document.getElementById("electives-row"),
   electives: document.getElementById("electives"),
   save: document.getElementById("save"),
@@ -875,7 +906,7 @@ function fillLanguages() {
   if (mains.length) {
     els.main.replaceChildren(
       new Option(t("не выбран — показывать все"), ANY),
-      ...mains.map((s) => new Option(tr(s), s))
+      ...mains.map((s) => new Option(withFlag(s), s))
     );
     els.main.value = mains.includes(prefs.main) ? prefs.main : ANY;
   }
@@ -886,7 +917,7 @@ function fillLanguages() {
   if (second.length) {
     els.lang2.replaceChildren(
       new Option(t("не выбран — показывать все"), ANY),
-      ...second.map((s) => new Option(tr(s), s))
+      ...second.map((s) => new Option(withFlag(s), s))
     );
     els.lang2.value = second.includes(prefs.lang2) ? prefs.lang2 : ANY;
   }
@@ -898,9 +929,15 @@ function fillLanguages() {
   if (third.length) {
     els.lang3.replaceChildren(
       new Option(t("не хожу"), ANY),
-      ...third.map((s) => new Option(tr(s), s))
+      ...third.map((s) => new Option(withFlag(s), s))
     );
     els.lang3.value = third.includes(prefs.lang3) ? prefs.lang3 : ANY;
+  }
+
+  // Военную кафедру спрашиваем только там, где она есть в расписании.
+  if (els.militaryRow) {
+    els.militaryRow.hidden = !subjects.some((s) => MILITARY.test(s));
+    els.military.value = prefs.military === "no" ? "no" : "";
   }
 
   fillLang2Subgroups();
@@ -981,6 +1018,7 @@ function collectPrefs() {
         ? null
         : Number(els.lang2Group.value),
     lang3: (els.lang3Row.hidden ? "" : els.lang3.value) || null,
+    military: els.militaryRow && !els.militaryRow.hidden && els.military.value === "no" ? "no" : null,
     electives: [...els.electives.querySelectorAll("input:checked")].map(
       (box) => box.value
     ),
@@ -1070,6 +1108,8 @@ let daysScrolled = false;
 
 /** Отсеивает языковые пары чужих подгрупп по настройкам студента. */
 function matchesPrefs(lesson) {
+  if (prefs.military === "no" && MILITARY.test(lesson.subject)) return false;
+
   // Пустой список читаем как «показывать все» — иначе студент, ничего не
   // отметив, получил бы расписание без дисциплин по выбору.
   if (lesson.elective === ELECTIVE && prefs.electives?.length) {
@@ -1328,7 +1368,7 @@ function runSearch() {
       }
 
       const body = el("div", "card-body");
-      body.append(head, el("div", "subject", tr(lesson.subject)));
+      body.append(head, el("div", "subject", withFlag(lesson.subject)));
       body.append(metaLine(lesson, "", false));
       body.append(el("div", "groups", [...new Set(groups)].join(", ")));
 
@@ -1886,7 +1926,7 @@ function renderCard(entries, bells) {
   // на всю карточку. У подгрупп аудитории разные, и в списке они остаются.
   const single = entries.length === 1;
   const body = el("div", "card-body");
-  body.append(head, el("div", "subject", tr(first.subject)));
+  body.append(head, el("div", "subject", withFlag(first.subject)));
 
   if (single) {
     body.append(metaLine(first, "", false));

@@ -25,21 +25,24 @@
     window.__v = Date.now();
     document.write('<link rel="stylesheet" href="style.css?v=' + window.__v + '">');
 
-    // Язык: выбранный в настройках, иначе китайский — если Telegram или
-    // браузер по-китайски. Английский сам не включаем: многие русские
-    // студенты держат Telegram на английском.
+    // Язык: выбранный в настройках, иначе китайский или корейский — если
+    // Telegram или браузер на этом языке. Английский сам не включаем: многие
+    // русские студенты держат Telegram на английском.
     window.__lang = (function () {
+      var known = { ru: 1, en: 1, zh: 1, ko: 1 };
       // Из адреса — сразу после переключения: память телефона может быть
       // недоступна, и тогда выбор иначе бы не применился.
       var asked = new URLSearchParams(location.search).get("lang");
-      if (asked === "ru" || asked === "en" || asked === "zh") return asked;
+      if (known[asked]) return asked;
       try {
         var saved = localStorage.getItem("schedule.lang");
-        if (saved === "ru" || saved === "en" || saved === "zh") return saved;
+        if (known[saved]) return saved;
       } catch (e) {}
       var user = (window.Telegram && Telegram.WebApp.initDataUnsafe || {}).user || {};
       var code = String(user.language_code || navigator.language || "").toLowerCase();
-      return code.indexOf("zh") === 0 ? "zh" : "ru";
+      if (code.indexOf("zh") === 0) return "zh";
+      if (code.indexOf("ko") === 0) return "ko";
+      return "ru";
     })();
     document.documentElement.lang = window.__lang;
     if (window.__lang !== "ru") {
@@ -60,11 +63,12 @@
     <!-- Подпись на трёх языках сразу: кто не читает по-русски, должен
          найти переключатель, не зная, как он называется. -->
     <label>
-      Язык · Language · 语言
+      Язык · Language · 语言 · 언어
       <select id="lang">
-        <option value="ru">Русский</option>
-        <option value="en">English</option>
-        <option value="zh">中文</option>
+        <option value="ru">🇷🇺 Русский</option>
+        <option value="en">🇬🇧 English</option>
+        <option value="zh">🇨🇳 中文</option>
+        <option value="ko">🇰🇷 한국어</option>
       </select>
     </label>
 
@@ -101,6 +105,15 @@
     <label id="lang3-row" hidden>
       <span data-i18n>Третий язык</span>
       <select id="lang3"></select>
+    </label>
+
+    <!-- Только у групп, где в расписании есть военная подготовка -->
+    <label id="military-row" hidden>
+      <span data-i18n>Военная кафедра</span>
+      <select id="military">
+        <option value="" data-i18n>хожу — показывать</option>
+        <option value="no" data-i18n>не хожу — скрыть</option>
+      </select>
     </label>
 
     <fieldset id="electives-row" hidden>

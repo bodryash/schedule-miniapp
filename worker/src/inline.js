@@ -5,8 +5,8 @@
  * Данные берём из файлов по группам (docs/data/groups/<id>.json): целое
  * расписание весит мегабайт, а отвечать нужно быстро.
  *
- * Языки: «@FGPshedulebot 311гэу en» или «zh» — явно; без пометки китайский
- * включается сам по языку Telegram. Английский сам не включается: многие
+ * Языки: «@FGPshedulebot 311гэу en», «zh» или «ko» — явно; без пометки
+ * китайский и корейский включаются сами по языку Telegram. Английский сам не включается: многие
  * русские студенты держат Telegram на английском, а карточку отправляют
  * в общий чат группы.
  */
@@ -38,6 +38,7 @@ const DAY_WORDS = new Map([
 const LANG_WORDS = new Map([
   ["en", "en"], ["eng", "en"], ["english", "en"], ["англ", "en"],
   ["zh", "zh"], ["cn", "zh"], ["中文", "zh"], ["汉语", "zh"], ["кит", "zh"],
+  ["ko", "ko"], ["kr", "ko"], ["한국어", "ko"], ["кор", "ko"],
   ["ru", "ru"], ["рус", "ru"],
 ]);
 
@@ -87,6 +88,26 @@ const WORDS = {
     "по выбору": "选修", "факультатив": "任选",
     "дистант": "线上", "вирт": "线上", "В.каф.": "军事教研室", "с/база": "体育基地",
   },
+  ko: {
+    "Сегодня": "오늘", "Завтра": "내일", "Послезавтра": "모레",
+    "Вся неделя": "이번 주 전체", "Эта неделя": "이번 주", "Следующая неделя": "다음 주",
+    "Все дни одним сообщением": "모든 요일을 한 메시지로",
+    "Пн": "월", "Вт": "화", "Ср": "수", "Чт": "목", "Пт": "금", "Сб": "토",
+    "Пар нет 🎉": "수업 없음 🎉", "Пар нет": "수업 없음", "Воскресенье": "일요일",
+    "Все пары отменены": "수업 모두 휴강", ", отменено {n}": ", 휴강 {n}",
+    "окно": "공강", "по подгруппам": "분반별", "ауд. {room}": "{room}호",
+    "отменена": "휴강", "чётная неделя": "짝수 주", "нечётная неделя": "홀수 주",
+    "отменена у {groups}": "{groups} 휴강", "гр. {n}": "{n}분반",
+    "чётная": "짝수 주", "нечётная": "홀수 주", "неделя {span}": "{span} 주간",
+    "📅 Открыть расписание": "📅 시간표 열기",
+    "Напишите группу, например 311гэу": "반을 입력하세요. 예: 311гэу",
+    "Такой группы нет — открыть расписание": "해당 반이 없습니다 — 시간표 열기",
+    "2-ой иностранный язык": "제2외국어",
+    "3-ий иностранный язык": "제3외국어",
+    "Английский / русский язык": "영어 / 러시아어",
+    "по выбору": "선택", "факультатив": "자유 선택",
+    "дистант": "온라인", "вирт": "온라인", "В.каф.": "군사학과", "с/база": "체육 시설",
+  },
 };
 
 /** Перевод по русскому ключу; нет перевода — русский. */
@@ -116,6 +137,7 @@ function plural(n, one, few, many) {
 function classCount(n, lang) {
   if (lang === "en") return `${n} ${n === 1 ? "class" : "classes"}`;
   if (lang === "zh") return `${n}节课`;
+  if (lang === "ko") return `수업 ${n}개`;
   return `${n} ${plural(n, "пара", "пары", "пар")}`;
 }
 
@@ -189,7 +211,7 @@ export function dateLabel(date) {
   return `${WEEKDAYS[date.getUTCDay()]}, ${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}`;
 }
 
-const LOCALES = { en: "en-GB", zh: "zh-CN" };
+const LOCALES = { en: "en-GB", zh: "zh-CN", ko: "ko-KR" };
 
 function localDate(date, lang) {
   if (lang === "ru") return dateLabel(date);
@@ -504,7 +526,7 @@ function groupResults(file, when, ctx) {
 export async function answerInline(query, ctx) {
   const parsed = parseQuery(query.query || "");
   const code = String(query.from?.language_code || "").toLowerCase();
-  const lang = parsed.lang || (code.startsWith("zh") ? "zh" : "ru");
+  const lang = parsed.lang || (code.startsWith("zh") ? "zh" : code.startsWith("ko") ? "ko" : "ru");
   const [groups, subjects] = await Promise.all([
     loadGroups(),
     lang === "ru" ? Promise.resolve({}) : loadSubjects(),
