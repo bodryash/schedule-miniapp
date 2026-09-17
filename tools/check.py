@@ -87,6 +87,9 @@ def collect(pdf):
                 day = P.DAYS.get(first[::-1].lower())
                 if day:
                     marks.append((len(entries), day))
+                elif first:
+                    # Кусок подписи дня, разорванной границей страниц.
+                    marks.append((len(entries), ("fragment", first)))
 
                 match = P.RE_SLOT.search(values[1] or "")
                 if match and columns:
@@ -101,19 +104,37 @@ def collect(pdf):
     # Метка дня действует до следующей. Новая шапка сбрасывает день: строки
     # после неё ждут ближайшую метку справа, потому что день мог начаться в
     # конце страницы, а подпись оказаться на следующей.
+    # Куски разорванной подписи копятся до следующей шапки: «а» внизу одной
+    # страницы и «дерС» вверху следующей вместе дают среду. Раньше такие
+    # строки ждали следующую метку и получали четверг — ту же ошибку, что и
+    # у разбора, поэтому проверка её не ловила.
     pending = []
     current = None
+    fragments = []
     cursor = 0
+
+    def settle(day):
+        nonlocal current, pending
+        current = day
+        for waiting in pending:
+            waiting["day"] = day
+        pending = []
+
     for index, entry in enumerate(entries):
         while cursor < len(marks) and marks[cursor][0] <= index:
-            _, day = marks[cursor]
-            if day is None:
+            _, mark = marks[cursor]
+            if mark is None:
                 current = None
+                fragments = []
+            elif isinstance(mark, tuple):
+                if current is None:
+                    fragments.append(mark[1])
+                    day = P.day_from_fragments(fragments)
+                    if day:
+                        settle(day)
             else:
-                current = day
-                for waiting in pending:
-                    waiting["day"] = day
-                pending = []
+                fragments = []
+                settle(mark)
             cursor += 1
 
         if current:
