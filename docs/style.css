@@ -381,18 +381,45 @@ button:active { transform: scale(0.97); }
 
 /* --- Объявления --- */
 
-/* Жёлтый — не цвет недели и не цвет пар: плашку не спутать ни с чем. */
+/* Жёлтый — не цвет недели и не цвет пар: плашку не спутать ни с чем.
+   Остальные цвета владелец выбирает сам: красный — срочное, зелёный —
+   хорошая новость, синий — справка, серый — неважное. Фон — полупрозрачный
+   оттенок, поэтому одинаково читается и в светлой, и в тёмной теме. */
 .notice {
+  --notice: #f5b400;
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  margin: 0 0 12px;
+  margin: 0 0 8px;
   padding: 10px 8px 10px 14px;
   font-size: 14px;
   line-height: 1.4;
-  background: rgba(245, 180, 0, 0.16);
-  border-left: 3px solid #f5b400;
+  background: color-mix(in srgb, var(--notice) 16%, transparent);
+  border-left: 3px solid var(--notice);
   border-radius: 12px;
+}
+
+.notice--red { --notice: #e5484d; }
+.notice--green { --notice: #2fae60; }
+.notice--blue { --notice: #3b82f6; }
+.notice--gray { --notice: #8b95a1; }
+
+/* Последняя плашка отбита от полосы дней чуть сильнее. */
+#notices:not(:empty) {
+  margin-bottom: 12px;
+}
+
+.notice-personal {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  vertical-align: 1px;
+  color: var(--notice);
+  background: color-mix(in srgb, var(--notice) 18%, transparent);
+  border-radius: 6px;
 }
 
 .notice-text {
@@ -803,6 +830,80 @@ input[type="search"] {
   border-radius: 14px;
   border-left: 3px solid transparent;
   overflow: hidden;
+}
+
+/* --- Склеенная карточка «1–6 пара» --- */
+
+/* Крупнее обычной: это полдня или весь день, и по размеру это должно быть
+   видно сразу. */
+.card--range {
+  padding: 16px;
+}
+
+.card--range .subject {
+  font-size: 16px;
+}
+
+.segments {
+  margin-top: 12px;
+  padding-left: 12px;
+  border-left: 2px solid color-mix(in srgb, var(--muted) 22%, transparent);
+}
+
+.segment {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.segment-slot {
+  min-width: 52px;
+  font-weight: 600;
+}
+
+.segment-time {
+  color: var(--muted);
+}
+
+.segment-break {
+  padding: 1px 0 1px 62px;
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+/* Обеденная — заметнее: по ней планируют день. */
+.segment-break--long {
+  margin: 4px 0;
+  padding: 3px 8px;
+  font-weight: 600;
+  opacity: 1;
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  border-radius: 6px;
+}
+
+.segment--now .segment-slot,
+.segment--now .segment-time,
+.segment-break--now {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.segment--now .segment-time {
+  font-weight: 600;
+}
+
+.segment-break--now {
+  font-weight: 600;
+}
+
+.segment--cancelled {
+  opacity: 0.5;
+  text-decoration: line-through;
 }
 
 /* --- Пара, которая идёт прямо сейчас --- */

@@ -65,10 +65,13 @@ CREATE TABLE IF NOT EXISTS outbox (
 -- плашку у группы. grp = '*' — для всех. Сами исчезают после expires.
 CREATE TABLE IF NOT EXISTS notices (
   id      INTEGER PRIMARY KEY AUTOINCREMENT,
-  grp     TEXT NOT NULL,
+  grp     TEXT NOT NULL,  -- группа, «курс:…», «*» или «user:<id>» — одному человеку
   text    TEXT NOT NULL,
   created TEXT NOT NULL,
-  expires TEXT NOT NULL
+  expires TEXT NOT NULL,
+  -- yellow | red | green | blue | gray. В созданную базу —
+  -- migrations/0005_notice_color.sql.
+  color   TEXT NOT NULL DEFAULT 'yellow'
 );
 
 CREATE INDEX IF NOT EXISTS notices_grp ON notices (grp, expires);

@@ -546,16 +546,22 @@ async function activeCancels(env, group) {
 }
 
 /** Объявления группы: её собственные, её курса и общие для всех. */
-async function activeNotices(env, group) {
+/**
+ * Объявления группы: её собственные, её курса, общие для всех и — если
+ * известен человек — личные. Личные передаём только в приложение: карточку
+ * расписания из чатов пересылают в общие беседы, там им не место.
+ */
+async function activeNotices(env, group, userId = null) {
   if (!env.STATS || !group?.id) return [];
   const course = courseOf(group);
+  const personal = userId ? `user:${userId}` : "—";
   const { results = [] } = await env.STATS.prepare(
-    `SELECT id, text, created FROM notices
-     WHERE grp IN (?, ?, '*') AND expires > ? ORDER BY id DESC LIMIT 5`
+    `SELECT id, text, created, color, grp LIKE 'user:%' AS personal FROM notices
+     WHERE grp IN (?, ?, '*', ?) AND expires > ? ORDER BY id DESC LIMIT 10`
   )
-    .bind(group.id, course, new Date().toISOString())
+    .bind(group.id, course, personal, new Date().toISOString())
     .all();
-  return results;
+  return results.map((n) => ({ ...n, color: n.color || "yellow", personal: Boolean(n.personal) }));
 }
 
 async function groupOfUser(env, userId) {
@@ -568,16 +574,30 @@ async function groupOfUser(env, userId) {
   return row?.grp || null;
 }
 
+// Цвет объявления — первым словом после адресата: «#красный» или кружок.
+const NOTICE_COLORS = new Map([
+  ["#жёлтый", "yellow"], ["#желтый", "yellow"], ["🟡", "yellow"],
+  ["#красный", "red"], ["🔴", "red"],
+  ["#зелёный", "green"], ["#зеленый", "green"], ["🟢", "green"],
+  ["#синий", "blue"], ["🔵", "blue"],
+  ["#серый", "gray"], ["⚪", "gray"],
+]);
+const COLOR_DOT = { yellow: "🟡", red: "🔴", green: "🟢", blue: "🔵", gray: "⚪" };
+
 const NOTICE_HELP = [
-  "<b>Объявления</b> — плашка в приложении у группы, висит неделю.",
+  "<b>Объявления</b> — плашка в приложении, висит неделю. Можно несколько сразу.",
   "",
   "/notice 311гэу Пара в четверг переносится в 614",
+  "/notice 311гэу #красный Пара отменена — цветом",
   "/notice 311гэу,312гэу Текст — нескольким группам",
   "/notice 3курс Текст — курсу бакалавриата (1курс … 4курс)",
   "/notice маг1 Текст — курсу магистратуры (маг1, маг2)",
+  "/notice @ivanov Текст — одному человеку (или id)",
   "/notice все Текст — всему факультету",
   "/unnotice 12 — снять объявление №12",
   "/unnotice все — снять все разом",
+  "",
+  "Цвета: #жёлтый (обычный), #красный, #зелёный, #синий, #серый — или 🟡🔴🟢🔵⚪.",
 ].join("\n");
 
 /* ---------- Домашка и старосты ---------- */
@@ -760,7 +780,7 @@ async function handleUnstarosta(env, text) {
 }
 
 /** «311гэу,312гэу», «3курс», «маг1», «все» → ключи адресатов для /notice и /cancel. */
-async function resolveTargets(target) {
+async function resolveTargets(target, env = null) {
   if (["все", "всем", "*"].includes(target.toLowerCase())) return { ids: ["*"] };
 
   let groups;
@@ -775,14 +795,24 @@ async function resolveTargets(target) {
   const ids = [];
   const unknown = [];
   for (const name of target.split(",").filter(Boolean)) {
+    // Человек — только там, где передан env: объявление одному можно, а
+    // отменить пару одному человеку смысла нет.
+    if (env && (name.startsWith("@") || /^\d{5,}$/.test(name))) {
+      const person = await findPerson(env, name);
+      if (person?.tg_id) ids.push(`user:${person.tg_id}`);
+      else unknown.push(name);
+      continue;
+    }
     const course = parseCourse(name);
     const id = course && courses.has(course) ? course : byName.get(normalize(name));
     if (id) ids.push(id);
     else unknown.push(name);
   }
   if (unknown.length) {
+    const people = env ? ", человека (@username или id)" : "";
+    const hint = env ? " Человек должен хоть раз написать боту или открыть расписание." : "";
     return {
-      error: `Не нашёл: ${escape(unknown.join(", "))}. Пишите группу полностью (311гэу), курс (3курс, маг1) или «все».`,
+      error: `Не нашёл: ${escape(unknown.join(", "))}. Пишите группу полностью (311гэу), курс (3курс, маг1)${people} или «все».${hint}`,
     };
   }
   return { ids: [...new Set(ids)] };
@@ -1055,22 +1085,32 @@ async function handleNotice(env, text) {
 
   if (!body) {
     const { results = [] } = await env.STATS.prepare(
-      "SELECT id, grp, text, expires FROM notices WHERE expires > ? ORDER BY id DESC LIMIT 30"
+      "SELECT id, grp, text, expires, color FROM notices WHERE expires > ? ORDER BY id DESC LIMIT 30"
     )
       .bind(now.toISOString())
       .all();
+    const people = await peopleLabels(env, results.map((n) => n.grp));
     const list = results.map(
-      (n) => `№${n.id} · ${escape(targetLabel(n.grp))} · до ${n.expires.slice(5, 10)}\n${escape(n.text)}`
+      (n) =>
+        `${COLOR_DOT[n.color] || COLOR_DOT.yellow} №${n.id} · ${escape(targetLabel(n.grp, people))} · до ${n.expires.slice(5, 10)}\n${escape(n.text)}`
     );
     return [NOTICE_HELP, "", list.length ? list.join("\n\n") : "Действующих объявлений нет."].join("\n");
   }
 
-  const [target, ...words] = body.split(/\s+/);
-  const message = body.slice(target.length).trim();
+  const [target] = body.split(/\s+/);
+  let message = body.slice(target.length).trim();
+  let color = "yellow";
+  const colorWord = (message.split(/\s+/)[0] || "").toLowerCase();
+  if (NOTICE_COLORS.has(colorWord)) {
+    color = NOTICE_COLORS.get(colorWord);
+    message = message.slice(colorWord.length).trim();
+  } else if (colorWord.startsWith("#")) {
+    return `Не знаю цвет «${escape(colorWord)}». Цвета: #жёлтый, #красный, #зелёный, #синий, #серый.`;
+  }
   if (!message) return `Не хватает текста.\n\n${NOTICE_HELP}`;
   if (message.length > 500) return "Слишком длинно: до 500 знаков.";
 
-  const resolved = await resolveTargets(target);
+  const resolved = await resolveTargets(target, env);
   if (resolved.error) return resolved.error;
   const { ids } = resolved;
 
@@ -1078,22 +1118,38 @@ async function handleNotice(env, text) {
   const created = await env.STATS.batch(
     ids.map((grp) =>
       env.STATS.prepare(
-        "INSERT INTO notices (grp, text, created, expires) VALUES (?, ?, ?, ?) RETURNING id"
-      ).bind(grp, message, now.toISOString(), expires.toISOString())
+        "INSERT INTO notices (grp, text, created, expires, color) VALUES (?, ?, ?, ?, ?) RETURNING id"
+      ).bind(grp, message, now.toISOString(), expires.toISOString(), color)
     )
   );
   const numbers = created.map((r) => r.results[0].id);
-  const whom = ids.map(targetLabel).join(", ");
+  const people = await peopleLabels(env, ids);
+  const whom = ids.map((id) => targetLabel(id, people)).join(", ");
+  const onlyPeople = ids.every((id) => id.startsWith("user:"));
   return [
-    `Готово: объявление для ${escape(whom)}, висит до ${expires.toISOString().slice(0, 10)}.`,
-    "Появится у студентов при следующем открытии приложения и в расписании в чатах.",
+    `${COLOR_DOT[color]} Готово: объявление для ${escape(whom)}, висит до ${expires.toISOString().slice(0, 10)}.`,
+    onlyPeople
+      ? "Появится у человека при следующем открытии приложения. В расписание для чатов личные объявления не попадают."
+      : "Появится у студентов при следующем открытии приложения и в расписании в чатах.",
     `Снять: ${numbers.map((n) => `/unnotice ${n}`).join(", ")}`,
   ].join("\n");
 }
 
-function targetLabel(grp) {
+function targetLabel(grp, people = new Map()) {
   if (grp === "*") return "всех групп";
+  if (grp.startsWith("user:")) return people.get(grp) || `id ${grp.slice(5)}`;
   return grp.startsWith("курс:") ? courseLabel(grp) : grp;
+}
+
+/** «user:123» → «@ivanov» или имя — для ответов владельцу. */
+async function peopleLabels(env, keys) {
+  const ids = [...new Set(keys.filter((k) => k.startsWith("user:")).map((k) => k.slice(5)))];
+  const labels = new Map();
+  for (const id of ids) {
+    const person = await findPerson(env, id);
+    labels.set(`user:${id}`, person?.username ? `@${person.username}` : person?.name || `id ${id}`);
+  }
+  return labels;
 }
 
 async function handleUnnotice(env, text) {
@@ -1147,7 +1203,7 @@ export default {
       const range = homeworkRange(source.get("from"), source.get("to"));
       const user = initData ? await verifyInitData(initData, env.BOT_TOKEN).catch(() => null) : null;
       const [notices, cancels, homework, canEdit, commenter] = await Promise.all([
-        activeNotices(env, group).catch(() => []),
+        activeNotices(env, group, user?.id).catch(() => []),
         activeCancels(env, group).catch(() => []),
         groupHomework(env, group.id, range).catch(() => []),
         user ? canEditHomework(env, initData, group.id).catch(() => false) : false,

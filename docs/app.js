@@ -173,7 +173,9 @@ function renderNotices(animate) {
   const nodes = notices.list
     .filter((n) => !dismissed.includes(n.id))
     .map((n) => {
-      const node = el("div", animate ? "notice notice--enter" : "notice");
+      // Цвет задаёт владелец (/notice … #красный); неизвестный — обычный жёлтый.
+      const color = ["yellow", "red", "green", "blue", "gray"].includes(n.color) ? n.color : "yellow";
+      const node = el("div", `notice notice--${color}${animate ? " notice--enter" : ""}`);
       const close = el("button", "notice-close", "×");
       close.type = "button";
       close.setAttribute("aria-label", t("Скрыть объявление"));
@@ -181,7 +183,11 @@ function renderNotices(animate) {
         dismissNotice(n.id);
         node.remove();
       });
-      node.append(el("div", "notice-text", n.text), close);
+      const body = el("div", "notice-text");
+      // Личное — видит только этот человек; пусть это будет понятно.
+      if (n.personal) body.append(el("span", "notice-personal", t("лично вам")));
+      body.append(document.createTextNode(n.text));
+      node.append(body, close);
       return node;
     });
   els.notices.replaceChildren(...nodes);
@@ -231,6 +237,10 @@ function applyCancels() {
         .filter((x) => x.cancel);
       const all = cancelled.length === slotsOfCard.length;
       card.classList.toggle("card--cancelled", all);
+      const off = new Set(cancelled.map((x) => x.slot));
+      for (const row of card.querySelectorAll(".segment")) {
+        row.classList.toggle("segment--cancelled", off.has(Number(row.dataset.slot)));
+      }
       let note = card.querySelector(".cancel-note");
       if (!cancelled.length) {
         note?.remove();
@@ -1767,7 +1777,7 @@ function timesOf(lesson, bells) {
  * Какая пара идёт по часам телефона и насколько она прошла.
  * Только для сегодняшнего дня — в чужом дне «сейчас» не существует.
  */
-function currentLesson() {
+function currentLesson(belongs = () => true) {
   if (!data || isoDate(dateOfDay(selectedDay)) !== isoDate(new Date())) return null;
 
   const now = new Date();
@@ -1777,6 +1787,7 @@ function currentLesson() {
   // пары в это время может не быть, а у части занятий время своё.
   const bells = new Map(data.bells.map((b) => [b.n, b]));
   for (const lesson of visible) {
+    if (!belongs(lesson)) continue;
     const time = timesOf(lesson, bells);
     if (!time || lessonCancel(lesson)) continue;
     const start = minutes(time.start);
@@ -1879,10 +1890,35 @@ function refreshNext() {
  * перерисовку: иначе список заново проигрывал бы появление каждую минуту.
  */
 function refreshNow() {
-  const current = currentLesson();
+  const today = isoDate(dateOfDay(selectedDay)) === isoDate(new Date());
+  const clockNow = new Date();
+  const nowMinutes = clockNow.getHours() * 60 + clockNow.getMinutes() + clockNow.getSeconds() / 60;
 
   for (const card of els.lessons.querySelectorAll(".card")) {
-    const isNow = current && cardSlots(card).includes(current.slot);
+    // Идёт ли пара именно этой карточки — по её собственному времени. Номер
+    // пары у всей группы общий, а время бывает своё: русский 12:15–14:45 идёт
+    // в большую перемену, когда 3 пара военки ещё не началась.
+    const slots = cardSlots(card);
+    const current = currentLesson(
+      (lesson) => lesson.subject === card.dataset.subject && slots.includes(lesson.slot)
+    );
+    let isNow = Boolean(current);
+
+    // Внутри склеенной карточки: какая из пар идёт, или сейчас перемена.
+    let pause = null;
+    for (const row of card.querySelectorAll(".segment")) {
+      row.classList.toggle("segment--now", Boolean(isNow && Number(row.dataset.slot) === current.slot));
+    }
+    for (const row of card.querySelectorAll(".segment-break")) {
+      const inside =
+        today &&
+        !card.classList.contains("card--cancelled") &&
+        nowMinutes >= minutes(row.dataset.from) &&
+        nowMinutes < minutes(row.dataset.to);
+      row.classList.toggle("segment-break--now", inside);
+      if (inside) pause = row;
+    }
+    if (pause) isNow = true;
     card.classList.toggle("card--now", Boolean(isNow));
 
     let badge = card.querySelector(".now");
@@ -1894,11 +1930,24 @@ function refreshNow() {
       continue;
     }
 
+    if (pause) {
+      // Перемена: полоска прогресса пары здесь врала бы, убираем.
+      bar?.remove();
+      if (!badge) {
+        badge = el("div", "now");
+        badge.append(el("span", "now-dot"), el("span", "now-label"), el("span", "now-left"));
+        (card.querySelector(".card-body") || card).append(badge);
+      }
+      badge.querySelector(".now-label").textContent = t("идёт перемена");
+      badge.querySelector(".now-left").textContent = t("до {time}", { time: pause.dataset.to });
+      continue;
+    }
+
     if (!badge) {
       badge = el("div", "now");
       badge.append(
         el("span", "now-dot"),
-        el("span", null, t("идёт сейчас")),
+        el("span", "now-label"),
         el("span", "now-left")
       );
       // Именно в тело карточки: сама карточка — горизонтальный ряд, и
@@ -1906,6 +1955,7 @@ function refreshNow() {
       // плашкой аудитории.
       (card.querySelector(".card-body") || card).append(badge);
     }
+    badge.querySelector(".now-label").textContent = t("идёт сейчас");
     badge.querySelector(".now-left").textContent = t("осталось {time}", {
       time: humanLeft(current.left),
     });
@@ -1988,6 +2038,45 @@ function roomBadge(room) {
   return badge;
 }
 
+// Большая перемена — обеденная: её стоит выделить, по ней планируют день.
+const LONG_BREAK = 30;
+
+/** Пары склеенной карточки и перемены между ними. */
+function renderSegments(slots, bells) {
+  const list = el("div", "segments");
+  slots.forEach((slot, i) => {
+    const bell = bells.get(slot);
+    if (!bell) return;
+    if (i > 0) {
+      const prev = bells.get(slots[i - 1]);
+      const gap = prev ? minutes(bell.start) - minutes(prev.end) : 0;
+      if (gap > 0) {
+        const pause = el("div", gap >= LONG_BREAK ? "segment-break segment-break--long" : "segment-break");
+        pause.dataset.from = prev.end;
+        pause.dataset.to = bell.start;
+        pause.append(
+          el(
+            "span",
+            null,
+            gap >= LONG_BREAK
+              ? t("большая перемена · {m} мин", { m: gap })
+              : t("перемена · {m} мин", { m: gap })
+          )
+        );
+        list.append(pause);
+      }
+    }
+    const row = el("div", "segment");
+    row.dataset.slot = slot;
+    row.append(
+      el("span", "segment-slot", t("{n} пара", { n: slot })),
+      el("span", "segment-time", `${bell.start} – ${bell.end}`)
+    );
+    list.append(row);
+  });
+  return list;
+}
+
 /** «2 подгруппы», «5 подгрупп» — по-русски склоняем, у переводов своё. */
 function subgroupsLabel(n) {
   if (LANG !== "ru") return t("{n} подгрупп — показать", { n });
@@ -2046,6 +2135,13 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
       details.append(metaLine(entry, entry.subgroup ? t("гр. {n}", { n: entry.subgroup }) : ""));
     }
     body.append(details);
+  }
+
+  // Склеенная карточка: пары по отдельности и перемены между ними. Без этого
+  // «1–6 пара · 09:00–19:40» выглядело бы как одно занятие на десять часов.
+  if (range) {
+    card.classList.add("card--range");
+    body.append(renderSegments(slots, bells));
   }
 
   const notes = [...new Set(entries.map((e) => e.note).filter(Boolean))];

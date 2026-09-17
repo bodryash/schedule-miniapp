@@ -372,8 +372,10 @@ function lessonLines(file, buckets, ctx) {
   return lines;
 }
 
+const NOTICE_DOTS = { yellow: "🟡", red: "🔴", green: "🟢", blue: "🔵", gray: "⚪" };
+
 function noticeLines(notices) {
-  return notices.map((n) => `📌 ${escape(n.text)}`);
+  return notices.map((n) => `${NOTICE_DOTS[n.color] || "📌"} ${escape(n.text)}`);
 }
 
 function parityWords(parity, lang, long) {
