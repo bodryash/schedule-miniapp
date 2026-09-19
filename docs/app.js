@@ -1333,6 +1333,33 @@ function cardSlots(card) {
   return (card.dataset.slots || card.dataset.slot || "").split(",").filter(Boolean).map(Number);
 }
 
+// Свободный день: вместо сухого «Пар нет» — фраза, своя на каждую дату.
+// Листаешь туда-обратно — она не меняется, в другой день — другая.
+const FREE_DAYS = [
+  ["😴", "Пар нет", "Будильник можно не ставить"],
+  ["🎉", "Свободный день", "Преподаватели тоже отдыхают"],
+  ["☕", "Пар нет", "Идеальный день для кофе и сериала"],
+  ["🛋️", "Выходной", "Диван ждёт"],
+  ["📚", "Пар нет", "Можно наконец сделать домашку. Или нет"],
+  ["🌳", "Свободно", "Воробьёвы горы в двух шагах"],
+  ["🎮", "Пар нет", "Официально разрешено ничего не делать"],
+  ["🍕", "Выходной", "Отличный повод собраться с группой"],
+  ["🧘", "Пар нет", "Выдохни"],
+  ["🌙", "Свободный день", "Можно выспаться за всю неделю"],
+];
+
+function renderFreeDay() {
+  const node = el("div", "empty free-day");
+  if (LANG !== "ru") {
+    node.textContent = t("Пар нет 🎉");
+    return node;
+  }
+  const date = dateOfDay(selectedDay);
+  const [emoji, title, line] = FREE_DAYS[(date.getDate() * 7 + date.getMonth()) % FREE_DAYS.length];
+  node.append(el("div", "free-day-emoji", emoji), el("div", "free-day-title", title), el("div", "free-day-line", line));
+  return node;
+}
+
 function renderLessons(group, parity) {
   const bells = new Map(data.bells.map((b) => [b.n, b]));
   const list = data.lessons
@@ -1349,7 +1376,7 @@ function renderLessons(group, parity) {
   visible = list;
 
   if (list.length === 0) {
-    els.lessons.replaceChildren(el("p", "empty", t("Пар нет 🎉")));
+    els.lessons.replaceChildren(renderFreeDay());
     refreshNext();
     return;
   }

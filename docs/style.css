@@ -1334,3 +1334,31 @@ section {
 .owner-actions {
   margin-top: 8px;
 }
+
+/* Свободный день */
+.free-day-emoji {
+  font-size: 56px;
+  line-height: 1;
+  margin-bottom: 12px;
+  animation: free-bob 3s ease-in-out infinite;
+}
+
+.free-day-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.free-day-line {
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: 400;
+}
+
+@keyframes free-bob {
+  50% { transform: translateY(-6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .free-day-emoji { animation: none; }
+}
