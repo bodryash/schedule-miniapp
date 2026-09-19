@@ -73,6 +73,20 @@
     </label>
 
     <label>
+      <span data-i18n>Кто вы</span>
+      <select id="role">
+        <option value="student" data-i18n>🎓 Студент</option>
+        <option value="teacher" data-i18n>👩‍🏫 Преподаватель</option>
+      </select>
+    </label>
+
+    <label id="teacher-row" hidden>
+      <span data-i18n>Преподаватель</span>
+      <select id="teacher"></select>
+    </label>
+
+    <div id="student-fields">
+    <label>
       <span data-i18n>Курс</span>
       <select id="course"></select>
     </label>
@@ -121,6 +135,7 @@
       <div id="electives"></div>
       <p class="hint" data-i18n>Если не отмечено ничего, показываются все.</p>
     </fieldset>
+    </div>
 
     <button id="save" class="primary" data-i18n>Сохранить</button>
 

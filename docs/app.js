@@ -123,6 +123,14 @@ function dismissNotice(id) {
 async function loadNotices(group) {
   const groupId = group.id;
   if (notices.group === groupId) return;
+  // Режим преподавателя: групп много, объявления и отмены — у каждой свои.
+  // В первой версии их не грузим, показываем чистое расписание.
+  if (group.teacher) {
+    notices = { ...notices, group: groupId, list: [], cancels: [], changes: [], homework: [], owner: false,
+      canEdit: false, canComment: false, comments: new Map(), weeks: new Set([0, 1]) };
+    renderNotices(false);
+    return;
+  }
   // Домашку при открытии берём только на показанную неделю; вторую —
   // когда до неё долистают. Так запрос вдвое легче.
   notices = {
@@ -350,7 +358,7 @@ function weekRange(week) {
 /** Догружает домашку недели, когда её пролистали. Каждую — один раз. */
 async function ensureHomeworkWeek(week) {
   const groupId = notices.group;
-  if (!groupId || notices.weeks.has(week)) return;
+  if (!groupId || groupId.startsWith("teacher:") || notices.weeks.has(week)) return;
   notices.weeks.add(week);
   try {
     const res = await fetch(`${HOMEWORK_URL}/list`, {
@@ -921,6 +929,11 @@ const els = {
   cmSend: document.getElementById("cm-send"),
   cmRefresh: document.getElementById("cm-refresh"),
   cmClose: document.getElementById("cm-close"),
+  // Может не быть в закэшированном index.html — тогда режима просто нет.
+  role: document.getElementById("role"),
+  teacher: document.getElementById("teacher"),
+  teacherRow: document.getElementById("teacher-row"),
+  studentFields: document.getElementById("student-fields") || {},
 };
 
 let data = null;
@@ -1018,6 +1031,24 @@ function savePrefs(value) {
 
 function groupById(id) {
   return data.groups.find((g) => g.id === id) || null;
+}
+
+/**
+ * Что показываем: группу студента или расписание преподавателя. У
+ * преподавателя «группа» ненастоящая — ключ «Фамилия И.О.» из PDF.
+ */
+function activeGroup() {
+  if (prefs.teacher) {
+    return { id: `teacher:${prefs.teacher}`, title: prefs.teacherName || prefs.teacher, teacher: prefs.teacher };
+  }
+  return groupById(prefs.group);
+}
+
+/** Все преподаватели из расписания: ключ «Фамилия И.О.», по алфавиту. */
+function allTeachers() {
+  const keys = new Set();
+  for (const lesson of data.lessons) for (const person of teachersOf(lesson.teacher)) keys.add(person.key);
+  return [...keys].sort((a, b) => a.localeCompare(b, "ru"));
 }
 
 function lessonsOf(groupId) {
@@ -1200,23 +1231,44 @@ function collectPrefs() {
   };
 }
 
+/** Студент или преподаватель: у преподавателя вместо группы — фамилия. */
+function fillRole() {
+  if (!els.role) return;
+  els.role.value = prefs.teacher ? "teacher" : "student";
+  loadTeacherNames().then(() => {
+    const keys = allTeachers();
+    els.teacher.replaceChildren(
+      ...keys.map((key) => new Option(TEACHER_NAMES?.[key] ? `${key} — ${TEACHER_NAMES[key]}` : key, key))
+    );
+    if (prefs.teacher && keys.includes(prefs.teacher)) els.teacher.value = prefs.teacher;
+  });
+  applyRole();
+}
+
+function applyRole() {
+  const teacher = els.role?.value === "teacher";
+  els.studentFields.hidden = teacher;
+  if (els.teacherRow) els.teacherRow.hidden = !teacher;
+}
+
 function showPicker() {
   els.schedule.hidden = true;
   els.picker.hidden = false;
   // Возвращаться некуда, пока группа не выбрана хотя бы раз.
-  els.close.hidden = !prefs.group || !groupById(prefs.group);
+  els.close.hidden = !activeGroup();
   fillCourses();
+  fillRole();
 }
 
 /* ---------- Экран расписания ---------- */
 
 function showSchedule() {
-  const group = groupById(prefs.group);
+  const group = activeGroup();
   if (!group) return showPicker();
 
   els.picker.hidden = true;
   els.schedule.hidden = false;
-  els.currentGroup.textContent = t("Группа {g}", { g: group.title });
+  els.currentGroup.textContent = group.teacher ? group.title : t("Группа {g}", { g: group.title });
 
   const label = FULL_DATE.format(dateOfDay(selectedDay));
   els.dateLabel.textContent = label[0].toUpperCase() + label.slice(1);
@@ -1360,16 +1412,36 @@ function renderFreeDay() {
   return node;
 }
 
+/**
+ * Пары преподавателя в показанный день. Одну лекцию он читает сразу
+ * нескольким группам — это одна пара, группы перечисляем в пометке.
+ */
+function teacherLessons(key, parity) {
+  const merged = new Map();
+  for (const l of data.lessons) {
+    if (l.day !== selectedDay || !(l.week === "all" || parity === null || l.week === parity)) continue;
+    if (!teachersOf(l.teacher).some((p) => p.key === key)) continue;
+    const id = [l.slot, l.subject, l.type, l.room, l.week, l.start, l.end].join("|");
+    if (!merged.has(id)) merged.set(id, { ...l, subgroup: null, groups: [] });
+    merged.get(id).groups.push(l.group);
+  }
+  return [...merged.values()].map((l) => {
+    const groups = [...new Set(l.groups)].sort();
+    const label = groups.length === 1 ? t("Группа {g}", { g: groups[0] }) : t("Группы: {list}", { list: groups.join(", ") });
+    return { ...l, note: [label, l.note].filter(Boolean).join(" · ") };
+  });
+}
+
 function renderLessons(group, parity) {
   const bells = new Map(data.bells.map((b) => [b.n, b]));
-  const list = data.lessons
+  const list = (group.teacher ? teacherLessons(group.teacher, parity) : data.lessons
     .filter(
       (l) =>
         l.group === group.id &&
         l.day === selectedDay &&
         (l.week === "all" || parity === null || l.week === parity) &&
         matchesPrefs(l)
-    )
+    ))
     .map(withChange)
     .sort((a, b) => a.slot - b.slot);
 
@@ -2623,16 +2695,20 @@ async function init() {
   prefs = readPrefs();
 
   els.course.addEventListener("change", fillGroups);
+  els.role?.addEventListener("change", applyRole);
   els.group.addEventListener("change", fillLanguages);
   els.main.addEventListener("change", fillMainSubgroups);
   els.lang2.addEventListener("change", fillLang2Subgroups);
   els.save.addEventListener("click", () => {
     const before = prefs.group;
     prefs = collectPrefs();
+    if (els.role?.value === "teacher" && els.teacher?.value) {
+      prefs = { ...prefs, teacher: els.teacher.value, teacherName: TEACHER_NAMES?.[els.teacher.value] || els.teacher.value };
+    }
     savePrefs(prefs);
     showSchedule();
     // Сменили группу — сообщаем боту, чтобы статистика знала новую группу.
-    const group = groupById(prefs.group);
+    const group = !prefs.teacher && groupById(prefs.group);
     if (group && group.id !== before) countOpen({ id: group.id, course: group.course, level: group.level });
   });
   // Telegram может отдать из кэша старый index.html без окна комментариев
@@ -2692,8 +2768,11 @@ async function init() {
     }
   }, 30_000);
 
-  const group = prefs.group && groupById(prefs.group);
-  if (group) {
+  const group = activeGroup();
+  if (group?.teacher) {
+    loadTeacherNames();
+    showSchedule();
+  } else if (group) {
     showSchedule();
     countOpen({ id: group.id, course: group.course, level: group.level });
   } else {
