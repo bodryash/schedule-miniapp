@@ -1631,6 +1631,21 @@ function renderTeacherCard(teacher) {
   return card;
 }
 
+const CREATOR_WORDS = ["бодрин", "бодрин федор", "федор михайлович", "создатель", "bodryash"];
+
+function renderCreatorCard() {
+  const card = el("article", "teacher-card");
+  card.append(el("div", "teacher-avatar", "Б"));
+  const body = el("div", "teacher-body");
+  body.append(el("div", "teacher-name", "Бодрин Фёдор Михайлович"));
+  body.append(el("div", "teacher-meta", "создатель расписания · 0 пар, зато все остальные ✨"));
+  const link = el("a", "teacher-email", "✉️ hello@bodryash.ru");
+  link.href = "mailto:hello@bodryash.ru";
+  body.append(link);
+  card.append(body);
+  return card;
+}
+
 function runSearch() {
   const query = els.query.value.trim().toLowerCase();
   if (query.length < 2) {
@@ -1670,9 +1685,14 @@ function runSearch() {
     (a, b) => a.lesson.day - b.lesson.day || a.lesson.slot - b.lesson.slot
   );
 
+  // Пасхалка: автор расписания находится поиском, хоть пар и не ведёт.
+  const creator = CREATOR_WORDS.some((w) => w.startsWith(searchKey(query)) && query.length >= 3)
+    ? renderCreatorCard()
+    : null;
+
   if (!rows.length) {
-    els.results.replaceChildren();
-    els.searchHint.textContent = t("Ничего не нашлось");
+    els.results.replaceChildren(...(creator ? [creator] : []));
+    els.searchHint.textContent = creator ? "" : t("Ничего не нашлось");
     return;
   }
 
@@ -1687,6 +1707,7 @@ function runSearch() {
   // карточек не показываем: при коротком запросе это уже не поиск человека.
   const people = teachers.length <= 3 ? teachers.map(renderTeacherCard) : [];
   els.results.replaceChildren(
+    ...(creator ? [creator] : []),
     ...people,
     ...shown.map(({ lesson, groups }) => {
       const bell = timesOf(lesson, bells);
