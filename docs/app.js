@@ -399,12 +399,14 @@ function applyHomework() {
   const seen = new Set();
   for (const card of els.lessons.querySelectorAll(".card")) {
     card.querySelector(".hw")?.remove();
+    card.querySelector(".owner-actions")?.remove();
     const subject = card.dataset.subject;
+    if (subject && notices.owner) addOwnerButtons(card);
     if (!subject || seen.has(subject)) continue;
     seen.add(subject);
 
     const items = homeworkFor(card);
-    if (!items.length && !notices.canEdit && !notices.canComment && !notices.owner) continue;
+    if (!items.length && !notices.canEdit && !notices.canComment) continue;
 
     const block = el("div", "hw");
     for (const item of items) {
@@ -431,14 +433,6 @@ function applyHomework() {
       button.addEventListener("click", () => openComments(card));
       actions.append(button);
     }
-    // Владелец отменяет и возвращает пару прямо здесь, без /cancel.
-    if (notices.owner) {
-      const own = cardCancels(card);
-      const button = el("button", "hw-edit", own.length ? t("Вернуть пару") : t("Отменить пару"));
-      button.type = "button";
-      button.addEventListener("click", () => (own.length ? restoreLesson(own) : cancelLesson(card)));
-      actions.append(button);
-    }
     if (actions.children.length) block.append(actions);
     (card.querySelector(".card-body") || card).append(block);
   }
@@ -448,13 +442,29 @@ function applyHomework() {
 
 const CANCEL_URL = "https://fgp-schedule-bot.bodryash.workers.dev/cancel";
 
-/** Отмены, задевающие карточку, — их и вернёт кнопка «Вернуть пару». */
-function cardCancels(card) {
-  const ids = new Set();
-  for (const slot of cardSlots(card)) {
-    for (const c of cancelsFor(slot, card.dataset.subject)) if (c.id) ids.add(c.id);
+/** Отмены пары slot этого предмета — их и вернёт кнопка «Вернуть». */
+function slotCancels(slot, subject) {
+  return [...new Set(cancelsFor(slot, subject).map((c) => c.id).filter(Boolean))];
+}
+
+/**
+ * Владелец отменяет и возвращает пары прямо здесь, без /cancel. У каждой
+ * пары своя кнопка — и у склеенного блока, и у одинаковых карточек подряд.
+ */
+function addOwnerButtons(card) {
+  const slots = cardSlots(card);
+  const row = el("div", "card-actions owner-actions");
+  for (const slot of slots) {
+    const own = slotCancels(slot, card.dataset.subject);
+    const label = slots.length > 1
+      ? t(own.length ? "Вернуть {n} пару" : "Отменить {n} пару", { n: slot })
+      : t(own.length ? "Вернуть пару" : "Отменить пару");
+    const button = el("button", "hw-edit", label);
+    button.type = "button";
+    button.addEventListener("click", () => (own.length ? restoreLesson(own) : cancelLesson(card, [slot])));
+    row.append(button);
   }
-  return [...ids];
+  (card.querySelector(".card-body") || card).append(row);
 }
 
 function askScope(group) {
@@ -499,7 +509,7 @@ async function sendCancel(body) {
   await loadNotices(group);
 }
 
-async function cancelLesson(card) {
+async function cancelLesson(card, slots) {
   const group = groupById(prefs.group);
   const scope = await askScope(group);
   if (!scope) return;
@@ -510,7 +520,7 @@ async function cancelLesson(card) {
     course: group.course,
     level: group.level,
     day: isoDate(dateOfDay(selectedDay)),
-    slots: cardSlots(card),
+    slots,
     subject: card.dataset.subject,
   });
 }
