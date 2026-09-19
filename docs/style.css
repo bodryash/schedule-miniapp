@@ -1319,3 +1319,13 @@ section {
   color: var(--tg-theme-destructive-text-color, #e53935);
   text-align: center;
 }
+
+/* Почта преподавателя в карточке поиска */
+.teacher-email {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--accent);
+  font-size: 14px;
+  text-decoration: none;
+  word-break: break-all;
+}

@@ -1520,15 +1520,19 @@ function closeSearch() {
 // только инициалы. Кого там нет (часто — языковые кафедры других
 // факультетов), остаётся с инициалами; дописать можно в teacher_names.json.
 let TEACHER_NAMES = null;
+// Почты — собрали студенты, по ключу «Фамилия И.О.»: teacher_emails.json.
+let TEACHER_EMAILS = {};
 
 async function loadTeacherNames() {
   if (TEACHER_NAMES) return;
-  try {
-    const res = await fetch("data/teacher_names.json", { cache: "no-cache" });
-    TEACHER_NAMES = res.ok ? await res.json() : {};
-  } catch {
-    TEACHER_NAMES = {};
-  }
+  const get = (file) =>
+    fetch(file, { cache: "no-cache" })
+      .then((res) => (res.ok ? res.json() : {}))
+      .catch(() => ({}));
+  [TEACHER_NAMES, TEACHER_EMAILS] = await Promise.all([
+    get("data/teacher_names.json"),
+    get("data/teacher_emails.json"),
+  ]);
 }
 
 // Должность в PDF сокращена и пишется по-разному: «ст.пр.», «ст. пр.».
@@ -1617,6 +1621,12 @@ function renderTeacherCard(teacher) {
   for (const subject of [...teacher.subjects].slice(0, 6)) subjects.append(el("span", "tag", tr(subject)));
   body.append(subjects);
   body.append(el("div", "groups", [...teacher.groups].sort().join(", ")));
+  const email = TEACHER_EMAILS[teacher.key];
+  if (email) {
+    const link = el("a", "teacher-email", `✉️ ${email}`);
+    link.href = `mailto:${email}`;
+    body.append(link);
+  }
   card.append(body);
   return card;
 }
