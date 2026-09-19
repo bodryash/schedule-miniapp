@@ -255,11 +255,42 @@ export function findGroups(groups, token) {
 }
 
 /** Пары группы на дату, сведённые по номеру пары и предмету. */
+/** Замена на дату (/change) — изменённая копия занятия, как в приложении. */
+function withChange(file, changes, day, lesson) {
+  const change = changes.find(
+    (c) =>
+      c.day === day &&
+      c.slots.includes(lesson.slot) &&
+      (!c.from_teacher || String(lesson.teacher).replace(/ё/g, "е").includes(c.from_teacher))
+  );
+  if (!change) return lesson;
+  const copy = { ...lesson };
+  if (change.teacher) copy.teacher = change.teacher;
+  if (change.room) copy.room = change.room;
+  const bell = (n) => file.bells.find((b) => b.n === n);
+  const first = bell(Math.min(...change.slots));
+  const own = bell(lesson.slot);
+  if (change.start && first && own) {
+    const mins = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+    const shift = mins(change.start) - mins(first.start);
+    const at = (t) => {
+      const m = mins(t) + shift;
+      return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    };
+    copy.start = at(own.start);
+    copy.end = at(own.end);
+  }
+  copy.note = [lesson.note, change.reason].filter(Boolean).join(" · ");
+  return copy;
+}
+
 function lessonsOn(file, date, cancels = []) {
   const day = date.getUTCDay();
   const parity = parityOf(file.weeks, date);
+  const changes = cancels.changes || [];
   const list = file.lessons
     .filter((l) => l.day === day && (l.week === "all" || parity === null || l.week === parity))
+    .map((l) => withChange(file, changes, iso(date), l))
     .sort((a, b) => a.slot - b.slot);
 
   const buckets = new Map();

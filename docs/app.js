@@ -94,6 +94,7 @@ let notices = {
   group: null,
   list: [],
   cancels: [],
+  changes: [],
   homework: [],
   canEdit: false,
   canComment: false,
@@ -128,6 +129,7 @@ async function loadNotices(group) {
     group: groupId,
     list: [],
     cancels: [],
+    changes: [],
     homework: [],
     canEdit: false,
     // Комментарии: право писать и счётчики «день|предмет» → число.
@@ -156,11 +158,17 @@ async function loadNotices(group) {
     if (notices.group !== groupId) return;
     notices.list = body.notices || [];
     notices.cancels = body.cancels || [];
+    notices.changes = body.changes || [];
     notices.homework = body.homework || [];
     notices.canEdit = Boolean(body.canEdit);
     notices.canComment = Boolean(body.canComment);
     mergeCommentCounts(weekRange(selectedWeek), body.comments);
     renderNotices(true);
+    // Замены меняют саму карточку (время, преподавателя), поверх её не
+    // наложить — перерисовываем день, только если он задет.
+    if (notices.changes.some((c) => c.day === isoDate(dateOfDay(selectedDay)))) {
+      renderLessons(group, weekParity(data.weeks));
+    }
     applyCancels();
     applyHomework();
   } catch {
@@ -191,6 +199,42 @@ function renderNotices(animate) {
       return node;
     });
   els.notices.replaceChildren(...nodes);
+}
+
+/**
+ * Замена на показанный день (/change): другое время, преподаватель или
+ * аудитория у одной пары. Возвращает изменённую копию занятия.
+ */
+function withChange(lesson) {
+  const day = isoDate(dateOfDay(selectedDay));
+  const change = notices.changes.find(
+    (c) =>
+      c.day === day &&
+      c.slots.includes(lesson.slot) &&
+      (!c.subject || c.subject === lesson.subject) &&
+      (!c.subgroup || c.subgroup === lesson.subgroup) &&
+      (!c.from_teacher || lesson.teacher.includes(c.from_teacher))
+  );
+  if (!change) return lesson;
+  const copy = { ...lesson };
+  if (change.teacher) copy.teacher = change.teacher;
+  if (change.room) copy.room = change.room;
+  // Новое время — сдвиг всего блока: «3–4 пара с 12:00» сдвигает обе
+  // пары на час, перемена между ними остаётся прежней.
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  const first = bells.get(Math.min(...change.slots));
+  const own = bells.get(lesson.slot);
+  if (change.start && first && own) {
+    const shift = minutes(change.start) - minutes(first.start);
+    const at = (time) => {
+      const m = minutes(time) + shift;
+      return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    };
+    copy.start = at(own.start);
+    copy.end = at(own.end);
+  }
+  copy.note = [lesson.note, change.reason || t("Изменение")].filter(Boolean).join(" · ");
+  return copy;
 }
 
 /**
@@ -1205,6 +1249,7 @@ function renderLessons(group, parity) {
         (l.week === "all" || parity === null || l.week === parity) &&
         matchesPrefs(l)
     )
+    .map(withChange)
     .sort((a, b) => a.slot - b.slot);
 
   visible = list;

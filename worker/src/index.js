@@ -545,6 +545,19 @@ async function activeCancels(env, group) {
   return results.map((c) => ({ ...c, slots: c.slots ? c.slots.split(",").map(Number) : [] }));
 }
 
+/** Замены пар группы (/change) — с позавчерашнего дня, как отмены. */
+async function activeChanges(env, group) {
+  if (!env.STATS || !group?.id) return [];
+  const { results = [] } = await env.STATS.prepare(
+    `SELECT id, day, slots, from_teacher, teacher, room, start, reason FROM changes
+     WHERE grp IN (?, ?, '*') AND removed = 0 AND day >= ?
+     ORDER BY day, id LIMIT 40`
+  )
+    .bind(group.id, courseOf(group), iso(addDays(today(), -1)))
+    .all();
+  return results.map((c) => ({ ...c, slots: c.slots.split(",").map(Number) }));
+}
+
 /** Объявления группы: её собственные, её курса и общие для всех. */
 /**
  * Объявления группы: её собственные, её курса, общие для всех и — если
@@ -915,6 +928,102 @@ async function handleCancel(env, text) {
   ].join("\n");
 }
 
+/* ---------- Замены на дату ---------- */
+
+const CHANGE_HELP = [
+  "<b>Замены</b> — меняют пару на одну дату в приложении и в расписании в чатах.",
+  "",
+  "/change 3курс преп Пфандер 22.09 3 на Батурина В.Н. — другой преподаватель",
+  "/change 3курс преп Пфандер 27.09 3-4 с 12:00 — сдвиг времени (обе пары)",
+  "/change 311гэу 22.09 3 ауд 614 — другая аудитория",
+  "/unchange 7 — убрать замену, /unchange 7,8 — несколько",
+  "",
+  "Порядок: кому, [преп Фамилия — чью пару], день, номера пар, что меняем. Можно совместить: «на Батурина В.Н. с 12:00 ауд 614». Остальные слова — пометка на карточке.",
+].join("\n");
+
+async function handleChange(env, text) {
+  const body = glueCourse(text.replace(/^\/change(@\w+)?/, "").trim());
+  if (!body) {
+    const { results = [] } = await env.STATS.prepare(
+      `SELECT * FROM changes WHERE removed = 0 AND day >= ? ORDER BY day, id LIMIT 30`
+    )
+      .bind(iso(today()))
+      .all();
+    const list = results.map((c) => `№${c.id} · ${escape(targetLabel(c.grp))} · ${dateLabel(new Date(`${c.day}T00:00:00Z`))} · ${slotsLabel(c.slots.split(",").map(Number))}${c.from_teacher ? ` · ${escape(c.from_teacher)}` : ""} → ${escape(changeLabel(c))}`);
+    return [CHANGE_HELP, "", list.length ? list.join("\n") : "Замен впереди нет."].join("\n");
+  }
+
+  const words = body.split(/\s+/);
+  const target = words.shift();
+  let fromTeacher = "";
+  if (words[0] && TEACHER_WORDS.has(words[0].toLowerCase())) {
+    words.shift();
+    fromTeacher = (words.shift() || "").replace(/ё/g, "е").replace(/Ё/g, "Е");
+    if (words[0] && /^[А-ЯЁ]\.\s*[А-ЯЁ]?\.?$/.test(words[0])) words.shift();
+  }
+  const date = parseDay(words.shift() || "");
+  if (!date) return `Не понял день.\n\n${CHANGE_HELP}`;
+  if (date < today()) return "Эта дата уже прошла.";
+  if (!words[0] || !SLOT_LIST.test(words[0])) return `Нужны номера пар.\n\n${CHANGE_HELP}`;
+  const slots = parseSlots(words.shift());
+  if (slots.some((n) => n < 1 || n > 7)) return "Номера пар — от 1 до 7.";
+
+  const change = { teacher: "", room: "", start: "" };
+  const note = [];
+  const KEYS = new Set(["на", "с", "ауд"]);
+  while (words.length) {
+    const word = words.shift();
+    const key = word.toLowerCase();
+    if (key === "с" && /^\d{1,2}[:.]\d{2}$/.test(words[0] || "")) {
+      const [h, m] = words.shift().split(/[:.]/);
+      change.start = `${h.padStart(2, "0")}:${m}`;
+    } else if (key === "ауд" && words[0]) {
+      change.room = words.shift();
+    } else if (key === "на" && words[0]) {
+      const name = [];
+      while (words.length && !KEYS.has(words[0].toLowerCase()) && name.length < 3) name.push(words.shift());
+      change.teacher = name.join(" ");
+    } else {
+      note.push(word);
+    }
+  }
+  if (!change.teacher && !change.room && !change.start) return `Что меняем? «на Фамилия», «с 12:00» или «ауд 614».\n\n${CHANGE_HELP}`;
+  const reason = note.join(" ") || (change.teacher ? "Замена преподавателя" : change.start ? "Перенос времени" : "Другая аудитория");
+  if (reason.length > 200) return "Пометка слишком длинная: до 200 знаков.";
+
+  const resolved = await resolveTargets(target);
+  if (resolved.error) return resolved.error;
+
+  const stamp = new Date().toISOString();
+  const created = await env.STATS.batch(
+    resolved.ids.map((grp) =>
+      env.STATS.prepare(
+        `INSERT INTO changes (grp, day, slots, from_teacher, teacher, room, start, reason, created)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+      ).bind(grp, iso(date), slots.join(","), fromTeacher, change.teacher, change.room, change.start, reason, stamp)
+    )
+  );
+  const numbers = created.map((r) => r.results[0].id);
+  return [
+    `Замена: ${escape(resolved.ids.map(targetLabel).join(", "))} · ${dateLabel(date)} · ${slotsLabel(slots)}${fromTeacher ? ` · пары ${escape(fromTeacher)}` : ""} → ${escape(changeLabel(change))} · «${escape(reason)}».`,
+    `Убрать: /unchange ${numbers.join(",")}`,
+  ].join("\n");
+}
+
+function changeLabel(c) {
+  return [c.teacher && `ведёт ${c.teacher}`, c.start && `с ${c.start}`, c.room && `ауд. ${c.room}`].filter(Boolean).join(", ");
+}
+
+async function handleUnchange(env, text) {
+  const ids = [...new Set(text.replace(/^\/unchange(@\w+)?/, "").split(/[\s,]+/).map(Number).filter(Boolean))];
+  if (!ids.length) return "Укажите номер: /unchange 7. Список — /change";
+  const done = await env.STATS.batch(
+    ids.map((id) => env.STATS.prepare("UPDATE changes SET removed = 1 WHERE id = ? AND removed = 0").bind(id))
+  );
+  const removed = done.reduce((sum, r) => sum + (r.meta?.changes || 0), 0);
+  return removed ? `Убрано замен: ${removed}.` : "Таких действующих замен нет.";
+}
+
 /* ---------- Отмена по преподавателю ---------- */
 
 const TEACHER_WORDS = new Set(["преп", "препод", "преподаватель", "преподавателя"]);
@@ -1202,16 +1311,17 @@ export default {
       // Без объявлений, отмен и домашки расписание всё равно должно открыться.
       const range = homeworkRange(source.get("from"), source.get("to"));
       const user = initData ? await verifyInitData(initData, env.BOT_TOKEN).catch(() => null) : null;
-      const [notices, cancels, homework, canEdit, commenter] = await Promise.all([
+      const [notices, cancels, changes, homework, canEdit, commenter] = await Promise.all([
         activeNotices(env, group, user?.id).catch(() => []),
         activeCancels(env, group).catch(() => []),
+        activeChanges(env, group).catch(() => []),
         groupHomework(env, group.id, range).catch(() => []),
         user ? canEditHomework(env, initData, group.id).catch(() => false) : false,
         user ? canComment(env, user, group.id).catch(() => false) : false,
       ]);
       // Счётчики комментариев — только своей группе: чужим они ни к чему.
       const comments = commenter ? await commentCounts(env, group.id, range).catch(() => []) : [];
-      const payload = { notices, cancels, homework, canEdit, canComment: commenter, comments };
+      const payload = { notices, cancels, changes, homework, canEdit, canComment: commenter, comments };
       return new Response(JSON.stringify(payload), {
         headers: {
           "content-type": "application/json; charset=utf-8",
@@ -1392,7 +1502,16 @@ export default {
         const payload = await answerInline(update.inline_query, {
           groupOf: (id) => groupOfUser(env, id).catch(() => null),
           notices: (group) => activeNotices(env, group).catch(() => []),
-          cancels: (group) => activeCancels(env, group).catch(() => []),
+          // Замены едут вместе с отменами: так их не надо протаскивать
+          // отдельным параметром через все виды карточек.
+          cancels: async (group) => {
+            const [list, changes] = await Promise.all([
+              activeCancels(env, group).catch(() => []),
+              activeChanges(env, group).catch(() => []),
+            ]);
+            list.changes = changes;
+            return list;
+          },
         });
         const response = await callTelegram(env.BOT_TOKEN, "answerInlineQuery", payload);
         // Telegram отвергает ответ целиком из-за одной ошибки в разметке —
@@ -1584,6 +1703,19 @@ export default {
     }
 
     // Отмена пар меняет расписание всем — только владелец.
+    if (message && (text.startsWith("/change") || text.startsWith("/unchange"))) {
+      const owner = String(message.chat.id) === String(env.OWNER_ID);
+      let reply = "Команда недоступна.";
+      if (owner) {
+        reply = text.startsWith("/unchange") ? await handleUnchange(env, text) : await handleChange(env, text);
+      }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: reply,
+        parse_mode: "HTML",
+      });
+    }
+
     if (message && (text.startsWith("/cancel") || text.startsWith("/uncancel"))) {
       const owner = String(message.chat.id) === String(env.OWNER_ID);
       let reply = "Команда недоступна.";
