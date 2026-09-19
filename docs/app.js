@@ -159,6 +159,7 @@ async function loadNotices(group) {
     notices.list = body.notices || [];
     notices.cancels = body.cancels || [];
     notices.changes = body.changes || [];
+    notices.owner = Boolean(body.owner);
     notices.homework = body.homework || [];
     notices.canEdit = Boolean(body.canEdit);
     notices.canComment = Boolean(body.canComment);
@@ -403,7 +404,7 @@ function applyHomework() {
     seen.add(subject);
 
     const items = homeworkFor(card);
-    if (!items.length && !notices.canEdit && !notices.canComment) continue;
+    if (!items.length && !notices.canEdit && !notices.canComment && !notices.owner) continue;
 
     const block = el("div", "hw");
     for (const item of items) {
@@ -430,9 +431,92 @@ function applyHomework() {
       button.addEventListener("click", () => openComments(card));
       actions.append(button);
     }
+    // Владелец отменяет и возвращает пару прямо здесь, без /cancel.
+    if (notices.owner) {
+      const own = cardCancels(card);
+      const button = el("button", "hw-edit", own.length ? t("Вернуть пару") : t("Отменить пару"));
+      button.type = "button";
+      button.addEventListener("click", () => (own.length ? restoreLesson(own) : cancelLesson(card)));
+      actions.append(button);
+    }
     if (actions.children.length) block.append(actions);
     (card.querySelector(".card-body") || card).append(block);
   }
+}
+
+/* ---------- Отмена пар владельцем ---------- */
+
+const CANCEL_URL = "https://fgp-schedule-bot.bodryash.workers.dev/cancel";
+
+/** Отмены, задевающие карточку, — их и вернёт кнопка «Вернуть пару». */
+function cardCancels(card) {
+  const ids = new Set();
+  for (const slot of cardSlots(card)) {
+    for (const c of cancelsFor(slot, card.dataset.subject)) if (c.id) ids.add(c.id);
+  }
+  return [...ids];
+}
+
+function askScope(group) {
+  return new Promise((resolve) => {
+    const text = t("Отменить эту пару?");
+    if (tg?.showPopup) {
+      try {
+        tg.showPopup(
+          {
+            message: text,
+            buttons: [
+              { id: "group", type: "default", text: t("Только {g}", { g: group.title }) },
+              { id: "course", type: "default", text: t("Весь курс") },
+              { type: "cancel" },
+            ],
+          },
+          (id) => resolve(id === "group" || id === "course" ? id : null)
+        );
+        return;
+      } catch {
+        // Старый Telegram без попапов — обычный вопрос ниже.
+      }
+    }
+    resolve(confirm(text) ? "group" : null);
+  });
+}
+
+async function sendCancel(body) {
+  try {
+    const res = await fetch(CANCEL_URL, {
+      method: "POST",
+      body: JSON.stringify({ initData: tg?.initData || "", ...body }),
+    });
+    if (!res.ok) throw new Error();
+  } catch {
+    tg?.showAlert ? tg.showAlert(t("Не получилось, попробуйте ещё раз")) : alert(t("Не получилось, попробуйте ещё раз"));
+    return;
+  }
+  // Перечитываем отмены — карточки зачеркнутся как у всех.
+  const group = groupById(prefs.group);
+  notices.group = null;
+  await loadNotices(group);
+}
+
+async function cancelLesson(card) {
+  const group = groupById(prefs.group);
+  const scope = await askScope(group);
+  if (!scope) return;
+  await sendCancel({
+    action: "cancel",
+    scope,
+    group: group.id,
+    course: group.course,
+    level: group.level,
+    day: isoDate(dateOfDay(selectedDay)),
+    slots: cardSlots(card),
+    subject: card.dataset.subject,
+  });
+}
+
+function restoreLesson(ids) {
+  return sendCancel({ action: "restore", ids });
 }
 
 /* ---------- Комментарии ---------- */

@@ -928,6 +928,35 @@ async function handleCancel(env, text) {
   ].join("\n");
 }
 
+/**
+ * Отмена из приложения: только владельцу. action cancel — отменить предмет
+ * в этих парах у группы или всего её курса; restore — вернуть по номерам.
+ */
+async function appCancel(env, body) {
+  const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+  if (!user || !isOwner(env, user.id)) return { ok: false, error: "forbidden" };
+  if (body.action === "restore") {
+    const ids = (body.ids || []).map(Number).filter(Boolean).slice(0, 20);
+    if (!ids.length) return { ok: false, error: "no ids" };
+    await env.STATS.batch(
+      ids.map((id) => env.STATS.prepare("UPDATE cancels SET removed = 1 WHERE id = ?").bind(id))
+    );
+    return { ok: true };
+  }
+  const day = String(body.day || "");
+  const slots = (body.slots || []).map(Number).filter((n) => n >= 1 && n <= 7);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !slots.length || !body.group) return { ok: false, error: "bad lesson" };
+  const grp =
+    body.scope === "course" && body.level && body.course ? courseKey(body.level, Number(body.course)) : String(body.group);
+  await env.STATS.prepare(
+    `INSERT INTO cancels (grp, day, slots, reason, created, subject, subgroup, teacher)
+     VALUES (?, ?, ?, ?, ?, ?, 0, '')`
+  )
+    .bind(grp, day, slots.join(","), String(body.reason || "").slice(0, 200), new Date().toISOString(), String(body.subject || ""))
+    .run();
+  return { ok: true };
+}
+
 /* ---------- Замены на дату ---------- */
 
 const CHANGE_HELP = [
@@ -1321,7 +1350,7 @@ export default {
       ]);
       // Счётчики комментариев — только своей группе: чужим они ни к чему.
       const comments = commenter ? await commentCounts(env, group.id, range).catch(() => []) : [];
-      const payload = { notices, cancels, changes, homework, canEdit, canComment: commenter, comments };
+      const payload = { notices, cancels, changes, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments };
       return new Response(JSON.stringify(payload), {
         headers: {
           "content-type": "application/json; charset=utf-8",
@@ -1388,6 +1417,24 @@ export default {
     }
 
     // Староста вносит, меняет или удаляет домашку своей группы.
+    // Отмена пары владельцем прямо из приложения — без команды /cancel.
+    if (url.pathname === "/cancel" && request.method === "POST") {
+      let result;
+      try {
+        result = await appCancel(env, JSON.parse(await request.text()));
+      } catch {
+        result = { ok: false, error: "bad request" };
+      }
+      return new Response(JSON.stringify(result), {
+        status: result.ok ? 200 : 400,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "no-store",
+        },
+      });
+    }
+
     if (url.pathname === "/homework" && request.method === "POST") {
       let result;
       try {
