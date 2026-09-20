@@ -990,7 +990,12 @@ async function watchCommand(env, message, on) {
     chat_id: env.OWNER_ID,
     parse_mode: "HTML",
     text: on
-      ? `👀 Слежу за «${name}». Когда там появится PDF, пришлю сюда кнопку «Обновить расписание». В чат бот ничего не пишет.`
+      ? [
+          `👀 Слежу за «${name}». Когда там появится PDF, пришлю сюда кнопку «Обновить расписание».`,
+          "В сам чат бот не пишет ничего и никогда.",
+          "Если файлы не приходят — у @BotFather нужно /setprivacy → Disable: иначе Telegram не отдаёт боту вложения из групп.",
+          "Перестать следить: /unwatch в том чате.",
+        ].join("\n")
       : `Больше не слежу за «${name}».`,
   });
 }
@@ -1697,6 +1702,24 @@ export default {
     }
 
     // «Удалить все его комментарии» под ответом на /ban.
+    // Бота добавили в чат или выгнали. Отмечаем чат сами: команду писать
+    // не надо. Чужие добавления игнорируем — Telegram сообщает, кто добавил.
+    const membership = update.my_chat_member;
+    if (membership) {
+      const status = membership.new_chat_member?.status;
+      const chat = membership.chat;
+      const byOwner = isOwner(env, membership.from?.id);
+      const gone = status === "left" || status === "kicked";
+      if (chat?.type !== "private") {
+        if (gone) {
+          await env.STATS.prepare("DELETE FROM watched_chats WHERE chat_id = ?").bind(chat.id).run();
+        } else if (byOwner) {
+          await watchCommand(env, { chat }, true);
+        }
+      }
+      return new Response("ok");
+    }
+
     const pdf = update.callback_query?.data?.match(/^pdf:(\d+)$/);
     if (pdf || update.callback_query?.data === "pdfskip") {
       const query = update.callback_query;
