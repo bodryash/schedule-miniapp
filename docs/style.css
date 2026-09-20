@@ -30,6 +30,9 @@
 
   /* Встроенные кривые CSS слишком вялые для интерфейса. */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  /* Мягче, чем ease-out: разгон плавный, торможение долгое. Для длинных
+     движений вроде смены дня резкий старт выглядел рывком. */
+  --ease-soft: cubic-bezier(0.32, 0.72, 0.28, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
@@ -1265,9 +1268,12 @@ body {
 
 #lessons > * {
   opacity: 0;
-  transform: translate(var(--from-x, 0px), 6px);
-  animation: rise 180ms var(--ease-out) forwards;
-  animation-delay: min(calc(var(--i, 0) * 25ms), 120ms);
+  transform: translate(var(--from-x, 0px), 10px);
+  animation: rise 320ms var(--ease-soft) forwards;
+  animation-delay: min(calc(var(--i, 0) * 35ms), 180ms);
+  /* Браузер заранее кладёт карточку на свой слой: без этого первый кадр
+     длинного дня считается уже во время движения, и оно рвётся. */
+  will-change: transform, opacity;
 }
 
 @keyframes rise {
@@ -1275,11 +1281,11 @@ body {
 }
 
 section {
-  animation: appear 200ms var(--ease-out);
+  animation: appear 300ms var(--ease-soft);
 }
 
 @keyframes appear {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(6px); }
 }
 
 /* Свободные аудитории появляются так же, как карточки пар. Пару переключают
@@ -1288,9 +1294,9 @@ section {
 #free-list .floor h2,
 #free-list .free-room {
   opacity: 0;
-  transform: translateY(6px);
-  animation: rise 180ms var(--ease-out) forwards;
-  animation-delay: min(calc(var(--i, 0) * 16ms), 140ms);
+  transform: translateY(8px);
+  animation: rise 300ms var(--ease-soft) forwards;
+  animation-delay: min(calc(var(--i, 0) * 22ms), 160ms);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1633,7 +1639,7 @@ body {
 /* Переключение раздела: короткий сдвиг вбок и проявление. Дольше 200 мс
    ощущается как задержка — вкладки нажимают часто. */
 .screen-slide {
-  animation: slide-in 220ms var(--ease-out);
+  animation: slide-in 340ms var(--ease-soft);
 }
 
 @keyframes slide-in {
@@ -1646,9 +1652,10 @@ body {
 #week-body > *,
 #results > * {
   opacity: 0;
-  transform: translateY(6px);
-  animation: rise 200ms var(--ease-out) forwards;
-  animation-delay: min(calc(var(--i, 0) * 30ms), 150ms);
+  transform: translateY(10px);
+  animation: rise 320ms var(--ease-soft) forwards;
+  animation-delay: min(calc(var(--i, 0) * 40ms), 200ms);
+  will-change: transform, opacity;
 }
 
 /* Полоса прогресса наливается от нуля при каждом открытии — это единственное
