@@ -1,0 +1,94 @@
+name: Проверка присланного PDF
+
+# В чате курса появляется не только расписание. Прежде чем звать владельца,
+# файл прогоняется парсером здесь: он ничего не публикует, только решает,
+# расписание это или нет. Если да — владельцу уходит кнопка «Обновить».
+on:
+  repository_dispatch:
+    types: [probe-schedule]
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Установить зависимости
+        run: pip install --quiet pdfplumber
+
+      - name: Скачать файл
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          FILE_ID: ${{ github.event.client_payload.file_id }}
+        run: |
+          set -e
+          path=$(curl -sf "https://api.telegram.org/bot$BOT_TOKEN/getFile?file_id=$FILE_ID" \
+                 | python -c "import json,sys; print(json.load(sys.stdin)['result']['file_path'])")
+          curl -sf -o candidate.pdf "https://api.telegram.org/file/bot$BOT_TOKEN/$path"
+
+      - name: Расписание ли это
+        id: probe
+        run: |
+          {
+            echo "json<<КОНЕЦ"
+            python tools/probe_pdf.py candidate.pdf || echo '{"schedule": false, "why": "проверка упала"}'
+            echo "КОНЕЦ"
+          } >> "$GITHUB_OUTPUT"
+
+      # Разбор ничего не публикует, поэтому изменения в рабочей копии не нужны.
+      - name: Позвать владельца
+        if: always()
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          OWNER_ID: ${{ secrets.OWNER_ID }}
+          VERDICT: ${{ steps.probe.outputs.json }}
+          PENDING: ${{ github.event.client_payload.pending }}
+          NAME: ${{ github.event.client_payload.name }}
+          SENDER: ${{ github.event.client_payload.sender }}
+          CHAT: ${{ github.event.client_payload.chat }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.parse, urllib.request
+
+          verdict = json.loads(os.environ.get("VERDICT") or '{"schedule": false, "why": "нет ответа"}')
+          name = os.environ.get("NAME") or "без имени"
+          sender = os.environ.get("SENDER") or "неизвестно"
+          chat = os.environ.get("CHAT") or "чате"
+          token = os.environ["BOT_TOKEN"]
+
+          if not verdict.get("schedule"):
+              # Не расписание — владельцу об этом сообщаем одной строкой, без
+              # кнопок: чаще всего это методичка, и делать с ней нечего.
+              text = (
+                  f"📎 В «{chat}» прислали «{name}» — это не расписание.\n"
+                  f"{verdict.get('why', '')}\nФайл пропущен."
+              )
+              markup = None
+          else:
+              text = (
+                  f"📄 Новое расписание в «{chat}»\n{name}\n"
+                  f"Прислал: {sender}\n\n"
+                  f"Разобралось: групп {verdict.get('groups')}, пар {verdict.get('lessons')}.\n"
+                  "Обновить расписание студентам?"
+              )
+              markup = json.dumps({
+                  "inline_keyboard": [
+                      [{"text": "🔄 Обновить расписание", "callback_data": f"pdf:{os.environ['PENDING']}"}],
+                      [{"text": "Пропустить", "callback_data": "pdfskip"}],
+                  ]
+              })
+
+          payload = {"chat_id": os.environ["OWNER_ID"], "text": text}
+          if markup:
+              payload["reply_markup"] = markup
+          request = urllib.request.Request(
+              f"https://api.telegram.org/bot{token}/sendMessage",
+              data=urllib.parse.urlencode(payload).encode(),
+          )
+          urllib.request.urlopen(request).read()
+          PY

@@ -1000,31 +1000,39 @@ async function watchCommand(env, message, on) {
   });
 }
 
-/** PDF в чате курса: показываем владельцу, кто и что прислал. */
+/**
+ * PDF в чате курса. Сам файл здесь не разобрать — парсер на Python живёт в
+ * сборке на GitHub, поэтому файл уходит туда на проверку. Она ничего не
+ * публикует: только решает, расписание это или методичка, и уже оттуда
+ * владельцу приходит письмо — с кнопкой или без.
+ */
 async function offerUpdate(env, message, document) {
   const who = [message.from?.first_name, message.from?.last_name].filter(Boolean).join(" ");
-  const username = message.from?.username ? ` @${escape(message.from.username)}` : "";
+  const username = message.from?.username ? ` @${message.from.username}` : "";
   const saved = await env.STATS.prepare(
     "INSERT INTO pending_pdfs (file_id, name, sender, created) VALUES (?, ?, ?, ?) RETURNING id"
   )
     .bind(document.file_id, document.file_name || "", who || "", new Date().toISOString())
     .first();
-  await callTelegram(env.BOT_TOKEN, "sendMessage", {
-    chat_id: env.OWNER_ID,
-    parse_mode: "HTML",
-    text: [
-      `📄 Новый файл в «${escape(message.chat.title || "чате")}»`,
-      `${escape(document.file_name || "без имени")} · ${Math.round((document.file_size || 0) / 1024)} КБ`,
-      `Прислал: ${escape(who || "неизвестно")}${username}`,
-      "",
-      "Разобрать и обновить расписание?",
-    ].join("\n"),
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "🔄 Обновить расписание", callback_data: `pdf:${saved.id}` }],
-        [{ text: "Пропустить", callback_data: "pdfskip" }],
-      ],
+  if (!env.GITHUB_TOKEN) return;
+  await fetch(`https://api.github.com/repos/${REPO}/dispatches`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      accept: "application/vnd.github+json",
+      "content-type": "application/json",
+      "user-agent": "fgp-schedule-bot",
     },
+    body: JSON.stringify({
+      event_type: "probe-schedule",
+      client_payload: {
+        file_id: document.file_id,
+        pending: String(saved.id),
+        name: document.file_name || "",
+        sender: `${who || "неизвестно"}${username}`,
+        chat: message.chat.title || "чате",
+      },
+    }),
   });
 }
 
