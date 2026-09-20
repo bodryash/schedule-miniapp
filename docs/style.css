@@ -1379,12 +1379,10 @@ section {
 }
 
 .banned-face {
-  font-size: 96px;
-  font-weight: 700;
-  line-height: 1;
+  width: 120px;
+  height: 120px;
   color: var(--text);
-  transform: rotate(90deg);
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .banned-title {

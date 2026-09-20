@@ -167,6 +167,14 @@ CREATE TABLE IF NOT EXISTS app_bans (
   until    TEXT
 );
 
+-- Запрет открывать расписание для группы, курса или всех (/block 311гэу).
+CREATE TABLE IF NOT EXISTS app_group_bans (
+  grp     TEXT PRIMARY KEY,
+  reason  TEXT NOT NULL DEFAULT '',
+  created TEXT NOT NULL,
+  until   TEXT
+);
+
 -- Кто на что пожаловался: один голос на человека.
 CREATE TABLE IF NOT EXISTS comment_reports (
   comment INTEGER NOT NULL,

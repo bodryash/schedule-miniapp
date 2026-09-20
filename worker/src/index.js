@@ -966,24 +966,42 @@ const BLOCK_HELP = [
   "",
   "/block @ivanov 3 Спам в комментариях — на 3 дня",
   "/block 1144406244 — навсегда, по id",
-  "/unblock @ivanov — снять",
+  "/block 311гэу 1 — всей группе на день",
+  "/block 3курс — всему курсу; ещё бывает маг1 и «все»",
+  "/unblock @ivanov, /unblock 311гэу — снять",
   "/blocks — список",
 ].join("\n");
 
-/** Действует ли запрет: возвращает { until, reason } или null. */
-async function appBan(env, userId) {
-  if (!env.STATS || !userId) return null;
-  const row = await env.STATS.prepare("SELECT reason, until FROM app_bans WHERE tg_id = ?")
-    .bind(userId)
-    .first();
-  if (!row) return null;
-  if (row.until && row.until <= new Date().toISOString()) return null;
-  return { until: row.until || null, reason: row.reason || "" };
+/**
+ * Действует ли запрет — на человека или на всю его группу или курс.
+ * Возвращает { until, reason } или null.
+ */
+async function appBan(env, userId, group = null) {
+  if (!env.STATS) return null;
+  const now = new Date().toISOString();
+  if (userId) {
+    const row = await env.STATS.prepare("SELECT reason, until FROM app_bans WHERE tg_id = ?")
+      .bind(userId)
+      .first();
+    if (row && (!row.until || row.until > now)) return { until: row.until || null, reason: row.reason || "" };
+  }
+  if (group?.id) {
+    const row = await env.STATS.prepare(
+      `SELECT reason, until FROM app_group_bans
+       WHERE grp IN (?, ?, '*') AND (until IS NULL OR until > ?) ORDER BY created DESC LIMIT 1`
+    )
+      .bind(group.id, courseOf(group), now)
+      .first();
+    if (row) return { until: row.until || null, reason: row.reason || "" };
+  }
+  return null;
 }
 
 async function blockCommand(env, text) {
-  const [, who, ...rest] = String(text).trim().split(/\s+/);
+  const [, who, ...rest] = glueCourse(String(text).trim()).split(/\s+/);
   if (!who) return BLOCK_HELP;
+  // Группа, курс или «все» — ключи те же, что у объявлений.
+  if (!who.startsWith("@") && !/^\d{5,}$/.test(who)) return blockGroups(env, who, rest);
   const person = await findPerson(env, who);
   if (!person?.tg_id) return `Не нашёл ${escape(who)}. Человек должен хоть раз открыть расписание.`;
   if (isOwner(env, person.tg_id)) return "Себя заблокировать нельзя.";
@@ -1008,9 +1026,44 @@ async function blockCommand(env, text) {
     .join("\n");
 }
 
+/** /block 311гэу 3 причина — закрывает расписание всей группе или курсу. */
+async function blockGroups(env, target, rest) {
+  const resolved = await resolveTargets(target);
+  if (resolved.error) return resolved.error;
+  let days = null;
+  if (rest[0] && /^\d{1,4}$/.test(rest[0])) days = Number(rest.shift());
+  const reason = rest.join(" ").slice(0, 200);
+  const until = days ? new Date(Date.now() + days * DAY_MS).toISOString() : null;
+  const now = new Date().toISOString();
+  await env.STATS.batch(
+    resolved.ids.map((grp) =>
+      env.STATS.prepare(
+        `INSERT INTO app_group_bans (grp, reason, created, until) VALUES (?, ?, ?, ?)
+         ON CONFLICT(grp) DO UPDATE SET reason = excluded.reason, created = excluded.created, until = excluded.until`
+      ).bind(grp, reason, now, until)
+    )
+  );
+  return [
+    `⛔ ${escape(resolved.ids.map(targetLabel).join(", "))} — расписание закрыто ${until ? `на ${days} дн.` : "навсегда"}.`,
+    reason ? `Причина: ${escape(reason)}` : null,
+    `Снять: /unblock ${escape(target)}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 async function unblockCommand(env, text) {
-  const who = String(text).trim().split(/\s+/)[1];
+  const who = glueCourse(String(text).trim()).split(/\s+/)[1];
   if (!who) return "Укажите кого: /unblock @ivanov. Список — /blocks";
+  if (!who.startsWith("@") && !/^\d{5,}$/.test(who)) {
+    const resolved = await resolveTargets(who);
+    if (resolved.error) return resolved.error;
+    const done = await env.STATS.batch(
+      resolved.ids.map((grp) => env.STATS.prepare("DELETE FROM app_group_bans WHERE grp = ?").bind(grp))
+    );
+    const removed = done.reduce((sum, r) => sum + (r.meta?.changes || 0), 0);
+    return removed ? `Расписание снова открыто: ${escape(resolved.ids.map(targetLabel).join(", "))}.` : "Эти группы не заблокированы.";
+  }
   const person = await findPerson(env, who);
   if (!person?.tg_id) return `Не нашёл ${escape(who)}.`;
   const result = await env.STATS.prepare("DELETE FROM app_bans WHERE tg_id = ?").bind(person.tg_id).run();
@@ -1026,12 +1079,21 @@ async function blocksList(env) {
   )
     .bind(new Date().toISOString())
     .all();
-  if (!results.length) return `${BLOCK_HELP}\n\nЗаблокированных нет.`;
+  const { results: groups = [] } = await env.STATS.prepare(
+    `SELECT grp, reason, until FROM app_group_bans
+     WHERE until IS NULL OR until > ? ORDER BY created DESC LIMIT 60`
+  )
+    .bind(new Date().toISOString())
+    .all();
+  if (!results.length && !groups.length) return `${BLOCK_HELP}\n\nЗаблокированных нет.`;
   const list = results.map(
     (b) =>
       `⛔ ${escape(b.name || `id ${b.tg_id}`)}${b.username ? ` @${escape(b.username)}` : ""} · id ${b.tg_id} · ${b.until ? `до ${b.until.slice(0, 10)}` : "навсегда"}${b.reason ? ` · ${escape(b.reason)}` : ""}`
   );
-  return [BLOCK_HELP, "", ...list].join("\n");
+  const groupList = groups.map(
+    (b) => `⛔ ${escape(targetLabel(b.grp))} · ${b.until ? `до ${b.until.slice(0, 10)}` : "навсегда"}${b.reason ? ` · ${escape(b.reason)}` : ""}`
+  );
+  return [BLOCK_HELP, "", ...groupList, ...list].join("\n");
 }
 
 /* ---------- Замены на дату ---------- */
@@ -1417,7 +1479,7 @@ export default {
       // Без объявлений, отмен и домашки расписание всё равно должно открыться.
       const range = homeworkRange(source.get("from"), source.get("to"));
       const user = initData ? await verifyInitData(initData, env.BOT_TOKEN).catch(() => null) : null;
-      const ban = user ? await appBan(env, user.id).catch(() => null) : null;
+      const ban = await appBan(env, user?.id || null, group).catch(() => null);
       if (ban) {
         return new Response(JSON.stringify({ ban }), {
           headers: {

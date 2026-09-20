@@ -452,7 +452,24 @@ function applyHomework() {
 
 let banTimer = null;
 
-/** Экран вместо расписания: символ, причина и сколько осталось. */
+/** Рожица с крестиками вместо глаз и высунутым языком. */
+function bannedFace() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 120 120");
+  svg.setAttribute("class", "banned-face");
+  svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML = [
+    '<g stroke="currentColor" stroke-width="9" stroke-linecap="round">',
+    '<line x1="27" y1="33" x2="49" y2="55" /><line x1="49" y1="33" x2="27" y2="55" />',
+    '<line x1="71" y1="33" x2="93" y2="55" /><line x1="93" y1="33" x2="71" y2="55" />',
+    '<path d="M32 80 H88" />',
+    '<path d="M64 80 v14 a11 11 0 0 1 -22 0 v-14" fill="none" />',
+    "</g>",
+  ].join("");
+  return svg;
+}
+
+/** Экран вместо расписания: рожица, причина и сколько осталось. */
 function showBanned(ban) {
   els.picker.hidden = true;
   els.schedule.hidden = true;
@@ -462,8 +479,8 @@ function showBanned(ban) {
 
   const screen = el("section", "banned");
   screen.id = "banned";
-  screen.append(el("div", "banned-face", ":P"));
-  screen.append(el("div", "banned-title", t("Доступ закрыт")));
+  screen.append(bannedFace());
+  screen.append(el("div", "banned-title", t("Отказано в доступе")));
   if (ban.reason) screen.append(el("div", "banned-reason", ban.reason));
   const left = el("div", "banned-left");
   screen.append(left);
