@@ -1899,7 +1899,7 @@ export default {
     }
 
     // Отмена пар меняет расписание всем — только владелец.
-    if (message && /^\/(block|unblock|blocks)/.test(text)) {
+    if (message && /^\/(block|unblock|blocks)(?:@\w+)?(?:\s|$)/.test(text)) {
       const owner = String(message.chat.id) === String(env.OWNER_ID);
       let reply = "Команда недоступна.";
       if (owner) {
