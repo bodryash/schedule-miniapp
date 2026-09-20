@@ -957,6 +957,83 @@ async function appCancel(env, body) {
   return { ok: true };
 }
 
+/* ---------- Запрет открывать расписание ---------- */
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const BLOCK_HELP = [
+  "<b>Запрет открывать расписание</b> — у человека вместо пар экран с блокировкой.",
+  "",
+  "/block @ivanov 3 Спам в комментариях — на 3 дня",
+  "/block 1144406244 — навсегда, по id",
+  "/unblock @ivanov — снять",
+  "/blocks — список",
+].join("\n");
+
+/** Действует ли запрет: возвращает { until, reason } или null. */
+async function appBan(env, userId) {
+  if (!env.STATS || !userId) return null;
+  const row = await env.STATS.prepare("SELECT reason, until FROM app_bans WHERE tg_id = ?")
+    .bind(userId)
+    .first();
+  if (!row) return null;
+  if (row.until && row.until <= new Date().toISOString()) return null;
+  return { until: row.until || null, reason: row.reason || "" };
+}
+
+async function blockCommand(env, text) {
+  const [, who, ...rest] = String(text).trim().split(/\s+/);
+  if (!who) return BLOCK_HELP;
+  const person = await findPerson(env, who);
+  if (!person?.tg_id) return `Не нашёл ${escape(who)}. Человек должен хоть раз открыть расписание.`;
+  if (isOwner(env, person.tg_id)) return "Себя заблокировать нельзя.";
+
+  let days = null;
+  if (rest[0] && /^\d{1,4}$/.test(rest[0])) days = Number(rest.shift());
+  const reason = rest.join(" ").slice(0, 200);
+  const until = days ? new Date(Date.now() + days * DAY_MS).toISOString() : null;
+  await env.STATS.prepare(
+    `INSERT INTO app_bans (tg_id, name, username, reason, created, until) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(tg_id) DO UPDATE SET name = excluded.name, username = excluded.username,
+       reason = excluded.reason, created = excluded.created, until = excluded.until`
+  )
+    .bind(person.tg_id, person.name || null, person.username || null, reason, new Date().toISOString(), until)
+    .run();
+  return [
+    `⛔ ${escape(person.name || `id ${person.tg_id}`)} — расписание закрыто ${until ? `на ${days} дн.` : "навсегда"}.`,
+    reason ? `Причина: ${escape(reason)}` : null,
+    `Снять: /unblock ${person.username ? `@${escape(person.username)}` : person.tg_id}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function unblockCommand(env, text) {
+  const who = String(text).trim().split(/\s+/)[1];
+  if (!who) return "Укажите кого: /unblock @ivanov. Список — /blocks";
+  const person = await findPerson(env, who);
+  if (!person?.tg_id) return `Не нашёл ${escape(who)}.`;
+  const result = await env.STATS.prepare("DELETE FROM app_bans WHERE tg_id = ?").bind(person.tg_id).run();
+  return result.meta?.changes
+    ? `${escape(person.name || `id ${person.tg_id}`)} снова может открывать расписание.`
+    : "Этот человек не заблокирован.";
+}
+
+async function blocksList(env) {
+  const { results = [] } = await env.STATS.prepare(
+    `SELECT tg_id, name, username, reason, until FROM app_bans
+     WHERE until IS NULL OR until > ? ORDER BY created DESC LIMIT 60`
+  )
+    .bind(new Date().toISOString())
+    .all();
+  if (!results.length) return `${BLOCK_HELP}\n\nЗаблокированных нет.`;
+  const list = results.map(
+    (b) =>
+      `⛔ ${escape(b.name || `id ${b.tg_id}`)}${b.username ? ` @${escape(b.username)}` : ""} · id ${b.tg_id} · ${b.until ? `до ${b.until.slice(0, 10)}` : "навсегда"}${b.reason ? ` · ${escape(b.reason)}` : ""}`
+  );
+  return [BLOCK_HELP, "", ...list].join("\n");
+}
+
 /* ---------- Замены на дату ---------- */
 
 const CHANGE_HELP = [
@@ -1340,6 +1417,16 @@ export default {
       // Без объявлений, отмен и домашки расписание всё равно должно открыться.
       const range = homeworkRange(source.get("from"), source.get("to"));
       const user = initData ? await verifyInitData(initData, env.BOT_TOKEN).catch(() => null) : null;
+      const ban = user ? await appBan(env, user.id).catch(() => null) : null;
+      if (ban) {
+        return new Response(JSON.stringify({ ban }), {
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+            "access-control-allow-origin": "*",
+            "cache-control": "no-store",
+          },
+        });
+      }
       const [notices, cancels, changes, homework, canEdit, commenter] = await Promise.all([
         activeNotices(env, group, user?.id).catch(() => []),
         activeCancels(env, group).catch(() => []),
@@ -1750,6 +1837,23 @@ export default {
     }
 
     // Отмена пар меняет расписание всем — только владелец.
+    if (message && /^\/(block|unblock|blocks)/.test(text)) {
+      const owner = String(message.chat.id) === String(env.OWNER_ID);
+      let reply = "Команда недоступна.";
+      if (owner) {
+        reply = text.startsWith("/blocks")
+          ? await blocksList(env)
+          : text.startsWith("/unblock")
+            ? await unblockCommand(env, text)
+            : await blockCommand(env, text);
+      }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: reply,
+        parse_mode: "HTML",
+      });
+    }
+
     if (message && (text.startsWith("/change") || text.startsWith("/unchange"))) {
       const owner = String(message.chat.id) === String(env.OWNER_ID);
       let reply = "Команда недоступна.";

@@ -1362,3 +1362,43 @@ section {
 @media (prefers-reduced-motion: reduce) {
   .free-day-emoji { animation: none; }
 }
+
+/* Экран блокировки */
+.banned {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  background: var(--bg);
+}
+
+.banned-face {
+  font-size: 96px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  transform: rotate(90deg);
+  margin-bottom: 18px;
+}
+
+.banned-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.banned-reason,
+.banned-left {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.banned-left {
+  font-variant-numeric: tabular-nums;
+}

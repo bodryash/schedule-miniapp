@@ -164,6 +164,8 @@ async function loadNotices(group) {
     if (!res.ok) return;
     const body = await res.json();
     if (notices.group !== groupId) return;
+    // Заблокированному расписание не показываем совсем.
+    if (body.ban) return showBanned(body.ban);
     notices.list = body.notices || [];
     notices.cancels = body.cancels || [];
     notices.changes = body.changes || [];
@@ -444,6 +446,44 @@ function applyHomework() {
     if (actions.children.length) block.append(actions);
     (card.querySelector(".card-body") || card).append(block);
   }
+}
+
+/* ---------- Блокировка ---------- */
+
+let banTimer = null;
+
+/** Экран вместо расписания: символ, причина и сколько осталось. */
+function showBanned(ban) {
+  els.picker.hidden = true;
+  els.schedule.hidden = true;
+  els.search.hidden = true;
+  els.free.hidden = true;
+  document.getElementById("banned")?.remove();
+
+  const screen = el("section", "banned");
+  screen.id = "banned";
+  screen.append(el("div", "banned-face", ":P"));
+  screen.append(el("div", "banned-title", t("Доступ закрыт")));
+  if (ban.reason) screen.append(el("div", "banned-reason", ban.reason));
+  const left = el("div", "banned-left");
+  screen.append(left);
+  document.body.append(screen);
+
+  const tick = () => {
+    if (!ban.until) {
+      left.textContent = t("Навсегда");
+      return;
+    }
+    const ms = new Date(ban.until) - new Date();
+    if (ms <= 0) return location.reload();
+    const days = Math.floor(ms / 86400000);
+    const pad = (n) => String(n).padStart(2, "0");
+    const rest = `${pad(Math.floor(ms / 3600000) % 24)}:${pad(Math.floor(ms / 60000) % 60)}:${pad(Math.floor(ms / 1000) % 60)}`;
+    left.textContent = `${t("Осталось")}: ${days ? `${days} ${t("дн.")} ` : ""}${rest}`;
+  };
+  tick();
+  clearInterval(banTimer);
+  banTimer = setInterval(tick, 1000);
 }
 
 /* ---------- Отмена пар владельцем ---------- */

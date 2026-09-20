@@ -157,6 +157,16 @@ CREATE TABLE IF NOT EXISTS comment_bans (
   until    TEXT
 );
 
+-- Запрет открывать расписание (/block). until пустой — навсегда.
+CREATE TABLE IF NOT EXISTS app_bans (
+  tg_id    INTEGER PRIMARY KEY,
+  name     TEXT,
+  username TEXT,
+  reason   TEXT NOT NULL DEFAULT '',
+  created  TEXT NOT NULL,
+  until    TEXT
+);
+
 -- Кто на что пожаловался: один голос на человека.
 CREATE TABLE IF NOT EXISTS comment_reports (
   comment INTEGER NOT NULL,
