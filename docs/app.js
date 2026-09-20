@@ -545,6 +545,7 @@ function showToday() {
     nodes.push(block);
   }
 
+  nodes.forEach((node, i) => node.style.setProperty("--i", i));
   els.todayBody.replaceChildren(...nodes);
 }
 
@@ -633,6 +634,7 @@ function showWeek() {
     }
     nodes.push(column);
   }
+  nodes.forEach((node, i) => node.style.setProperty("--i", i));
   els.weekBody.replaceChildren(...nodes);
 }
 
@@ -1531,7 +1533,12 @@ function showPicker() {
 // переключает полоса снизу, свободные аудитории остаются внутри расписания.
 let tab = "today";
 
+const TAB_ORDER = ["today", "schedule", "week", "search"];
+
 function openTab(name) {
+  // Раздел въезжает с той стороны, где он стоит в полосе снизу: так видно,
+  // что переключение — это шаг вбок, а не новый экран поверх старого.
+  const from = TAB_ORDER.indexOf(name) - TAB_ORDER.indexOf(tab);
   tab = name;
   for (const button of els.tabs?.querySelectorAll(".tab") || []) {
     button.classList.toggle("tab--on", button.dataset.tab === name);
@@ -1544,6 +1551,13 @@ function openTab(name) {
   els.search.hidden = name !== "search";
   if (els.tabs) els.tabs.hidden = false;
   window.scrollTo(0, 0);
+  const screen = { today: els.today, schedule: els.schedule, week: els.week, search: els.search }[name];
+  if (screen && from) {
+    screen.style.setProperty("--slide-from", `${from > 0 ? 16 : -16}px`);
+    screen.classList.remove("screen-slide");
+    void screen.offsetWidth;
+    screen.classList.add("screen-slide");
+  }
   if (name !== "week") document.body.dataset.parity = weekParity(data.weeks) || "none";
   if (name === "today") showToday();
   if (name === "week") showWeek();
@@ -2203,9 +2217,13 @@ function runSearch() {
   // Нашёлся преподаватель — сначала его карточка, потом пары. Больше трёх
   // карточек не показываем: при коротком запросе это уже не поиск человека.
   const people = teachers.length <= 3 ? teachers.map(renderTeacherCard) : [];
+  const cascade = (nodes) => {
+    nodes.forEach((node, i) => node.style.setProperty("--i", i));
+    return nodes;
+  };
   els.results.replaceChildren(
-    ...(creator ? [creator] : []),
-    ...people,
+    ...cascade(creator ? [creator] : []),
+    ...cascade(people),
     ...shown.map(({ lesson, groups }) => {
       const bell = timesOf(lesson, bells);
       const row = el("article", "card");
