@@ -466,7 +466,7 @@ function bannedFace() {
     // Рот — настоящая буква P, повёрнутая в другую сторону.
     '<text x="60" y="88" text-anchor="middle" dominant-baseline="central" fill="currentColor"',
     ' font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="700"',
-    ' transform="rotate(-90 60 88)">P</text>',
+    ' transform="rotate(90 60 88)">P</text>',
   ].join("");
   return svg;
 }
