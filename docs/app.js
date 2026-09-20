@@ -460,13 +460,13 @@ function bannedFace() {
   svg.setAttribute("aria-hidden", "true");
   svg.innerHTML = [
     '<g stroke="currentColor" stroke-width="7" stroke-linecap="round">',
-    '<line x1="34" y1="39" x2="48" y2="53" /><line x1="48" y1="39" x2="34" y2="53" />',
-    '<line x1="72" y1="39" x2="86" y2="53" /><line x1="86" y1="39" x2="72" y2="53" />',
+    '<line x1="42" y1="41" x2="56" y2="55" /><line x1="56" y1="41" x2="42" y2="55" />',
+    '<line x1="64" y1="41" x2="78" y2="55" /><line x1="78" y1="41" x2="64" y2="55" />',
     "</g>",
     // Рот — настоящая буква P, повёрнутая в другую сторону.
     '<text x="60" y="88" text-anchor="middle" dominant-baseline="central" fill="currentColor"',
     ' font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="700"',
-    ' transform="rotate(90 60 88)">P</text>',
+    ' transform="rotate(90 60 82)">P</text>',
   ].join("");
   return svg;
 }
