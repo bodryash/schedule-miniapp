@@ -459,9 +459,9 @@ function bannedFace() {
   svg.setAttribute("class", "banned-face");
   svg.setAttribute("aria-hidden", "true");
   svg.innerHTML = [
-    '<g stroke="currentColor" stroke-width="9" stroke-linecap="round">',
-    '<line x1="27" y1="33" x2="49" y2="55" /><line x1="49" y1="33" x2="27" y2="55" />',
-    '<line x1="71" y1="33" x2="93" y2="55" /><line x1="93" y1="33" x2="71" y2="55" />',
+    '<g stroke="currentColor" stroke-width="7" stroke-linecap="round">',
+    '<line x1="34" y1="39" x2="48" y2="53" /><line x1="48" y1="39" x2="34" y2="53" />',
+    '<line x1="72" y1="39" x2="86" y2="53" /><line x1="86" y1="39" x2="72" y2="53" />',
     "</g>",
     // Рот — настоящая буква P, повёрнутая в другую сторону.
     '<text x="60" y="88" text-anchor="middle" dominant-baseline="central" fill="currentColor"',
