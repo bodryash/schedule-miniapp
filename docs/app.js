@@ -583,8 +583,13 @@ function showWeek() {
         el("span", "day-date", `${SHORT_DATE.format(dateOfDay(1, week))}`)
       );
       button.addEventListener("click", () => {
+        const back = week < selectedWeek;
         selectedWeek = week;
         showWeek();
+        els.weekBody.style.setProperty("--slide-from", back ? "-18px" : "18px");
+        els.weekBody.classList.remove("screen-slide");
+        void els.weekBody.offsetWidth;
+        els.weekBody.classList.add("screen-slide");
       });
       return button;
     })
