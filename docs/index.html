@@ -161,6 +161,44 @@
     </div>
   </section>
 
+  <!-- Сегодня: что идёт сейчас и что дальше -->
+  <section id="today" hidden>
+    <header class="bar bar--schedule">
+      <div class="bar-top">
+        <div class="context">
+          <span class="group-name" id="today-group"></span>
+        </div>
+        <div class="bar-actions">
+          <button id="today-settings" class="icon" type="button" aria-label="Настройки">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <line x1="3" y1="6" x2="17" y2="6" />
+              <line x1="3" y1="14" x2="17" y2="14" />
+              <circle cx="7.5" cy="6" r="2" class="icon-fill" />
+              <circle cx="12.5" cy="14" r="2" class="icon-fill" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="date" id="today-date"></div>
+    </header>
+    <div id="today-body"></div>
+  </section>
+
+  <!-- Неделя целиком -->
+  <section id="week" hidden>
+    <header class="bar bar--schedule">
+      <div class="bar-top">
+        <div class="context">
+          <span class="group-name" id="week-group"></span>
+          <span class="week" id="week-parity"></span>
+        </div>
+      </div>
+      <div class="date" id="week-range"></div>
+    </header>
+    <nav class="days days--weeks" id="week-switch"></nav>
+    <div id="week-body"></div>
+  </section>
+
   <!-- Основной экран -->
   <section id="schedule" hidden>
     <!-- Дата — крупно и на всю ширину: её меняют листанием десятки раз в
@@ -213,6 +251,12 @@
 
     <input id="query" type="search" autocomplete="off"
            placeholder="Преподаватель, аудитория или предмет">
+    <nav class="chips" id="search-tabs">
+      <button type="button" class="chip chip--on" data-kind="all" data-i18n>Всё</button>
+      <button type="button" class="chip" data-kind="teacher" data-i18n>Преподаватели</button>
+      <button type="button" class="chip" data-kind="room" data-i18n>Аудитории</button>
+      <button type="button" class="chip" data-kind="subject" data-i18n>Предметы</button>
+    </nav>
     <p class="hint" id="search-hint" data-i18n>Например: Шестова, 614, микроэкономика</p>
     <div id="results"></div>
   </section>
@@ -286,6 +330,21 @@
       </div>
     </div>
   </div>
+
+  <nav class="tabs" id="tabs" hidden>
+    <button type="button" class="tab" data-tab="today">
+      <span class="tab-icon">⏱</span><span data-i18n>Сегодня</span>
+    </button>
+    <button type="button" class="tab" data-tab="schedule">
+      <span class="tab-icon">📅</span><span data-i18n>Расписание</span>
+    </button>
+    <button type="button" class="tab" data-tab="week">
+      <span class="tab-icon">🗓</span><span data-i18n>Неделя</span>
+    </button>
+    <button type="button" class="tab" data-tab="search">
+      <span class="tab-icon">🔍</span><span data-i18n>Поиск</span>
+    </button>
+  </nav>
 
   <p id="error" class="error" hidden></p>
 

@@ -175,6 +175,8 @@ async function loadNotices(group) {
     notices.canComment = Boolean(body.canComment);
     mergeCommentCounts(weekRange(selectedWeek), body.comments);
     renderNotices(true);
+    if (tab === "today") showToday();
+    if (tab === "week") showWeek();
     // Замены меняют саму карточку (время, преподавателя), поверх её не
     // наложить — перерисовываем день, только если он задет.
     if (notices.changes.some((c) => c.day === isoDate(dateOfDay(selectedDay)))) {
@@ -216,8 +218,8 @@ function renderNotices(animate) {
  * Замена на показанный день (/change): другое время, преподаватель или
  * аудитория у одной пары. Возвращает изменённую копию занятия.
  */
-function withChange(lesson) {
-  const day = isoDate(dateOfDay(selectedDay));
+function withChange(lesson, date = dateOfDay(selectedDay)) {
+  const day = isoDate(date);
   const change = notices.changes.find(
     (c) =>
       c.day === day &&
@@ -446,6 +448,191 @@ function applyHomework() {
     if (actions.children.length) block.append(actions);
     (card.querySelector(".card-body") || card).append(block);
   }
+}
+
+/* ---------- Сегодня ---------- */
+
+/**
+ * Главный экран: что идёт сейчас, что дальше, домашка и объявления. Всё
+ * это есть и в расписании, но там ради этого надо искать нужную карточку.
+ */
+function showToday() {
+  const group = activeGroup();
+  if (!group) return showPicker();
+  els.todayGroup.textContent = group.teacher ? group.title : t("Группа {g}", { g: group.title });
+  const label = FULL_DATE.format(new Date());
+  els.todayDate.textContent = label[0].toUpperCase() + label.slice(1);
+
+  const today = new Date();
+  const weekday = ((today.getDay() + 6) % 7) + 1;
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  const lessons = weekday <= 6 ? lessonsForDay(group, weekday, 0) : [];
+  const now = today.getHours() * 60 + today.getMinutes() + today.getSeconds() / 60;
+
+  const nodes = [];
+  for (const notice of notices.list) {
+    const color = ["yellow", "red", "green", "blue", "gray"].includes(notice.color) ? notice.color : "yellow";
+    nodes.push(el("div", `notice notice--${color}`, notice.text));
+  }
+
+  const alive = lessons.filter((l) => !lessonCancelOn(l, isoDate(today)));
+  const current = alive.find((l) => {
+    const time = timesOf(l, bells);
+    return time && now >= minutes(time.start) && now <= minutes(time.end);
+  });
+  const next = alive
+    .filter((l) => {
+      const time = timesOf(l, bells);
+      return time && minutes(time.start) > now;
+    })
+    .sort((a, b) => minutes(timesOf(a, bells).start) - minutes(timesOf(b, bells).start))[0];
+
+  if (!lessons.length) {
+    nodes.push(renderFreeDay());
+  } else if (current) {
+    const time = timesOf(current, bells);
+    const done = (now - minutes(time.start)) / (minutes(time.end) - minutes(time.start));
+    const card = el("div", "now-card");
+    card.append(el("div", "now-label", t("Сейчас идёт")));
+    card.append(el("div", "now-subject", withFlag(tr(current.subject))));
+    const meta = [`${time.start} – ${time.end}`, current.room ? roomLabel(current.room) : null]
+      .filter(Boolean)
+      .join(" · ");
+    card.append(el("div", "now-meta", meta));
+    const bar = el("div", "now-bar");
+    const fill = el("div", "now-fill");
+    fill.style.width = `${Math.round(Math.min(1, Math.max(0, done)) * 100)}%`;
+    bar.append(fill);
+    card.append(bar);
+    card.append(el("div", "now-left", t("осталось {time}", { time: humanLeft(minutes(time.end) - now) })));
+    nodes.push(card);
+  } else {
+    const card = el("div", "now-card now-card--idle");
+    card.append(el("div", "now-label", t("Сейчас пар нет")));
+    if (!next) card.append(el("div", "now-subject", t("Пары закончились")));
+    nodes.push(card);
+  }
+
+  if (next) {
+    const time = timesOf(next, bells);
+    const card = el("div", "next-card");
+    card.append(el("div", "now-label", t("Дальше")));
+    card.append(el("div", "next-subject", withFlag(tr(next.subject))));
+    card.append(
+      el(
+        "div",
+        "now-meta",
+        [`${time.start} – ${time.end}`, next.room ? roomLabel(next.room) : null, t("через {time}", { time: humanLeft(minutes(time.start) - now) })]
+          .filter(Boolean)
+          .join(" · ")
+      )
+    );
+    nodes.push(card);
+  }
+
+  // Домашка на сегодня и завтра — то, ради чего её и заводили.
+  const days = [isoDate(today), isoDate(new Date(today.getTime() + 86400000))];
+  const homework = notices.homework.filter((h) => days.includes(h.day) && h.text);
+  if (homework.length) {
+    const block = el("div", "today-block");
+    block.append(el("div", "today-title", t("Домашка")));
+    for (const item of homework) {
+      const line = el("div", "today-hw");
+      line.append(el("span", "hw-label", item.day === days[0] ? t("сегодня") : t("завтра")));
+      line.append(el("span", "hw-text", `${tr(item.subject)}: ${item.text}`));
+      block.append(line);
+    }
+    nodes.push(block);
+  }
+
+  els.todayBody.replaceChildren(...nodes);
+}
+
+/** Отменено ли занятие в конкретный день — без опоры на выбранный день. */
+function lessonCancelOn(lesson, day) {
+  return (
+    notices.cancels.find(
+      (c) =>
+        c.day === day &&
+        (!c.slots.length || c.slots.includes(lesson.slot)) &&
+        (!c.subject || c.subject === lesson.subject) &&
+        (!c.subgroup || c.subgroup === lesson.subgroup)
+    ) || null
+  );
+}
+
+/* ---------- Неделя целиком ---------- */
+
+function showWeek() {
+  const group = activeGroup();
+  if (!group) return showPicker();
+  els.weekGroup.textContent = group.teacher ? group.title : t("Группа {g}", { g: group.title });
+  const parity = weekParity(data.weeks, selectedWeek);
+  els.weekParity.textContent =
+    parity === "odd" ? t("Нечётная неделя") : parity === "even" ? t("Чётная неделя") : t("Вне семестра");
+  els.weekRange.textContent = `${SHORT_DATE.format(dateOfDay(1, selectedWeek))} — ${SHORT_DATE.format(dateOfDay(6, selectedWeek))}`;
+
+  // Переключатель недель: их всего две, кнопки понятнее листания.
+  els.weekSwitch.replaceChildren(
+    ...[0, 1].map((week) => {
+      const button = el("button", week === selectedWeek ? "day active" : "day");
+      button.append(
+        el("span", null, week === 0 ? t("Эта неделя") : t("Следующая")),
+        el("span", "day-date", `${SHORT_DATE.format(dateOfDay(1, week))}`)
+      );
+      button.addEventListener("click", () => {
+        selectedWeek = week;
+        showWeek();
+      });
+      return button;
+    })
+  );
+
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  const todayIso = isoDate(new Date());
+  const nodes = [];
+  for (let day = 1; day <= 6; day++) {
+    const date = dateOfDay(day, selectedWeek);
+    const lessons = lessonsForDay(group, day, selectedWeek);
+    const column = el("div", isoDate(date) === todayIso ? "week-day week-day--today" : "week-day");
+    const head = el("div", "week-head");
+    head.append(el("span", "week-name", DAYS[day - 1]), el("span", "week-date", SHORT_DATE.format(date)));
+    column.append(head);
+
+    if (!lessons.length) {
+      column.append(el("div", "week-empty", t("Пар нет")));
+      nodes.push(column);
+      continue;
+    }
+
+    // В неделе важен объём дня, а не подробности: одна строка на пару.
+    // Языки идут девятью потоками в одной паре — их сводим в «+8».
+    const bySlot = new Map();
+    for (const lesson of lessons) {
+      if (!bySlot.has(lesson.slot)) bySlot.set(lesson.slot, []);
+      const subjects = bySlot.get(lesson.slot);
+      if (!subjects.some((l) => l.subject === lesson.subject)) subjects.push(lesson);
+    }
+    for (const [slot, entries] of [...bySlot].sort((a, b) => a[0] - b[0])) {
+      const lesson = entries[0];
+      const extra = entries.length - 1;
+      const time = timesOf(lesson, bells);
+      const row = el("button", lessonCancelOn(lesson, isoDate(date)) ? "week-row week-row--off" : "week-row");
+      row.type = "button";
+      row.append(el("span", "week-slot", String(slot)));
+      row.append(
+        el("span", "week-subject", extra ? `${withFlag(tr(lesson.subject))} +${extra}` : withFlag(tr(lesson.subject)))
+      );
+      row.append(el("span", "week-time", time ? time.start : ""));
+      row.addEventListener("click", () => {
+        selectedDay = day;
+        openTab("schedule");
+      });
+      column.append(row);
+    }
+    nodes.push(column);
+  }
+  els.weekBody.replaceChildren(...nodes);
 }
 
 /* ---------- Блокировка ---------- */
@@ -990,6 +1177,19 @@ const els = {
   cmClose: document.getElementById("cm-close"),
   // Может не быть в закэшированном index.html — тогда режима просто нет.
   role: document.getElementById("role"),
+  tabs: document.getElementById("tabs"),
+  today: document.getElementById("today"),
+  todayBody: document.getElementById("today-body"),
+  todayDate: document.getElementById("today-date"),
+  todayGroup: document.getElementById("today-group"),
+  todaySettings: document.getElementById("today-settings"),
+  week: document.getElementById("week"),
+  weekBody: document.getElementById("week-body"),
+  weekSwitch: document.getElementById("week-switch"),
+  weekGroup: document.getElementById("week-group"),
+  weekParity: document.getElementById("week-parity"),
+  weekRange: document.getElementById("week-range"),
+  searchTabs: document.getElementById("search-tabs"),
   teacher: document.getElementById("teacher"),
   teacherRow: document.getElementById("teacher-row"),
   studentFields: document.getElementById("student-fields") || {},
@@ -1050,13 +1250,13 @@ function isoDate(date) {
  * по формуле: первая неделя семестра укорочена, и любая арифметика соврёт.
  * Вне семестра чётности нет — показываем все пары.
  */
-function weekParity(weeks) {
+function weekParity(weeks, week = selectedWeek) {
   // Чётность — свойство недели, а не дня: считаем по пересечению с
   // Пн–Сб, иначе понедельник 31.08 выпал бы из семестра, начатого 02.09.
-  const from = isoDate(dateOfDay(1));
-  const to = isoDate(dateOfDay(6));
-  const week = (weeks || []).find((w) => w.from <= to && from <= w.to);
-  return week ? week.parity : null;
+  const from = isoDate(dateOfDay(1, week));
+  const to = isoDate(dateOfDay(6, week));
+  const found = (weeks || []).find((w) => w.from <= to && from <= w.to);
+  return found ? found.parity : null;
 }
 
 function fail(message) {
@@ -1312,11 +1512,56 @@ function applyRole() {
 
 function showPicker() {
   els.schedule.hidden = true;
+  els.today.hidden = true;
+  els.week.hidden = true;
+  els.search.hidden = true;
+  els.free.hidden = true;
+  if (els.tabs) els.tabs.hidden = true;
   els.picker.hidden = false;
   // Возвращаться некуда, пока группа не выбрана хотя бы раз.
   els.close.hidden = !activeGroup();
   fillCourses();
   fillRole();
+}
+
+/* ---------- Разделы ---------- */
+
+// Какой раздел открыт: today | schedule | week | search. Разделы
+// переключает полоса снизу, свободные аудитории остаются внутри расписания.
+let tab = "today";
+
+function openTab(name) {
+  tab = name;
+  for (const button of els.tabs?.querySelectorAll(".tab") || []) {
+    button.classList.toggle("tab--on", button.dataset.tab === name);
+  }
+  els.free.hidden = true;
+  els.picker.hidden = true;
+  els.today.hidden = name !== "today";
+  els.week.hidden = name !== "week";
+  els.schedule.hidden = name !== "schedule";
+  els.search.hidden = name !== "search";
+  if (els.tabs) els.tabs.hidden = false;
+  window.scrollTo(0, 0);
+  if (name === "today") showToday();
+  if (name === "week") showWeek();
+  if (name === "schedule") showSchedule();
+  if (name === "search") showSearch();
+}
+
+/** Пары дня с учётом настроек и замен — общая основа всех разделов. */
+function lessonsForDay(group, day, week) {
+  const parity = weekParity(data.weeks, week);
+  const list = group.teacher
+    ? teacherLessons(group.teacher, parity, day)
+    : data.lessons.filter(
+        (l) =>
+          l.group === group.id &&
+          l.day === day &&
+          (l.week === "all" || parity === null || l.week === parity) &&
+          matchesPrefs(l)
+      );
+  return list.map((l) => withChange(l, dateOfDay(day, week))).sort((a, b) => a.slot - b.slot);
 }
 
 /* ---------- Экран расписания ---------- */
@@ -1475,10 +1720,10 @@ function renderFreeDay() {
  * Пары преподавателя в показанный день. Одну лекцию он читает сразу
  * нескольким группам — это одна пара, группы перечисляем в пометке.
  */
-function teacherLessons(key, parity) {
+function teacherLessons(key, parity, day = selectedDay) {
   const merged = new Map();
   for (const l of data.lessons) {
-    if (l.day !== selectedDay || !(l.week === "all" || parity === null || l.week === parity)) continue;
+    if (l.day !== day || !(l.week === "all" || parity === null || l.week === parity)) continue;
     if (!teachersOf(l.teacher).some((p) => p.key === key)) continue;
     const id = [l.slot, l.subject, l.type, l.room, l.week, l.start, l.end].join("|");
     if (!merged.has(id)) merged.set(id, { ...l, subgroup: null, groups: [] });
@@ -1501,7 +1746,7 @@ function renderLessons(group, parity) {
         (l.week === "all" || parity === null || l.week === parity) &&
         matchesPrefs(l)
     ))
-    .map(withChange)
+    .map((lesson) => withChange(lesson))
     .sort((a, b) => a.slot - b.slot);
 
   visible = list;
@@ -1669,16 +1914,15 @@ function showSearch() {
   els.schedule.hidden = true;
   els.picker.hidden = true;
   els.search.hidden = false;
-  els.query.focus();
   // Имена преподавателей нужны только поиску — грузим при первом открытии.
   loadTeacherNames().then(() => {
-    if (!els.search.hidden && els.query.value.trim()) runSearch();
+    if (!els.search.hidden) runSearch();
   });
+  runSearch();
 }
 
 function closeSearch() {
-  els.search.hidden = true;
-  showSchedule();
+  openTab("schedule");
 }
 
 /** Ищем по преподавателю, аудитории, предмету и номеру группы разом. */
@@ -1814,23 +2058,59 @@ function renderCreatorCard() {
   return card;
 }
 
+// Вкладки поиска: all | teacher | room | subject.
+let searchKind = "all";
+
+/** Преподаватели своей группы — то, что показываем до первого запроса. */
+function renderMyTeachers() {
+  const group = activeGroup();
+  if (!group || group.teacher) return [];
+  const keys = new Map();
+  for (const lesson of data.lessons) {
+    if (lesson.group !== group.id || !matchesPrefs(lesson)) continue;
+    for (const person of teachersOf(lesson.teacher)) {
+      if (!keys.has(person.key)) {
+        keys.set(person.key, { ...person, titles: new Map(), lessons: new Set(), subjects: new Set(), groups: new Set() });
+      }
+      const entry = keys.get(person.key);
+      if (person.title) entry.titles.set(person.title, (entry.titles.get(person.title) || 0) + 1);
+      entry.lessons.add([lesson.day, lesson.slot, lesson.week, lesson.subject].join("|"));
+      entry.subjects.add(lesson.subject);
+      entry.groups.add(lesson.group);
+    }
+  }
+  return [...keys.values()].sort((a, b) => b.lessons.size - a.lessons.size);
+}
+
 function runSearch() {
   const query = els.query.value.trim().toLowerCase();
   if (query.length < 2) {
-    els.results.replaceChildren();
-    els.searchHint.textContent = t("Например: Шестова, 614, микроэкономика");
+    // Пустой поиск — не пустой экран: показываем преподавателей группы.
+    const mine = renderMyTeachers();
+    els.results.replaceChildren(...mine.map(renderTeacherCard));
+    els.searchHint.textContent = mine.length
+      ? t("Преподаватели вашей группы")
+      : t("Например: Шестова, 614, микроэкономика");
     return;
   }
 
   // Переведённое название тоже ищем: китаец наберёт «经济», а не «экономика».
   // И по имени-отчеству преподавателя: «Татьяна Львовна» найдёт Шестову.
-  const teachers = matchTeachers(query);
+  const teachers = searchKind === "room" || searchKind === "subject" ? [] : matchTeachers(query);
   const byName = new Set(teachers.filter((x) => x.full).map((x) => x.key));
+  const fields = {
+    all: (l) => [l.teacher, l.room, l.subject, tr(l.subject), l.group],
+    teacher: (l) => [l.teacher],
+    room: (l) => [l.room],
+    subject: (l) => [l.subject, tr(l.subject)],
+  }[searchKind];
   const found = data.lessons.filter(
     (l) =>
-      [l.teacher, l.room, l.subject, tr(l.subject), l.group].some((field) =>
-        (field || "").toLowerCase().includes(query)
-      ) || (byName.size && teachersOf(l.teacher).some((person) => byName.has(person.key)))
+      fields(l).some((field) => (field || "").toLowerCase().includes(query)) ||
+      (searchKind !== "room" &&
+        searchKind !== "subject" &&
+        byName.size &&
+        teachersOf(l.teacher).some((person) => byName.has(person.key)))
   );
 
   // Одну лекцию читают сразу нескольким группам. Показывать её шесть раз
@@ -2765,7 +3045,8 @@ async function init() {
       prefs = { ...prefs, teacher: els.teacher.value, teacherName: TEACHER_NAMES?.[els.teacher.value] || els.teacher.value };
     }
     savePrefs(prefs);
-    showSchedule();
+    notices.group = null;
+    openTab(tab === "search" ? "today" : tab);
     // Сменили группу — сообщаем боту, чтобы статистика знала новую группу.
     const group = !prefs.teacher && groupById(prefs.group);
     if (group && group.id !== before) countOpen({ id: group.id, course: group.course, level: group.level });
@@ -2782,12 +3063,25 @@ async function init() {
     });
   }
   els.change.addEventListener("click", showPicker);
+  els.todaySettings?.addEventListener("click", showPicker);
+  for (const button of els.tabs?.querySelectorAll(".tab") || []) {
+    button.addEventListener("click", () => openTab(button.dataset.tab));
+  }
   initHomeScreen();
-  els.find.addEventListener("click", showSearch);
+  els.find.addEventListener("click", () => openTab("search"));
   els.rooms.addEventListener("click", showFree);
   els.freeClose.addEventListener("click", closeFree);
   els.searchClose.addEventListener("click", closeSearch);
   els.query.addEventListener("input", runSearch);
+  for (const chip of els.searchTabs?.querySelectorAll(".chip") || []) {
+    chip.addEventListener("click", () => {
+      searchKind = chip.dataset.kind;
+      for (const other of els.searchTabs.querySelectorAll(".chip")) {
+        other.classList.toggle("chip--on", other === chip);
+      }
+      runSearch();
+    });
+  }
   initSwipe();
   // Как и с комментариями: без окна в закэшированном index.html домашка
   // просто не редактируется, а расписание открывается.
@@ -2802,7 +3096,7 @@ async function init() {
     });
   }
   // Крестик закрывает настройки, не сохраняя изменений.
-  els.close.addEventListener("click", showSchedule);
+  els.close.addEventListener("click", () => openTab(tab === "picker" ? "today" : tab));
 
   // Возврат в свёрнутое приложение — момент, когда расхождение с часами
   // максимально, а следующий тик ещё не наступил.
@@ -2825,14 +3119,15 @@ async function init() {
       refreshNow();
       refreshNext();
     }
+    if (!els.today.hidden) showToday();
   }, 30_000);
 
   const group = activeGroup();
   if (group?.teacher) {
     loadTeacherNames();
-    showSchedule();
+    openTab("today");
   } else if (group) {
-    showSchedule();
+    openTab("today");
     countOpen({ id: group.id, course: group.course, level: group.level });
   } else {
     showPicker();
