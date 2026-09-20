@@ -957,6 +957,72 @@ async function appCancel(env, body) {
   return { ok: true };
 }
 
+/* ---------- Чат курса: PDF от куратора ---------- */
+
+/**
+ * Бот сидит в чате курса и ждёт только PDF. Ничего туда не пишет: ни
+ * ответов, ни ошибок — чат чужой, и бот в нём гость. Найденный файл
+ * уходит владельцу в личку кнопкой: публикует расписание по-прежнему
+ * только он, автоматически ничего не заменяется.
+ */
+async function watchedChat(env, chatId) {
+  if (!env.STATS || !chatId) return null;
+  return env.STATS.prepare("SELECT chat_id, title FROM watched_chats WHERE chat_id = ?")
+    .bind(chatId)
+    .first();
+}
+
+async function watchCommand(env, message, on) {
+  const chat = message.chat;
+  if (on) {
+    await env.STATS.prepare(
+      `INSERT INTO watched_chats (chat_id, title, added) VALUES (?, ?, ?)
+       ON CONFLICT(chat_id) DO UPDATE SET title = excluded.title`
+    )
+      .bind(chat.id, chat.title || "", new Date().toISOString())
+      .run();
+  } else {
+    await env.STATS.prepare("DELETE FROM watched_chats WHERE chat_id = ?").bind(chat.id).run();
+  }
+  const name = escape(chat.title || `чат ${chat.id}`);
+  // Отвечаем в личку, даже когда команда пришла из чата: в чате бот молчит.
+  await callTelegram(env.BOT_TOKEN, "sendMessage", {
+    chat_id: env.OWNER_ID,
+    parse_mode: "HTML",
+    text: on
+      ? `👀 Слежу за «${name}». Когда там появится PDF, пришлю сюда кнопку «Обновить расписание». В чат бот ничего не пишет.`
+      : `Больше не слежу за «${name}».`,
+  });
+}
+
+/** PDF в чате курса: показываем владельцу, кто и что прислал. */
+async function offerUpdate(env, message, document) {
+  const who = [message.from?.first_name, message.from?.last_name].filter(Boolean).join(" ");
+  const username = message.from?.username ? ` @${escape(message.from.username)}` : "";
+  const saved = await env.STATS.prepare(
+    "INSERT INTO pending_pdfs (file_id, name, sender, created) VALUES (?, ?, ?, ?) RETURNING id"
+  )
+    .bind(document.file_id, document.file_name || "", who || "", new Date().toISOString())
+    .first();
+  await callTelegram(env.BOT_TOKEN, "sendMessage", {
+    chat_id: env.OWNER_ID,
+    parse_mode: "HTML",
+    text: [
+      `📄 Новый файл в «${escape(message.chat.title || "чате")}»`,
+      `${escape(document.file_name || "без имени")} · ${Math.round((document.file_size || 0) / 1024)} КБ`,
+      `Прислал: ${escape(who || "неизвестно")}${username}`,
+      "",
+      "Разобрать и обновить расписание?",
+    ].join("\n"),
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "🔄 Обновить расписание", callback_data: `pdf:${saved.id}` }],
+        [{ text: "Пропустить", callback_data: "pdfskip" }],
+      ],
+    },
+  });
+}
+
 /* ---------- Запрет открывать расписание ---------- */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -1631,6 +1697,37 @@ export default {
     }
 
     // «Удалить все его комментарии» под ответом на /ban.
+    const pdf = update.callback_query?.data?.match(/^pdf:(\d+)$/);
+    if (pdf || update.callback_query?.data === "pdfskip") {
+      const query = update.callback_query;
+      const owner = isOwner(env, query.from?.id);
+      let notice = "Недоступно";
+      if (owner) {
+        if (pdf) {
+          const row = await env.STATS.prepare("SELECT file_id, name FROM pending_pdfs WHERE id = ?")
+            .bind(Number(pdf[1]))
+            .first();
+          notice = row
+            ? await startUpdate(env, { file_id: row.file_id, file_name: row.name })
+            : "Файл потерялся, перешлите его боту вручную.";
+        } else {
+          notice = "Пропустил.";
+        }
+      }
+      await callTelegram(env.BOT_TOKEN, "answerCallbackQuery", {
+        callback_query_id: query.id,
+        text: notice.slice(0, 190),
+      });
+      if (owner && query.message) {
+        await callTelegram(env.BOT_TOKEN, "editMessageReplyMarkup", {
+          chat_id: query.message.chat.id,
+          message_id: query.message.message_id,
+          reply_markup: { inline_keyboard: [] },
+        });
+      }
+      return new Response("ok");
+    }
+
     const purge = update.callback_query?.data?.match(/^cmpurge:(\d+)$/);
     if (purge) {
       const query = update.callback_query;
@@ -1781,17 +1878,21 @@ export default {
       const pdf =
         document.mime_type === "application/pdf" ||
         (document.file_name || "").toLowerCase().endsWith(".pdf");
+      const watched = owner ? null : await watchedChat(env, message.chat.id).catch(() => null);
 
-      let reply = "Файлы принимаю только от владельца.";
-      if (owner) {
-        reply = pdf
-          ? await startUpdate(env, document)
-          : "Это не PDF. Пришлите файл расписания.";
+      if (watched) {
+        // Чат курса: в сам чат не отвечаем ни при каких условиях.
+        if (pdf) await offerUpdate(env, message, document);
+      } else if (message.chat.type === "private") {
+        await callTelegram(env.BOT_TOKEN, "sendMessage", {
+          chat_id: message.chat.id,
+          text: owner
+            ? pdf
+              ? await startUpdate(env, document)
+              : "Это не PDF. Пришлите файл расписания."
+            : "Файлы принимаю только от владельца.",
+        });
       }
-      await callTelegram(env.BOT_TOKEN, "sendMessage", {
-        chat_id: message.chat.id,
-        text: reply,
-      });
     }
 
     // Рассылка: сперва черновик с кнопками, отправка — только по нажатию.
@@ -1899,6 +2000,13 @@ export default {
     }
 
     // Отмена пар меняет расписание всем — только владелец.
+    if (message && /^\/(un)?watch(?:@\w+)?(?:\s|$)/.test(text)) {
+      // Право проверяем по автору, а не по чату: команду шлют из чата курса.
+      if (isOwner(env, message.from?.id)) {
+        await watchCommand(env, message, !text.startsWith("/unwatch"));
+      }
+    }
+
     if (message && /^\/(block|unblock|blocks)(?:@\w+)?(?:\s|$)/.test(text)) {
       const owner = String(message.chat.id) === String(env.OWNER_ID);
       let reply = "Команда недоступна.";
