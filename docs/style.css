@@ -1400,3 +1400,230 @@ section {
 .banned-left {
   font-variant-numeric: tabular-nums;
 }
+
+/* --- Разделы снизу --- */
+.tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  background: var(--card);
+  border-top: 1px solid var(--line);
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.tab-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.tab--on {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+body {
+  padding-bottom: 68px;
+}
+
+/* --- Сегодня --- */
+#today-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 4px;
+}
+
+.now-card,
+.next-card,
+.today-block {
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: var(--shadow, 0 1px 2px rgba(0, 0, 0, 0.06));
+}
+
+.now-card {
+  background: var(--accent-soft);
+}
+
+.now-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.now-subject,
+.next-subject {
+  margin-top: 4px;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.now-meta {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.now-bar {
+  margin-top: 12px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.now-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.4s ease;
+}
+
+.now-left {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.today-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.today-hw {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+/* --- Неделя --- */
+#week-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 4px;
+}
+
+.week-day {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.week-day--today {
+  outline: 2px solid var(--accent);
+}
+
+.week-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.week-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.week-date,
+.week-empty {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.week-row {
+  display: flex;
+  width: 100%;
+  gap: 10px;
+  align-items: baseline;
+  padding: 5px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.week-slot {
+  flex: none;
+  width: 18px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.week-subject {
+  flex: 1;
+  font-size: 14px;
+}
+
+.week-time {
+  flex: none;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.week-row--off .week-subject {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.days--weeks {
+  margin-bottom: 10px;
+}
+
+/* --- Вкладки поиска --- */
+.chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 8px 4px 4px;
+}
+
+.chip {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.chip--on {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
