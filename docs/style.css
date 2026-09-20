@@ -1627,3 +1627,95 @@ body {
   color: var(--accent-text);
   font-weight: 600;
 }
+
+/* --- Движение в новых разделах --- */
+
+/* Переключение раздела: короткий сдвиг вбок и проявление. Дольше 200 мс
+   ощущается как задержка — вкладки нажимают часто. */
+.screen-slide {
+  animation: slide-in 220ms var(--ease-out);
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(var(--slide-from, 12px)); }
+}
+
+/* Карточки «Сегодня», дни недели и выдача поиска появляются каскадом, как
+   карточки пар: потолок задержки короткий, чтобы низ списка не ждал. */
+#today-body > *,
+#week-body > *,
+#results > * {
+  opacity: 0;
+  transform: translateY(6px);
+  animation: rise 200ms var(--ease-out) forwards;
+  animation-delay: min(calc(var(--i, 0) * 30ms), 150ms);
+}
+
+/* Полоса прогресса наливается от нуля при каждом открытии — это единственное
+   место, где движение несёт смысл: видно, сколько пары осталось. */
+.now-fill {
+  animation: fill-grow 600ms var(--ease-out);
+  transform-origin: left center;
+}
+
+@keyframes fill-grow {
+  from { transform: scaleX(0); }
+}
+
+/* Отклик на нажатие: кнопка чуть проседает под пальцем. */
+.tab:active,
+.chip:active,
+.week-row:active,
+.day:active {
+  transform: scale(0.96);
+}
+
+.tab,
+.chip,
+.week-row,
+.day {
+  transition: transform 120ms var(--ease-out), background-color 160ms var(--ease-out),
+    color 160ms var(--ease-out), border-color 160ms var(--ease-out);
+}
+
+/* Выбранный раздел: значок коротко подпрыгивает. */
+.tab--on .tab-icon {
+  animation: tab-pop 260ms var(--ease-out);
+}
+
+@keyframes tab-pop {
+  40% { transform: translateY(-3px) scale(1.12); }
+}
+
+/* Идущая пара слегка дышит — карточку видно, даже когда экран не трогают. */
+.now-card {
+  animation: now-glow 3.5s ease-in-out infinite;
+}
+
+@keyframes now-glow {
+  50% { box-shadow: 0 0 0 4px var(--accent-soft); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #today-body > *,
+  #week-body > *,
+  #results > * {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+
+  .screen-slide,
+  .now-fill,
+  .tab--on .tab-icon,
+  .now-card {
+    animation: none;
+  }
+
+  .tab:active,
+  .chip:active,
+  .week-row:active,
+  .day:active {
+    transform: none;
+  }
+}
