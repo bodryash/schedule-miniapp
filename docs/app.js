@@ -462,9 +462,11 @@ function bannedFace() {
     '<g stroke="currentColor" stroke-width="9" stroke-linecap="round">',
     '<line x1="27" y1="33" x2="49" y2="55" /><line x1="49" y1="33" x2="27" y2="55" />',
     '<line x1="71" y1="33" x2="93" y2="55" /><line x1="93" y1="33" x2="71" y2="55" />',
-    '<path d="M34 76 Q60 96 86 76" fill="none" />',
-    '<path d="M40 84 q-9 9 -1 17 q9 8 17 -1" fill="currentColor" stroke-linejoin="round" />',
     "</g>",
+    // Рот — настоящая буква P, повёрнутая в другую сторону.
+    '<text x="60" y="88" text-anchor="middle" dominant-baseline="central" fill="currentColor"',
+    ' font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="700"',
+    ' transform="rotate(-90 60 88)">P</text>',
   ].join("");
   return svg;
 }
