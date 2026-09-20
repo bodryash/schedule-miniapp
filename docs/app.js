@@ -462,8 +462,8 @@ function bannedFace() {
     '<g stroke="currentColor" stroke-width="9" stroke-linecap="round">',
     '<line x1="27" y1="33" x2="49" y2="55" /><line x1="49" y1="33" x2="27" y2="55" />',
     '<line x1="71" y1="33" x2="93" y2="55" /><line x1="93" y1="33" x2="71" y2="55" />',
-    '<path d="M32 80 H88" />',
-    '<path d="M64 80 v14 a11 11 0 0 1 -22 0 v-14" fill="none" />',
+    '<path d="M34 76 Q60 96 86 76" fill="none" />',
+    '<path d="M40 84 q-9 9 -1 17 q9 8 17 -1" fill="currentColor" stroke-linejoin="round" />',
     "</g>",
   ].join("");
   return svg;
