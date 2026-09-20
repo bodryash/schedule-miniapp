@@ -568,6 +568,7 @@ function showWeek() {
   if (!group) return showPicker();
   els.weekGroup.textContent = group.teacher ? group.title : t("Группа {g}", { g: group.title });
   const parity = weekParity(data.weeks, selectedWeek);
+  document.body.dataset.parity = parity || "none";
   els.weekParity.textContent =
     parity === "odd" ? t("Нечётная неделя") : parity === "even" ? t("Чётная неделя") : t("Вне семестра");
   els.weekRange.textContent = `${SHORT_DATE.format(dateOfDay(1, selectedWeek))} — ${SHORT_DATE.format(dateOfDay(6, selectedWeek))}`;
@@ -1543,6 +1544,7 @@ function openTab(name) {
   els.search.hidden = name !== "search";
   if (els.tabs) els.tabs.hidden = false;
   window.scrollTo(0, 0);
+  if (name !== "week") document.body.dataset.parity = weekParity(data.weeks) || "none";
   if (name === "today") showToday();
   if (name === "week") showWeek();
   if (name === "schedule") showSchedule();
@@ -2082,10 +2084,57 @@ function renderMyTeachers() {
   return [...keys.values()].sort((a, b) => b.lessons.size - a.lessons.size);
 }
 
+/** Аудитории или предметы своей группы: что и сколько раз встречается. */
+function groupFacts(kind) {
+  const group = activeGroup();
+  if (!group) return [];
+  const counts = new Map();
+  for (const lesson of data.lessons) {
+    const mine = group.teacher
+      ? teachersOf(lesson.teacher).some((p) => p.key === group.teacher)
+      : lesson.group === group.id && matchesPrefs(lesson);
+    if (!mine) continue;
+    const key = kind === "room" ? lesson.room : lesson.subject;
+    if (!key) continue;
+    if (!counts.has(key)) counts.set(key, { key, lessons: 0, extra: new Set() });
+    const item = counts.get(key);
+    item.lessons += 1;
+    item.extra.add(kind === "room" ? lesson.subject : lesson.room);
+  }
+  return [...counts.values()].sort((a, b) => b.lessons - a.lessons);
+}
+
+function renderFactCard(item) {
+  const card = el("article", "teacher-card");
+  const title = searchKind === "room" ? roomLabel(item.key) : tr(item.key);
+  // У аудитории на кружке номер, а не буква «а» из слова «ауд.».
+  card.append(el("div", "teacher-avatar", searchKind === "room" ? String(item.key).slice(0, 3) : String(title)[0]));
+  const body = el("div", "teacher-body");
+  body.append(el("div", "teacher-name", withFlag(title)));
+  body.append(el("div", "teacher-meta", lessonsCount(item.lessons)));
+  const tags = el("div", "teacher-subjects");
+  for (const extra of [...item.extra].filter(Boolean).slice(0, 6)) {
+    tags.append(el("span", "tag", searchKind === "room" ? tr(extra) : roomLabel(extra)));
+  }
+  body.append(tags);
+  card.append(body);
+  return card;
+}
+
 function runSearch() {
   const query = els.query.value.trim().toLowerCase();
   if (query.length < 2) {
-    // Пустой поиск — не пустой экран: показываем преподавателей группы.
+    // Пустой поиск — не пустой экран: показываем то, что выбрано вкладкой.
+    if (searchKind === "room" || searchKind === "subject") {
+      const items = groupFacts(searchKind);
+      els.results.replaceChildren(...items.map(renderFactCard));
+      els.searchHint.textContent = items.length
+        ? searchKind === "room"
+          ? t("Аудитории вашей группы")
+          : t("Предметы вашей группы")
+        : t("Например: Шестова, 614, микроэкономика");
+      return;
+    }
     const mine = renderMyTeachers();
     els.results.replaceChildren(...mine.map(renderTeacherCard));
     els.searchHint.textContent = mine.length
