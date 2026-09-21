@@ -199,6 +199,8 @@ CREATE TABLE IF NOT EXISTS queues (
   id      INTEGER PRIMARY KEY AUTOINCREMENT,
   grp     TEXT NOT NULL,
   title   TEXT NOT NULL,
+  -- Пара, к которой очередь: в созданную базу — migrations/0011_queue_subject.sql.
+  subject TEXT NOT NULL DEFAULT '',
   day     TEXT NOT NULL DEFAULT '',   -- ISO-дата или пусто
   slots   INTEGER NOT NULL DEFAULT 0, -- 0 — без ограничения
   author  INTEGER NOT NULL,

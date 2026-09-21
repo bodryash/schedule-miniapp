@@ -518,6 +518,7 @@ function renderQueues() {
     const head = el("div", "q-head");
     head.append(el("div", "q-title", queue.title));
     const facts = [
+      queue.subject ? tr(queue.subject) : null,
       queue.day ? SHORT_DATE.format(new Date(`${queue.day}T00:00:00`)) : null,
       queue.slots ? t("{n} из {all} мест", { n: spots.length, all: queue.slots }) : t("записалось {n}", { n: spots.length }),
       queue.closed ? t("запись закрыта") : null,
@@ -599,8 +600,33 @@ function joinQueue(queue) {
   queueAction({ action: "join", queue: queue.id, note });
 }
 
+/**
+ * Пары, к которым заводят очереди: семинары. На лекции не отвечают по
+ * очереди, а языковых «лабораторных» у группы под сотню — выбирать замучаешься.
+ */
+function seminarSubjects() {
+  const group = activeGroup();
+  if (!group || group.teacher) return [];
+  const found = new Map();
+  for (const lesson of data.lessons) {
+    if (lesson.group !== group.id || !matchesPrefs(lesson)) continue;
+    if (lesson.type !== "семинар" && lesson.type !== "практика") continue;
+    found.set(lesson.subject, (found.get(lesson.subject) || 0) + 1);
+  }
+  return [...found.keys()].sort((a, b) => tr(a).localeCompare(tr(b), "ru"));
+}
+
 function openQueueSheet() {
   if (!els.qSheet) return;
+  const subjects = seminarSubjects();
+  if (els.qSubject) {
+    els.qSubject.replaceChildren(
+      new Option(t("не привязывать"), ""),
+      ...subjects.map((subject) => new Option(tr(subject), subject))
+    );
+    // Семинаров может не быть совсем — тогда строку прячем целиком.
+    els.qSubject.parentElement.hidden = subjects.length === 0;
+  }
   els.qName.value = "";
   els.qSlots.value = "";
   els.qDay.value = "";
@@ -609,14 +635,22 @@ function openQueueSheet() {
 }
 
 async function createQueue() {
-  const title = els.qName.value.trim();
+  const subject = els.qSubject?.value || "";
+  // Название можно не писать: очередь к семинару назовётся сама.
+  const title = els.qName.value.trim() || (subject ? t("Доклады: {subject}", { subject: tr(subject) }) : "");
   if (!title) {
     els.qError.textContent = t("Без названия очередь не создать");
     els.qError.hidden = false;
     return;
   }
   els.qSheet.hidden = true;
-  await queueAction({ action: "create", title, day: els.qDay.value || "", slots: Number(els.qSlots.value) || 0 });
+  await queueAction({
+    action: "create",
+    title,
+    subject,
+    day: els.qDay.value || "",
+    slots: Number(els.qSlots.value) || 0,
+  });
 }
 
 /* ---------- Неделя целиком ---------- */
@@ -1248,6 +1282,7 @@ const els = {
   queuesGroup: document.getElementById("queues-group"),
   queueAdd: document.getElementById("queue-add"),
   qSheet: document.getElementById("q-sheet"),
+  qSubject: document.getElementById("q-subject"),
   qName: document.getElementById("q-name"),
   qDay: document.getElementById("q-day"),
   qSlots: document.getElementById("q-slots"),

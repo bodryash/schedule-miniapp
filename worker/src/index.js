@@ -988,6 +988,7 @@ async function queuesApi(env, body) {
     const title = String(body.title || "").trim().slice(0, 80);
     if (!title) return { ok: false, error: "no title" };
     const day = /^\d{4}-\d{2}-\d{2}$/.test(String(body.day || "")) ? body.day : "";
+    const subject = String(body.subject || "").slice(0, 120);
     const slots = Math.min(100, Math.max(0, Number(body.slots) || 0));
     // Больше десяти открытых очередей на группу — это уже свалка.
     const { n } = await env.STATS.prepare(
@@ -997,9 +998,9 @@ async function queuesApi(env, body) {
       .first();
     if (n >= 10) return { ok: false, error: "too many" };
     await env.STATS.prepare(
-      "INSERT INTO queues (grp, title, day, slots, author, created) VALUES (?, ?, ?, ?, ?, ?)"
+      "INSERT INTO queues (grp, title, subject, day, slots, author, created) VALUES (?, ?, ?, ?, ?, ?, ?)"
     )
-      .bind(group, title, day, slots, user.id, now)
+      .bind(group, title, subject, day, slots, user.id, now)
       .run();
   }
 
@@ -1049,7 +1050,7 @@ async function queuesApi(env, body) {
 
   // Отдаём всё разом: список коротких очередей дешевле одного запроса.
   const { results: queues = [] } = await env.STATS.prepare(
-    "SELECT id, title, day, slots, closed FROM queues WHERE grp = ? ORDER BY closed, id DESC LIMIT 20"
+    "SELECT id, title, subject, day, slots, closed FROM queues WHERE grp = ? ORDER BY closed, id DESC LIMIT 20"
   )
     .bind(group)
     .all();
