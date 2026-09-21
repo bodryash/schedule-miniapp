@@ -1813,3 +1813,18 @@ body {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+
+/* Пока печатают, полоса разделов не нужна: она всё равно под клавиатурой */
+body.typing .tabs {
+  display: none;
+}
+
+body.typing {
+  padding-bottom: 0;
+}
+
+/* Удалённая очередь — её видит только владелец */
+.q-card--deleted {
+  opacity: 0.6;
+  border: 1px dashed var(--line);
+}

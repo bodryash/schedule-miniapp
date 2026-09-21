@@ -208,7 +208,9 @@ CREATE TABLE IF NOT EXISTS queues (
   closed  INTEGER NOT NULL DEFAULT 0,
   -- Номер семинара по счёту и мягкое удаление: migrations/0013_queue_number.sql.
   number  INTEGER NOT NULL DEFAULT 0,
-  deleted INTEGER NOT NULL DEFAULT 0
+  deleted INTEGER NOT NULL DEFAULT 0,
+  -- Убрана с глаз владельца: migrations/0014_queue_hidden.sql.
+  hidden  INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS queues_grp ON queues (grp, closed);

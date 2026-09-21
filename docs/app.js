@@ -471,6 +471,8 @@ function keepFieldVisible() {
     // Телеграм умеет сам держать приложение развёрнутым — так экран не
     // складывается пополам, когда появляется клавиатура.
     tg?.expand?.();
+    // Полоса разделов внизу на клавиатуре только мешает — прячем её.
+    document.body.classList.add("typing");
     settle(node);
     // Окно меняет высоту несколько раз подряд; подводим поле после последнего.
     const viewport = window.visualViewport;
@@ -480,6 +482,7 @@ function keepFieldVisible() {
       "blur",
       () => {
         clearTimeout(timer);
+        document.body.classList.remove("typing");
         viewport?.removeEventListener("resize", onResize);
       },
       { once: true }
@@ -556,7 +559,7 @@ function renderQueues() {
   const nodes = queues.list.map((queue) => {
     const spots = queues.spots.filter((s) => s.queue === queue.id);
     const mine = spots.findIndex((s) => s.tg_id === queues.me);
-    const card = el("article", queue.closed ? "q-card q-card--closed" : "q-card");
+    const card = el("article", `q-card${queue.closed ? " q-card--closed" : ""}${queue.deleted ? " q-card--deleted" : ""}`);
 
     const head = el("div", "q-head");
     head.append(el("div", "q-title", queue.title));
@@ -565,7 +568,7 @@ function renderQueues() {
       queue.number ? t("Семинар {n}", { n: queue.number }) : null,
       queue.day ? SHORT_DATE.format(new Date(`${queue.day}T00:00:00`)) : null,
       t("записалось {n}", { n: spots.length }),
-      queue.closed ? t("запись закрыта") : null,
+      queue.deleted ? t("удалена") : queue.closed ? t("запись закрыта") : null,
     ].filter(Boolean);
     head.append(el("div", "q-meta", facts.join(" · ")));
     card.append(head);
@@ -606,19 +609,26 @@ function renderQueues() {
       out.type = "button";
       out.addEventListener("click", () => queueAction({ action: "leave", queue: queue.id }));
       actions.append(out);
-    } else if (!queue.closed) {
+    } else if (!queue.closed && !queue.deleted) {
       const join = el("button", "primary q-join", t("Записаться"));
       join.type = "button";
       join.addEventListener("click", () => joinQueue(queue));
       actions.append(join);
     }
-    if (queues.owner) {
+    if (queues.owner && queue.deleted) {
+      // Убрать с глаз навсегда: в /queues очередь всё равно останется.
+      const hide = el("button", "ghost", t("Скрыть"));
+      hide.type = "button";
+      hide.addEventListener("click", () => queueAction({ action: "hide", queue: queue.id }));
+      actions.append(hide);
+    }
+    if (queues.owner && !queue.deleted) {
       const close = el("button", "ghost", queue.closed ? t("Открыть запись") : t("Закрыть запись"));
       close.type = "button";
       close.addEventListener("click", () => queueAction({ action: "close", queue: queue.id }));
       actions.append(close);
     }
-    if (queues.manager || queue.author === queues.me) {
+    if ((queues.manager || queue.author === queues.me) && !queue.deleted) {
       const drop = el("button", "ghost", t("Удалить"));
       drop.type = "button";
       drop.addEventListener("click", () => {

@@ -1004,7 +1004,7 @@ async function queuesApi(env, body) {
       .run();
   }
 
-  if (["join", "leave", "close", "delete", "order"].includes(action)) {
+  if (["join", "leave", "close", "delete", "order", "hide"].includes(action)) {
     const queue = await env.STATS.prepare("SELECT * FROM queues WHERE id = ?")
       .bind(Number(body.queue) || 0)
       .first();
@@ -1055,6 +1055,10 @@ async function queuesApi(env, body) {
       await env.STATS.prepare("UPDATE queues SET deleted = 1, closed = 1 WHERE id = ?")
         .bind(queue.id)
         .run();
+    } else if (action === "hide") {
+      // «Скрыть» — только с глаз владельца и навсегда; в /queues она остаётся.
+      if (!isOwner(env, user.id)) return { ok: false, error: "forbidden" };
+      await env.STATS.prepare("UPDATE queues SET hidden = 1 WHERE id = ?").bind(queue.id).run();
     } else if (action === "order") {
       // Ручной порядок — только владельцу: это способ разрешить спор.
       if (!isOwner(env, user.id)) return { ok: false, error: "forbidden" };
@@ -1069,9 +1073,15 @@ async function queuesApi(env, body) {
   }
 
   // Отдаём всё разом: список коротких очередей дешевле одного запроса.
+  // Студентам удалённых очередей не видно, владельцу — видно, пока он сам
+  // их не уберёт: так видно, если очередь снесли из хулиганства.
+  const owner = isOwner(env, user.id);
   const { results: queues = [] } = await env.STATS.prepare(
-    `SELECT id, title, subject, day, number, author, closed FROM queues
-     WHERE grp = ? AND deleted = 0 ORDER BY closed, id DESC LIMIT 20`
+    owner
+      ? `SELECT id, title, subject, day, number, author, closed, deleted FROM queues
+         WHERE grp = ? AND hidden = 0 ORDER BY deleted, closed, id DESC LIMIT 30`
+      : `SELECT id, title, subject, day, number, author, closed, deleted FROM queues
+         WHERE grp = ? AND deleted = 0 ORDER BY closed, id DESC LIMIT 20`
   )
     .bind(group)
     .all();
@@ -1082,7 +1092,7 @@ async function queuesApi(env, body) {
   )
     .bind(group)
     .all();
-  return { ok: true, manager, owner: isOwner(env, user.id), me: user.id, queues, spots };
+  return { ok: true, manager, owner, me: user.id, queues, spots };
 }
 
 /**
@@ -1093,7 +1103,7 @@ async function queuesCommand(env, text) {
   const target = glueCourse(String(text).replace(/^\/queues(@\w+)?/, "").trim());
   const where = target ? "WHERE q.grp = ?" : "";
   const { results = [] } = await env.STATS.prepare(
-    `SELECT q.id, q.grp, q.title, q.subject, q.day, q.number, q.closed, q.deleted, q.created,
+    `SELECT q.id, q.grp, q.title, q.subject, q.day, q.number, q.closed, q.deleted, q.hidden, q.created,
             (SELECT COUNT(*) FROM queue_spots s WHERE s.queue = q.id) AS people
      FROM queues q ${where} ORDER BY q.deleted, q.id DESC LIMIT 20`
   )
@@ -1114,6 +1124,7 @@ async function queuesCommand(env, text) {
       queue.number ? `семинар ${queue.number}` : null,
       queue.day || null,
       queue.deleted ? "🗑 удалена" : queue.closed ? "запись закрыта" : null,
+      queue.hidden ? "скрыта у владельца" : null,
     ].filter(Boolean);
     lines.push(`<b>№${queue.id} · ${escape(queue.title)}</b>\n${facts.join(" · ")}`);
     lines.push(
