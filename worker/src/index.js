@@ -1042,7 +1042,9 @@ async function queuesApi(env, body) {
         .bind(queue.id, user.id)
         .run();
     } else if (action === "close") {
-      if (!manager && queue.author !== user.id) return { ok: false, error: "forbidden" };
+      // Закрыть запись — решение за владельцем: иначе автор очереди мог бы
+      // захлопнуть её перед носом у тех, кто не успел.
+      if (!isOwner(env, user.id)) return { ok: false, error: "forbidden" };
       await env.STATS.prepare("UPDATE queues SET closed = ? WHERE id = ?")
         .bind(queue.closed ? 0 : 1, queue.id)
         .run();

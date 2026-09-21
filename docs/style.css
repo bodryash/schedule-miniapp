@@ -1786,3 +1786,30 @@ body {
 .q-name {
   flex: 1;
 }
+
+/* Номер места в очереди */
+.q-num {
+  color: var(--text);
+  font-weight: 700;
+  width: 28px;
+}
+
+.q-num--gold {
+  color: #e6b422;
+}
+
+.q-num--silver {
+  color: #9aa4ae;
+}
+
+.q-num--bronze {
+  color: #c88a4b;
+}
+
+/* Окно снизу не должно прыгать вместе с клавиатурой: высота считается от
+   видимой части экрана, а содержимое прокручивается внутри окна. */
+.sheet {
+  max-height: 85dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

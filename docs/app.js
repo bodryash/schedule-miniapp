@@ -449,6 +449,44 @@ function applyHomework() {
   }
 }
 
+/**
+ * Клавиатура выезжает не мгновенно, и если подтягивать поле сразу, экран
+ * дёргается: страница прыгает, пока телефон меняет высоту окна. Поэтому
+ * ждём, пока окно перестанет меняться, и только потом один раз подводим
+ * поле к нужному месту.
+ */
+function keepFieldVisible() {
+  let timer = null;
+  const settle = (node) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (document.activeElement !== node) return;
+      node.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 350);
+  };
+
+  document.addEventListener("focusin", (event) => {
+    const node = event.target;
+    if (!node.matches?.("input, textarea")) return;
+    // Телеграм умеет сам держать приложение развёрнутым — так экран не
+    // складывается пополам, когда появляется клавиатура.
+    tg?.expand?.();
+    settle(node);
+    // Окно меняет высоту несколько раз подряд; подводим поле после последнего.
+    const viewport = window.visualViewport;
+    const onResize = () => settle(node);
+    viewport?.addEventListener("resize", onResize);
+    node.addEventListener(
+      "blur",
+      () => {
+        clearTimeout(timer);
+        viewport?.removeEventListener("resize", onResize);
+      },
+      { once: true }
+    );
+  });
+}
+
 /* ---------- Очереди ---------- */
 
 const QUEUES_URL = "https://fgp-schedule-bot.bodryash.workers.dev/queues";
@@ -535,7 +573,10 @@ function renderQueues() {
     const list = el("ol", "q-list");
     for (const [i, spot] of spots.entries()) {
       const row = el("li", spot.tg_id === queues.me ? "q-spot q-spot--me" : "q-spot");
-      row.append(el("span", "q-num", String(spot.position || i + 1)));
+      const place = spot.position || i + 1;
+      // Золото, серебро, бронза: первые три места видно с одного взгляда.
+      const medal = place <= 3 ? ` q-num--${["gold", "silver", "bronze"][place - 1]}` : "";
+      row.append(el("span", `q-num${medal}`, `${place})`));
       row.append(el("span", "q-name", spot.name + (spot.note ? ` — ${spot.note}` : "")));
       // Порядок правит только владелец: иногда записавшиеся меняются местами
       // на словах, и список должен это уметь повторить.
@@ -571,11 +612,13 @@ function renderQueues() {
       join.addEventListener("click", () => joinQueue(queue));
       actions.append(join);
     }
-    if (queues.manager || queue.author === queues.me) {
+    if (queues.owner) {
       const close = el("button", "ghost", queue.closed ? t("Открыть запись") : t("Закрыть запись"));
       close.type = "button";
       close.addEventListener("click", () => queueAction({ action: "close", queue: queue.id }));
       actions.append(close);
+    }
+    if (queues.manager || queue.author === queues.me) {
       const drop = el("button", "ghost", t("Удалить"));
       drop.type = "button";
       drop.addEventListener("click", () => {
@@ -3386,6 +3429,7 @@ async function init() {
     if (event.target === els.qSheet) els.qSheet.hidden = true;
   });
   els.qFind?.addEventListener("input", renderQueuePicker);
+  keepFieldVisible();
   els.qnSave?.addEventListener("click", submitJoin);
   els.qnCancel?.addEventListener("click", () => {
     els.qnSheet.hidden = true;
