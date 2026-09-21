@@ -454,7 +454,7 @@ function applyHomework() {
 const QUEUES_URL = "https://fgp-schedule-bot.bodryash.workers.dev/queues";
 
 // Ответ воркера целиком: очереди группы, места в них и мои права.
-let queues = { loaded: false, manager: false, me: null, list: [], spots: [] };
+let queues = { loaded: false, manager: false, owner: false, me: null, list: [], spots: [] };
 
 async function queuesCall(payload = {}) {
   const group = activeGroup();
@@ -466,7 +466,14 @@ async function queuesCall(payload = {}) {
     });
     const body = await res.json();
     if (!body.ok) return body;
-    queues = { loaded: true, manager: body.manager, me: body.me, list: body.queues, spots: body.spots };
+    queues = {
+      loaded: true,
+      manager: body.manager,
+      owner: Boolean(body.owner),
+      me: body.me,
+      list: body.queues,
+      spots: body.spots,
+    };
     return body;
   } catch {
     return null;
@@ -517,6 +524,7 @@ function renderQueues() {
     head.append(el("div", "q-title", queue.title));
     const facts = [
       queue.subject ? tr(queue.subject) : null,
+      queue.number ? t("Семинар {n}", { n: queue.number }) : null,
       queue.day ? SHORT_DATE.format(new Date(`${queue.day}T00:00:00`)) : null,
       t("записалось {n}", { n: spots.length }),
       queue.closed ? t("запись закрыта") : null,
@@ -529,7 +537,24 @@ function renderQueues() {
       const row = el("li", spot.tg_id === queues.me ? "q-spot q-spot--me" : "q-spot");
       row.append(el("span", "q-num", String(spot.position || i + 1)));
       row.append(el("span", "q-name", spot.name + (spot.note ? ` — ${spot.note}` : "")));
-      card.append(row);
+      // Порядок правит только владелец: иногда записавшиеся меняются местами
+      // на словах, и список должен это уметь повторить.
+      if (queues.owner) {
+        const move = (shift) => {
+          const order = spots.map((s) => s.tg_id);
+          const to = i + shift;
+          if (to < 0 || to >= order.length) return;
+          [order[i], order[to]] = [order[to], order[i]];
+          queueAction({ action: "order", queue: queue.id, order });
+        };
+        const up = el("button", "q-move", "↑");
+        up.type = "button";
+        up.addEventListener("click", () => move(-1));
+        const down = el("button", "q-move", "↓");
+        down.type = "button";
+        down.addEventListener("click", () => move(1));
+        row.append(up, down);
+      }
       list.append(row);
     }
     if (spots.length) card.append(list);
@@ -641,6 +666,7 @@ function seminarSubjects() {
   for (const lesson of data.lessons) {
     if (lesson.group !== group.id || !matchesPrefs(lesson)) continue;
     if (lesson.type !== "семинар" && lesson.type !== "практика") continue;
+    if (MILITARY.test(lesson.subject)) continue;
     if (!found.has(lesson.subject)) found.set(lesson.subject, { subject: lesson.subject, teachers: new Set() });
     for (const person of teachersOf(lesson.teacher)) found.get(lesson.subject).teachers.add(person.key);
   }
@@ -651,15 +677,20 @@ function seminarSubjects() {
  * Ближайшие даты этой пары — по расписанию, а не произвольным календарём:
  * очередь заводят к конкретному семинару, и он бывает раз в неделю.
  */
-function subjectDates(subject, limit = 8) {
+function subjectDates(subject) {
   const group = activeGroup();
   const dates = [];
   if (!group || !subject) return dates;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  for (let shift = 0; shift < 70 && dates.length < limit; shift++) {
-    const date = new Date(today);
-    date.setDate(date.getDate() + shift);
+  // До конца семестра: последняя неделя в расписании — последняя учебная.
+  const last = (data.weeks || []).at(-1)?.to || "";
+  // Семинары нумеруем от начала семестра, а не от сегодня: «семинар 7» —
+  // это седьмой по счёту, как его называет преподаватель.
+  const start = new Date(`${(data.weeks || [])[0]?.from || isoDate(today)}T00:00:00`);
+  let number = 0;
+  for (let cursor = new Date(start); isoDate(cursor) <= last; cursor.setDate(cursor.getDate() + 1)) {
+    const date = new Date(cursor);
     const weekday = date.getDay();
     if (weekday === 0) continue;
     const parity = parityOfDate(date);
@@ -671,7 +702,10 @@ function subjectDates(subject, limit = 8) {
         (l.week === "all" || parity === null || l.week === parity) &&
         matchesPrefs(l)
     );
-    if (has) dates.push(date);
+    if (!has) continue;
+    number += 1;
+    // Прошедшие пары не предлагаем, но номер за ними сохраняется.
+    if (isoDate(date) >= isoDate(today)) dates.push({ date, number });
   }
   return dates;
 }
@@ -724,10 +758,12 @@ function fillQueueDates() {
   els.qDay.replaceChildren(
     new Option(t("без даты"), ""),
     // FULL_DATE уже пишет день недели — второй раз его не повторяем.
-    ...dates.map((date) => new Option(FULL_DATE.format(date), isoDate(date)))
+    ...dates.map(({ date, number }) =>
+      new Option(`${t("Семинар {n}", { n: number })} · ${FULL_DATE.format(date)}`, `${isoDate(date)}|${number}`)
+    )
   );
   els.qDay.parentElement.hidden = !dates.length;
-  if (dates.length) els.qDay.value = isoDate(dates[0]);
+  if (dates.length) els.qDay.value = `${isoDate(dates[0].date)}|${dates[0].number}`;
 }
 
 function openQueueSheet() {
@@ -752,7 +788,8 @@ async function createQueue() {
     return;
   }
   els.qSheet.hidden = true;
-  await queueAction({ action: "create", title, subject, day: els.qDay.value || "" });
+  const [day = "", number = ""] = (els.qDay.value || "").split("|");
+  await queueAction({ action: "create", title, subject, day, number: Number(number) || 0 });
 }
 
 /* ---------- Неделя целиком ---------- */

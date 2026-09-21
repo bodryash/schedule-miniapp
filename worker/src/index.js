@@ -988,6 +988,7 @@ async function queuesApi(env, body) {
     if (!title) return { ok: false, error: "no title" };
     const day = /^\d{4}-\d{2}-\d{2}$/.test(String(body.day || "")) ? body.day : "";
     const subject = String(body.subject || "").slice(0, 120);
+    const number = Math.min(99, Math.max(0, Number(body.number) || 0));
     const slots = 0;
     // Больше десяти открытых очередей на группу — это уже свалка.
     const { n } = await env.STATS.prepare(
@@ -997,13 +998,13 @@ async function queuesApi(env, body) {
       .first();
     if (n >= 10) return { ok: false, error: "too many" };
     await env.STATS.prepare(
-      "INSERT INTO queues (grp, title, subject, day, slots, author, created) VALUES (?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO queues (grp, title, subject, day, number, slots, author, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     )
-      .bind(group, title, subject, day, slots, user.id, now)
+      .bind(group, title, subject, day, number, slots, user.id, now)
       .run();
   }
 
-  if (action === "join" || action === "leave" || action === "close" || action === "delete") {
+  if (["join", "leave", "close", "delete", "order"].includes(action)) {
     const queue = await env.STATS.prepare("SELECT * FROM queues WHERE id = ?")
       .bind(Number(body.queue) || 0)
       .first();
@@ -1047,16 +1048,28 @@ async function queuesApi(env, body) {
         .run();
     } else if (action === "delete") {
       if (!manager && queue.author !== user.id) return { ok: false, error: "forbidden" };
-      await env.STATS.batch([
-        env.STATS.prepare("DELETE FROM queue_spots WHERE queue = ?").bind(queue.id),
-        env.STATS.prepare("DELETE FROM queues WHERE id = ?").bind(queue.id),
-      ]);
+      // Не стираем, а прячем: если очередь снесли из хулиганства, владелец
+      // увидит и её саму, и всех, кто в ней стоял (/queues в боте).
+      await env.STATS.prepare("UPDATE queues SET deleted = 1, closed = 1 WHERE id = ?")
+        .bind(queue.id)
+        .run();
+    } else if (action === "order") {
+      // Ручной порядок — только владельцу: это способ разрешить спор.
+      if (!isOwner(env, user.id)) return { ok: false, error: "forbidden" };
+      const order = (body.order || []).map(Number).filter(Boolean).slice(0, 99);
+      await env.STATS.batch(
+        order.map((id, index) =>
+          env.STATS.prepare("UPDATE queue_spots SET position = ? WHERE queue = ? AND tg_id = ?")
+            .bind(index + 1, queue.id, id)
+        )
+      );
     }
   }
 
   // Отдаём всё разом: список коротких очередей дешевле одного запроса.
   const { results: queues = [] } = await env.STATS.prepare(
-    "SELECT id, title, subject, day, author, closed FROM queues WHERE grp = ? ORDER BY closed, id DESC LIMIT 20"
+    `SELECT id, title, subject, day, number, author, closed FROM queues
+     WHERE grp = ? AND deleted = 0 ORDER BY closed, id DESC LIMIT 20`
   )
     .bind(group)
     .all();
@@ -1067,7 +1080,55 @@ async function queuesApi(env, body) {
   )
     .bind(group)
     .all();
-  return { ok: true, manager, me: user.id, queues, spots };
+  return { ok: true, manager, owner: isOwner(env, user.id), me: user.id, queues, spots };
+}
+
+/**
+ * /queues — что происходит в очередях. Показывает и удалённые: очередь
+ * может снести тот, кто её завёл, и владелец должен видеть, кого там стёрли.
+ */
+async function queuesCommand(env, text) {
+  const target = glueCourse(String(text).replace(/^\/queues(@\w+)?/, "").trim());
+  const where = target ? "WHERE q.grp = ?" : "";
+  const { results = [] } = await env.STATS.prepare(
+    `SELECT q.id, q.grp, q.title, q.subject, q.day, q.number, q.closed, q.deleted, q.created,
+            (SELECT COUNT(*) FROM queue_spots s WHERE s.queue = q.id) AS people
+     FROM queues q ${where} ORDER BY q.deleted, q.id DESC LIMIT 20`
+  )
+    .bind(...(target ? [target] : []))
+    .all();
+  if (!results.length) return target ? `У «${escape(target)}» очередей нет.` : "Очередей пока нет.";
+
+  const lines = [];
+  for (const queue of results) {
+    const { results: spots = [] } = await env.STATS.prepare(
+      `SELECT name, username, note, position FROM queue_spots WHERE queue = ?
+       ORDER BY position = 0, position, created LIMIT 40`
+    )
+      .bind(queue.id)
+      .all();
+    const facts = [
+      escape(queue.grp),
+      queue.number ? `семинар ${queue.number}` : null,
+      queue.day || null,
+      queue.deleted ? "🗑 удалена" : queue.closed ? "запись закрыта" : null,
+    ].filter(Boolean);
+    lines.push(`<b>№${queue.id} · ${escape(queue.title)}</b>\n${facts.join(" · ")}`);
+    lines.push(
+      spots.length
+        ? spots
+            .map(
+              (s, i) =>
+                `${s.position || i + 1}. ${escape(s.name)}${s.username ? ` @${escape(s.username)}` : ""}${
+                  s.note ? ` — ${escape(s.note)}` : ""
+                }`
+            )
+            .join("\n")
+        : "пусто"
+    );
+    lines.push("");
+  }
+  return lines.join("\n");
 }
 
 /* ---------- Чат курса: PDF от куратора ---------- */
@@ -2161,6 +2222,17 @@ export default {
     }
 
     // Отмена пар меняет расписание всем — только владелец.
+    if (message && /^\/queues(?:@\w+)?(?:\s|$)/.test(text)) {
+      const reply = isOwner(env, message.chat.id)
+        ? await queuesCommand(env, text)
+        : "Команда недоступна.";
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: reply.slice(0, 4000),
+        parse_mode: "HTML",
+      });
+    }
+
     if (message && /^\/(un)?watch(?:@\w+)?(?:\s|$)/.test(text)) {
       // Право проверяем по автору, а не по чату: команду шлют из чата курса.
       if (isOwner(env, message.from?.id)) {

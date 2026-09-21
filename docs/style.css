@@ -1764,3 +1764,25 @@ body {
   border-radius: 10px;
   -webkit-appearance: none;
 }
+
+/* Стрелки перестановки в очереди — видит только владелец */
+.q-move {
+  flex: none;
+  width: 26px;
+  padding: 2px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.q-spot {
+  gap: 6px;
+}
+
+.q-name {
+  flex: 1;
+}

@@ -205,7 +205,10 @@ CREATE TABLE IF NOT EXISTS queues (
   slots   INTEGER NOT NULL DEFAULT 0, -- 0 — без ограничения
   author  INTEGER NOT NULL,
   created TEXT NOT NULL,
-  closed  INTEGER NOT NULL DEFAULT 0
+  closed  INTEGER NOT NULL DEFAULT 0,
+  -- Номер семинара по счёту и мягкое удаление: migrations/0013_queue_number.sql.
+  number  INTEGER NOT NULL DEFAULT 0,
+  deleted INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS queues_grp ON queues (grp, closed);
