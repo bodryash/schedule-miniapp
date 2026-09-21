@@ -749,10 +749,13 @@ function subjectDates(subject) {
     const weekday = date.getDay();
     if (weekday === 0) continue;
     const parity = parityOfDate(date);
+    // Считаем только семинары: у предмета бывают ещё лекции, и если брать
+    // их тоже, «семинар 2» превращается в «семинар 4».
     const has = data.lessons.some(
       (l) =>
         l.group === group.id &&
         l.subject === subject &&
+        (l.type === "семинар" || l.type === "практика") &&
         l.day === weekday &&
         (l.week === "all" || parity === null || l.week === parity) &&
         matchesPrefs(l)
