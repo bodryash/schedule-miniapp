@@ -556,7 +556,9 @@ function renderQueues() {
     return;
   }
 
-  const nodes = queues.list.map((queue) => {
+  // Удалённые — в самый низ: они уже не живые, но владелец должен их видеть.
+  const ordered = [...queues.list].sort((a, b) => (a.deleted ? 1 : 0) - (b.deleted ? 1 : 0));
+  const nodes = ordered.map((queue) => {
     const spots = queues.spots.filter((s) => s.queue === queue.id);
     const mine = spots.findIndex((s) => s.tg_id === queues.me);
     const card = el("article", `q-card${queue.closed ? " q-card--closed" : ""}${queue.deleted ? " q-card--deleted" : ""}`);
