@@ -957,6 +957,112 @@ async function appCancel(env, body) {
   return { ok: true };
 }
 
+/* ---------- Очереди ---------- */
+
+/**
+ * Очереди на доклады и сдачи. Заводит староста или владелец, записываются
+ * студенты сами. Порядок — по времени записи: номера не храним, иначе
+ * после выхода одного пришлось бы перенумеровывать всех остальных.
+ */
+async function queuesApi(env, body) {
+  const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+  if (!user?.id) return { ok: false, error: "no user" };
+  const group = String(body.group || "");
+  if (!group) return { ok: false, error: "no group" };
+
+  // Забаненному очереди недоступны, как и расписание.
+  if (await appBan(env, user.id).catch(() => null)) return { ok: false, error: "banned" };
+
+  const manager =
+    isOwner(env, user.id) ||
+    Boolean(
+      await env.STATS.prepare("SELECT 1 AS ok FROM starostas WHERE grp = ? AND tg_id = ?")
+        .bind(group, user.id)
+        .first()
+    );
+  const now = new Date().toISOString();
+  const action = String(body.action || "list");
+
+  if (action === "create") {
+    if (!manager) return { ok: false, error: "forbidden" };
+    const title = String(body.title || "").trim().slice(0, 80);
+    if (!title) return { ok: false, error: "no title" };
+    const day = /^\d{4}-\d{2}-\d{2}$/.test(String(body.day || "")) ? body.day : "";
+    const slots = Math.min(100, Math.max(0, Number(body.slots) || 0));
+    // Больше десяти открытых очередей на группу — это уже свалка.
+    const { n } = await env.STATS.prepare(
+      "SELECT COUNT(*) AS n FROM queues WHERE grp = ? AND closed = 0"
+    )
+      .bind(group)
+      .first();
+    if (n >= 10) return { ok: false, error: "too many" };
+    await env.STATS.prepare(
+      "INSERT INTO queues (grp, title, day, slots, author, created) VALUES (?, ?, ?, ?, ?, ?)"
+    )
+      .bind(group, title, day, slots, user.id, now)
+      .run();
+  }
+
+  if (action === "join" || action === "leave" || action === "close" || action === "delete") {
+    const queue = await env.STATS.prepare("SELECT * FROM queues WHERE id = ?")
+      .bind(Number(body.queue) || 0)
+      .first();
+    // Чужая группа — не наше дело: очередь видна и меняется только своими.
+    if (!queue || queue.grp !== group) return { ok: false, error: "no queue" };
+
+    if (action === "join") {
+      if (queue.closed) return { ok: false, error: "closed" };
+      const { n } = await env.STATS.prepare("SELECT COUNT(*) AS n FROM queue_spots WHERE queue = ?")
+        .bind(queue.id)
+        .first();
+      if (queue.slots && n >= queue.slots) return { ok: false, error: "full" };
+      await env.STATS.prepare(
+        `INSERT INTO queue_spots (queue, tg_id, name, username, note, created) VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(queue, tg_id) DO UPDATE SET note = excluded.note`
+      )
+        .bind(
+          queue.id,
+          user.id,
+          [user.first_name, user.last_name].filter(Boolean).join(" ") || `id ${user.id}`,
+          user.username || null,
+          String(body.note || "").trim().slice(0, 80),
+          now
+        )
+        .run();
+    } else if (action === "leave") {
+      await env.STATS.prepare("DELETE FROM queue_spots WHERE queue = ? AND tg_id = ?")
+        .bind(queue.id, user.id)
+        .run();
+    } else if (action === "close") {
+      if (!manager) return { ok: false, error: "forbidden" };
+      await env.STATS.prepare("UPDATE queues SET closed = ? WHERE id = ?")
+        .bind(queue.closed ? 0 : 1, queue.id)
+        .run();
+    } else if (action === "delete") {
+      if (!manager) return { ok: false, error: "forbidden" };
+      await env.STATS.batch([
+        env.STATS.prepare("DELETE FROM queue_spots WHERE queue = ?").bind(queue.id),
+        env.STATS.prepare("DELETE FROM queues WHERE id = ?").bind(queue.id),
+      ]);
+    }
+  }
+
+  // Отдаём всё разом: список коротких очередей дешевле одного запроса.
+  const { results: queues = [] } = await env.STATS.prepare(
+    "SELECT id, title, day, slots, closed FROM queues WHERE grp = ? ORDER BY closed, id DESC LIMIT 20"
+  )
+    .bind(group)
+    .all();
+  const { results: spots = [] } = await env.STATS.prepare(
+    `SELECT s.queue, s.tg_id, s.name, s.username, s.note FROM queue_spots s
+     JOIN queues q ON q.id = s.queue
+     WHERE q.grp = ? ORDER BY s.created LIMIT 400`
+  )
+    .bind(group)
+    .all();
+  return { ok: true, manager, me: user.id, queues, spots };
+}
+
 /* ---------- Чат курса: PDF от куратора ---------- */
 
 /**
@@ -1650,6 +1756,23 @@ export default {
       let result;
       try {
         result = await appCancel(env, JSON.parse(await request.text()));
+      } catch {
+        result = { ok: false, error: "bad request" };
+      }
+      return new Response(JSON.stringify(result), {
+        status: result.ok ? 200 : 400,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "no-store",
+        },
+      });
+    }
+
+    if (url.pathname === "/queues" && request.method === "POST") {
+      let result;
+      try {
+        result = await queuesApi(env, JSON.parse(await request.text()));
       } catch {
         result = { ok: false, error: "bad request" };
       }

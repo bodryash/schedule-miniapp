@@ -161,29 +161,6 @@
     </div>
   </section>
 
-  <!-- Сегодня: что идёт сейчас и что дальше -->
-  <section id="today" hidden>
-    <header class="bar bar--schedule">
-      <div class="bar-top">
-        <div class="context">
-          <span class="group-name" id="today-group"></span>
-        </div>
-        <div class="bar-actions">
-          <button id="today-settings" class="icon" type="button" aria-label="Настройки">
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <line x1="3" y1="6" x2="17" y2="6" />
-              <line x1="3" y1="14" x2="17" y2="14" />
-              <circle cx="7.5" cy="6" r="2" class="icon-fill" />
-              <circle cx="12.5" cy="14" r="2" class="icon-fill" />
-            </svg>
-          </button>
-        </div>
-      </div>
-      <div class="date" id="today-date"></div>
-    </header>
-    <div id="today-body"></div>
-  </section>
-
   <!-- Неделя целиком -->
   <section id="week" hidden>
     <header class="bar bar--schedule">
@@ -197,6 +174,22 @@
     </header>
     <nav class="days days--weeks" id="week-switch"></nav>
     <div id="week-body"></div>
+  </section>
+
+  <!-- Очереди: запись на доклады, сдачи и всё, где важен порядок -->
+  <section id="queues" hidden>
+    <header class="bar bar--schedule">
+      <div class="bar-top">
+        <div class="context">
+          <span class="group-name" id="queues-group"></span>
+        </div>
+        <div class="bar-actions">
+          <button id="queue-add" class="icon" type="button" aria-label="Новая очередь" hidden>＋</button>
+        </div>
+      </div>
+      <div class="date" data-i18n>Очереди</div>
+    </header>
+    <div id="queues-body"></div>
   </section>
 
   <!-- Основной экран -->
@@ -331,15 +324,43 @@
     </div>
   </div>
 
+  <!-- Новая очередь: заводит староста -->
+  <div id="q-sheet" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="q-title">
+      <h2 id="q-title" data-i18n>Новая очередь</h2>
+
+      <label>
+        <span data-i18n>Название</span>
+        <input id="q-name" type="text" maxlength="80" placeholder="Доклады по микроэкономике">
+      </label>
+
+      <label>
+        <span data-i18n>Когда</span>
+        <input id="q-day" type="date">
+      </label>
+
+      <label>
+        <span data-i18n>Сколько мест</span>
+        <input id="q-slots" type="number" min="0" max="100" step="1" placeholder="0 — без ограничения">
+      </label>
+
+      <p class="error" id="q-error" hidden></p>
+      <button id="q-save" class="primary" type="button" data-i18n>Создать</button>
+      <div class="sheet-actions">
+        <button id="q-cancel" class="ghost" type="button" data-i18n>Отмена</button>
+      </div>
+    </div>
+  </div>
+
   <nav class="tabs" id="tabs" hidden>
-    <button type="button" class="tab" data-tab="today">
-      <span class="tab-icon">⏱</span><span data-i18n>Сегодня</span>
-    </button>
     <button type="button" class="tab" data-tab="schedule">
       <span class="tab-icon">📅</span><span data-i18n>Расписание</span>
     </button>
     <button type="button" class="tab" data-tab="week">
       <span class="tab-icon">🗓</span><span data-i18n>Неделя</span>
+    </button>
+    <button type="button" class="tab" data-tab="queues">
+      <span class="tab-icon">🙋</span><span data-i18n>Очередь</span>
     </button>
     <button type="button" class="tab" data-tab="search">
       <span class="tab-icon">🔍</span><span data-i18n>Поиск</span>

@@ -1449,85 +1449,6 @@ body {
   padding-bottom: 68px;
 }
 
-/* --- Сегодня --- */
-#today-body {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 0 4px;
-}
-
-.now-card,
-.next-card,
-.today-block {
-  padding: 16px;
-  border-radius: 18px;
-  background: var(--card);
-  box-shadow: var(--shadow, 0 1px 2px rgba(0, 0, 0, 0.06));
-}
-
-.now-card {
-  background: var(--accent-soft);
-}
-
-.now-label {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-}
-
-.now-subject,
-.next-subject {
-  margin-top: 4px;
-  font-size: 19px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.now-meta {
-  margin-top: 4px;
-  font-size: 14px;
-  color: var(--muted);
-}
-
-.now-bar {
-  margin-top: 12px;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--line);
-  overflow: hidden;
-}
-
-.now-fill {
-  height: 100%;
-  border-radius: 3px;
-  background: var(--accent);
-  transition: width 0.4s ease;
-}
-
-.now-left {
-  margin-top: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--accent);
-}
-
-.today-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--muted);
-  margin-bottom: 8px;
-}
-
-.today-hw {
-  display: flex;
-  gap: 8px;
-  padding: 4px 0;
-  font-size: 14px;
-  color: var(--text);
-}
-
 /* --- Неделя --- */
 #week-body {
   display: flex;
@@ -1648,7 +1569,7 @@ body {
 
 /* Карточки «Сегодня», дни недели и выдача поиска появляются каскадом, как
    карточки пар: потолок задержки короткий, чтобы низ списка не ждал. */
-#today-body > *,
+#queues-body > *,
 #week-body > *,
 #results > * {
   opacity: 0;
@@ -1656,17 +1577,6 @@ body {
   animation: rise 320ms var(--ease-soft) forwards;
   animation-delay: min(calc(var(--i, 0) * 40ms), 200ms);
   will-change: transform, opacity;
-}
-
-/* Полоса прогресса наливается от нуля при каждом открытии — это единственное
-   место, где движение несёт смысл: видно, сколько пары осталось. */
-.now-fill {
-  animation: fill-grow 600ms var(--ease-out);
-  transform-origin: left center;
-}
-
-@keyframes fill-grow {
-  from { transform: scaleX(0); }
 }
 
 /* Отклик на нажатие: кнопка чуть проседает под пальцем. */
@@ -1694,17 +1604,8 @@ body {
   40% { transform: translateY(-3px) scale(1.12); }
 }
 
-/* Идущая пара слегка дышит — карточку видно, даже когда экран не трогают. */
-.now-card {
-  animation: now-glow 3.5s ease-in-out infinite;
-}
-
-@keyframes now-glow {
-  50% { box-shadow: 0 0 0 4px var(--accent-soft); }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  #today-body > *,
+  #queues-body > *,
   #week-body > *,
   #results > * {
     opacity: 1;
@@ -1713,9 +1614,7 @@ body {
   }
 
   .screen-slide,
-  .now-fill,
-  .tab--on .tab-icon,
-  .now-card {
+  .tab--on .tab-icon {
     animation: none;
   }
 
@@ -1725,4 +1624,74 @@ body {
   .day:active {
     transform: none;
   }
+}
+
+/* --- Очереди --- */
+#queues-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 4px;
+}
+
+.q-card {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.q-card--closed {
+  opacity: 0.7;
+}
+
+.q-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.q-meta {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.q-list {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.q-spot {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.q-spot--me .q-name {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.q-num {
+  flex: none;
+  width: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.q-card .card-actions {
+  margin-top: 12px;
+}
+
+.q-join {
+  width: auto;
+  padding: 8px 16px;
+  font-size: 14px;
 }

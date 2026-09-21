@@ -175,7 +175,6 @@ async function loadNotices(group) {
     notices.canComment = Boolean(body.canComment);
     mergeCommentCounts(weekRange(selectedWeek), body.comments);
     renderNotices(true);
-    if (tab === "today") showToday();
     if (tab === "week") showWeek();
     // Замены меняют саму карточку (время, преподавателя), поверх её не
     // наложить — перерисовываем день, только если он задет.
@@ -450,116 +449,174 @@ function applyHomework() {
   }
 }
 
-/* ---------- Сегодня ---------- */
+/* ---------- Очереди ---------- */
 
-/**
- * Главный экран: что идёт сейчас, что дальше, домашка и объявления. Всё
- * это есть и в расписании, но там ради этого надо искать нужную карточку.
- */
-function showToday() {
+const QUEUES_URL = "https://fgp-schedule-bot.bodryash.workers.dev/queues";
+
+// Ответ воркера целиком: очереди группы, места в них и мои права.
+let queues = { loaded: false, manager: false, me: null, list: [], spots: [] };
+
+async function queuesCall(payload = {}) {
   const group = activeGroup();
-  if (!group) return showPicker();
-  els.todayGroup.textContent = group.teacher ? group.title : t("Группа {g}", { g: group.title });
-  const label = FULL_DATE.format(new Date());
-  els.todayDate.textContent = label[0].toUpperCase() + label.slice(1);
-
-  const today = new Date();
-  const weekday = ((today.getDay() + 6) % 7) + 1;
-  const bells = new Map(data.bells.map((b) => [b.n, b]));
-  const lessons = weekday <= 6 ? lessonsForDay(group, weekday, 0) : [];
-  const now = today.getHours() * 60 + today.getMinutes() + today.getSeconds() / 60;
-
-  const nodes = [];
-  for (const notice of notices.list) {
-    const color = ["yellow", "red", "green", "blue", "gray"].includes(notice.color) ? notice.color : "yellow";
-    nodes.push(el("div", `notice notice--${color}`, notice.text));
+  if (!group || group.teacher) return null;
+  try {
+    const res = await fetch(QUEUES_URL, {
+      method: "POST",
+      body: JSON.stringify({ initData: tg?.initData || "", group: group.id, ...payload }),
+    });
+    const body = await res.json();
+    if (!body.ok) return body;
+    queues = { loaded: true, manager: body.manager, me: body.me, list: body.queues, spots: body.spots };
+    return body;
+  } catch {
+    return null;
   }
-
-  const alive = lessons.filter((l) => !lessonCancelOn(l, isoDate(today)));
-  const current = alive.find((l) => {
-    const time = timesOf(l, bells);
-    return time && now >= minutes(time.start) && now <= minutes(time.end);
-  });
-  const next = alive
-    .filter((l) => {
-      const time = timesOf(l, bells);
-      return time && minutes(time.start) > now;
-    })
-    .sort((a, b) => minutes(timesOf(a, bells).start) - minutes(timesOf(b, bells).start))[0];
-
-  if (!lessons.length) {
-    nodes.push(renderFreeDay());
-  } else if (current) {
-    const time = timesOf(current, bells);
-    const done = (now - minutes(time.start)) / (minutes(time.end) - minutes(time.start));
-    const card = el("div", "now-card");
-    card.append(el("div", "now-label", t("Сейчас идёт")));
-    card.append(el("div", "now-subject", withFlag(tr(current.subject))));
-    const meta = [`${time.start} – ${time.end}`, current.room ? roomLabel(current.room) : null]
-      .filter(Boolean)
-      .join(" · ");
-    card.append(el("div", "now-meta", meta));
-    const bar = el("div", "now-bar");
-    const fill = el("div", "now-fill");
-    fill.style.width = `${Math.round(Math.min(1, Math.max(0, done)) * 100)}%`;
-    bar.append(fill);
-    card.append(bar);
-    card.append(el("div", "now-left", t("осталось {time}", { time: humanLeft(minutes(time.end) - now) })));
-    nodes.push(card);
-  } else {
-    const card = el("div", "now-card now-card--idle");
-    card.append(el("div", "now-label", t("Сейчас пар нет")));
-    if (!next) card.append(el("div", "now-subject", t("Пары закончились")));
-    nodes.push(card);
-  }
-
-  if (next) {
-    const time = timesOf(next, bells);
-    const card = el("div", "next-card");
-    card.append(el("div", "now-label", t("Дальше")));
-    card.append(el("div", "next-subject", withFlag(tr(next.subject))));
-    card.append(
-      el(
-        "div",
-        "now-meta",
-        [`${time.start} – ${time.end}`, next.room ? roomLabel(next.room) : null, t("через {time}", { time: humanLeft(minutes(time.start) - now) })]
-          .filter(Boolean)
-          .join(" · ")
-      )
-    );
-    nodes.push(card);
-  }
-
-  // Домашка на сегодня и завтра — то, ради чего её и заводили.
-  const days = [isoDate(today), isoDate(new Date(today.getTime() + 86400000))];
-  const homework = notices.homework.filter((h) => days.includes(h.day) && h.text);
-  if (homework.length) {
-    const block = el("div", "today-block");
-    block.append(el("div", "today-title", t("Домашка")));
-    for (const item of homework) {
-      const line = el("div", "today-hw");
-      line.append(el("span", "hw-label", item.day === days[0] ? t("сегодня") : t("завтра")));
-      line.append(el("span", "hw-text", `${tr(item.subject)}: ${item.text}`));
-      block.append(line);
-    }
-    nodes.push(block);
-  }
-
-  nodes.forEach((node, i) => node.style.setProperty("--i", i));
-  els.todayBody.replaceChildren(...nodes);
 }
 
-/** Отменено ли занятие в конкретный день — без опоры на выбранный день. */
-function lessonCancelOn(lesson, day) {
-  return (
-    notices.cancels.find(
-      (c) =>
-        c.day === day &&
-        (!c.slots.length || c.slots.includes(lesson.slot)) &&
-        (!c.subject || c.subject === lesson.subject) &&
-        (!c.subgroup || c.subgroup === lesson.subgroup)
-    ) || null
-  );
+function showQueues() {
+  const group = activeGroup();
+  if (!group) return showPicker();
+  els.queuesGroup.textContent = group.teacher ? group.title : t("Группа {g}", { g: group.title });
+  renderQueues();
+  // Порядок меняется другими людьми — перечитываем при каждом открытии.
+  queuesCall({ action: "list" }).then(() => {
+    if (tab === "queues") renderQueues();
+  });
+}
+
+function renderQueues() {
+  const group = activeGroup();
+  els.queueAdd.hidden = !queues.manager;
+
+  if (group?.teacher) {
+    els.queuesBody.replaceChildren(el("p", "empty", t("Очереди есть только у групп")));
+    return;
+  }
+  if (!tg?.initData) {
+    // Без Telegram неизвестно, кто записывается, — записаться нельзя.
+    els.queuesBody.replaceChildren(el("p", "empty", t("Очереди работают только в Telegram")));
+    return;
+  }
+  if (!queues.loaded) {
+    els.queuesBody.replaceChildren(el("p", "empty", t("Загружаем…")));
+    return;
+  }
+  if (!queues.list.length) {
+    els.queuesBody.replaceChildren(
+      el("p", "empty", queues.manager
+        ? t("Очередей нет. Создайте первую кнопкой ＋")
+        : t("Очередей нет. Их заводит староста"))
+    );
+    return;
+  }
+
+  const nodes = queues.list.map((queue) => {
+    const spots = queues.spots.filter((s) => s.queue === queue.id);
+    const mine = spots.findIndex((s) => s.tg_id === queues.me);
+    const card = el("article", queue.closed ? "q-card q-card--closed" : "q-card");
+
+    const head = el("div", "q-head");
+    head.append(el("div", "q-title", queue.title));
+    const facts = [
+      queue.day ? SHORT_DATE.format(new Date(`${queue.day}T00:00:00`)) : null,
+      queue.slots ? t("{n} из {all} мест", { n: spots.length, all: queue.slots }) : t("записалось {n}", { n: spots.length }),
+      queue.closed ? t("запись закрыта") : null,
+    ].filter(Boolean);
+    head.append(el("div", "q-meta", facts.join(" · ")));
+    card.append(head);
+
+    const list = el("ol", "q-list");
+    for (const [i, spot] of spots.entries()) {
+      const row = el("li", spot.tg_id === queues.me ? "q-spot q-spot--me" : "q-spot");
+      row.append(el("span", "q-num", String(i + 1)));
+      row.append(el("span", "q-name", spot.name + (spot.note ? ` — ${spot.note}` : "")));
+      card.append(row);
+      list.append(row);
+    }
+    if (spots.length) card.append(list);
+
+    const actions = el("div", "card-actions");
+    if (mine >= 0) {
+      const out = el("button", "ghost", t("Выйти из очереди"));
+      out.type = "button";
+      out.addEventListener("click", () => queueAction({ action: "leave", queue: queue.id }));
+      actions.append(out);
+    } else if (!queue.closed) {
+      const join = el("button", "primary q-join", t("Записаться"));
+      join.type = "button";
+      join.addEventListener("click", () => joinQueue(queue));
+      actions.append(join);
+    }
+    if (queues.manager) {
+      const close = el("button", "ghost", queue.closed ? t("Открыть запись") : t("Закрыть запись"));
+      close.type = "button";
+      close.addEventListener("click", () => queueAction({ action: "close", queue: queue.id }));
+      actions.append(close);
+      const drop = el("button", "ghost", t("Удалить"));
+      drop.type = "button";
+      drop.addEventListener("click", () => {
+        const ask = t("Удалить очередь вместе с записями?");
+        if (tg?.showConfirm) tg.showConfirm(ask, (yes) => yes && queueAction({ action: "delete", queue: queue.id }));
+        else if (confirm(ask)) queueAction({ action: "delete", queue: queue.id });
+      });
+      actions.append(drop);
+    }
+    card.append(actions);
+    return card;
+  });
+
+  nodes.forEach((node, i) => node.style.setProperty("--i", i));
+  els.queuesBody.replaceChildren(...nodes);
+}
+
+const QUEUE_ERRORS = {
+  full: "Мест больше нет",
+  closed: "Запись закрыта",
+  banned: "Доступ закрыт",
+  forbidden: "Это может только староста",
+  "too many": "Слишком много очередей, закройте старые",
+};
+
+async function queueAction(payload) {
+  const body = await queuesCall(payload);
+  if (body && !body.ok) {
+    const text = t(QUEUE_ERRORS[body.error] || "Не получилось, попробуйте ещё раз");
+    tg?.showAlert ? tg.showAlert(text) : alert(text);
+  }
+  renderQueues();
+}
+
+/** Записываясь, можно сразу указать тему доклада — но это не обязательно. */
+function joinQueue(queue) {
+  const ask = t("Тема или комментарий (можно пропустить)");
+  if (tg?.showPopup) {
+    // У Telegram нет поля ввода в попапе, поэтому спрашиваем через prompt
+    // только в браузере, а в Telegram записываем без темы.
+    queueAction({ action: "join", queue: queue.id, note: "" });
+    return;
+  }
+  const note = prompt(ask) || "";
+  queueAction({ action: "join", queue: queue.id, note });
+}
+
+function openQueueSheet() {
+  if (!els.qSheet) return;
+  els.qName.value = "";
+  els.qSlots.value = "";
+  els.qDay.value = "";
+  els.qError.hidden = true;
+  els.qSheet.hidden = false;
+}
+
+async function createQueue() {
+  const title = els.qName.value.trim();
+  if (!title) {
+    els.qError.textContent = t("Без названия очередь не создать");
+    els.qError.hidden = false;
+    return;
+  }
+  els.qSheet.hidden = true;
+  await queueAction({ action: "create", title, day: els.qDay.value || "", slots: Number(els.qSlots.value) || 0 });
 }
 
 /* ---------- Неделя целиком ---------- */
@@ -1186,11 +1243,17 @@ const els = {
   // Может не быть в закэшированном index.html — тогда режима просто нет.
   role: document.getElementById("role"),
   tabs: document.getElementById("tabs"),
-  today: document.getElementById("today"),
-  todayBody: document.getElementById("today-body"),
-  todayDate: document.getElementById("today-date"),
-  todayGroup: document.getElementById("today-group"),
-  todaySettings: document.getElementById("today-settings"),
+  queues: document.getElementById("queues"),
+  queuesBody: document.getElementById("queues-body"),
+  queuesGroup: document.getElementById("queues-group"),
+  queueAdd: document.getElementById("queue-add"),
+  qSheet: document.getElementById("q-sheet"),
+  qName: document.getElementById("q-name"),
+  qDay: document.getElementById("q-day"),
+  qSlots: document.getElementById("q-slots"),
+  qError: document.getElementById("q-error"),
+  qSave: document.getElementById("q-save"),
+  qCancel: document.getElementById("q-cancel"),
   week: document.getElementById("week"),
   weekBody: document.getElementById("week-body"),
   weekSwitch: document.getElementById("week-switch"),
@@ -1520,8 +1583,8 @@ function applyRole() {
 
 function showPicker() {
   els.schedule.hidden = true;
-  els.today.hidden = true;
   els.week.hidden = true;
+  if (els.queues) els.queues.hidden = true;
   els.search.hidden = true;
   els.free.hidden = true;
   if (els.tabs) els.tabs.hidden = true;
@@ -1536,9 +1599,9 @@ function showPicker() {
 
 // Какой раздел открыт: today | schedule | week | search. Разделы
 // переключает полоса снизу, свободные аудитории остаются внутри расписания.
-let tab = "today";
+let tab = "schedule";
 
-const TAB_ORDER = ["today", "schedule", "week", "search"];
+const TAB_ORDER = ["schedule", "week", "queues", "search"];
 
 function openTab(name) {
   // Раздел въезжает с той стороны, где он стоит в полосе снизу: так видно,
@@ -1550,13 +1613,13 @@ function openTab(name) {
   }
   els.free.hidden = true;
   els.picker.hidden = true;
-  els.today.hidden = name !== "today";
   els.week.hidden = name !== "week";
+  if (els.queues) els.queues.hidden = name !== "queues";
   els.schedule.hidden = name !== "schedule";
   els.search.hidden = name !== "search";
   if (els.tabs) els.tabs.hidden = false;
   window.scrollTo(0, 0);
-  const screen = { today: els.today, schedule: els.schedule, week: els.week, search: els.search }[name];
+  const screen = { schedule: els.schedule, week: els.week, queues: els.queues, search: els.search }[name];
   if (screen && from) {
     screen.style.setProperty("--slide-from", `${from > 0 ? 16 : -16}px`);
     screen.classList.remove("screen-slide");
@@ -1564,8 +1627,8 @@ function openTab(name) {
     screen.classList.add("screen-slide");
   }
   if (name !== "week") document.body.dataset.parity = weekParity(data.weeks) || "none";
-  if (name === "today") showToday();
   if (name === "week") showWeek();
+  if (name === "queues") showQueues();
   if (name === "schedule") showSchedule();
   if (name === "search") showSearch();
 }
@@ -3118,7 +3181,7 @@ async function init() {
     }
     savePrefs(prefs);
     notices.group = null;
-    openTab(tab === "search" ? "today" : tab);
+    openTab(tab === "search" ? "schedule" : tab);
     // Сменили группу — сообщаем боту, чтобы статистика знала новую группу.
     const group = !prefs.teacher && groupById(prefs.group);
     if (group && group.id !== before) countOpen({ id: group.id, course: group.course, level: group.level });
@@ -3135,7 +3198,12 @@ async function init() {
     });
   }
   els.change.addEventListener("click", showPicker);
-  els.todaySettings?.addEventListener("click", showPicker);
+  els.queueAdd?.addEventListener("click", openQueueSheet);
+  els.qSave?.addEventListener("click", createQueue);
+  els.qCancel?.addEventListener("click", () => (els.qSheet.hidden = true));
+  els.qSheet?.addEventListener("click", (event) => {
+    if (event.target === els.qSheet) els.qSheet.hidden = true;
+  });
   for (const button of els.tabs?.querySelectorAll(".tab") || []) {
     button.addEventListener("click", () => openTab(button.dataset.tab));
   }
@@ -3191,15 +3259,15 @@ async function init() {
       refreshNow();
       refreshNext();
     }
-    if (!els.today.hidden) showToday();
+
   }, 30_000);
 
   const group = activeGroup();
   if (group?.teacher) {
     loadTeacherNames();
-    openTab("today");
+    openTab("schedule");
   } else if (group) {
-    openTab("today");
+    openTab("schedule");
     countOpen({ id: group.id, course: group.course, level: group.level });
   } else {
     showPicker();
