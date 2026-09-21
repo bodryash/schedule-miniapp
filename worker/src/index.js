@@ -984,12 +984,11 @@ async function queuesApi(env, body) {
   const action = String(body.action || "list");
 
   if (action === "create") {
-    if (!manager) return { ok: false, error: "forbidden" };
     const title = String(body.title || "").trim().slice(0, 80);
     if (!title) return { ok: false, error: "no title" };
     const day = /^\d{4}-\d{2}-\d{2}$/.test(String(body.day || "")) ? body.day : "";
     const subject = String(body.subject || "").slice(0, 120);
-    const slots = Math.min(100, Math.max(0, Number(body.slots) || 0));
+    const slots = 0;
     // Больше десяти открытых очередей на группу — это уже свалка.
     const { n } = await env.STATS.prepare(
       "SELECT COUNT(*) AS n FROM queues WHERE grp = ? AND closed = 0"
@@ -1013,13 +1012,19 @@ async function queuesApi(env, body) {
 
     if (action === "join") {
       if (queue.closed) return { ok: false, error: "closed" };
-      const { n } = await env.STATS.prepare("SELECT COUNT(*) AS n FROM queue_spots WHERE queue = ?")
-        .bind(queue.id)
-        .first();
-      if (queue.slots && n >= queue.slots) return { ok: false, error: "full" };
+      const position = Math.min(99, Math.max(0, Number(body.position) || 0));
+      if (position) {
+        // Номер именной: двое под пятым — это уже не очередь.
+        const busy = await env.STATS.prepare(
+          "SELECT 1 AS ok FROM queue_spots WHERE queue = ? AND position = ? AND tg_id <> ?"
+        )
+          .bind(queue.id, position, user.id)
+          .first();
+        if (busy) return { ok: false, error: "taken" };
+      }
       await env.STATS.prepare(
-        `INSERT INTO queue_spots (queue, tg_id, name, username, note, created) VALUES (?, ?, ?, ?, ?, ?)
-         ON CONFLICT(queue, tg_id) DO UPDATE SET note = excluded.note`
+        `INSERT INTO queue_spots (queue, tg_id, name, username, note, position, created) VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(queue, tg_id) DO UPDATE SET note = excluded.note, position = excluded.position`
       )
         .bind(
           queue.id,
@@ -1027,6 +1032,7 @@ async function queuesApi(env, body) {
           [user.first_name, user.last_name].filter(Boolean).join(" ") || `id ${user.id}`,
           user.username || null,
           String(body.note || "").trim().slice(0, 80),
+          position,
           now
         )
         .run();
@@ -1035,12 +1041,12 @@ async function queuesApi(env, body) {
         .bind(queue.id, user.id)
         .run();
     } else if (action === "close") {
-      if (!manager) return { ok: false, error: "forbidden" };
+      if (!manager && queue.author !== user.id) return { ok: false, error: "forbidden" };
       await env.STATS.prepare("UPDATE queues SET closed = ? WHERE id = ?")
         .bind(queue.closed ? 0 : 1, queue.id)
         .run();
     } else if (action === "delete") {
-      if (!manager) return { ok: false, error: "forbidden" };
+      if (!manager && queue.author !== user.id) return { ok: false, error: "forbidden" };
       await env.STATS.batch([
         env.STATS.prepare("DELETE FROM queue_spots WHERE queue = ?").bind(queue.id),
         env.STATS.prepare("DELETE FROM queues WHERE id = ?").bind(queue.id),
@@ -1050,14 +1056,14 @@ async function queuesApi(env, body) {
 
   // Отдаём всё разом: список коротких очередей дешевле одного запроса.
   const { results: queues = [] } = await env.STATS.prepare(
-    "SELECT id, title, subject, day, slots, closed FROM queues WHERE grp = ? ORDER BY closed, id DESC LIMIT 20"
+    "SELECT id, title, subject, day, author, closed FROM queues WHERE grp = ? ORDER BY closed, id DESC LIMIT 20"
   )
     .bind(group)
     .all();
   const { results: spots = [] } = await env.STATS.prepare(
-    `SELECT s.queue, s.tg_id, s.name, s.username, s.note FROM queue_spots s
+    `SELECT s.queue, s.tg_id, s.name, s.username, s.note, s.position FROM queue_spots s
      JOIN queues q ON q.id = s.queue
-     WHERE q.grp = ? ORDER BY s.created LIMIT 400`
+     WHERE q.grp = ? ORDER BY s.position = 0, s.position, s.created LIMIT 400`
   )
     .bind(group)
     .all();

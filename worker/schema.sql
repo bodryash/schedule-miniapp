@@ -218,6 +218,9 @@ CREATE TABLE IF NOT EXISTS queue_spots (
   name     TEXT NOT NULL DEFAULT '',
   username TEXT,
   note     TEXT NOT NULL DEFAULT '',
+  -- Занятый номер: 0 — «любой свободный». В созданную базу —
+  -- migrations/0012_queue_position.sql.
+  position INTEGER NOT NULL DEFAULT 0,
   created  TEXT NOT NULL,
   PRIMARY KEY (queue, tg_id)
 );

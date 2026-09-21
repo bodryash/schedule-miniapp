@@ -1695,3 +1695,72 @@ body {
   padding: 8px 16px;
   font-size: 14px;
 }
+
+/* Выбор пары в окне очереди — списком, как выдача поиска */
+.q-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+  margin: -6px 0 14px;
+  padding: 2px;
+}
+
+.q-pick {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.q-pick-name {
+  display: block;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.q-pick-who {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.q-pick--on {
+  border-color: transparent;
+  background: var(--accent);
+}
+
+.q-pick--on .q-pick-name,
+.q-pick--on .q-pick-who {
+  color: var(--accent-text);
+}
+
+/* Название очереди — крупно и обычным цветом текста, это главное поле */
+.q-name-row input {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+#q-name,
+#qn-note,
+#q-find {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--card);
+  border: none;
+  border-radius: 10px;
+  -webkit-appearance: none;
+}

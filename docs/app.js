@@ -486,7 +486,7 @@ function showQueues() {
 
 function renderQueues() {
   const group = activeGroup();
-  els.queueAdd.hidden = !queues.manager;
+  els.queueAdd.hidden = false;
 
   if (group?.teacher) {
     els.queuesBody.replaceChildren(el("p", "empty", t("Очереди есть только у групп")));
@@ -503,9 +503,7 @@ function renderQueues() {
   }
   if (!queues.list.length) {
     els.queuesBody.replaceChildren(
-      el("p", "empty", queues.manager
-        ? t("Очередей нет. Создайте первую кнопкой ＋")
-        : t("Очередей нет. Их заводит староста"))
+      el("p", "empty", t("Очередей нет. Создайте первую кнопкой ＋"))
     );
     return;
   }
@@ -520,7 +518,7 @@ function renderQueues() {
     const facts = [
       queue.subject ? tr(queue.subject) : null,
       queue.day ? SHORT_DATE.format(new Date(`${queue.day}T00:00:00`)) : null,
-      queue.slots ? t("{n} из {all} мест", { n: spots.length, all: queue.slots }) : t("записалось {n}", { n: spots.length }),
+      t("записалось {n}", { n: spots.length }),
       queue.closed ? t("запись закрыта") : null,
     ].filter(Boolean);
     head.append(el("div", "q-meta", facts.join(" · ")));
@@ -529,7 +527,7 @@ function renderQueues() {
     const list = el("ol", "q-list");
     for (const [i, spot] of spots.entries()) {
       const row = el("li", spot.tg_id === queues.me ? "q-spot q-spot--me" : "q-spot");
-      row.append(el("span", "q-num", String(i + 1)));
+      row.append(el("span", "q-num", String(spot.position || i + 1)));
       row.append(el("span", "q-name", spot.name + (spot.note ? ` — ${spot.note}` : "")));
       card.append(row);
       list.append(row);
@@ -548,7 +546,7 @@ function renderQueues() {
       join.addEventListener("click", () => joinQueue(queue));
       actions.append(join);
     }
-    if (queues.manager) {
+    if (queues.manager || queue.author === queues.me) {
       const close = el("button", "ghost", queue.closed ? t("Открыть запись") : t("Закрыть запись"));
       close.type = "button";
       close.addEventListener("click", () => queueAction({ action: "close", queue: queue.id }));
@@ -571,6 +569,7 @@ function renderQueues() {
 }
 
 const QUEUE_ERRORS = {
+  taken: "Этот номер уже занят",
   full: "Мест больше нет",
   closed: "Запись закрыта",
   banned: "Доступ закрыт",
@@ -587,17 +586,48 @@ async function queueAction(payload) {
   renderQueues();
 }
 
-/** Записываясь, можно сразу указать тему доклада — но это не обязательно. */
+// Очередь, в которую записываемся прямо сейчас.
+let joining = null;
+
+/**
+ * Записываясь, человек сам выбирает номер: «хочу пятым». Занятые номера в
+ * списке недоступны, а «любой свободный» ставит в конец.
+ */
 function joinQueue(queue) {
-  const ask = t("Тема или комментарий (можно пропустить)");
-  if (tg?.showPopup) {
-    // У Telegram нет поля ввода в попапе, поэтому спрашиваем через prompt
-    // только в браузере, а в Telegram записываем без темы.
-    queueAction({ action: "join", queue: queue.id, note: "" });
-    return;
+  if (!els.qnSheet) return queueAction({ action: "join", queue: queue.id, note: "" });
+  joining = queue;
+  els.qnQueue.textContent = queue.title;
+  els.qnNote.value = "";
+  els.qnError.hidden = true;
+
+  const taken = new Set(
+    queues.spots.filter((s) => s.queue === queue.id && s.position).map((s) => s.position)
+  );
+  const options = [new Option(t("любой свободный"), "0")];
+  for (let n = 1; n <= 99; n++) {
+    const option = new Option(taken.has(n) ? t("{n} — занято", { n }) : String(n), String(n));
+    option.disabled = taken.has(n);
+    options.push(option);
   }
-  const note = prompt(ask) || "";
-  queueAction({ action: "join", queue: queue.id, note });
+  els.qnNumber.replaceChildren(...options);
+  // Предлагаем первый свободный номер: чаще всего хотят именно его.
+  let free = 1;
+  while (taken.has(free)) free++;
+  els.qnNumber.value = String(free <= 99 ? free : 0);
+  els.qnSheet.hidden = false;
+}
+
+async function submitJoin() {
+  if (!joining) return;
+  const queue = joining;
+  els.qnSheet.hidden = true;
+  joining = null;
+  await queueAction({
+    action: "join",
+    queue: queue.id,
+    position: Number(els.qnNumber.value) || 0,
+    note: els.qnNote.value.trim(),
+  });
 }
 
 /**
@@ -611,31 +641,109 @@ function seminarSubjects() {
   for (const lesson of data.lessons) {
     if (lesson.group !== group.id || !matchesPrefs(lesson)) continue;
     if (lesson.type !== "семинар" && lesson.type !== "практика") continue;
-    found.set(lesson.subject, (found.get(lesson.subject) || 0) + 1);
+    if (!found.has(lesson.subject)) found.set(lesson.subject, { subject: lesson.subject, teachers: new Set() });
+    for (const person of teachersOf(lesson.teacher)) found.get(lesson.subject).teachers.add(person.key);
   }
-  return [...found.keys()].sort((a, b) => tr(a).localeCompare(tr(b), "ru"));
+  return [...found.values()].sort((a, b) => tr(a.subject).localeCompare(tr(b.subject), "ru"));
+}
+
+/**
+ * Ближайшие даты этой пары — по расписанию, а не произвольным календарём:
+ * очередь заводят к конкретному семинару, и он бывает раз в неделю.
+ */
+function subjectDates(subject, limit = 8) {
+  const group = activeGroup();
+  const dates = [];
+  if (!group || !subject) return dates;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  for (let shift = 0; shift < 70 && dates.length < limit; shift++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() + shift);
+    const weekday = date.getDay();
+    if (weekday === 0) continue;
+    const parity = parityOfDate(date);
+    const has = data.lessons.some(
+      (l) =>
+        l.group === group.id &&
+        l.subject === subject &&
+        l.day === weekday &&
+        (l.week === "all" || parity === null || l.week === parity) &&
+        matchesPrefs(l)
+    );
+    if (has) dates.push(date);
+  }
+  return dates;
+}
+
+/** Чётность недели, в которую попадает дата, — по календарю из расписания. */
+function parityOfDate(date) {
+  const monday = mondayOf(date);
+  const from = isoDate(monday);
+  const saturday = new Date(monday);
+  saturday.setDate(saturday.getDate() + 5);
+  const to = isoDate(saturday);
+  const week = (data.weeks || []).find((w) => w.from <= to && from <= w.to);
+  return week ? week.parity : null;
+}
+
+// Выбранная в окне пара.
+let queueSubject = "";
+
+function renderQueuePicker() {
+  if (!els.qSubjects) return;
+  const query = searchKey(els.qFind?.value || "");
+  const items = seminarSubjects().filter(
+    (item) =>
+      !query ||
+      searchKey(tr(item.subject)).includes(query) ||
+      [...item.teachers].some((key) => searchKey(key).includes(query))
+  );
+
+  const nodes = items.map((item) => {
+    const chip = el("button", item.subject === queueSubject ? "q-pick q-pick--on" : "q-pick");
+    chip.type = "button";
+    chip.append(el("span", "q-pick-name", tr(item.subject)));
+    const who = [...item.teachers].map((key) => TEACHER_NAMES?.[key] || key).join(", ");
+    if (who) chip.append(el("span", "q-pick-who", who));
+    chip.addEventListener("click", () => {
+      queueSubject = item.subject === queueSubject ? "" : item.subject;
+      renderQueuePicker();
+      fillQueueDates();
+    });
+    return chip;
+  });
+  if (!nodes.length) nodes.push(el("p", "hint", t("Семинаров не нашлось")));
+  els.qSubjects.replaceChildren(...nodes);
+}
+
+/** Даты — только те, когда эта пара есть. Без пары дат не предлагаем. */
+function fillQueueDates() {
+  if (!els.qDay) return;
+  const dates = subjectDates(queueSubject);
+  els.qDay.replaceChildren(
+    new Option(t("без даты"), ""),
+    // FULL_DATE уже пишет день недели — второй раз его не повторяем.
+    ...dates.map((date) => new Option(FULL_DATE.format(date), isoDate(date)))
+  );
+  els.qDay.parentElement.hidden = !dates.length;
+  if (dates.length) els.qDay.value = isoDate(dates[0]);
 }
 
 function openQueueSheet() {
   if (!els.qSheet) return;
-  const subjects = seminarSubjects();
-  if (els.qSubject) {
-    els.qSubject.replaceChildren(
-      new Option(t("не привязывать"), ""),
-      ...subjects.map((subject) => new Option(tr(subject), subject))
-    );
-    // Семинаров может не быть совсем — тогда строку прячем целиком.
-    els.qSubject.parentElement.hidden = subjects.length === 0;
-  }
+  queueSubject = "";
+  if (els.qFind) els.qFind.value = "";
   els.qName.value = "";
-  els.qSlots.value = "";
-  els.qDay.value = "";
   els.qError.hidden = true;
+  loadTeacherNames().then(renderQueuePicker);
+  renderQueuePicker();
+  fillQueueDates();
   els.qSheet.hidden = false;
 }
 
 async function createQueue() {
-  const subject = els.qSubject?.value || "";
+  const subject = queueSubject;
   // Название можно не писать: очередь к семинару назовётся сама.
   const title = els.qName.value.trim() || (subject ? t("Доклады: {subject}", { subject: tr(subject) }) : "");
   if (!title) {
@@ -644,13 +752,7 @@ async function createQueue() {
     return;
   }
   els.qSheet.hidden = true;
-  await queueAction({
-    action: "create",
-    title,
-    subject,
-    day: els.qDay.value || "",
-    slots: Number(els.qSlots.value) || 0,
-  });
+  await queueAction({ action: "create", title, subject, day: els.qDay.value || "" });
 }
 
 /* ---------- Неделя целиком ---------- */
@@ -1282,10 +1384,17 @@ const els = {
   queuesGroup: document.getElementById("queues-group"),
   queueAdd: document.getElementById("queue-add"),
   qSheet: document.getElementById("q-sheet"),
-  qSubject: document.getElementById("q-subject"),
+  qFind: document.getElementById("q-find"),
+  qSubjects: document.getElementById("q-subjects"),
+  qnSheet: document.getElementById("qn-sheet"),
+  qnQueue: document.getElementById("qn-queue"),
+  qnNumber: document.getElementById("qn-number"),
+  qnNote: document.getElementById("qn-note"),
+  qnError: document.getElementById("qn-error"),
+  qnSave: document.getElementById("qn-save"),
+  qnCancel: document.getElementById("qn-cancel"),
   qName: document.getElementById("q-name"),
   qDay: document.getElementById("q-day"),
-  qSlots: document.getElementById("q-slots"),
   qError: document.getElementById("q-error"),
   qSave: document.getElementById("q-save"),
   qCancel: document.getElementById("q-cancel"),
@@ -3238,6 +3347,15 @@ async function init() {
   els.qCancel?.addEventListener("click", () => (els.qSheet.hidden = true));
   els.qSheet?.addEventListener("click", (event) => {
     if (event.target === els.qSheet) els.qSheet.hidden = true;
+  });
+  els.qFind?.addEventListener("input", renderQueuePicker);
+  els.qnSave?.addEventListener("click", submitJoin);
+  els.qnCancel?.addEventListener("click", () => {
+    els.qnSheet.hidden = true;
+    joining = null;
+  });
+  els.qnSheet?.addEventListener("click", (event) => {
+    if (event.target === els.qnSheet) els.qnSheet.hidden = true;
   });
   for (const button of els.tabs?.querySelectorAll(".tab") || []) {
     button.addEventListener("click", () => openTab(button.dataset.tab));

@@ -331,28 +331,48 @@
 
       <label>
         <span data-i18n>Пара</span>
-        <select id="q-subject"></select>
+        <input id="q-find" type="search" autocomplete="off" placeholder="Начните вводить предмет или фамилию">
       </label>
-
-      <label>
-        <span data-i18n>Название</span>
-        <input id="q-name" type="text" maxlength="80" placeholder="Доклады по микроэкономике">
-      </label>
+      <div id="q-subjects" class="q-picker"></div>
 
       <label>
         <span data-i18n>Когда</span>
-        <input id="q-day" type="date">
+        <select id="q-day"></select>
       </label>
 
-      <label>
-        <span data-i18n>Сколько мест</span>
-        <input id="q-slots" type="number" min="0" max="100" step="1" placeholder="0 — без ограничения">
+      <label class="q-name-row">
+        <span data-i18n>Название</span>
+        <input id="q-name" type="text" maxlength="80" placeholder="Доклады">
       </label>
 
       <p class="error" id="q-error" hidden></p>
       <button id="q-save" class="primary" type="button" data-i18n>Создать</button>
       <div class="sheet-actions">
         <button id="q-cancel" class="ghost" type="button" data-i18n>Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Запись в очередь: можно занять конкретный номер -->
+  <div id="qn-sheet" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="qn-title">
+      <h2 id="qn-title" data-i18n>Записаться</h2>
+      <div class="group-name" id="qn-queue"></div>
+
+      <label>
+        <span data-i18n>Хочу быть в очереди под номером</span>
+        <select id="qn-number"></select>
+      </label>
+
+      <label>
+        <span data-i18n>Тема или комментарий</span>
+        <input id="qn-note" type="text" maxlength="80" placeholder="Можно не заполнять">
+      </label>
+
+      <p class="error" id="qn-error" hidden></p>
+      <button id="qn-save" class="primary" type="button" data-i18n>Записаться</button>
+      <div class="sheet-actions">
+        <button id="qn-cancel" class="ghost" type="button" data-i18n>Отмена</button>
       </div>
     </div>
   </div>
