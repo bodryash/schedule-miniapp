@@ -3361,9 +3361,38 @@ async function checkForUpdate() {
 
 /* ---------- Запуск ---------- */
 
+/**
+ * Telegram кэширует index.html надолго, а app.js мы каждый раз берём свежим.
+ * Тогда новый код рисует старую разметку — и на секунду видно прошлую версию
+ * приложения, пока проверка обновлений не перезагрузит страницу. Поэтому
+ * проверяем разметку сразу: нет нужных разделов — перезагружаемся, ничего
+ * не показав. Один раз за сеанс, иначе получился бы вечный круг.
+ */
+const STALE_KEY = "schedule.staleReload";
+
+function htmlIsStale() {
+  return !document.getElementById("queues") || !document.getElementById("tabs");
+}
+
+function reloadFreshPage() {
+  try {
+    if (sessionStorage.getItem(STALE_KEY)) return false;
+    sessionStorage.setItem(STALE_KEY, "1");
+  } catch {
+    return false;
+  }
+  // Старую разметку даже не показываем: перезагрузка идёт с пустым экраном.
+  document.body.style.visibility = "hidden";
+  const url = new URL(location.href);
+  url.searchParams.set("v", String(Date.now()));
+  location.replace(url);
+  return true;
+}
+
 async function init() {
   tg?.ready();
   tg?.expand();
+  if (htmlIsStale() && reloadFreshPage()) return;
   translatePage();
 
   // Переводы названий грузим вместе с расписанием; не загрузились —
