@@ -2229,6 +2229,17 @@ body {
   color: var(--muted);
 }
 
+.ask-chips {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ask-chips .chip {
+  padding: 5px 11px;
+  font-size: 13px;
+}
+
 .ask-actions {
   display: flex;
   gap: 6px;

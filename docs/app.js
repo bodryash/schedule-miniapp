@@ -670,10 +670,32 @@ function renderRemindAsk() {
   text.append(el("div", "ask-line", t("Утром список на день и за 15 минут до пары")));
   const buttons = el("div", "ask-actions");
 
+  // Два напоминания разные по смыслу: утренний список планируют с вечера,
+  // а «через 15 минут» нужно тем, кто уже в корпусе. Выбирают по отдельности.
+  const pick = { morning: true, before: true };
+  const chips = el("div", "ask-chips");
+  for (const [key, label] of [["morning", t("Утром в 7:30")], ["before", t("За 15 минут")]]) {
+    const chip = el("button", "chip chip--on", label);
+    chip.type = "button";
+    chip.addEventListener("click", () => {
+      pick[key] = !pick[key];
+      chip.classList.toggle("chip--on", pick[key]);
+    });
+    chips.append(chip);
+  }
+  text.append(chips);
+
   const yes = el("button", "primary ask-yes", t("Напоминать"));
   yes.type = "button";
   yes.addEventListener("click", () => {
-    prefs = { ...prefs, remindMorning: true, remindBefore: true, remindAsked: true };
+    if (!pick.morning && !pick.before) {
+      // Ничего не выбрано — это то же самое, что «не надо».
+      prefs = { ...prefs, remindAsked: true };
+      savePrefs(prefs);
+      box.hidden = true;
+      return;
+    }
+    prefs = { ...prefs, remindMorning: pick.morning, remindBefore: pick.before, remindAsked: true };
     savePrefs(prefs);
     fillReminders();
     sendReminderSettings();
