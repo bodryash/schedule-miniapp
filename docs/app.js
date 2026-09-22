@@ -2312,51 +2312,6 @@ function dayLoad(day, week) {
 }
 
 /**
- * Силуэт Главного здания МГУ — рисуем фигурами, а не картинкой: он должен
- * перекрашиваться вместе с темой и ничего не весить.
- */
-function msuSilhouette() {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 320 160");
-  svg.setAttribute("class", "msu");
-  svg.setAttribute("aria-hidden", "true");
-  // Ступени: от низких боковых корпусов к высокой центральной башне со
-  // шпилем — ровно тот силуэт, который видно с Ломоносовского проспекта.
-  const windows = (x, y, cols, rows, step = 13) =>
-    Array.from({ length: rows }, (_, row) =>
-      Array.from(
-        { length: cols },
-        (_, col) => `<rect x="${x + col * step}" y="${y + row * 14}" width="5" height="8" rx="1" />`
-      ).join("")
-    ).join("");
-  svg.innerHTML = [
-    '<g fill="currentColor">',
-    '<rect x="4" y="126" width="46" height="34" rx="2" />',
-    '<rect x="270" y="126" width="46" height="34" rx="2" />',
-    '<rect x="44" y="112" width="38" height="48" rx="2" />',
-    '<rect x="238" y="112" width="38" height="48" rx="2" />',
-    '<rect x="76" y="96" width="34" height="64" rx="2" />',
-    '<rect x="210" y="96" width="34" height="64" rx="2" />',
-    '<rect x="104" y="74" width="112" height="86" rx="2" />',
-    '<rect x="120" y="54" width="80" height="24" rx="2" />',
-    '<rect x="134" y="38" width="52" height="18" rx="2" />',
-    '<rect x="148" y="26" width="24" height="14" rx="2" />',
-    '<path d="M160 0 L165 22 L155 22 Z" />',
-    '<circle cx="160" cy="24" r="4" />',
-    "</g>",
-    '<g fill="var(--card)" opacity="0.5">',
-    windows(112, 86, 8, 4),
-    windows(126, 60, 6, 1),
-    windows(84, 108, 2, 3),
-    windows(218, 108, 2, 3),
-    windows(52, 124, 2, 2),
-    windows(278, 124, 2, 2),
-    "</g>",
-  ].join("");
-  return svg;
-}
-
-/**
  * Карточка в конце дня: пары кончились, но день ещё сегодняшний. Показывает,
  * когда и с чего начнётся следующий учебный день.
  */
@@ -2393,8 +2348,7 @@ function renderDayEnd() {
         })
       )
     );
-    card.append(msuSilhouette());
-    return card;
+      return card;
   }
   return null;
 }
@@ -2527,7 +2481,6 @@ function renderFreeDay() {
   const date = dateOfDay(selectedDay);
   const [emoji, title, line] = FREE_DAYS[(date.getDate() * 7 + date.getMonth()) % FREE_DAYS.length];
   node.append(el("div", "free-day-emoji", emoji), el("div", "free-day-title", title), el("div", "free-day-line", line));
-  node.append(msuSilhouette());
   return node;
 }
 

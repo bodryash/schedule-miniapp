@@ -2181,21 +2181,6 @@ body {
   opacity: 0.85;
 }
 
-/* --- Силуэт МГУ --- */
-.msu {
-  display: block;
-  width: 100%;
-  max-width: 320px;
-  margin: 14px auto -4px;
-  color: var(--accent);
-  opacity: 0.85;
-}
-
-.free-day .msu {
-  margin-top: 26px;
-  opacity: 0.35;
-}
-
 /* --- «На сегодня всё» --- */
 .dayend {
   overflow: hidden;
