@@ -503,6 +503,36 @@ function keepFieldVisible() {
   });
 }
 
+/** Пятый тап по дате — конфетти. Просто так. */
+function initConfetti() {
+  let taps = 0;
+  let timer = null;
+  els.dateLabel?.addEventListener("click", () => {
+    taps += 1;
+    clearTimeout(timer);
+    timer = setTimeout(() => (taps = 0), 1500);
+    if (taps < 5) return;
+    taps = 0;
+    showConfetti();
+    tg?.HapticFeedback?.notificationOccurred?.("success");
+  });
+}
+
+function showConfetti() {
+  const box = el("div", "confetti");
+  const colors = ["#ff2d87", "#ffd166", "#4c6ef5", "#2ea6ff", "#40c057", "#ff922b"];
+  for (let i = 0; i < 40; i++) {
+    const piece = el("i");
+    piece.style.left = `${Math.random() * 100}%`;
+    piece.style.background = colors[i % colors.length];
+    piece.style.animationDelay = `${Math.random() * 0.4}s`;
+    piece.style.transform = `rotate(${Math.random() * 180}deg)`;
+    box.append(piece);
+  }
+  document.body.append(box);
+  setTimeout(() => box.remove(), 2600);
+}
+
 /* ---------- Отсчёт до свободы ---------- */
 
 const FREEDOM_KEY = "schedule.glam";
@@ -518,6 +548,7 @@ function refreshFreedom() {
   const line = freedomLine(now);
   els.freedom.hidden = !line;
   if (line) els.freedom.textContent = line;
+  refreshExamMode();
 }
 
 function freedomLine(now) {
@@ -547,6 +578,7 @@ function freedomLine(now) {
   if (!last) return "";
   const left = Math.ceil((new Date(`${last}T23:59:59`) - now) / 86400000);
   if (left <= 0) return t("🏖 Семестр кончился");
+  if (left <= 14) return t("😱 До конца занятий {days} дн., дальше сессия", { days: left });
   const weeks = Math.floor(left / 7);
   const days = left % 7;
   return weeks
@@ -554,27 +586,73 @@ function freedomLine(now) {
     : t("До конца семестра {days} дн.", { days });
 }
 
+/**
+ * Сессия: когда учебные недели кончились, интерфейс становится тревожным,
+ * а отсчёт меняет смысл — считать до конца семестра уже поздно.
+ */
+function examMode() {
+  const last = (data?.weeks || []).at(-1)?.to;
+  if (!last) return false;
+  const days = Math.ceil((new Date(`${last}T23:59:59`) - new Date()) / 86400000);
+  // Две недели до конца занятий и весь январь — время сессии.
+  return days <= 14;
+}
+
+function refreshExamMode() {
+  document.body.classList.toggle("exams", examMode());
+}
+
 /* ---------- Гламур ---------- */
 
-/** Розовый леопард: кнопка в настройках, выбор запоминается. */
-function applyGlam(on) {
-  document.body.classList.toggle("glam", on);
-  if (els.glam) els.glam.textContent = on ? "🖤 Вернуть как было" : "💅 Гламур";
+// Три состояния по кругу: обычный вид, розовый гламур, чёрный с золотом.
+const GLAM_MODES = ["", "pink", "noir"];
+const GLAM_LABELS = { "": "💅 Гламур", pink: "🖤 Тёмный гламур", noir: "↩️ Вернуть как было" };
+
+/** Гламур: кнопка в настройках, выбор запоминается. */
+function applyGlam(mode) {
+  const value = GLAM_MODES.includes(mode) ? mode : "";
+  document.body.classList.toggle("glam", value === "pink");
+  document.body.classList.toggle("glam-noir", value === "noir");
+  if (els.glam) els.glam.textContent = GLAM_LABELS[value];
   try {
-    localStorage.setItem(FREEDOM_KEY, on ? "1" : "");
+    localStorage.setItem(FREEDOM_KEY, value);
   } catch {
     // Не запомнили — переживём, гламур включается одной кнопкой.
   }
 }
 
-function initGlam() {
-  let on = false;
+function glamMode() {
   try {
-    on = localStorage.getItem(FREEDOM_KEY) === "1";
-  } catch {}
-  applyGlam(on);
+    const saved = localStorage.getItem(FREEDOM_KEY) || "";
+    // Раньше гламур хранился единицей — старую запись понимаем как розовый.
+    return saved === "1" ? "pink" : GLAM_MODES.includes(saved) ? saved : "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Кнопка не показывается просто так: её открывает слово «гламур»,
+ * набранное в поиске по МФК. Пасхалка, о которой знают свои.
+ */
+function checkGlamWord() {
+  if (!els.glam || !els.mfkFind) return;
+  const word = searchKey(els.mfkFind.value).replace(/[^а-яa-z]/g, "");
+  if (word === "гламур" || word === "glamour" || word === "glam") {
+    els.glam.hidden = false;
+    els.mfkFind.value = "";
+    renderMfkPicker();
+    tg?.HapticFeedback?.notificationOccurred?.("success");
+  }
+}
+
+function initGlam() {
+  const mode = glamMode();
+  applyGlam(mode);
+  // Включённый гламур сам показывает кнопку: иначе его было бы не выключить.
+  if (els.glam) els.glam.hidden = !mode;
   els.glam?.addEventListener("click", () => {
-    const next = !document.body.classList.contains("glam");
+    const next = GLAM_MODES[(GLAM_MODES.indexOf(glamMode()) + 1) % GLAM_MODES.length];
     applyGlam(next);
     if (next) tg?.HapticFeedback?.notificationOccurred?.("success");
   });
@@ -3650,8 +3728,12 @@ async function init() {
 
   els.course.addEventListener("change", fillGroups);
   els.role?.addEventListener("change", applyRole);
-  els.mfkFind?.addEventListener("input", renderMfkPicker);
+  els.mfkFind?.addEventListener("input", () => {
+    renderMfkPicker();
+    checkGlamWord();
+  });
   initGlam();
+  initConfetti();
   els.group.addEventListener("change", fillLanguages);
   els.main.addEventListener("change", fillMainSubgroups);
   els.lang2.addEventListener("change", fillLang2Subgroups);

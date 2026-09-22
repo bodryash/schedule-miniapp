@@ -1869,80 +1869,108 @@ body.typing {
 
 /* --- Гламур --- */
 
-/* Розовый леопард: пятна рисуем радиальными градиентами, картинок не
-   держим — иначе ради шутки пришлось бы возить лишние килобайты. */
+/* Розовые акценты вместо синих и оранжевых. Чётность недели по-прежнему
+   видна: нечётная — малиновая, чётная — коралловая. */
 body.glam {
   --accent: #ff2d87;
   --accent-soft: rgba(255, 45, 135, 0.16);
   --accent-text: #ffffff;
-  --bg: #fff0f6;
-  --card: #ffffff;
-  --text: #3d0022;
-  --muted: #a85c80;
-  --line: #ffd0e4;
-  background-color: var(--bg);
+  --bg: var(--tg-theme-bg-color, #fff5f9);
+  --line: rgba(255, 45, 135, 0.18);
 }
 
-/* Леопард — отдельным слоем под содержимым и вполсилы: иначе поверх пятен
-   не читается ни одна подпись. Пятна рисуем градиентами, картинок не держим. */
-body.glam::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.45;
-  background-color: #ffd9ea;
-  background-image:
-    radial-gradient(ellipse 14px 11px at 14% 10%, #c8802f 0 100%, transparent 0),
-    radial-gradient(ellipse 22px 18px at 14% 10%, transparent 0 58%, #4a2410 60% 78%, transparent 80%),
-    radial-gradient(ellipse 11px 9px at 40% 26%, #c8802f 0 100%, transparent 0),
-    radial-gradient(ellipse 18px 15px at 40% 26%, transparent 0 58%, #4a2410 60% 78%, transparent 80%),
-    radial-gradient(ellipse 15px 12px at 72% 14%, #c8802f 0 100%, transparent 0),
-    radial-gradient(ellipse 24px 19px at 72% 14%, transparent 0 58%, #4a2410 60% 78%, transparent 80%),
-    radial-gradient(ellipse 12px 10px at 90% 36%, #c8802f 0 100%, transparent 0),
-    radial-gradient(ellipse 19px 16px at 90% 36%, transparent 0 58%, #4a2410 60% 78%, transparent 80%),
-    radial-gradient(ellipse 13px 10px at 22% 62%, #c8802f 0 100%, transparent 0),
-    radial-gradient(ellipse 21px 17px at 22% 62%, transparent 0 58%, #4a2410 60% 78%, transparent 80%),
-    radial-gradient(ellipse 16px 12px at 55% 76%, #c8802f 0 100%, transparent 0),
-    radial-gradient(ellipse 25px 20px at 55% 76%, transparent 0 58%, #4a2410 60% 78%, transparent 80%),
-    radial-gradient(ellipse 11px 9px at 84% 88%, #c8802f 0 100%, transparent 0),
-    radial-gradient(ellipse 18px 15px at 84% 88%, transparent 0 58%, #4a2410 60% 78%, transparent 80%);
-  background-size: 300px 300px;
+body.glam[data-parity="even"] {
+  --accent: #ff6f9c;
+  --accent-soft: rgba(255, 111, 156, 0.18);
 }
 
-body.glam .card,
-body.glam .q-card,
-body.glam .week-day,
-body.glam .teacher-card,
-body.glam .sheet,
-body.glam .tabs,
-body.glam .bar {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(2px);
+body.glam[data-parity="none"] {
+  --accent: #d46bb3;
+  --accent-soft: rgba(212, 107, 179, 0.16);
 }
 
 body.glam .date,
 body.glam h1,
 body.glam .subject {
-  color: #ff2d87;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
-}
-
-body.glam .tab--on {
-  color: #ff2d87;
+  color: var(--accent);
 }
 
 /* Плашка аудитории синяя сама по себе — в гламуре она выбивается. */
 body.glam .room-badge {
-  background: linear-gradient(135deg, #ff2d87, #ff8ac4);
-}
-
-body.glam::before {
-  opacity: 0.6;
-  background-size: 240px 240px;
+  background: linear-gradient(135deg, var(--accent), #ffb3d4);
 }
 
 #glam {
   margin-top: 6px;
+}
+
+/* --- Тёмный гламур --- */
+body.glam-noir {
+  --accent: #d4af37;
+  --accent-soft: rgba(212, 175, 55, 0.16);
+  --accent-text: #1a1a1a;
+  --bg: #111014;
+  --card: #1c1a20;
+  --text: #f5efe0;
+  --muted: #9e9484;
+  --line: rgba(212, 175, 55, 0.22);
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+body.glam-noir[data-parity="even"] {
+  --accent: #e0c063;
+  --accent-soft: rgba(224, 192, 99, 0.18);
+}
+
+body.glam-noir .date,
+body.glam-noir h1,
+body.glam-noir .subject {
+  color: var(--accent);
+}
+
+body.glam-noir .room-badge {
+  background: linear-gradient(135deg, #d4af37, #8a6d1f);
+  color: #1a1a1a;
+}
+
+/* --- Сессия --- */
+
+/* Учебные недели кончились: интерфейс тревожный, но читаемый. */
+body.exams:not(.glam):not(.glam-noir) {
+  --accent: #e03131;
+  --accent-soft: rgba(224, 49, 49, 0.14);
+}
+
+body.exams .freedom {
+  font-weight: 700;
+}
+
+/* --- Конфетти --- */
+.confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.confetti i {
+  position: absolute;
+  top: -12px;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  animation: confetti-fall 2.2s linear forwards;
+}
+
+@keyframes confetti-fall {
+  to {
+    transform: translateY(105vh) rotate(540deg);
+    opacity: 0.2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti { display: none; }
 }
