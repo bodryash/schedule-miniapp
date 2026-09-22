@@ -2235,9 +2235,42 @@ body {
   margin-top: 8px;
 }
 
+/* Внутри мягкой карточки плоские чипсы читались как подписи, а не кнопки:
+   поэтому у них своя заливка, чёткая рамка и галочка у выбранного. */
 .ask-chips .chip {
-  padding: 5px 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
   font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--bg);
+  border: 1.5px solid var(--line);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.ask-chips .chip::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--muted);
+  opacity: 0.7;
+}
+
+.ask-chips .chip--on {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: transparent;
+}
+
+/* Выбранный — кружок с точкой внутри: галочка из двух линий читалась
+   как крестик, то есть ровно наоборот. */
+.ask-chips .chip--on::before {
+  border-color: var(--accent-text);
+  background: radial-gradient(circle, var(--accent-text) 0 3px, transparent 3.5px);
+  opacity: 1;
 }
 
 .ask-actions {
