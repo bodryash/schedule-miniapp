@@ -72,6 +72,7 @@ window.I18N = {
     "{n} пара": "Class {n}",
     "{from}–{to} пара": "Classes {from}–{to}",
     "Отменена: {slots} пара": "Cancelled: class {slots}",
+    "Секретная тема оформления": "A secret theme", "Розовые акценты. Нажмите ещё раз — будет чёрный с золотом": "Pink accents. Tap again for black and gold", "Чёрный с золотом. Нажмите ещё раз — вернётся обычный вид": "Black and gold. Tap again to go back",
     "😱 До конца занятий {days} дн., дальше сессия": "😱 {days} days of classes left, then exams",
     "До конца пары {time}": "{time} left of this class", "Сегодня учишься ещё {time}": "{time} of classes left today", "🎉 Выходные через {time}": "🎉 Weekend in {time}", "До конца семестра {weeks} нед. {days} дн.": "{weeks} w {days} d until the end of term", "До конца семестра {days} дн.": "{days} days until the end of term", "🏖 Семестр кончился": "🏖 Term is over",
     "Мои МФК": "My electives (MSU-wide)", "Название курса или факультет": "Course title or faculty", "Ничего не нашлось": "Nothing found", "Ничего не выбрано — начните вводить название": "Nothing selected — start typing a title", "Курсы берутся из личного кабинета МГУ. Выбранные встанут в расписание со своим временем и аудиторией.": "Courses come from the MSU student portal. The ones you pick appear in your schedule with their own time and room.",

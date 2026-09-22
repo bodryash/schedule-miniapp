@@ -613,7 +613,6 @@ function applyGlam(mode) {
   const value = GLAM_MODES.includes(mode) ? mode : "";
   document.body.classList.toggle("glam", value === "pink");
   document.body.classList.toggle("glam-noir", value === "noir");
-  if (els.glam) els.glam.textContent = GLAM_LABELS[value];
   try {
     localStorage.setItem(FREEDOM_KEY, value);
   } catch {
@@ -636,26 +635,44 @@ function glamMode() {
  * набранное в поиске по МФК. Пасхалка, о которой знают свои.
  */
 function checkGlamWord() {
-  if (!els.glam || !els.mfkFind) return;
+  if (!els.mfkFind) return;
   const word = searchKey(els.mfkFind.value).replace(/[^а-яa-z]/g, "");
   if (word === "гламур" || word === "glamour" || word === "glam") {
-    els.glam.hidden = false;
+    glamFound = true;
     els.mfkFind.value = "";
     renderMfkPicker();
     tg?.HapticFeedback?.notificationOccurred?.("success");
   }
 }
 
-function initGlam() {
+/** Строка гламура в списке МФК: нажатие гоняет режимы по кругу. */
+function renderGlamPick() {
   const mode = glamMode();
-  applyGlam(mode);
-  // Включённый гламур сам показывает кнопку: иначе его было бы не выключить.
-  if (els.glam) els.glam.hidden = !mode;
-  els.glam?.addEventListener("click", () => {
+  const chip = el("button", mode ? "q-pick q-pick--on q-pick--glam" : "q-pick q-pick--glam");
+  chip.type = "button";
+  chip.append(el("span", "q-pick-name", GLAM_LABELS[mode]));
+  chip.append(
+    el(
+      "span",
+      "q-pick-who",
+      mode === "pink"
+        ? t("Розовые акценты. Нажмите ещё раз — будет чёрный с золотом")
+        : mode === "noir"
+          ? t("Чёрный с золотом. Нажмите ещё раз — вернётся обычный вид")
+          : t("Секретная тема оформления")
+    )
+  );
+  chip.addEventListener("click", () => {
     const next = GLAM_MODES[(GLAM_MODES.indexOf(glamMode()) + 1) % GLAM_MODES.length];
     applyGlam(next);
     if (next) tg?.HapticFeedback?.notificationOccurred?.("success");
+    renderMfkPicker();
   });
+  return chip;
+}
+
+function initGlam() {
+  applyGlam(glamMode());
 }
 
 /* ---------- Межфакультетские курсы ---------- */
@@ -680,6 +697,9 @@ function myMfk() {
   const chosen = new Set(prefs?.mfk || []);
   return (MFK_LIST || []).filter((course) => chosen.has(course.id));
 }
+
+// Пасхалка открыта: слово набрано или гламур уже включён.
+let glamFound = false;
 
 function renderMfkPicker() {
   if (!els.mfkList) return;
@@ -709,6 +729,9 @@ function renderMfkPicker() {
     });
     return chip;
   });
+
+  // Гламур стоит первой строкой списка — как ещё один «курс».
+  if (glamFound || glamMode()) nodes.unshift(renderGlamPick());
 
   if (!nodes.length) {
     nodes.push(el("p", "hint", query ? t("Ничего не нашлось") : t("Ничего не выбрано — начните вводить название")));
@@ -1744,7 +1767,6 @@ const els = {
   // Может не быть в закэшированном index.html — тогда режима просто нет.
   role: document.getElementById("role"),
   freedom: document.getElementById("freedom"),
-  glam: document.getElementById("glam"),
   mfkRow: document.getElementById("mfk-row"),
   mfkFind: document.getElementById("mfk-find"),
   mfkList: document.getElementById("mfk-list"),
