@@ -503,6 +503,83 @@ function keepFieldVisible() {
   });
 }
 
+/* ---------- Отсчёт до свободы ---------- */
+
+const FREEDOM_KEY = "schedule.glam";
+
+/**
+ * Строка под датой: сколько осталось до конца пары, до конца дня, до
+ * выходных и до конца семестра. Считается по часам телефона и обновляется
+ * вместе с подсветкой идущей пары.
+ */
+function refreshFreedom() {
+  if (!els.freedom || !data) return;
+  const now = new Date();
+  const line = freedomLine(now);
+  els.freedom.hidden = !line;
+  if (line) els.freedom.textContent = line;
+}
+
+function freedomLine(now) {
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const today = isoDate(dateOfDay(selectedDay)) === isoDate(now);
+  const weekday = ((now.getDay() + 6) % 7) + 1;
+
+  if (today && visible.length) {
+    const bells = new Map(data.bells.map((b) => [b.n, b]));
+    const current = currentLesson();
+    if (current) {
+      // Пятница и это последняя пара — значит, считаем до выходных.
+      const last = lastEndToday();
+      const freedom = weekday >= 5 && last && minutes(last) - nowMinutes === Math.round(current.left);
+      return freedom
+        ? t("🎉 Выходные через {time}", { time: humanLeft(current.left) })
+        : t("До конца пары {time}", { time: humanLeft(current.left) });
+    }
+    const end = lastEndToday();
+    if (end && minutes(end) > nowMinutes) {
+      return t("Сегодня учишься ещё {time}", { time: humanLeft(minutes(end) - nowMinutes) });
+    }
+  }
+
+  // Пар на сегодня нет — считаем до конца семестра: это всегда приятно.
+  const last = (data.weeks || []).at(-1)?.to;
+  if (!last) return "";
+  const left = Math.ceil((new Date(`${last}T23:59:59`) - now) / 86400000);
+  if (left <= 0) return t("🏖 Семестр кончился");
+  const weeks = Math.floor(left / 7);
+  const days = left % 7;
+  return weeks
+    ? t("До конца семестра {weeks} нед. {days} дн.", { weeks, days })
+    : t("До конца семестра {days} дн.", { days });
+}
+
+/* ---------- Гламур ---------- */
+
+/** Розовый леопард: кнопка в настройках, выбор запоминается. */
+function applyGlam(on) {
+  document.body.classList.toggle("glam", on);
+  if (els.glam) els.glam.textContent = on ? "🖤 Вернуть как было" : "💅 Гламур";
+  try {
+    localStorage.setItem(FREEDOM_KEY, on ? "1" : "");
+  } catch {
+    // Не запомнили — переживём, гламур включается одной кнопкой.
+  }
+}
+
+function initGlam() {
+  let on = false;
+  try {
+    on = localStorage.getItem(FREEDOM_KEY) === "1";
+  } catch {}
+  applyGlam(on);
+  els.glam?.addEventListener("click", () => {
+    const next = !document.body.classList.contains("glam");
+    applyGlam(next);
+    if (next) tg?.HapticFeedback?.notificationOccurred?.("success");
+  });
+}
+
 /* ---------- Межфакультетские курсы ---------- */
 
 // Список МФК из личного кабинета МГУ: в расписании ФГП стоит только строка
@@ -1588,6 +1665,8 @@ const els = {
   cmClose: document.getElementById("cm-close"),
   // Может не быть в закэшированном index.html — тогда режима просто нет.
   role: document.getElementById("role"),
+  freedom: document.getElementById("freedom"),
+  glam: document.getElementById("glam"),
   mfkRow: document.getElementById("mfk-row"),
   mfkFind: document.getElementById("mfk-find"),
   mfkList: document.getElementById("mfk-list"),
@@ -2266,6 +2345,7 @@ function renderLessons(group, parity) {
   els.lessons.replaceChildren(...nodes);
   applyCancels();
   applyHomework();
+  refreshFreedom();
   scrollToNow();
 }
 
@@ -3571,6 +3651,7 @@ async function init() {
   els.course.addEventListener("change", fillGroups);
   els.role?.addEventListener("change", applyRole);
   els.mfkFind?.addEventListener("input", renderMfkPicker);
+  initGlam();
   els.group.addEventListener("change", fillLanguages);
   els.main.addEventListener("change", fillMainSubgroups);
   els.lang2.addEventListener("change", fillLang2Subgroups);
@@ -3669,6 +3750,7 @@ async function init() {
     if (!els.schedule.hidden) {
       refreshNow();
       refreshNext();
+      refreshFreedom();
     }
 
   }, 30_000);
