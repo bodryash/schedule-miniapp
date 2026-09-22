@@ -1763,6 +1763,8 @@ const FULL_DATE = new Intl.DateTimeFormat(LOCALE, {
   day: "numeric",
   month: "long",
 });
+const MONTH_NAME = new Intl.DateTimeFormat(LOCALE, { month: "long" });
+const FULL_DAY = new Intl.DateTimeFormat(LOCALE, { weekday: "long" });
 const SHORT_DATE = new Intl.DateTimeFormat(LOCALE, {
   day: "numeric",
   month: "numeric",
@@ -1851,6 +1853,7 @@ const els = {
   mfkFind: document.getElementById("mfk-find"),
   mfkList: document.getElementById("mfk-list"),
   splash: document.getElementById("splash"),
+  month: document.getElementById("month"),
   tabs: document.getElementById("tabs"),
   queues: document.getElementById("queues"),
   queuesBody: document.getElementById("queues-body"),
@@ -2300,6 +2303,102 @@ function showSchedule() {
   ensureHomeworkWeek(selectedWeek);
 }
 
+/** Сколько пар в этот день — для точек под числом. Считаем по карточкам. */
+function dayLoad(day, week) {
+  const group = activeGroup();
+  if (!group) return 0;
+  const lessons = lessonsForDay(group, day, week);
+  return new Set(lessons.map((l) => `${l.slot}|${l.subject}`)).size;
+}
+
+/**
+ * Силуэт Главного здания МГУ — рисуем фигурами, а не картинкой: он должен
+ * перекрашиваться вместе с темой и ничего не весить.
+ */
+function msuSilhouette() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 320 160");
+  svg.setAttribute("class", "msu");
+  svg.setAttribute("aria-hidden", "true");
+  // Ступени: от низких боковых корпусов к высокой центральной башне со
+  // шпилем — ровно тот силуэт, который видно с Ломоносовского проспекта.
+  const windows = (x, y, cols, rows, step = 13) =>
+    Array.from({ length: rows }, (_, row) =>
+      Array.from(
+        { length: cols },
+        (_, col) => `<rect x="${x + col * step}" y="${y + row * 14}" width="5" height="8" rx="1" />`
+      ).join("")
+    ).join("");
+  svg.innerHTML = [
+    '<g fill="currentColor">',
+    '<rect x="4" y="126" width="46" height="34" rx="2" />',
+    '<rect x="270" y="126" width="46" height="34" rx="2" />',
+    '<rect x="44" y="112" width="38" height="48" rx="2" />',
+    '<rect x="238" y="112" width="38" height="48" rx="2" />',
+    '<rect x="76" y="96" width="34" height="64" rx="2" />',
+    '<rect x="210" y="96" width="34" height="64" rx="2" />',
+    '<rect x="104" y="74" width="112" height="86" rx="2" />',
+    '<rect x="120" y="54" width="80" height="24" rx="2" />',
+    '<rect x="134" y="38" width="52" height="18" rx="2" />',
+    '<rect x="148" y="26" width="24" height="14" rx="2" />',
+    '<path d="M160 0 L165 22 L155 22 Z" />',
+    '<circle cx="160" cy="24" r="4" />',
+    "</g>",
+    '<g fill="var(--card)" opacity="0.5">',
+    windows(112, 86, 8, 4),
+    windows(126, 60, 6, 1),
+    windows(84, 108, 2, 3),
+    windows(218, 108, 2, 3),
+    windows(52, 124, 2, 2),
+    windows(278, 124, 2, 2),
+    "</g>",
+  ].join("");
+  return svg;
+}
+
+/**
+ * Карточка в конце дня: пары кончились, но день ещё сегодняшний. Показывает,
+ * когда и с чего начнётся следующий учебный день.
+ */
+function renderDayEnd() {
+  const group = activeGroup();
+  if (!group) return null;
+  const today = new Date();
+  // Ищем ближайший день с парами — на этой неделе или на следующей.
+  for (let shift = 1; shift <= 12; shift++) {
+    const index = dayIndex() + shift;
+    if (index >= DAY_COUNT) break;
+    const week = Math.floor(index / DAYS.length);
+    const day = (index % DAYS.length) + 1;
+    const lessons = lessonsForDay(group, day, week).filter(
+      (lesson) => !lessonCancelOn(lesson, isoDate(dateOfDay(day, week)))
+    );
+    if (!lessons.length) continue;
+    const bells = new Map(data.bells.map((b) => [b.n, b]));
+    const first = lessons
+      .map((lesson) => timesOf(lesson, bells))
+      .filter(Boolean)
+      .sort((a, b) => minutes(a.start) - minutes(b.start))[0];
+    const date = dateOfDay(day, week);
+    const card = el("div", "dayend");
+    card.append(el("div", "dayend-title", t("На сегодня всё")));
+    card.append(
+      el(
+        "div",
+        "dayend-next",
+        t("Дальше — {day}, {date}, с {time}", {
+          day: FULL_DAY.format(date),
+          date: SHORT_DATE.format(date),
+          time: first ? first.start : "?",
+        })
+      )
+    );
+    card.append(msuSilhouette());
+    return card;
+  }
+  return null;
+}
+
 function renderDays() {
   const nodes = [];
   const todayIso = isoDate(new Date());
@@ -2313,10 +2412,13 @@ function renderDays() {
 
       const btn = el("button", active ? "day active" : "day");
       if (isoDate(date) === todayIso) btn.classList.add("day--today");
-      btn.append(
-        el("span", null, DAYS[day - 1]),
-        el("span", "day-date", SHORT_DATE.format(date))
-      );
+      btn.append(el("span", "day-name", DAYS[day - 1]), el("span", "day-num", String(date.getDate())));
+      // Точки под числом — сколько пар в этот день. Больше четырёх не рисуем:
+      // пять кружков в ряд уже не считываются, а только рябят.
+      const count = dayLoad(day, week);
+      const dots = el("span", "day-dots");
+      for (let i = 0; i < Math.min(count, 4); i++) dots.append(el("i"));
+      btn.append(dots);
       btn.addEventListener("click", () => {
         selectedDay = day;
         selectedWeek = week;
@@ -2327,6 +2429,10 @@ function renderDays() {
   }
 
   els.days.replaceChildren(...nodes);
+  if (els.month) {
+    const month = MONTH_NAME.format(dateOfDay(selectedDay));
+    els.month.textContent = month[0].toUpperCase() + month.slice(1);
+  }
   keepSelectedVisible();
 }
 
@@ -2421,6 +2527,7 @@ function renderFreeDay() {
   const date = dateOfDay(selectedDay);
   const [emoji, title, line] = FREE_DAYS[(date.getDate() * 7 + date.getMonth()) % FREE_DAYS.length];
   node.append(el("div", "free-day-emoji", emoji), el("div", "free-day-title", title), el("div", "free-day-line", line));
+  node.append(msuSilhouette());
   return node;
 }
 
@@ -2525,6 +2632,17 @@ function renderLessons(group, parity) {
     node.style.setProperty("--i", i);
     node.style.setProperty("--from-x", `${from}px`);
   });
+
+  // Сегодня и всё уже прошло — в конце списка карточка «на сегодня всё».
+  const now = new Date();
+  const overToday =
+    isoDate(dateOfDay(selectedDay)) === isoDate(now) &&
+    lastEndToday() &&
+    minutes(lastEndToday()) <= now.getHours() * 60 + now.getMinutes();
+  if (overToday) {
+    const card = renderDayEnd();
+    if (card) nodes.push(card);
+  }
 
   els.lessons.replaceChildren(...nodes);
   applyCancels();

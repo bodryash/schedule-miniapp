@@ -2122,3 +2122,98 @@ body {
     animation: none;
   }
 }
+
+/* --- Месяц и полоса дней --- */
+.month {
+  padding: 2px 4px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 46px;
+  padding: 8px 10px 7px;
+}
+
+.day-name {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: var(--muted);
+}
+
+.day-num {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.day.active .day-name,
+.day.active .day-num {
+  color: var(--accent-text);
+}
+
+/* Точки — сколько пар в этот день. */
+.day-dots {
+  display: flex;
+  gap: 3px;
+  height: 4px;
+}
+
+.day-dots i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--muted);
+  opacity: 0.6;
+}
+
+.day.active .day-dots i {
+  background: var(--accent-text);
+  opacity: 0.85;
+}
+
+/* --- Силуэт МГУ --- */
+.msu {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  margin: 14px auto -4px;
+  color: var(--accent);
+  opacity: 0.85;
+}
+
+.free-day .msu {
+  margin-top: 26px;
+  opacity: 0.35;
+}
+
+/* --- «На сегодня всё» --- */
+.dayend {
+  overflow: hidden;
+  padding: 18px 18px 0;
+  border-radius: 20px;
+  background: linear-gradient(160deg, var(--accent-soft), transparent 70%), var(--card);
+  text-align: left;
+}
+
+.dayend-title {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.dayend-next {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
