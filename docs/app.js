@@ -570,7 +570,9 @@ function freedomLine(now) {
     }
     const end = lastEndToday();
     if (end && minutes(end) > nowMinutes) {
-      return t("Сегодня учишься ещё {time}", { time: humanLeft(minutes(end) - nowMinutes) });
+      // Преподавателю «учиться» не скажешь — ему эту строку не показываем.
+      if (activeGroup()?.teacher) return "";
+      return t("Сегодня учиться ещё {time}", { time: humanLeft(minutes(end) - nowMinutes) });
     }
   }
 
@@ -656,6 +658,15 @@ function sendReminderSettings() {
  * Предложение включить напоминания — один раз, прямо в расписании.
  * В настройки за этим никто не пойдёт, а вещь полезная.
  */
+/** Закрываем плавно: резко исчезающая карточка выглядит как сбой. */
+function closeAsk(box) {
+  box.classList.add("ask--gone");
+  setTimeout(() => {
+    box.hidden = true;
+    box.classList.remove("ask--gone");
+  }, 300);
+}
+
 function renderRemindAsk() {
   const box = els.remindAsk;
   if (!box) return;
@@ -693,14 +704,14 @@ function renderRemindAsk() {
       // Ничего не выбрано — это то же самое, что «не надо».
       prefs = { ...prefs, remindAsked: true };
       savePrefs(prefs);
-      box.hidden = true;
+      closeAsk(box);
       return;
     }
     prefs = { ...prefs, remindMorning: pick.morning, remindBefore: pick.before, remindAsked: true };
     savePrefs(prefs);
     fillReminders();
     sendReminderSettings();
-    box.hidden = true;
+    closeAsk(box);
     tg?.HapticFeedback?.notificationOccurred?.("success");
   });
 
@@ -710,7 +721,7 @@ function renderRemindAsk() {
     // Спрашиваем один раз: дальше это делается в настройках.
     prefs = { ...prefs, remindAsked: true };
     savePrefs(prefs);
-    box.hidden = true;
+    closeAsk(box);
   });
 
   buttons.append(yes, no);

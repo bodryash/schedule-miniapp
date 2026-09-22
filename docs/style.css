@@ -2217,6 +2217,22 @@ body {
   animation: rise 320ms var(--ease-soft) both;
 }
 
+.ask--gone {
+  animation: ask-out 280ms var(--ease-soft) forwards;
+  overflow: hidden;
+}
+
+@keyframes ask-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+    max-height: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
 .ask-title {
   font-size: 15px;
   font-weight: 700;
