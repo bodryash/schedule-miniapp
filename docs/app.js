@@ -652,6 +652,48 @@ function sendReminderSettings() {
   });
 }
 
+/**
+ * Предложение включить напоминания — один раз, прямо в расписании.
+ * В настройки за этим никто не пойдёт, а вещь полезная.
+ */
+function renderRemindAsk() {
+  const box = els.remindAsk;
+  if (!box) return;
+  const off = !prefs?.remindMorning && !prefs?.remindBefore;
+  const show = Boolean(tg?.initData) && off && !prefs?.remindAsked && !activeGroup()?.teacher;
+  box.hidden = !show;
+  if (!show) return;
+
+  box.replaceChildren();
+  const text = el("div", "ask-text");
+  text.append(el("div", "ask-title", t("Напоминать вам о парах?")));
+  text.append(el("div", "ask-line", t("Утром список на день и за 15 минут до пары")));
+  const buttons = el("div", "ask-actions");
+
+  const yes = el("button", "primary ask-yes", t("Напоминать"));
+  yes.type = "button";
+  yes.addEventListener("click", () => {
+    prefs = { ...prefs, remindMorning: true, remindBefore: true, remindAsked: true };
+    savePrefs(prefs);
+    fillReminders();
+    sendReminderSettings();
+    box.hidden = true;
+    tg?.HapticFeedback?.notificationOccurred?.("success");
+  });
+
+  const no = el("button", "ghost", t("Не надо"));
+  no.type = "button";
+  no.addEventListener("click", () => {
+    // Спрашиваем один раз: дальше это делается в настройках.
+    prefs = { ...prefs, remindAsked: true };
+    savePrefs(prefs);
+    box.hidden = true;
+  });
+
+  buttons.append(yes, no);
+  box.append(text, buttons);
+}
+
 function fillReminders() {
   if (!els.remindRow) return;
   // Без Telegram писать некому: настройку прячем целиком.
@@ -1846,6 +1888,7 @@ const els = {
   // Может не быть в закэшированном index.html — тогда режима просто нет.
   role: document.getElementById("role"),
   freedom: document.getElementById("freedom"),
+  remindAsk: document.getElementById("remind-ask"),
   remindRow: document.getElementById("remind-row"),
   remindMorning: document.getElementById("remind-morning"),
   remindBefore: document.getElementById("remind-before"),
@@ -2182,6 +2225,7 @@ function collectPrefs() {
     mfk: prefs?.mfk || [],
     remindMorning: Boolean(prefs?.remindMorning),
     remindBefore: Boolean(prefs?.remindBefore),
+    remindAsked: Boolean(prefs?.remindAsked),
   };
 }
 
@@ -2298,6 +2342,7 @@ function showSchedule() {
         : t("Вне семестра");
 
   renderDays();
+  renderRemindAsk();
   renderLessons(group, parity);
   loadNotices(group);
   ensureHomeworkWeek(selectedWeek);
