@@ -1839,3 +1839,22 @@ body.typing {
 .q-card--deleted .q-num {
   color: var(--muted);
 }
+
+/* Поиск по МФК в настройках */
+#mfk-find {
+  display: block;
+  width: 100%;
+  margin: 6px 0 8px;
+  padding: 12px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--card);
+  border: none;
+  border-radius: 10px;
+  -webkit-appearance: none;
+}
+
+#mfk-row .q-picker {
+  max-height: 220px;
+}

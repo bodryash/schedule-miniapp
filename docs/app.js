@@ -263,6 +263,19 @@ function cancelsFor(slot, subject) {
   );
 }
 
+/** Отменено ли занятие в конкретный день — без опоры на выбранный день. */
+function lessonCancelOn(lesson, day) {
+  return (
+    notices.cancels.find(
+      (c) =>
+        c.day === day &&
+        (!c.slots.length || c.slots.includes(lesson.slot)) &&
+        (!c.subject || c.subject === lesson.subject) &&
+        (!c.subgroup || c.subgroup === lesson.subgroup)
+    ) || null
+  );
+}
+
 /**
  * Отменено ли конкретное занятие. Отмена по преподавателю несёт подгруппу:
  * заболел преподаватель одной языковой подгруппы — у остальных пара идёт.
@@ -488,6 +501,108 @@ function keepFieldVisible() {
       { once: true }
     );
   });
+}
+
+/* ---------- Межфакультетские курсы ---------- */
+
+// Список МФК из личного кабинета МГУ: в расписании ФГП стоит только строка
+// «Межфакультетские учебные курсы МГУ», без названия курса и его времени.
+let MFK_LIST = null;
+
+async function loadMfk() {
+  if (MFK_LIST) return MFK_LIST;
+  try {
+    const res = await fetch("data/mfk.json", { cache: "no-cache" });
+    MFK_LIST = res.ok ? await res.json() : [];
+  } catch {
+    MFK_LIST = [];
+  }
+  return MFK_LIST;
+}
+
+/** Выбранные курсы — те, что человек отметил в настройках. */
+function myMfk() {
+  const chosen = new Set(prefs?.mfk || []);
+  return (MFK_LIST || []).filter((course) => chosen.has(course.id));
+}
+
+function renderMfkPicker() {
+  if (!els.mfkList) return;
+  const query = searchKey(els.mfkFind?.value || "");
+  const chosen = new Set(prefs?.mfk || []);
+  const list = MFK_LIST || [];
+  // До первого запроса показываем только выбранные: полторы сотни курсов
+  // в настройках никто листать не станет.
+  const items = query
+    ? list.filter(
+        (c) => searchKey(c.title).includes(query) || searchKey(c.faculty).includes(query)
+      )
+    : list.filter((c) => chosen.has(c.id));
+
+  const nodes = items.slice(0, 40).map((course) => {
+    const chip = el("button", chosen.has(course.id) ? "q-pick q-pick--on" : "q-pick");
+    chip.type = "button";
+    chip.append(el("span", "q-pick-name", course.title));
+    const when = course.start ? `${DAYS[(course.day || 3) - 1]}, ${course.start}–${course.end}` : "";
+    chip.append(el("span", "q-pick-who", [course.faculty, when, course.where].filter(Boolean).join(" · ")));
+    chip.addEventListener("click", () => {
+      const next = new Set(prefs.mfk || []);
+      next.has(course.id) ? next.delete(course.id) : next.add(course.id);
+      prefs = { ...prefs, mfk: [...next] };
+      savePrefs(prefs);
+      renderMfkPicker();
+    });
+    return chip;
+  });
+
+  if (!nodes.length) {
+    nodes.push(el("p", "hint", query ? t("Ничего не нашлось") : t("Ничего не выбрано — начните вводить название")));
+  }
+  els.mfkList.replaceChildren(...nodes);
+}
+
+/**
+ * Занятия по выбранным МФК на показанный день. В расписании факультета МФК
+ * стоит безымянной строкой, поэтому свои курсы подставляем вместо неё —
+ * с настоящим временем и аудиторией из личного кабинета.
+ */
+/** «Четвертый учебный корпус В, ауд. 555» → плашка «555» и корпус в строке. */
+function place(course) {
+  const where = String(course.where || "");
+  const match = where.match(/^(.*?),?\s*ауд\.?\s*(.+)$/i);
+  if (!match) return { building: where, room: "" };
+  return { building: match[1].trim(), room: match[2].trim() };
+}
+
+function mfkLessons(day) {
+  const bells = data.bells || [];
+  return myMfk()
+    .filter((course) => course.day === day && course.start)
+    .map((course) => {
+      // Номер пары — та, в которую курс попадает по времени; нужен только для
+      // порядка карточек, само время показываем своё.
+      const begin = minutes(course.start);
+      const bell =
+        bells.find((b) => begin >= minutes(b.start) && begin < minutes(b.end)) ||
+        bells.find((b) => minutes(b.start) >= begin) ||
+        bells[bells.length - 1];
+      return {
+        group: activeGroup()?.id || "",
+        day,
+        slot: bell?.n || 5,
+        subgroup: null,
+        elective: null,
+        week: "all",
+        note: [course.faculty, place(course).building].filter(Boolean).join(" · "),
+        link: "",
+        start: course.start,
+        end: course.end,
+        type: "МФК",
+        subject: course.title,
+        room: place(course).room,
+        teacher: "",
+      };
+    });
 }
 
 /* ---------- Очереди ---------- */
@@ -1473,6 +1588,9 @@ const els = {
   cmClose: document.getElementById("cm-close"),
   // Может не быть в закэшированном index.html — тогда режима просто нет.
   role: document.getElementById("role"),
+  mfkRow: document.getElementById("mfk-row"),
+  mfkFind: document.getElementById("mfk-find"),
+  mfkList: document.getElementById("mfk-list"),
   tabs: document.getElementById("tabs"),
   queues: document.getElementById("queues"),
   queuesBody: document.getElementById("queues-body"),
@@ -1797,6 +1915,8 @@ function collectPrefs() {
     electives: [...els.electives.querySelectorAll("input:checked")].map(
       (box) => box.value
     ),
+    // МФК отмечают прямо в списке, без кнопки «Сохранить».
+    mfk: prefs?.mfk || [],
   };
 }
 
@@ -1832,6 +1952,8 @@ function showPicker() {
   els.close.hidden = !activeGroup();
   fillCourses();
   fillRole();
+  loadMfk().then(renderMfkPicker);
+  renderMfkPicker();
 }
 
 /* ---------- Разделы ---------- */
@@ -2071,6 +2193,16 @@ function renderLessons(group, parity) {
     ))
     .map((lesson) => withChange(lesson))
     .sort((a, b) => a.slot - b.slot);
+
+  // Свои МФК: строка «Межфакультетские учебные курсы МГУ» без названия и
+  // времени никому не нужна, если человек указал, на что ходит.
+  const mine = group.teacher ? [] : mfkLessons(selectedDay);
+  if (mine.length) {
+    const other = list.filter((lesson) => lesson.subject !== MFK);
+    list.length = 0;
+    list.push(...other, ...mine);
+    list.sort((a, b) => a.slot - b.slot);
+  }
 
   visible = list;
 
@@ -3438,6 +3570,7 @@ async function init() {
 
   els.course.addEventListener("change", fillGroups);
   els.role?.addEventListener("change", applyRole);
+  els.mfkFind?.addEventListener("input", renderMfkPicker);
   els.group.addEventListener("change", fillLanguages);
   els.main.addEventListener("change", fillMainSubgroups);
   els.lang2.addEventListener("change", fillLang2Subgroups);
@@ -3540,6 +3673,9 @@ async function init() {
 
   }, 30_000);
 
+  loadMfk().then(() => {
+    if (!els.schedule.hidden) showSchedule();
+  });
   const group = activeGroup();
   if (group?.teacher) {
     loadTeacherNames();
