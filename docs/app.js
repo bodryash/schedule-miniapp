@@ -726,10 +726,14 @@ function fillReminders() {
 
 function initReminders() {
   const save = () => {
+    const morning = els.remindMorning.checked;
+    const before = els.remindBefore.checked;
     prefs = {
       ...prefs,
-      remindMorning: els.remindMorning.checked,
-      remindBefore: els.remindBefore.checked,
+      remindMorning: morning,
+      remindBefore: before,
+      // Выключили оба — значит, вопрос снова открыт: предложение вернётся.
+      remindAsked: morning || before ? true : false,
     };
     savePrefs(prefs);
     sendReminderSettings();
