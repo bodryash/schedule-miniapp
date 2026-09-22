@@ -170,6 +170,7 @@ async function loadNotices(group) {
     notices.cancels = body.cancels || [];
     notices.changes = body.changes || [];
     notices.owner = Boolean(body.owner);
+    applyTheme(body.theme || "");
     notices.homework = body.homework || [];
     notices.canEdit = Boolean(body.canEdit);
     notices.canComment = Boolean(body.canComment);
@@ -535,8 +536,6 @@ function showConfetti() {
 
 /* ---------- Отсчёт до свободы ---------- */
 
-const FREEDOM_KEY = "schedule.glam";
-
 /**
  * Строка под датой: сколько осталось до конца пары, до конца дня, до
  * выходных и до конца семестра. Считается по часам телефона и обновляется
@@ -602,77 +601,32 @@ function refreshExamMode() {
   document.body.classList.toggle("exams", examMode());
 }
 
-/* ---------- Гламур ---------- */
+/* ---------- Особые темы оформления ---------- */
 
-// Три состояния по кругу: обычный вид, розовый гламур, чёрный с золотом.
-const GLAM_MODES = ["", "pink", "noir"];
-const GLAM_LABELS = { "": "💅 Гламур", pink: "🖤 Тёмный гламур", noir: "↩️ Вернуть как было" };
+// Тему выдаёт владелец командой /theme: сам человек её не включает.
+// Приходит вместе с объявлениями, поэтому применяется при открытии.
+const THEMES = { glam: "glam", brutal: "glam-noir" };
 
-/** Гламур: кнопка в настройках, выбор запоминается. */
-function applyGlam(mode) {
-  const value = GLAM_MODES.includes(mode) ? mode : "";
-  document.body.classList.toggle("glam", value === "pink");
-  document.body.classList.toggle("glam-noir", value === "noir");
-  try {
-    localStorage.setItem(FREEDOM_KEY, value);
-  } catch {
-    // Не запомнили — переживём, гламур включается одной кнопкой.
-  }
-}
-
-function glamMode() {
-  try {
-    const saved = localStorage.getItem(FREEDOM_KEY) || "";
-    // Раньше гламур хранился единицей — старую запись понимаем как розовый.
-    return saved === "1" ? "pink" : GLAM_MODES.includes(saved) ? saved : "";
-  } catch {
-    return "";
+function applyTheme(name) {
+  for (const cls of Object.values(THEMES)) {
+    document.body.classList.toggle(cls, THEMES[name] === cls);
   }
 }
 
 /**
- * Кнопка не показывается просто так: её открывает слово «гламур»,
- * набранное в поиске по МФК. Пасхалка, о которой знают свои.
+ * Сессия: когда учебные недели кончились, интерфейс становится тревожным,
+ * а отсчёт меняет смысл — считать до конца семестра уже поздно.
  */
-function checkGlamWord() {
-  if (!els.mfkFind) return;
-  const word = searchKey(els.mfkFind.value).replace(/[^а-яa-z]/g, "");
-  if (word === "гламур" || word === "glamour" || word === "glam") {
-    glamFound = true;
-    els.mfkFind.value = "";
-    renderMfkPicker();
-    tg?.HapticFeedback?.notificationOccurred?.("success");
-  }
+function examMode() {
+  const last = (data?.weeks || []).at(-1)?.to;
+  if (!last) return false;
+  const days = Math.ceil((new Date(`${last}T23:59:59`) - new Date()) / 86400000);
+  // Две недели до конца занятий и весь январь — время сессии.
+  return days <= 14;
 }
 
-/** Строка гламура в списке МФК: нажатие гоняет режимы по кругу. */
-function renderGlamPick() {
-  const mode = glamMode();
-  const chip = el("button", mode ? "q-pick q-pick--on q-pick--glam" : "q-pick q-pick--glam");
-  chip.type = "button";
-  chip.append(el("span", "q-pick-name", GLAM_LABELS[mode]));
-  chip.append(
-    el(
-      "span",
-      "q-pick-who",
-      mode === "pink"
-        ? t("Розовые акценты. Нажмите ещё раз — будет чёрный с золотом")
-        : mode === "noir"
-          ? t("Чёрный с золотом. Нажмите ещё раз — вернётся обычный вид")
-          : t("Секретная тема оформления")
-    )
-  );
-  chip.addEventListener("click", () => {
-    const next = GLAM_MODES[(GLAM_MODES.indexOf(glamMode()) + 1) % GLAM_MODES.length];
-    applyGlam(next);
-    if (next) tg?.HapticFeedback?.notificationOccurred?.("success");
-    renderMfkPicker();
-  });
-  return chip;
-}
-
-function initGlam() {
-  applyGlam(glamMode());
+function refreshExamMode() {
+  document.body.classList.toggle("exams", examMode());
 }
 
 /* ---------- Межфакультетские курсы ---------- */
@@ -697,9 +651,6 @@ function myMfk() {
   const chosen = new Set(prefs?.mfk || []);
   return (MFK_LIST || []).filter((course) => chosen.has(course.id));
 }
-
-// Пасхалка открыта: слово набрано или гламур уже включён.
-let glamFound = false;
 
 function renderMfkPicker() {
   if (!els.mfkList) return;
@@ -729,9 +680,6 @@ function renderMfkPicker() {
     });
     return chip;
   });
-
-  // Гламур стоит первой строкой списка — как ещё один «курс».
-  if (glamFound || glamMode()) nodes.unshift(renderGlamPick());
 
   if (!nodes.length) {
     nodes.push(el("p", "hint", query ? t("Ничего не нашлось") : t("Ничего не выбрано — начните вводить название")));
@@ -3750,11 +3698,7 @@ async function init() {
 
   els.course.addEventListener("change", fillGroups);
   els.role?.addEventListener("change", applyRole);
-  els.mfkFind?.addEventListener("input", () => {
-    renderMfkPicker();
-    checkGlamWord();
-  });
-  initGlam();
+  els.mfkFind?.addEventListener("input", renderMfkPicker);
   initConfetti();
   els.group.addEventListener("change", fillLanguages);
   els.main.addEventListener("change", fillMainSubgroups);

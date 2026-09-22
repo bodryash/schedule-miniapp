@@ -957,6 +957,73 @@ async function appCancel(env, body) {
   return { ok: true };
 }
 
+/* ---------- Темы оформления ---------- */
+
+const THEME_NAMES = { гламур: "glam", glam: "glam", брутал: "brutal", brutal: "brutal" };
+
+const THEME_HELP = [
+  "<b>Темы оформления</b> — выдаёт только владелец, сам человек их не включает.",
+  "",
+  "/theme @ivanov гламур — розовые акценты",
+  "/theme @ivanov брутал — чёрный с золотом",
+  "/theme @ivanov снять — вернуть обычный вид",
+  "/theme 311гэу гламур — всей группе, можно и курс («3курс», «все»)",
+  "/themes — кому что выдано",
+].join("\n");
+
+/** Тема человека: личная важнее групповой. */
+async function themeFor(env, userId, group) {
+  if (!env.STATS) return "";
+  const row = await env.STATS.prepare(
+    `SELECT theme FROM themes WHERE target IN (?, ?, ?, '*')
+     ORDER BY CASE target WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END LIMIT 1`
+  )
+    .bind(
+      `user:${userId || 0}`,
+      group?.id || "—",
+      courseOf(group || {}),
+      `user:${userId || 0}`,
+      group?.id || "—",
+      courseOf(group || {})
+    )
+    .first();
+  return row?.theme || "";
+}
+
+async function themeCommand(env, text) {
+  const words = glueCourse(String(text).replace(/^\/theme(@\w+)?/, "").trim()).split(/\s+/).filter(Boolean);
+  if (!words.length) return THEME_HELP;
+  const [target, name = ""] = words;
+  const theme = THEME_NAMES[name.toLowerCase()] || "";
+  const off = ["снять", "убрать", "off", "нет"].includes(name.toLowerCase());
+  if (!theme && !off) return `Не понял тему «${escape(name)}».\n\n${THEME_HELP}`;
+
+  const resolved = await resolveTargets(target, env);
+  if (resolved.error) return resolved.error;
+  const now = new Date().toISOString();
+  await env.STATS.batch(
+    resolved.ids.map((id) =>
+      off
+        ? env.STATS.prepare("DELETE FROM themes WHERE target = ?").bind(id)
+        : env.STATS.prepare(
+            `INSERT INTO themes (target, theme, created) VALUES (?, ?, ?)
+             ON CONFLICT(target) DO UPDATE SET theme = excluded.theme, created = excluded.created`
+          ).bind(id, theme, now)
+    )
+  );
+  const who = resolved.ids.map((id) => targetLabel(id)).join(", ");
+  return off ? `Тема снята: ${escape(who)}.` : `Тема «${escape(name)}» выдана: ${escape(who)}.`;
+}
+
+async function themesList(env) {
+  const { results = [] } = await env.STATS.prepare(
+    "SELECT target, theme FROM themes ORDER BY created DESC LIMIT 60"
+  ).all();
+  if (!results.length) return `${THEME_HELP}\n\nПока никому ничего не выдано.`;
+  const lines = results.map((row) => `• ${escape(targetLabel(row.target))} — ${escape(row.theme)}`);
+  return [THEME_HELP, "", ...lines].join("\n");
+}
+
 /* ---------- Очереди ---------- */
 
 /**
@@ -1765,7 +1832,8 @@ export default {
       ]);
       // Счётчики комментариев — только своей группе: чужим они ни к чему.
       const comments = commenter ? await commentCounts(env, group.id, range).catch(() => []) : [];
-      const payload = { notices, cancels, changes, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments };
+      const theme = await themeFor(env, user?.id, group).catch(() => "");
+      const payload = { notices, cancels, changes, theme, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments };
       return new Response(JSON.stringify(payload), {
         headers: {
           "content-type": "application/json; charset=utf-8",
@@ -2235,6 +2303,18 @@ export default {
     }
 
     // Отмена пар меняет расписание всем — только владелец.
+    if (message && /^\/themes?(?:@\w+)?(?:\s|$)/.test(text)) {
+      let reply = "Команда недоступна.";
+      if (isOwner(env, message.chat.id)) {
+        reply = text.startsWith("/themes") ? await themesList(env) : await themeCommand(env, text);
+      }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: reply,
+        parse_mode: "HTML",
+      });
+    }
+
     if (message && /^\/queues(?:@\w+)?(?:\s|$)/.test(text)) {
       const reply = isOwner(env, message.chat.id)
         ? await queuesCommand(env, text)
