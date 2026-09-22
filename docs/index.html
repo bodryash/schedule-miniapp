@@ -53,6 +53,16 @@
 </head>
 <body>
 
+  <!-- Заставка: держит экран, пока грузится расписание -->
+  <div id="splash" class="splash">
+    <div class="splash-mark">
+      <span class="splash-dot"></span>
+      <span class="splash-dot"></span>
+      <span class="splash-dot"></span>
+    </div>
+    <div class="splash-title">Расписание</div>
+  </div>
+
   <!-- Первый заход: кто вы и что показывать -->
   <section id="picker" hidden>
     <header class="bar">
@@ -129,6 +139,19 @@
         <option value="no" data-i18n>не хожу — скрыть</option>
       </select>
     </label>
+
+    <fieldset id="remind-row">
+      <legend data-i18n>Напоминания</legend>
+      <label class="check">
+        <input id="remind-morning" type="checkbox">
+        <span data-i18n>Утром в 7:30 — список пар на день</span>
+      </label>
+      <label class="check">
+        <input id="remind-before" type="checkbox">
+        <span data-i18n>За 15 минут до пары</span>
+      </label>
+      <p class="hint" data-i18n>Присылает бот в личные сообщения. Работает только в Telegram.</p>
+    </fieldset>
 
     <fieldset id="mfk-row">
       <legend data-i18n>Мои МФК</legend>

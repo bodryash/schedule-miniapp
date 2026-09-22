@@ -184,6 +184,8 @@ async function loadNotices(group) {
     }
     applyCancels();
     applyHomework();
+    // Отмены приехали — план для напоминаний надо пересобрать с ними.
+    sendReminderSettings();
   } catch {
     // Без объявлений расписание остаётся расписанием.
   }
@@ -599,6 +601,77 @@ function examMode() {
 
 function refreshExamMode() {
   document.body.classList.toggle("exams", examMode());
+}
+
+/* ---------- Напоминания ---------- */
+
+const REMIND_URL = "https://fgp-schedule-bot.bodryash.workers.dev/reminders";
+
+/**
+ * План на две недели бот сам построить не может: языковая подгруппа,
+ * военная кафедра и МФК известны только здесь. Поэтому при открытии
+ * приложение присылает готовый список пар — из него и шлются напоминания.
+ */
+function reminderPlan() {
+  const group = activeGroup();
+  if (!group) return [];
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  const plan = [];
+  for (let week = 0; week < WEEKS; week++) {
+    for (let day = 1; day <= 6; day++) {
+      const date = dateOfDay(day, week);
+      const iso = isoDate(date);
+      if (iso < isoDate(new Date())) continue;
+      for (const lesson of lessonsForDay(group, day, week)) {
+        if (lessonCancelOn(lesson, iso)) continue;
+        const time = timesOf(lesson, bells);
+        if (!time) continue;
+        plan.push({ day: iso, start: time.start, end: time.end, subject: tr(lesson.subject), room: roomLabel(lesson.room || "") });
+      }
+    }
+  }
+  // Склеенные пары одного предмета подряд: напоминать надо о начале блока.
+  return plan.filter(
+    (item, i) => i === 0 || item.day !== plan[i - 1].day || item.subject !== plan[i - 1].subject
+  );
+}
+
+function sendReminderSettings() {
+  if (!tg?.initData) return;
+  const group = activeGroup();
+  if (!group || group.teacher) return;
+  const body = {
+    initData: tg.initData,
+    group: group.id,
+    morning: Boolean(prefs?.remindMorning),
+    before: prefs?.remindBefore ? 15 : 0,
+    plan: prefs?.remindMorning || prefs?.remindBefore ? reminderPlan() : [],
+  };
+  fetch(REMIND_URL, { method: "POST", body: JSON.stringify(body) }).catch(() => {
+    // Не дошло — отправим при следующем открытии.
+  });
+}
+
+function fillReminders() {
+  if (!els.remindRow) return;
+  // Без Telegram писать некому: настройку прячем целиком.
+  els.remindRow.hidden = !tg?.initData;
+  els.remindMorning.checked = Boolean(prefs?.remindMorning);
+  els.remindBefore.checked = Boolean(prefs?.remindBefore);
+}
+
+function initReminders() {
+  const save = () => {
+    prefs = {
+      ...prefs,
+      remindMorning: els.remindMorning.checked,
+      remindBefore: els.remindBefore.checked,
+    };
+    savePrefs(prefs);
+    sendReminderSettings();
+  };
+  els.remindMorning?.addEventListener("change", save);
+  els.remindBefore?.addEventListener("change", save);
 }
 
 /* ---------- Особые темы оформления ---------- */
@@ -1771,9 +1844,13 @@ const els = {
   // Может не быть в закэшированном index.html — тогда режима просто нет.
   role: document.getElementById("role"),
   freedom: document.getElementById("freedom"),
+  remindRow: document.getElementById("remind-row"),
+  remindMorning: document.getElementById("remind-morning"),
+  remindBefore: document.getElementById("remind-before"),
   mfkRow: document.getElementById("mfk-row"),
   mfkFind: document.getElementById("mfk-find"),
   mfkList: document.getElementById("mfk-list"),
+  splash: document.getElementById("splash"),
   tabs: document.getElementById("tabs"),
   queues: document.getElementById("queues"),
   queuesBody: document.getElementById("queues-body"),
@@ -2098,8 +2175,10 @@ function collectPrefs() {
     electives: [...els.electives.querySelectorAll("input:checked")].map(
       (box) => box.value
     ),
-    // МФК отмечают прямо в списке, без кнопки «Сохранить».
+    // МФК и напоминания отмечают прямо в списке, без кнопки «Сохранить».
     mfk: prefs?.mfk || [],
+    remindMorning: Boolean(prefs?.remindMorning),
+    remindBefore: Boolean(prefs?.remindBefore),
   };
 }
 
@@ -2135,6 +2214,7 @@ function showPicker() {
   els.close.hidden = !activeGroup();
   fillCourses();
   fillRole();
+  fillReminders();
   loadMfk().then(renderMfkPicker);
   renderMfkPicker();
 }
@@ -3713,6 +3793,12 @@ async function init() {
   tg?.expand();
   if (htmlIsStale() && reloadFreshPage()) return;
   translatePage();
+  // Заставка живёт ровно до первого показанного экрана — не дольше.
+  const hideSplash = () => {
+    els.splash?.classList.add("splash--gone");
+    setTimeout(() => els.splash?.remove(), 400);
+  };
+  setTimeout(hideSplash, 2500);
 
   // Переводы названий грузим вместе с расписанием; не загрузились —
   // покажем по-русски, но расписание откроется.
@@ -3759,6 +3845,7 @@ async function init() {
     checkGlamWord();
   });
   initConfetti();
+  initReminders();
   applyTheme();
   els.group.addEventListener("change", fillLanguages);
   els.main.addEventListener("change", fillMainSubgroups);
@@ -3866,6 +3953,7 @@ async function init() {
   loadMfk().then(() => {
     if (!els.schedule.hidden) showSchedule();
   });
+  hideSplash();
   const group = activeGroup();
   if (group?.teacher) {
     loadTeacherNames();

@@ -957,6 +957,140 @@ async function appCancel(env, body) {
   return { ok: true };
 }
 
+/* ---------- Напоминания ---------- */
+
+const MORNING_AT = "07:30";
+
+/**
+ * Приложение присылает свой план на две недели: у каждого свои языки,
+ * подгруппы и МФК, и восстановить их на стороне бота нельзя.
+ */
+async function saveReminders(env, body) {
+  const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+  if (!user?.id) return { ok: false, error: "no user" };
+
+  const morning = body.morning ? 1 : 0;
+  const before = Math.min(60, Math.max(0, Number(body.before) || 0));
+  await env.STATS.prepare(
+    `INSERT INTO reminders (tg_id, grp, morning, before, updated) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(tg_id) DO UPDATE SET grp = excluded.grp, morning = excluded.morning,
+       before = excluded.before, updated = excluded.updated`
+  )
+    .bind(user.id, String(body.group || ""), morning, before, new Date().toISOString())
+    .run();
+
+  const plan = Array.isArray(body.plan) ? body.plan.slice(0, 120) : [];
+  const from = iso(today());
+  const writes = [
+    env.STATS.prepare("DELETE FROM reminder_plan WHERE tg_id = ? OR day < ?").bind(user.id, from),
+  ];
+  for (const item of plan) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(item.day || "") || !/^\d{2}:\d{2}$/.test(item.start || "")) continue;
+    writes.push(
+      env.STATS.prepare(
+        `INSERT OR REPLACE INTO reminder_plan (tg_id, day, start, end, subject, room)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      ).bind(
+        user.id,
+        item.day,
+        item.start,
+        String(item.end || "").slice(0, 5),
+        String(item.subject || "").slice(0, 120),
+        String(item.room || "").slice(0, 60)
+      )
+    );
+  }
+  await env.STATS.batch(writes);
+  return { ok: true };
+}
+
+/** Московское время: расписание живёт по нему, а воркер — по UTC. */
+function moscowNow() {
+  const now = new Date(Date.now() + 3 * 3600000);
+  return {
+    day: now.toISOString().slice(0, 10),
+    minutes: now.getUTCHours() * 60 + now.getUTCMinutes(),
+    hhmm: now.toISOString().slice(11, 16),
+  };
+}
+
+/** Раз в минуту: кому пора написать про утро и про пару через 15 минут. */
+async function sendReminders(env) {
+  if (!env.STATS) return;
+  const now = moscowNow();
+  const jobs = [];
+
+  if (now.hhmm === MORNING_AT) {
+    const { results = [] } = await env.STATS.prepare(
+      `SELECT r.tg_id FROM reminders r WHERE r.morning = 1
+       AND EXISTS (SELECT 1 FROM reminder_plan p WHERE p.tg_id = r.tg_id AND p.day = ?)
+       AND NOT EXISTS (SELECT 1 FROM reminder_sent s WHERE s.tg_id = r.tg_id AND s.key = ?)
+       LIMIT 200`
+    )
+      .bind(now.day, `${now.day}|morning`)
+      .all();
+    for (const row of results) jobs.push({ tg_id: row.tg_id, kind: "morning" });
+  }
+
+  // За сколько минут — у каждого своё, поэтому сравниваем прямо в запросе.
+  const { results: soon = [] } = await env.STATS.prepare(
+    `SELECT p.tg_id, p.start, p.end, p.subject, p.room FROM reminder_plan p
+     JOIN reminders r ON r.tg_id = p.tg_id
+     WHERE p.day = ? AND r.before > 0
+       AND (CAST(substr(p.start, 1, 2) AS INTEGER) * 60 + CAST(substr(p.start, 4, 2) AS INTEGER)) - r.before = ?
+       AND NOT EXISTS (SELECT 1 FROM reminder_sent s WHERE s.tg_id = p.tg_id AND s.key = ? || p.start)
+     LIMIT 200`
+  )
+    .bind(now.day, now.minutes, `${now.day}|`)
+    .all();
+  for (const row of soon) jobs.push({ ...row, kind: "soon" });
+
+  for (const job of jobs) {
+    let text = "";
+    let key = "";
+    if (job.kind === "morning") {
+      const { results = [] } = await env.STATS.prepare(
+        "SELECT start, end, subject, room FROM reminder_plan WHERE tg_id = ? AND day = ? ORDER BY start"
+      )
+        .bind(job.tg_id, now.day)
+        .all();
+      if (!results.length) continue;
+      const lines = results.map(
+        (l) => `${l.start}–${l.end || "?"} · ${escape(l.subject)}${l.room ? ` · ${escape(l.room)}` : ""}`
+      );
+      const last = results[results.length - 1];
+      text = [
+        `☀️ Сегодня ${results.length === 1 ? "одна пара" : `пар: ${results.length}`}`,
+        "",
+        ...lines,
+        "",
+        `Начало в ${results[0].start}, конец в ${last.end || "?"}.`,
+      ].join("\n");
+      key = `${now.day}|morning`;
+    } else {
+      text = `⏰ Через 15 минут: ${escape(job.subject)}${job.room ? ` · ${escape(job.room)}` : ""}\nНачало в ${job.start}.`;
+      key = `${now.day}|${job.start}`;
+    }
+
+    const response = await callTelegram(env.BOT_TOKEN, "sendMessage", {
+      chat_id: job.tg_id,
+      text,
+      parse_mode: "HTML",
+    });
+    // Записываем и неудачу тоже: если человек заблокировал бота, долбиться
+    // в него каждую минуту не надо.
+    await env.STATS.prepare("INSERT OR IGNORE INTO reminder_sent (tg_id, key) VALUES (?, ?)")
+      .bind(job.tg_id, key)
+      .run();
+    if (!response.ok) continue;
+  }
+
+  // Старые отметки не нужны: чистим раз в сутки вместе с утренней рассылкой.
+  if (now.hhmm === MORNING_AT) {
+    await env.STATS.prepare("DELETE FROM reminder_sent WHERE key < ?").bind(now.day).run();
+  }
+}
+
 /* ---------- Темы оформления ---------- */
 
 const THEME_NAMES = { гламур: "glam", glam: "glam", брутал: "brutal", brutal: "brutal" };
@@ -1918,6 +2052,23 @@ export default {
       });
     }
 
+    if (url.pathname === "/reminders" && request.method === "POST") {
+      let result;
+      try {
+        result = await saveReminders(env, JSON.parse(await request.text()));
+      } catch {
+        result = { ok: false, error: "bad request" };
+      }
+      return new Response(JSON.stringify(result), {
+        status: result.ok ? 200 : 400,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "no-store",
+        },
+      });
+    }
+
     if (url.pathname === "/queues" && request.method === "POST") {
       let result;
       try {
@@ -2416,5 +2567,6 @@ export default {
   // Раз в минуту разбираем очередь рассылки.
   async scheduled(event, env, ctx) {
     ctx.waitUntil(drainOutbox(env));
+    ctx.waitUntil(sendReminders(env).catch(() => {}));
   },
 };
