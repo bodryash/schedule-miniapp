@@ -672,10 +672,11 @@ function renderRemindAsk() {
 
   // Два напоминания разные по смыслу: утренний список планируют с вечера,
   // а «через 15 минут» нужно тем, кто уже в корпусе. Выбирают по отдельности.
-  const pick = { morning: true, before: true };
+  // По умолчанию ничего не выбрано: человек сам решает, что ему нужно.
+  const pick = { morning: false, before: false };
   const chips = el("div", "ask-chips");
   for (const [key, label] of [["morning", t("Утром в 7:30")], ["before", t("За 15 минут")]]) {
-    const chip = el("button", "chip chip--on", label);
+    const chip = el("button", "chip", label);
     chip.type = "button";
     chip.addEventListener("click", () => {
       pick[key] = !pick[key];
