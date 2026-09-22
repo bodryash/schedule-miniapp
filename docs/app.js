@@ -603,14 +603,67 @@ function refreshExamMode() {
 
 /* ---------- Особые темы оформления ---------- */
 
-// Тему выдаёт владелец командой /theme: сам человек её не включает.
-// Приходит вместе с объявлениями, поэтому применяется при открытии.
+// Брутал выдаёт владелец командой /theme, гламур человек находит сам —
+// словом «гламур» в поиске по МФК. Тема с сервера сильнее найденной.
 const THEMES = { glam: "glam", brutal: "glam-noir" };
+const GLAM_KEY = "schedule.glam";
 
-function applyTheme(name) {
+let grantedTheme = "";
+
+function ownGlam() {
+  try {
+    // Раньше гламур хранился по-разному — любую непустую запись считаем «да».
+    return Boolean(localStorage.getItem(GLAM_KEY));
+  } catch {
+    return false;
+  }
+}
+
+function setOwnGlam(on) {
+  try {
+    localStorage.setItem(GLAM_KEY, on ? "glam" : "");
+  } catch {
+    // Приватный режим: гламур доживёт до перезапуска, и ладно.
+  }
+  applyTheme();
+}
+
+function applyTheme(granted = grantedTheme) {
+  grantedTheme = granted || "";
+  const name = grantedTheme || (ownGlam() ? "glam" : "");
   for (const cls of Object.values(THEMES)) {
     document.body.classList.toggle(cls, THEMES[name] === cls);
   }
+}
+
+// Пасхалка открыта: слово набрано или гламур уже включён.
+let glamFound = false;
+
+/** Слово «гламур» в поиске по МФК открывает строку с темой. */
+function checkGlamWord() {
+  if (!els.mfkFind) return;
+  const word = searchKey(els.mfkFind.value).replace(/[^а-яa-z]/g, "");
+  if (word === "гламур" || word === "glamour" || word === "glam") {
+    glamFound = true;
+    els.mfkFind.value = "";
+    renderMfkPicker();
+    tg?.HapticFeedback?.notificationOccurred?.("success");
+  }
+}
+
+/** Строка гламура в списке МФК — выглядит как ещё один «курс». */
+function renderGlamPick() {
+  const on = ownGlam();
+  const chip = el("button", on ? "q-pick q-pick--on q-pick--glam" : "q-pick q-pick--glam");
+  chip.type = "button";
+  chip.append(el("span", "q-pick-name", on ? "💅 Гламур включён" : "💅 Гламур"));
+  chip.append(el("span", "q-pick-who", on ? t("Нажмите, чтобы вернуть обычный вид") : t("Секретная тема оформления")));
+  chip.addEventListener("click", () => {
+    setOwnGlam(!ownGlam());
+    if (ownGlam()) tg?.HapticFeedback?.notificationOccurred?.("success");
+    renderMfkPicker();
+  });
+  return chip;
 }
 
 /**
@@ -680,6 +733,9 @@ function renderMfkPicker() {
     });
     return chip;
   });
+
+  // Гламур стоит первой строкой списка — как ещё один «курс».
+  if (glamFound || ownGlam()) nodes.unshift(renderGlamPick());
 
   if (!nodes.length) {
     nodes.push(el("p", "hint", query ? t("Ничего не нашлось") : t("Ничего не выбрано — начните вводить название")));
@@ -3698,8 +3754,12 @@ async function init() {
 
   els.course.addEventListener("change", fillGroups);
   els.role?.addEventListener("change", applyRole);
-  els.mfkFind?.addEventListener("input", renderMfkPicker);
+  els.mfkFind?.addEventListener("input", () => {
+    renderMfkPicker();
+    checkGlamWord();
+  });
   initConfetti();
+  applyTheme();
   els.group.addEventListener("change", fillLanguages);
   els.main.addEventListener("change", fillMainSubgroups);
   els.lang2.addEventListener("change", fillLang2Subgroups);
