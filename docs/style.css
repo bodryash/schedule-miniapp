@@ -2070,10 +2070,25 @@ body {
   transition: opacity 420ms var(--ease-soft), transform 420ms var(--ease-soft);
 }
 
+.splash {
+  clip-path: inset(0 0 0 0);
+}
+
+/* Уход: экран сжимается сверху и снизу к полосе дня, потом гаснет. */
 .splash--gone {
-  opacity: 0;
-  transform: scale(1.05);
   pointer-events: none;
+  animation: splash-fold 620ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+@keyframes splash-fold {
+  60% {
+    clip-path: inset(calc(var(--fold-y, 50%) - 1px) 0 calc(100% - var(--fold-y, 50%) - 1px) 0);
+    opacity: 1;
+  }
+  to {
+    clip-path: inset(calc(var(--fold-y, 50%) - 1px) 30% calc(100% - var(--fold-y, 50%) - 1px) 30%);
+    opacity: 0;
+  }
 }
 
 .splash-day {
@@ -2481,5 +2496,70 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .days-drop {
     transition: none;
+  }
+}
+
+/* Круг от приземления точки — как капля на воде. */
+.splash-dot--pair::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  opacity: 0;
+  animation: splash-ripple 720ms ease-out forwards;
+  animation-delay: inherit;
+}
+
+@keyframes splash-ripple {
+  0% { opacity: 0; transform: scale(1); }
+  35% { opacity: 0.7; }
+  100% { opacity: 0; transform: scale(3.4); }
+}
+
+/* Голова заливки — светящаяся точка, которая пробегает по дню. */
+.splash-comet {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px 4px var(--accent-soft), 0 0 4px 1px var(--accent);
+  opacity: 0;
+  transition: left 600ms var(--ease-soft), opacity 200ms ease;
+}
+
+.splash-track--fill .splash-comet {
+  left: 100%;
+  opacity: 1;
+}
+
+/* Дата проявляется из размытия — мягче, чем простое появление. */
+.splash-day {
+  filter: blur(6px);
+  transition: opacity 420ms var(--ease-soft), transform 420ms var(--ease-soft), filter 420ms var(--ease-soft);
+}
+
+.splash:has(.splash-track--ready) .splash-day {
+  filter: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash--gone {
+    animation: none;
+    opacity: 0;
+    transition: opacity 200ms ease;
+  }
+
+  .splash-dot--pair::after,
+  .splash-comet {
+    display: none;
+  }
+
+  .splash-day {
+    filter: none;
   }
 }

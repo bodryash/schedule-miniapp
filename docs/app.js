@@ -1949,6 +1949,7 @@ const els = {
   splashDay: document.getElementById("splash-day"),
   splashTrack: document.getElementById("splash-track"),
   splashFill: document.getElementById("splash-fill"),
+  splashComet: document.getElementById("splash-comet"),
   splashTimes: document.getElementById("splash-times"),
   month: document.getElementById("month"),
   tabs: document.getElementById("tabs"),
@@ -4077,14 +4078,19 @@ function assembleSplash(plan) {
     // Прилетают снизу-сбоку, у каждой свой разброс — выглядит живее, чем строем.
     dot.style.setProperty("--fly-x", `${(i % 2 ? 1 : -1) * (18 + i * 6)}px`);
     dot.style.setProperty("--fly-y", `${26 + (i % 3) * 10}px`);
-    dot.style.animationDelay = `${120 + i * 90}ms`;
+    dot.style.animationDelay = `${120 + i * 110}ms`;
+    // Щелчок вибрации — в момент приземления, а не старта: так точки
+    // ощущаются пальцем, как будто падают на экран.
+    setTimeout(() => haptic("soft"), 120 + i * 110 + 300);
     return dot;
   });
   track.append(...dots);
 
-  const fillAt = 120 + dots.length * 90 + 260;
+  const fillAt = 120 + dots.length * 110 + 280;
   els.splashFill.style.transitionDelay = `${fillAt}ms`;
+  if (els.splashComet) els.splashComet.style.transitionDelay = `${fillAt}ms`;
   requestAnimationFrame(() => track.classList.add("splash-track--fill"));
+  setTimeout(() => haptic("medium"), fillAt + 620);
 
   els.splashTimes.replaceChildren(
     el("span", null, plan.times[0].start),
@@ -4093,7 +4099,7 @@ function assembleSplash(plan) {
   els.splashTimes.style.transitionDelay = `${fillAt + 200}ms`;
   requestAnimationFrame(() => els.splashTimes.classList.add("splash-times--on"));
 
-  return fillAt + 650;
+  return fillAt + 760;
 }
 
 /** Уходим, когда готовы и расписание, и шрифты — и сборка доиграла. */
@@ -4110,8 +4116,15 @@ async function finishSplash() {
 function dropSplash() {
   const splash = els.splash;
   if (!splash || splash.classList.contains("splash--gone")) return;
+  // Схлопываемся к полосе, а не к центру экрана: кажется, что день
+  // сворачивается в линию, из которой потом разворачивается расписание.
+  const track = els.splashTrack?.getBoundingClientRect();
+  if (track && track.height) {
+    const y = ((track.top + track.height / 2) / window.innerHeight) * 100;
+    splash.style.setProperty("--fold-y", `${y}%`);
+  }
   splash.classList.add("splash--gone");
-  setTimeout(() => splash.remove(), 450);
+  setTimeout(() => splash.remove(), 700);
 }
 
 /* ---------- Запуск ---------- */
