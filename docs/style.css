@@ -1266,14 +1266,21 @@ body {
   min-height: 45vh;
 }
 
+/* Первая анимация смены дня, облегчённая. Карточки не рождаются из
+   пустоты: первая сразу видна наполовину и приходит с той стороны, куда
+   листали, остальные подтягиваются с шагом в полтора кадра. Экран не
+   пустеет даже на мгновение — моргания нет. Короче и без лишних слоёв:
+   на телефоне десяток постоянных слоёв сам по себе тормозил. */
 #lessons > * {
-  opacity: 0;
-  transform: translate(var(--from-x, 0px), 10px);
-  animation: rise 320ms var(--ease-soft) forwards;
-  animation-delay: min(calc(var(--i, 0) * 35ms), 180ms);
-  /* Браузер заранее кладёт карточку на свой слой: без этого первый кадр
-     длинного дня считается уже во время движения, и оно рвётся. */
-  will-change: transform, opacity;
+  animation: day-in 300ms cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
+  animation-delay: min(calc(var(--i, 0) * 24ms), 120ms);
+}
+
+@keyframes day-in {
+  from {
+    opacity: 0.25;
+    transform: translate3d(var(--from-x, 0px), 6px, 0);
+  }
 }
 
 @keyframes rise {
@@ -3031,27 +3038,9 @@ body {
   padding-bottom: 26px;
 }
 
-/* Во время перехода браузер держит обе страницы на отдельных слоях —
-   движение не пересчитывает раскладку и не дёргается. */
-.slide-ghost,
-#lessons,
-#week-body {
+/* Уезжающая страница недели — на своём слое, пока едет. */
+.slide-ghost {
   will-change: transform, opacity;
-}
-
-/* ===== Постраничное листание ===== */
-
-/* Соседний день — отдельная страница сбоку, на той же высоте. */
-.day-page {
-  position: absolute;
-  z-index: 1;
-  pointer-events: none;
-  will-change: transform;
-}
-
-.day-page > * {
-  animation: none !important;
-  opacity: 1 !important;
 }
 
 /* Дата в шапке: старая и новая стоят в одной клетке, пока меняются. */
@@ -3062,4 +3051,56 @@ body {
 .date-old,
 .date-new {
   grid-area: 1 / 1;
+}
+
+/* ===== Плитки дат ===== */
+
+/* Первый показ: плитки выезжают лесенкой слева направо. */
+.days--intro .day {
+  animation: tile-in 420ms cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 28ms);
+}
+
+@keyframes tile-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.9);
+  }
+}
+
+/* Выбрали день — число подпрыгивает с пружиной. */
+.day--pop .day-num {
+  animation: tile-num 460ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+@keyframes tile-num {
+  0% { transform: scale(0.82); }
+  55% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+/* Точки пар загораются по очереди, как отсчёт. */
+.day--pop .day-dots i {
+  animation: tile-dot 380ms cubic-bezier(0.3, 1.5, 0.5, 1) backwards;
+}
+
+.day--pop .day-dots i:nth-child(1) { animation-delay: 90ms; }
+.day--pop .day-dots i:nth-child(2) { animation-delay: 140ms; }
+.day--pop .day-dots i:nth-child(3) { animation-delay: 190ms; }
+.day--pop .day-dots i:nth-child(4) { animation-delay: 240ms; }
+
+@keyframes tile-dot {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .days--intro .day,
+  .day--pop .day-num,
+  .day--pop .day-dots i,
+  #lessons > * {
+    animation: none;
+  }
 }
