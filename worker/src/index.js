@@ -284,7 +284,8 @@ async function handleButton(env, query) {
 }
 
 /** Разбирает очередь порциями. Вызывается задачей по расписанию. */
-async function drainOutbox(env) {
+async function drainOutbox(env, limit = BATCH) {
+  if (limit <= 0) return;
   const job = await env.STATS.prepare(
     "SELECT id, text, button FROM broadcasts WHERE status = 'sending' ORDER BY id LIMIT 1"
   ).first();
@@ -293,7 +294,7 @@ async function drainOutbox(env) {
   const { results = [] } = await env.STATS.prepare(
     "SELECT chat_id FROM outbox WHERE broadcast = ? AND state = 'pending' LIMIT ?"
   )
-    .bind(job.id, BATCH)
+    .bind(job.id, limit)
     .all();
 
   if (!results.length) {
@@ -987,8 +988,6 @@ async function appCancel(env, body) {
 
 /* ---------- Напоминания ---------- */
 
-const MORNING_AT = "07:30";
-
 /**
  * Приложение присылает свой план на две недели: у каждого свои языки,
  * подгруппы и МФК, и восстановить их на стороне бота нельзя.
@@ -1042,81 +1041,153 @@ function moscowNow() {
   };
 }
 
-/** Раз в минуту: кому пора написать про утро и про пару через 15 минут. */
+// Один запуск воркера на бесплатном тарифе может сделать не больше 50
+// обращений наружу. Раньше утреннее напоминание уходило всем разом, и после
+// полусотни сообщений остальные просто не отправлялись — а окно было ровно
+// в одну минуту, так что до них очередь уже не доходила. Теперь за запуск
+// уходит не больше порции, остальные — в следующие минуты.
+const REMIND_BATCH = 24;
+
+// Утро — не одна минута, а окно: если в 7:30 не успели всем, дошлём до 8:30.
+const MORNING_FROM = 7 * 60 + 30;
+const MORNING_TO = 8 * 60 + 30;
+
+// «Скоро пара» тоже с окном: крон бывает запаздывает на минуту-другую, и
+// точное совпадение минут теряло напоминание целиком. Пишем, пока пара не
+// началась, но не раньше чем за 3 минуты до срока.
+const SOON_EARLY = 3;
+
+const START_MINUTES = "(CAST(substr(p.start, 1, 2) AS INTEGER) * 60 + CAST(substr(p.start, 4, 2) AS INTEGER))";
+
+function minutesWord(n) {
+  const tens = n % 100;
+  const ones = n % 10;
+  if (tens >= 11 && tens <= 14) return "минут";
+  if (ones === 1) return "минуту";
+  if (ones >= 2 && ones <= 4) return "минуты";
+  return "минут";
+}
+
+/** Раз в минуту: кому пора написать про утро и про ближайшую пару. */
 async function sendReminders(env) {
   if (!env.STATS) return;
   const now = moscowNow();
-  const jobs = [];
+  const outgoing = [];
 
-  if (now.hhmm === MORNING_AT) {
-    const { results = [] } = await env.STATS.prepare(
+  // Сначала «скоро пара»: оно срочнее утреннего списка. Одно сообщение на
+  // время начала — если без выбранного языка в одну пару стоят несколько
+  // предметов, они идут одной строкой, а не пятью уведомлениями подряд.
+  const { results: soon = [] } = await env.STATS.prepare(
+    `SELECT p.tg_id, p.start, group_concat(p.subject, ' / ') AS subjects,
+            max(p.room) AS room, ${START_MINUTES} AS at
+     FROM reminder_plan p JOIN reminders r ON r.tg_id = p.tg_id
+     WHERE p.day = ? AND r.before > 0
+       AND ${START_MINUTES} - r.before <= ? + ?
+       AND ${START_MINUTES} > ?
+       AND NOT EXISTS (SELECT 1 FROM reminder_sent s WHERE s.tg_id = p.tg_id AND s.key = ? || p.start)
+     GROUP BY p.tg_id, p.start
+     ORDER BY at
+     LIMIT ?`
+  )
+    .bind(now.day, now.minutes, SOON_EARLY, now.minutes, `${now.day}|`, REMIND_BATCH)
+    .all();
+  for (const row of soon) {
+    const left = Math.max(1, row.at - now.minutes);
+    outgoing.push({
+      tg_id: row.tg_id,
+      key: `${now.day}|${row.start}`,
+      text: `⏰ Через ${left} ${minutesWord(left)}: ${escape(row.subjects)}${row.room ? ` · ${escape(row.room)}` : ""}\nНачало в ${row.start}.`,
+    });
+  }
+
+  // Утро: сколько осталось места в порции.
+  const room = REMIND_BATCH - outgoing.length;
+  if (room > 0 && now.minutes >= MORNING_FROM && now.minutes < MORNING_TO) {
+    const { results: people = [] } = await env.STATS.prepare(
       `SELECT r.tg_id FROM reminders r WHERE r.morning = 1
        AND EXISTS (SELECT 1 FROM reminder_plan p WHERE p.tg_id = r.tg_id AND p.day = ?)
        AND NOT EXISTS (SELECT 1 FROM reminder_sent s WHERE s.tg_id = r.tg_id AND s.key = ?)
-       LIMIT 200`
+       LIMIT ?`
     )
-      .bind(now.day, `${now.day}|morning`)
+      .bind(now.day, `${now.day}|morning`, room)
       .all();
-    for (const row of results) jobs.push({ tg_id: row.tg_id, kind: "morning" });
-  }
 
-  // За сколько минут — у каждого своё, поэтому сравниваем прямо в запросе.
-  const { results: soon = [] } = await env.STATS.prepare(
-    `SELECT p.tg_id, p.start, p.end, p.subject, p.room FROM reminder_plan p
-     JOIN reminders r ON r.tg_id = p.tg_id
-     WHERE p.day = ? AND r.before > 0
-       AND (CAST(substr(p.start, 1, 2) AS INTEGER) * 60 + CAST(substr(p.start, 4, 2) AS INTEGER)) - r.before = ?
-       AND NOT EXISTS (SELECT 1 FROM reminder_sent s WHERE s.tg_id = p.tg_id AND s.key = ? || p.start)
-     LIMIT 200`
-  )
-    .bind(now.day, now.minutes, `${now.day}|`)
-    .all();
-  for (const row of soon) jobs.push({ ...row, kind: "soon" });
-
-  for (const job of jobs) {
-    let text = "";
-    let key = "";
-    if (job.kind === "morning") {
-      const { results = [] } = await env.STATS.prepare(
-        "SELECT start, end, subject, room FROM reminder_plan WHERE tg_id = ? AND day = ? ORDER BY start"
+    if (people.length) {
+      // Планы всей порции — одним запросом, а не по запросу на человека.
+      const ids = people.map((p) => p.tg_id);
+      const { results: plan = [] } = await env.STATS.prepare(
+        `SELECT tg_id, start, end, subject, room FROM reminder_plan
+         WHERE day = ? AND tg_id IN (${ids.map(() => "?").join(",")})
+         ORDER BY tg_id, start`
       )
-        .bind(job.tg_id, now.day)
+        .bind(now.day, ...ids)
         .all();
-      if (!results.length) continue;
-      const lines = results.map(
-        (l) => `${l.start}–${l.end || "?"} · ${escape(l.subject)}${l.room ? ` · ${escape(l.room)}` : ""}`
-      );
-      const last = results[results.length - 1];
-      text = [
-        `☀️ Сегодня ${results.length === 1 ? "одна пара" : `пар: ${results.length}`}`,
-        "",
-        ...lines,
-        "",
-        `Начало в ${results[0].start}, конец в ${last.end || "?"}.`,
-      ].join("\n");
-      key = `${now.day}|morning`;
-    } else {
-      text = `⏰ Через 15 минут: ${escape(job.subject)}${job.room ? ` · ${escape(job.room)}` : ""}\nНачало в ${job.start}.`;
-      key = `${now.day}|${job.start}`;
-    }
 
-    const response = await callTelegram(env.BOT_TOKEN, "sendMessage", {
-      chat_id: job.tg_id,
-      text,
-      parse_mode: "HTML",
-    });
-    // Записываем и неудачу тоже: если человек заблокировал бота, долбиться
-    // в него каждую минуту не надо.
-    await env.STATS.prepare("INSERT OR IGNORE INTO reminder_sent (tg_id, key) VALUES (?, ?)")
-      .bind(job.tg_id, key)
-      .run();
-    if (!response.ok) continue;
+      for (const id of ids) {
+        // Одно время — одна строка, даже если предметов в это время несколько.
+        const byStart = new Map();
+        for (const lesson of plan.filter((l) => l.tg_id === id)) {
+          if (!byStart.has(lesson.start)) byStart.set(lesson.start, { ...lesson, subjects: [] });
+          byStart.get(lesson.start).subjects.push(lesson.subject);
+        }
+        const lessons = [...byStart.values()];
+        if (!lessons.length) continue;
+        const lines = lessons.map(
+          (l) => `${l.start}–${l.end || "?"} · ${escape(l.subjects.join(" / "))}${l.room ? ` · ${escape(l.room)}` : ""}`
+        );
+        outgoing.push({
+          tg_id: id,
+          key: `${now.day}|morning`,
+          text: [
+            `☀️ Сегодня ${lessons.length === 1 ? "одна пара" : `пар: ${lessons.length}`}`,
+            "",
+            ...lines,
+            "",
+            `Начало в ${lessons[0].start}, конец в ${lessons.at(-1).end || "?"}.`,
+          ].join("\n"),
+        });
+      }
+    }
   }
 
-  // Старые отметки не нужны: чистим раз в сутки вместе с утренней рассылкой.
-  if (now.hhmm === MORNING_AT) {
+  // Отправляем по одному. Отметку ставим и когда Telegram отказал (человек
+  // заблокировал бота) — долбиться в него каждую минуту не надо. А если
+  // упала сама отправка (кончился лимит обращений), дальше не шлём: эти
+  // люди останутся без отметки и получат своё в следующую минуту.
+  const sent = [];
+  for (const item of outgoing) {
+    try {
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: item.tg_id,
+        text: item.text,
+        parse_mode: "HTML",
+      });
+      sent.push(item);
+    } catch (error) {
+      console.log("reminder stopped", String(error?.message || error));
+      break;
+    }
+  }
+
+  // Все отметки — одним пакетом: это одно обращение к базе, а не по одному
+  // на сообщение.
+  if (sent.length) {
+    await env.STATS.batch(
+      sent.map((item) =>
+        env.STATS.prepare("INSERT OR IGNORE INTO reminder_sent (tg_id, key) VALUES (?, ?)").bind(
+          item.tg_id,
+          item.key
+        )
+      )
+    );
+  }
+  if (outgoing.length) console.log(`reminders: sent ${sent.length} of ${outgoing.length}`);
+
+  // Старые отметки не нужны: чистим раз в сутки, в начале утреннего окна.
+  if (now.minutes === MORNING_FROM) {
     await env.STATS.prepare("DELETE FROM reminder_sent WHERE key < ?").bind(now.day).run();
   }
+  return sent.length;
 }
 
 /* ---------- Темы оформления ---------- */
@@ -2594,7 +2665,17 @@ export default {
 
   // Раз в минуту разбираем очередь рассылки.
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(drainOutbox(env));
-    ctx.waitUntil(sendReminders(env).catch(() => {}));
+    // Лимит обращений наружу — общий на весь запуск. Сначала напоминания:
+    // они привязаны ко времени. Рассылке — что осталось, остальное она
+    // доотправит в следующие минуты. Запас в 6 — на запросы к базе.
+    ctx.waitUntil(
+      (async () => {
+        const used = await sendReminders(env).catch((error) => {
+          console.log("reminders failed", String(error?.message || error));
+          return REMIND_BATCH;
+        });
+        await drainOutbox(env, Math.min(BATCH, 44 - (used || 0)));
+      })()
+    );
   },
 };
