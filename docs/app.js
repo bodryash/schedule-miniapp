@@ -1936,6 +1936,7 @@ const els = {
   splash: document.getElementById("splash"),
   month: document.getElementById("month"),
   tabs: document.getElementById("tabs"),
+  tabsDrop: document.getElementById("tabs-drop"),
   queues: document.getElementById("queues"),
   queuesBody: document.getElementById("queues-body"),
   queuesGroup: document.getElementById("queues-group"),
@@ -2312,6 +2313,26 @@ let tab = "schedule";
 
 const TAB_ORDER = ["schedule", "week", "queues", "search"];
 
+/**
+ * Подложка выбранного раздела переезжает к нему, а не появляется на новом
+ * месте: так глаз видит, куда ушёл выбор. Ширину берём у самой кнопки —
+ * у подписей разная длина, и одинаковая капля смотрелась бы кривой.
+ */
+function moveDrop(name, animate = true) {
+  const drop = els.tabsDrop;
+  const button = els.tabs?.querySelector(`.tab[data-tab="${name}"]`);
+  if (!drop || !button || els.tabs.hidden) return;
+  if (!animate) drop.classList.add("tabs-drop--still");
+  drop.style.width = `${button.offsetWidth}px`;
+  drop.style.transform = `translateX(${button.offsetLeft}px)`;
+  drop.classList.add("tabs-drop--on");
+  if (!animate) {
+    // Отключили переход только на этот кадр: при первом показе капля должна
+    // сразу стоять на месте, а не выезжать из левого угла.
+    requestAnimationFrame(() => drop.classList.remove("tabs-drop--still"));
+  }
+}
+
 function openTab(name) {
   // Раздел въезжает с той стороны, где он стоит в полосе снизу: так видно,
   // что переключение — это шаг вбок, а не новый экран поверх старого.
@@ -2320,13 +2341,21 @@ function openTab(name) {
   for (const button of els.tabs?.querySelectorAll(".tab") || []) {
     button.classList.toggle("tab--on", button.dataset.tab === name);
   }
+  // Меряем на следующем кадре, когда новый раздел уже показан: у одних
+  // разделов есть полоса прокрутки, у других нет, и от этого вся панель
+  // меняет ширину на несколько пикселей — капля вставала бы мимо.
+  requestAnimationFrame(() => moveDrop(name));
   els.free.hidden = true;
   els.picker.hidden = true;
   els.week.hidden = name !== "week";
   if (els.queues) els.queues.hidden = name !== "queues";
   els.schedule.hidden = name !== "schedule";
   els.search.hidden = name !== "search";
-  if (els.tabs) els.tabs.hidden = false;
+  if (els.tabs) {
+    const wasHidden = els.tabs.hidden;
+    els.tabs.hidden = false;
+    if (wasHidden) requestAnimationFrame(() => moveDrop(name, false));
+  }
   window.scrollTo(0, 0);
   const screen = { schedule: els.schedule, week: els.week, queues: els.queues, search: els.search }[name];
   if (screen && from) {
@@ -4029,6 +4058,7 @@ async function init() {
     });
   }
   els.change.addEventListener("click", showPicker);
+  window.addEventListener("resize", () => moveDrop(tab, false));
   els.queueAdd?.addEventListener("click", openQueueSheet);
   els.qSave?.addEventListener("click", createQueue);
   els.qCancel?.addEventListener("click", () => (els.qSheet.hidden = true));
