@@ -1310,6 +1310,70 @@ async function createQueue() {
 
 /* ---------- Неделя целиком ---------- */
 
+/** Эта неделя ↔ следующая — перелистыванием, как дни. */
+function switchWeek(week, fromShift = 0) {
+  if (week === selectedWeek || week < 0 || week >= WEEKS) return false;
+  const direction = Math.sign(week - selectedWeek);
+  haptic("select");
+  selectedWeek = week;
+  slideSwap(els.weekBody, direction, () => showWeek(), fromShift);
+  return true;
+}
+
+/** Свайп по неделе листает недели. Вертикальная прокрутка не мешает. */
+function initWeekSwipe() {
+  const body = els.weekBody;
+  if (!body) return;
+  let start = null;
+  let shift = 0;
+  let dragging = false;
+  let decided = false;
+  body.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    start = { x: event.clientX, y: event.clientY, at: performance.now(), id: event.pointerId };
+    shift = 0;
+    dragging = false;
+    decided = false;
+    body.style.transition = "none";
+  });
+  body.addEventListener("pointermove", (event) => {
+    if (!start || event.pointerId !== start.id) return;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (!decided) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      decided = true;
+      dragging = Math.abs(dx) > Math.abs(dy);
+    }
+    if (!dragging) return;
+    // Дальше двух недель листать некуда — сопротивление на краю.
+    const edge = (dx > 0 && selectedWeek === 0) || (dx < 0 && selectedWeek === WEEKS - 1);
+    shift = edge ? dx * 0.25 : dx;
+    body.style.transform = `translateX(${shift.toFixed(1)}px)`;
+  });
+  const finish = (event) => {
+    if (!start || event.pointerId !== start.id) return;
+    const was = start;
+    start = null;
+    if (!dragging) return;
+    const velocity = Math.abs(shift) / Math.max(1, performance.now() - was.at);
+    const far = Math.abs(shift) > body.clientWidth * SWIPE_DISTANCE;
+    const target = selectedWeek + (shift < 0 ? 1 : -1);
+    body.style.transition = "";
+    if ((far || velocity > SWIPE_VELOCITY) && target >= 0 && target < WEEKS) {
+      const from = shift;
+      body.style.transform = "";
+      switchWeek(target, from);
+      return;
+    }
+    body.style.transition = "transform 260ms cubic-bezier(0.22, 0.8, 0.28, 1)";
+    body.style.transform = "translateX(0)";
+    body.addEventListener("transitionend", () => (body.style.transition = ""), { once: true });
+  };
+  body.addEventListener("pointerup", finish);
+  body.addEventListener("pointercancel", finish);
+}
+
 function showWeek() {
   const group = activeGroup();
   if (!group) return showPicker();
@@ -1328,16 +1392,7 @@ function showWeek() {
         el("span", null, week === 0 ? t("Эта неделя") : t("Следующая")),
         el("span", "day-date", `${SHORT_DATE.format(dateOfDay(1, week))}`)
       );
-      button.addEventListener("click", () => {
-        if (week !== selectedWeek) haptic("select");
-        const back = week < selectedWeek;
-        selectedWeek = week;
-        showWeek();
-        els.weekBody.style.setProperty("--slide-from", back ? "-18px" : "18px");
-        els.weekBody.classList.remove("screen-slide");
-        void els.weekBody.offsetWidth;
-        els.weekBody.classList.add("screen-slide");
-      });
+      button.addEventListener("click", () => switchWeek(week));
       return button;
     })
   );
@@ -2537,10 +2592,13 @@ function renderDays() {
       for (let i = 0; i < Math.min(count, 4); i++) dots.append(el("i"));
       btn.append(dots);
       btn.addEventListener("click", () => {
-        if (day !== selectedDay || week !== selectedWeek) haptic("select");
+        const target = week * DAYS.length + day - 1;
+        const direction = Math.sign(target - dayIndex());
+        if (!direction) return;
+        haptic("select");
         selectedDay = day;
         selectedWeek = week;
-        showSchedule();
+        slideSwap(els.lessons, direction, () => showSchedule());
       });
       nodes.push(btn);
     }
@@ -2602,6 +2660,11 @@ function matchesPrefs(lesson) {
 
   // Остальные подгруппы (русский как иностранный и т.п.) не спрашиваем.
   return true;
+}
+
+/** Языковой предмет: основной, второй, третий или профессиональный язык. */
+function isLanguage(subject) {
+  return MAIN_LANGS.includes(subject) || LANG2.test(subject) || LANG3.test(subject) || /язык/i.test(subject);
 }
 
 /**
@@ -2718,7 +2781,9 @@ function renderLessons(group, parity) {
   const open = new Map();
   for (const slot of slots) {
     for (const [subject, entries] of bySlot.get(slot)) {
-      const signature = lessonSignature(entries);
+      // Языки не склеиваем: у них десятки подгрупп и своих аудиторий, и
+      // блок «1–2 пара» прятал, что это две отдельные пары.
+      const signature = isLanguage(subject) ? null : lessonSignature(entries);
       const run = open.get(subject);
       if (signature && run && run.signature === signature && run.slots.at(-1) === slot - 1) {
         run.slots.push(slot);
@@ -2750,13 +2815,7 @@ function renderLessons(group, parity) {
     }
   }
 
-  // Пришли листанием — новый день въезжает с той стороны, откуда его тянули.
-  const from = enterFrom * 24;
-  enterFrom = 0;
-  nodes.forEach((node, i) => {
-    node.style.setProperty("--i", i);
-    node.style.setProperty("--from-x", `${from}px`);
-  });
+  nodes.forEach((node, i) => node.style.setProperty("--i", i));
 
   // Сегодня и всё уже прошло — в конце списка карточка «на сегодня всё».
   const now = new Date();
@@ -3358,8 +3417,6 @@ function renderFree() {
 
 /* ---------- Листание дней ---------- */
 
-// Куда «уезжает» новый день при появлении: -1 — пришли справа, 1 — слева.
-let enterFrom = 0;
 
 const SWIPE_DISTANCE = 0.22; // доля ширины экрана
 const SWIPE_VELOCITY = 0.35; // px/мс — быстрый флик засчитываем без дистанции
@@ -3415,14 +3472,55 @@ function initMenu() {
   });
 }
 
-/** Переход на соседний день с анимацией въезда с нужной стороны. */
-function goToDay(direction) {
+/**
+ * Смена содержимого как перелистывание страницы: старое уезжает в одну
+ * сторону, новое въезжает с другой, вплотную. Раньше список стирался и
+ * карточки проявлялись заново — на глаз это читалось как моргание.
+ *
+ * fromShift — где был палец: если день тянули свайпом, страница
+ * продолжает движение с того места, а не прыгает в начало.
+ */
+function slideSwap(container, direction, render, fromShift = 0) {
+  const parent = container.parentElement;
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  if (!direction || !parent || reduce) {
+    container.classList.add("no-cascade");
+    render();
+    return;
+  }
+  const width = container.offsetWidth || document.documentElement.clientWidth;
+  // Старую страницу не перерисовываем, а переносим как есть в «призрака»
+  // поверх того же места — она доедет, пока новая уже на своём.
+  const ghost = el("div", "slide-ghost");
+  ghost.style.left = `${container.offsetLeft}px`;
+  ghost.style.top = `${container.offsetTop}px`;
+  ghost.style.width = `${width}px`;
+  ghost.append(...container.childNodes);
+  parent.append(ghost);
+
+  container.classList.add("no-cascade");
+  render();
+
+  const timing = { duration: 360, easing: "cubic-bezier(0.22, 0.8, 0.28, 1)" };
+  ghost
+    .animate(
+      [{ transform: `translateX(${fromShift}px)` }, { transform: `translateX(${-direction * width}px)` }],
+      { ...timing, fill: "forwards" }
+    )
+    .finished.finally(() => ghost.remove());
+  container.animate(
+    [{ transform: `translateX(${direction * width + fromShift}px)` }, { transform: "translateX(0)" }],
+    timing
+  );
+}
+
+/** Переход на соседний день — страница сдвигается в сторону движения. */
+function goToDay(direction, fromShift = 0) {
   const next = dayIndex() + direction;
   if (next < 0 || next >= DAY_COUNT) return false;
   setDayIndex(next);
-  enterFrom = direction;
   haptic("select");
-  showSchedule();
+  slideSwap(els.lessons, direction, () => showSchedule(), fromShift);
   return true;
 }
 
@@ -3486,7 +3584,6 @@ function initSwipe() {
     shift = atEdge ? dx * 0.25 : dx;
 
     strip.style.transform = `translateX(${shift.toFixed(1)}px)`;
-    strip.style.opacity = String(1 - Math.min(Math.abs(shift) / 500, 0.35));
   });
 
   const finish = (event) => {
@@ -3517,16 +3614,16 @@ function initSwipe() {
 
     const next = dayIndex() + direction;
     if ((far || velocity > SWIPE_VELOCITY) && next >= 0 && next < DAY_COUNT) {
+      // Страница доезжает с того места, где её отпустил палец.
+      const from = shift;
       release();
-      goToDay(direction);
+      goToDay(direction, from);
       return;
     }
 
     // Не дотянули — возвращаем на место.
-    strip.style.transition =
-      "transform 240ms var(--ease-out), opacity 240ms var(--ease-out)";
+    strip.style.transition = "transform 260ms cubic-bezier(0.22, 0.8, 0.28, 1)";
     strip.style.transform = "translateX(0)";
-    strip.style.opacity = "1";
     strip.addEventListener("transitionend", release, { once: true });
   };
 
@@ -3720,7 +3817,27 @@ function refreshNext() {
  * Подсвечивает идущую пару. Работает поверх готовых карточек, а не через
  * перерисовку: иначе список заново проигрывал бы появление каждую минуту.
  */
+/** Линия между началом и концом пары: сколько уже прошло. */
+function refreshLines() {
+  const today = isoDate(dateOfDay(selectedDay)) === isoDate(new Date());
+  const clock = new Date();
+  const now = clock.getHours() * 60 + clock.getMinutes() + clock.getSeconds() / 60;
+  for (const card of els.lessons.querySelectorAll(".card")) {
+    const fill = card.querySelector(".card-line-fill");
+    if (!fill) continue;
+    const start = card.dataset.start && minutes(card.dataset.start);
+    const end = card.dataset.end && minutes(card.dataset.end);
+    let part = 0;
+    if (today && start != null && end > start && !card.classList.contains("card--cancelled")) {
+      part = Math.min(1, Math.max(0, (now - start) / (end - start)));
+    }
+    fill.style.transform = `scaleY(${part.toFixed(4)})`;
+    card.classList.toggle("card--past", today && part >= 1);
+  }
+}
+
 function refreshNow() {
+  refreshLines();
   const today = isoDate(dateOfDay(selectedDay)) === isoDate(new Date());
   const clockNow = new Date();
   const nowMinutes = clockNow.getHours() * 60 + clockNow.getMinutes() + clockNow.getSeconds() / 60;
@@ -3967,10 +4084,14 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
   );
   // Время — отдельной колонкой слева, как в таймлайне: начало крупно,
   // конец под ним. Так день читается сверху вниз по часам.
+  // Колонка слева: начало наверху, конец внизу, между ними линия — она же
+  // полоса прогресса, пока пара идёт.
   const when = el("div", "card-when");
   if (bell) {
     const end = range && lastBell ? lastBell.end : bell.end;
-    when.append(el("span", "card-start", bell.start), el("span", "card-end", end));
+    const line = el("span", "card-line");
+    line.append(el("span", "card-line-fill"));
+    when.append(el("span", "card-start", bell.start), line, el("span", "card-end", end));
     card.dataset.start = bell.start;
     card.dataset.end = end;
   }
@@ -3983,7 +4104,10 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
   body.append(head, el("div", "subject", withFlag(first.subject)));
 
   if (single) {
-    body.append(metaLine(first, "", false));
+    const foot = el("div", "card-foot");
+    foot.append(metaLine(first, "", false));
+    if (first.room && !range) foot.append(roomBadge(first.room));
+    body.append(foot);
   } else {
     const details = el("details", "subgroups");
     details.append(el("summary", null, subgroupsLabel(entries.length)));
@@ -4015,8 +4139,13 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
     body.append(button);
   }
 
+  // У склеенной карточки аудитория — в самом низу, под перечнем пар.
+  if (single && first.room && range) {
+    const foot = el("div", "card-foot card-foot--end");
+    foot.append(roomBadge(first.room));
+    body.append(foot);
+  }
   card.append(when, body);
-  if (single && first.room) card.append(roomBadge(first.room));
   return card;
 }
 
@@ -4309,6 +4438,7 @@ async function init() {
   }
   els.change.addEventListener("click", showPicker);
   initMenu();
+  initWeekSwipe();
   window.addEventListener("resize", () => moveDrop(tab, false));
   els.queueAdd?.addEventListener("click", openQueueSheet);
   els.qSave?.addEventListener("click", createQueue);

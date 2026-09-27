@@ -2711,3 +2711,139 @@ body {
 .card > .room-badge--long {
   font-size: 12px;
 }
+
+/* ===== Таймлайн, вторая версия ===== */
+
+/* Колонка времени — на всю высоту карточки: начало сверху, конец снизу,
+   между ними линия, которая заполняется, пока пара идёт. */
+.card {
+  align-items: stretch;
+}
+
+.card-when {
+  flex: 0 0 48px;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.card-start,
+.card-end {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+}
+
+.card-end {
+  color: var(--muted);
+}
+
+.card-line {
+  position: relative;
+  flex: 1;
+  width: 2px;
+  min-height: 14px;
+  margin-left: 18px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.card-line-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 1s linear;
+}
+
+/* Прошедшая пара — линия заполнена, но спокойным цветом. */
+.card--past .card-line-fill {
+  background: var(--muted);
+  opacity: 0.45;
+}
+
+/* Горизонтальная полоска прогресса внизу больше не нужна — её роль
+   теперь играет линия в колонке времени. */
+.card > .now-bar {
+  display: none;
+}
+
+/* Аудитория — в нижней строке рядом с преподавателем, не поверх. */
+.card-foot {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.card-foot .meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-foot--end {
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.card-foot .room-badge {
+  align-self: flex-end;
+}
+
+/* Возвращаем плашке аудитории её вид: отдельная колонка сверху отменена. */
+.card > .room-badge {
+  position: static;
+}
+
+/* Названия переносятся по слогам и только между слогами — не посреди
+   буквосочетаний и не поверх соседних строк. */
+.card .subject {
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphenate-limit-chars: 6 3 3;
+}
+
+/* Перемены — ровно по центру между карточками. */
+.gap {
+  margin: -2px 20px 8px;
+  justify-content: center;
+}
+
+.gap-line {
+  max-width: 90px;
+}
+
+/* ===== Перелистывание ===== */
+
+/* Уезжающая страница — поверх того же места. */
+.slide-ghost {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+}
+
+#schedule,
+#week {
+  position: relative;
+  overflow-x: clip;
+}
+
+/* Листаем — значит карточки уже на месте: без каскада и затухания. */
+#lessons.no-cascade > *,
+#week-body.no-cascade > * {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+
+#week-body {
+  touch-action: pan-y;
+}
