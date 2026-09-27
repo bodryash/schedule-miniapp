@@ -3842,8 +3842,11 @@ function refreshLines() {
     if (today && start != null && end > start && !card.classList.contains("card--cancelled")) {
       part = Math.min(1, Math.max(0, (now - start) / (end - start)));
     }
-    fill.style.transform = `scaleY(${part.toFixed(4)})`;
+    // Высотой, а не масштабом: на конце заливки стоит точка, и масштаб
+    // сплющил бы её вместе с полосой.
+    fill.style.height = `${(part * 100).toFixed(2)}%`;
     card.classList.toggle("card--past", today && part >= 1);
+    card.classList.toggle("card--running", today && part > 0 && part < 1);
   }
 }
 

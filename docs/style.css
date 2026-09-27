@@ -2950,3 +2950,40 @@ body {
 .card-end {
   line-height: 22px;
 }
+
+/* ===== Прогресс пары в колонке времени ===== */
+
+/* Дорожка видна всегда — по ней понятно, что это шкала. Заливка растёт
+   сверху вниз, на её конце — точка «сейчас». */
+.card-line {
+  width: 3px;
+  margin-left: 17px;
+  overflow: visible;
+  background: color-mix(in srgb, var(--muted) 22%, transparent);
+}
+
+.card-line-fill {
+  bottom: auto;
+  height: 0;
+  transform: none;
+  border-radius: 3px;
+  transition: height 1s linear;
+}
+
+.card--running .card-line-fill::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 11px;
+  height: 11px;
+  margin-left: -5.5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--card), 0 0 10px 2px var(--accent-soft);
+}
+
+/* Прошедшая пара — дорожка залита целиком, спокойным цветом. */
+.card--past .card-line-fill {
+  height: 100%;
+}
