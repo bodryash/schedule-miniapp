@@ -12,6 +12,9 @@
        Telegram ярлык создать не может — там это делается через Safari,
        и без этих строк ярлык открывался бы как обычная вкладка. -->
   <link rel="manifest" href="manifest.json">
+  <!-- Шрифт названий нужен с первого кадра: без предзагрузки браузер
+       вспоминает о нём, только встретив заголовок, и текст перескакивает. -->
+  <link rel="preload" href="fonts/unbounded.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Расписание">
@@ -55,12 +58,15 @@
 
   <!-- Заставка: держит экран, пока грузится расписание -->
   <div id="splash" class="splash">
-    <div class="splash-mark">
-      <span class="splash-dot"></span>
-      <span class="splash-dot"></span>
-      <span class="splash-dot"></span>
+    <div class="splash-day" id="splash-day"></div>
+    <div class="splash-track" id="splash-track">
+      <div class="splash-line"></div>
+      <div class="splash-fill" id="splash-fill"></div>
+      <span class="splash-dot splash-dot--idle"></span>
+      <span class="splash-dot splash-dot--idle"></span>
+      <span class="splash-dot splash-dot--idle"></span>
     </div>
-    <div class="splash-title">Расписание</div>
+    <div class="splash-times" id="splash-times"></div>
   </div>
 
   <!-- Первый заход: кто вы и что показывать -->

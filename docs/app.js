@@ -203,6 +203,7 @@ function renderNotices(animate) {
       close.type = "button";
       close.setAttribute("aria-label", t("Скрыть объявление"));
       close.addEventListener("click", () => {
+        haptic("light");
         dismissNotice(n.id);
         node.remove();
       });
@@ -517,7 +518,7 @@ function initConfetti() {
     if (taps < 5) return;
     taps = 0;
     showConfetti();
-    tg?.HapticFeedback?.notificationOccurred?.("success");
+    haptic("success");
   });
 }
 
@@ -690,6 +691,7 @@ function renderRemindAsk() {
     const chip = el("button", "chip", label);
     chip.type = "button";
     chip.addEventListener("click", () => {
+      haptic("light");
       pick[key] = !pick[key];
       chip.classList.toggle("chip--on", pick[key]);
     });
@@ -712,13 +714,14 @@ function renderRemindAsk() {
     fillReminders();
     sendReminderSettings();
     closeAsk(box);
-    tg?.HapticFeedback?.notificationOccurred?.("success");
+    haptic("success");
   });
 
   const no = el("button", "ghost", t("Не надо"));
   no.type = "button";
   no.addEventListener("click", () => {
     // Спрашиваем один раз: дальше это делается в настройках.
+    haptic("light");
     prefs = { ...prefs, remindAsked: true };
     savePrefs(prefs);
     closeAsk(box);
@@ -800,7 +803,7 @@ function checkGlamWord() {
     glamFound = true;
     els.mfkFind.value = "";
     renderMfkPicker();
-    tg?.HapticFeedback?.notificationOccurred?.("success");
+    haptic("success");
   }
 }
 
@@ -813,7 +816,7 @@ function renderGlamPick() {
   chip.append(el("span", "q-pick-who", on ? t("Нажмите, чтобы вернуть обычный вид") : t("Секретная тема оформления")));
   chip.addEventListener("click", () => {
     setOwnGlam(!ownGlam());
-    if (ownGlam()) tg?.HapticFeedback?.notificationOccurred?.("success");
+    if (ownGlam()) haptic("success");
     renderMfkPicker();
   });
   return chip;
@@ -878,6 +881,7 @@ function renderMfkPicker() {
     const when = course.start ? `${DAYS[(course.day || 3) - 1]}, ${course.start}–${course.end}` : "";
     chip.append(el("span", "q-pick-who", [course.faculty, when, course.where].filter(Boolean).join(" · ")));
     chip.addEventListener("click", () => {
+      haptic("light");
       const next = new Set(prefs.mfk || []);
       next.has(course.id) ? next.delete(course.id) : next.add(course.id);
       prefs = { ...prefs, mfk: [...next] };
@@ -1108,8 +1112,11 @@ const QUEUE_ERRORS = {
 };
 
 async function queueAction(payload) {
+  haptic("light");
   const body = await queuesCall(payload);
+  if (body?.ok) haptic(payload.action === "delete" || payload.action === "leave" ? "warning" : "success");
   if (body && !body.ok) {
+    haptic("error");
     const text = t(QUEUE_ERRORS[body.error] || "Не получилось, попробуйте ещё раз");
     tg?.showAlert ? tg.showAlert(text) : alert(text);
   }
@@ -1249,6 +1256,7 @@ function renderQueuePicker() {
     const who = [...item.teachers].map((key) => TEACHER_NAMES?.[key] || key).join(", ");
     if (who) chip.append(el("span", "q-pick-who", who));
     chip.addEventListener("click", () => {
+      haptic("select");
       queueSubject = item.subject === queueSubject ? "" : item.subject;
       renderQueuePicker();
       fillQueueDates();
@@ -1321,6 +1329,7 @@ function showWeek() {
         el("span", "day-date", `${SHORT_DATE.format(dateOfDay(1, week))}`)
       );
       button.addEventListener("click", () => {
+        if (week !== selectedWeek) haptic("select");
         const back = week < selectedWeek;
         selectedWeek = week;
         showWeek();
@@ -1493,6 +1502,7 @@ function askScope(group) {
 }
 
 async function sendCancel(body) {
+  haptic("medium");
   try {
     const res = await fetch(CANCEL_URL, {
       method: "POST",
@@ -1711,6 +1721,7 @@ async function sendComment() {
     updateCommentCounter();
     renderComments(list);
   } catch (error) {
+    haptic("error");
     commentError(error);
   } finally {
     els.cmSend.disabled = false;
@@ -1784,6 +1795,7 @@ async function submitHomework(text) {
     notices.homework = notices.homework
       .filter((h) => h.day !== body.day)
       .concat(body.homework || []);
+    haptic("success");
     closeHomework();
     applyHomework();
   } catch {
@@ -1934,6 +1946,10 @@ const els = {
   mfkFind: document.getElementById("mfk-find"),
   mfkList: document.getElementById("mfk-list"),
   splash: document.getElementById("splash"),
+  splashDay: document.getElementById("splash-day"),
+  splashTrack: document.getElementById("splash-track"),
+  splashFill: document.getElementById("splash-fill"),
+  splashTimes: document.getElementById("splash-times"),
   month: document.getElementById("month"),
   tabs: document.getElementById("tabs"),
   tabsDrop: document.getElementById("tabs-drop"),
@@ -2033,6 +2049,8 @@ function weekParity(weeks, week = selectedWeek) {
 }
 
 function fail(message) {
+  // Ошибку не прячем за заставкой.
+  dropSplash();
   els.error.textContent = message;
   els.error.hidden = false;
 }
@@ -2337,6 +2355,7 @@ function openTab(name) {
   // Раздел въезжает с той стороны, где он стоит в полосе снизу: так видно,
   // что переключение — это шаг вбок, а не новый экран поверх старого.
   const from = TAB_ORDER.indexOf(name) - TAB_ORDER.indexOf(tab);
+  if (name !== tab) haptic("select");
   tab = name;
   for (const button of els.tabs?.querySelectorAll(".tab") || []) {
     button.classList.toggle("tab--on", button.dataset.tab === name);
@@ -2415,6 +2434,27 @@ function showSchedule() {
   ensureHomeworkWeek(selectedWeek);
 }
 
+// Подложка выбранного дня. Живёт дольше самих кнопок: полоса дней
+// перерисовывается при каждом переходе, а капля должна доехать, а не
+// родиться заново на новом месте.
+const dayDrop = el("span", "days-drop");
+dayDrop.setAttribute("aria-hidden", "true");
+let dayDropPlaced = false;
+
+function placeDayDrop() {
+  const active = els.days.querySelector(".day.active");
+  if (!active) return;
+  // Первый раз ставим без движения — иначе капля выезжала бы из угла.
+  if (!dayDropPlaced) dayDrop.classList.add("days-drop--still");
+  dayDrop.style.width = `${active.offsetWidth}px`;
+  dayDrop.style.height = `${active.offsetHeight}px`;
+  dayDrop.style.transform = `translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
+  if (!dayDropPlaced) {
+    dayDropPlaced = true;
+    requestAnimationFrame(() => dayDrop.classList.remove("days-drop--still"));
+  }
+}
+
 /** Сколько пар в этот день — для точек под числом. Считаем по карточкам. */
 function dayLoad(day, week) {
   const group = activeGroup();
@@ -2486,6 +2526,7 @@ function renderDays() {
       for (let i = 0; i < Math.min(count, 4); i++) dots.append(el("i"));
       btn.append(dots);
       btn.addEventListener("click", () => {
+        if (day !== selectedDay || week !== selectedWeek) haptic("select");
         selectedDay = day;
         selectedWeek = week;
         showSchedule();
@@ -2494,7 +2535,8 @@ function renderDays() {
     }
   }
 
-  els.days.replaceChildren(...nodes);
+  els.days.replaceChildren(dayDrop, ...nodes);
+  placeDayDrop();
   if (els.month) {
     const month = MONTH_NAME.format(dateOfDay(selectedDay));
     els.month.textContent = month[0].toUpperCase() + month.slice(1);
@@ -3306,12 +3348,30 @@ const SWIPE_VELOCITY = 0.35; // px/мс — быстрый флик засчит
 const TAP_ZONE = 0.22; // доля ширины: касание у края листает, как в сторис
 const TAP_SLOP = 8; // px — больше этого уже не касание, а жест
 
+/**
+ * Виброотклик Telegram. select — лёгкий щелчок при выборе (день, вкладка),
+ * light/medium/heavy — нажатие кнопки, success/error/warning — итог
+ * действия. Вне Telegram и на старых версиях молча ничего не делает.
+ */
+function haptic(kind = "select") {
+  const feedback = tg?.HapticFeedback;
+  if (!feedback) return;
+  try {
+    if (kind === "select") feedback.selectionChanged();
+    else if (kind === "success" || kind === "error" || kind === "warning") feedback.notificationOccurred(kind);
+    else feedback.impactOccurred(kind);
+  } catch {
+    // Старый клиент без вибрации — ничего страшного.
+  }
+}
+
 /** Переход на соседний день с анимацией въезда с нужной стороны. */
 function goToDay(direction) {
   const next = dayIndex() + direction;
   if (next < 0 || next >= DAY_COUNT) return false;
   setDayIndex(next);
   enterFrom = direction;
+  haptic("select");
   showSchedule();
   return true;
 }
@@ -3941,6 +4001,111 @@ async function checkForUpdate() {
   location.replace(url);
 }
 
+/* ---------- Заставка: день собирается из точек ---------- */
+
+const SPLASH_MIN = 1400; // не короче: иначе сборка не успевает прочитаться
+const SPLASH_MAX = 3200; // и не дольше, даже если сеть тормозит
+const splashStarted = performance.now();
+
+/**
+ * Пары ближайшего учебного дня как отрезки времени — из них и собирается
+ * полоса. Сегодня пары кончились или воскресенье — берём следующий день.
+ */
+function splashDayPlan() {
+  const group = activeGroup();
+  if (!group || !data) return null;
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  for (let shift = 0; shift < DAY_COUNT; shift++) {
+    const index = dayIndex() + shift;
+    if (index >= DAY_COUNT) break;
+    const week = Math.floor(index / DAYS.length);
+    const day = (index % DAYS.length) + 1;
+    const date = dateOfDay(day, week);
+    const blocks = new Map();
+    for (const lesson of lessonsForDay(group, day, week)) {
+      if (lessonCancelOn(lesson, isoDate(date))) continue;
+      const time = timesOf(lesson, bells);
+      if (time && !blocks.has(time.start)) blocks.set(time.start, time);
+    }
+    const times = [...blocks.values()].sort((a, b) => minutes(a.start) - minutes(b.start));
+    if (!times.length) continue;
+    // Сегодняшний день, который уже кончился, не показываем — берём следующий.
+    const today = isoDate(date) === isoDate(now);
+    if (today && minutes(times.at(-1).end) <= nowMinutes) continue;
+    return { date, times };
+  }
+  return null;
+}
+
+/**
+ * Сборка: бегущие точки ожидания растворяются, на их место по одной
+ * прилетают точки пар — каждая в своё время дня. Потом полоса заливается
+ * от первой пары до последней, и заставка уходит.
+ */
+function assembleSplash(plan) {
+  const track = els.splashTrack;
+  if (!track) return 0;
+  track.classList.add("splash-track--ready");
+
+  if (!plan) {
+    // Группа ещё не выбрана — показывать нечего, сразу к настройкам.
+    els.splashDay.textContent = activeGroup() ? t("Пар впереди нет 🎉") : "";
+    return activeGroup() ? 500 : 0;
+  }
+
+  const label = FULL_DATE.format(plan.date);
+  els.splashDay.textContent = label[0].toUpperCase() + label.slice(1);
+
+  // Шкала — от первой пары до последней: так точки не жмутся в угол.
+  const from = minutes(plan.times[0].start);
+  const to = minutes(plan.times.at(-1).end);
+  const span = Math.max(1, to - from);
+  const dots = plan.times.slice(0, 8).map((time, i) => {
+    const dot = el("span", "splash-dot splash-dot--pair");
+    const left = ((minutes(time.start) - from) / span) * 100;
+    dot.style.left = `${left}%`;
+    // Прилетают снизу-сбоку, у каждой свой разброс — выглядит живее, чем строем.
+    dot.style.setProperty("--fly-x", `${(i % 2 ? 1 : -1) * (18 + i * 6)}px`);
+    dot.style.setProperty("--fly-y", `${26 + (i % 3) * 10}px`);
+    dot.style.animationDelay = `${120 + i * 90}ms`;
+    return dot;
+  });
+  track.append(...dots);
+
+  const fillAt = 120 + dots.length * 90 + 260;
+  els.splashFill.style.transitionDelay = `${fillAt}ms`;
+  requestAnimationFrame(() => track.classList.add("splash-track--fill"));
+
+  els.splashTimes.replaceChildren(
+    el("span", null, plan.times[0].start),
+    el("span", null, plan.times.at(-1).end)
+  );
+  els.splashTimes.style.transitionDelay = `${fillAt + 200}ms`;
+  requestAnimationFrame(() => els.splashTimes.classList.add("splash-times--on"));
+
+  return fillAt + 650;
+}
+
+/** Уходим, когда готовы и расписание, и шрифты — и сборка доиграла. */
+async function finishSplash() {
+  if (!els.splash) return;
+  const fonts = document.fonts?.ready || Promise.resolve();
+  await Promise.race([fonts, new Promise((r) => setTimeout(r, 1500))]);
+  const played = assembleSplash(splashDayPlan());
+  const waited = performance.now() - splashStarted;
+  const rest = Math.max(played, SPLASH_MIN - waited);
+  setTimeout(dropSplash, Math.min(rest, SPLASH_MAX));
+}
+
+function dropSplash() {
+  const splash = els.splash;
+  if (!splash || splash.classList.contains("splash--gone")) return;
+  splash.classList.add("splash--gone");
+  setTimeout(() => splash.remove(), 450);
+}
+
 /* ---------- Запуск ---------- */
 
 /**
@@ -3976,12 +4141,8 @@ async function init() {
   tg?.expand();
   if (htmlIsStale() && reloadFreshPage()) return;
   translatePage();
-  // Заставка живёт ровно до первого показанного экрана — не дольше.
-  const hideSplash = () => {
-    els.splash?.classList.add("splash--gone");
-    setTimeout(() => els.splash?.remove(), 400);
-  };
-  setTimeout(hideSplash, 2500);
+  // Страховка: что бы ни случилось с загрузкой, заставка не зависнет.
+  setTimeout(dropSplash, SPLASH_MAX + 1500);
 
   // Переводы названий грузим вместе с расписанием; не загрузились —
   // покажем по-русски, но расписание откроется.
@@ -4034,6 +4195,7 @@ async function init() {
   els.main.addEventListener("change", fillMainSubgroups);
   els.lang2.addEventListener("change", fillLang2Subgroups);
   els.save.addEventListener("click", () => {
+    haptic("success");
     const before = prefs.group;
     prefs = collectPrefs();
     if (els.role?.value === "teacher" && els.teacher?.value) {
@@ -4086,6 +4248,7 @@ async function init() {
   els.query.addEventListener("input", runSearch);
   for (const chip of els.searchTabs?.querySelectorAll(".chip") || []) {
     chip.addEventListener("click", () => {
+      if (searchKind !== chip.dataset.kind) haptic("select");
       searchKind = chip.dataset.kind;
       for (const other of els.searchTabs.querySelectorAll(".chip")) {
         other.classList.toggle("chip--on", other === chip);
@@ -4137,7 +4300,6 @@ async function init() {
   loadMfk().then(() => {
     if (!els.schedule.hidden) showSchedule();
   });
-  hideSplash();
   const group = activeGroup();
   if (group?.teacher) {
     loadTeacherNames();
@@ -4148,6 +4310,8 @@ async function init() {
   } else {
     showPicker();
   }
+  // Расписание уже нарисовано под заставкой — теперь она может собраться и уйти.
+  finishSplash();
 }
 
 init();
