@@ -2482,15 +2482,22 @@ let pendingLabel = 0;
  */
 function setDateLabel(text, direction) {
   const label = els.dateLabel;
-  // Уже едем к этой дате (превью при листании) — не начинаем заново.
-  if ((label.dataset.target || label.textContent) === text) return;
+  // Откуда уезжаем — дата, к которой ехали, а не текст целиком: при быстром
+  // листании в шапке ещё стоят обе надписи прошлого перехода, и склеенный
+  // из них текст давал три даты разом.
+  const from = label.dataset.target || label.textContent;
+  if (from === text) return;
   label.dataset.target = text;
+  // Прошлый переход не доиграл — обрываем его, чтобы надписи не копились.
+  for (const child of label.children) {
+    for (const running of child.getAnimations()) running.cancel();
+  }
   const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  if (!direction || reduce || !label.textContent) {
+  if (!direction || reduce || !from) {
     label.textContent = text;
     return;
   }
-  const old = el("span", "date-old", label.textContent);
+  const old = el("span", "date-old", from);
   const fresh = el("span", "date-new", text);
   label.replaceChildren(old, fresh);
   const shift = 22 * direction;
