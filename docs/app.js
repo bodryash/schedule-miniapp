@@ -1946,6 +1946,8 @@ const els = {
   mfkFind: document.getElementById("mfk-find"),
   mfkList: document.getElementById("mfk-list"),
   splash: document.getElementById("splash"),
+  menu: document.getElementById("menu"),
+  menuPop: document.getElementById("menu-pop"),
   splashDay: document.getElementById("splash-day"),
   splashTrack: document.getElementById("splash-track"),
   splashFill: document.getElementById("splash-fill"),
@@ -2732,7 +2734,14 @@ function renderLessons(group, parity) {
   for (let slot = slots[0]; slot <= slots[slots.length - 1]; slot++) {
     if (bySlot.has(slot)) {
       for (const run of runs) {
-        if (run.slots[0] === slot) nodes.push(renderCard(run.entries, bells, run.slots));
+        if (run.slots[0] !== slot) continue;
+        const card = renderCard(run.entries, bells, run.slots);
+        // Перемена — тонкой строкой между соседними парами: видно, где можно
+        // выдохнуть, а где бежать в другой корпус.
+        const prev = [...nodes].reverse().find((node) => node.classList?.contains("card"));
+        const gap = prev && breakBetween(prev, card);
+        if (gap && nodes.at(-1) === prev) nodes.push(gap);
+        nodes.push(card);
       }
     } else {
       // Свободная пара между занятыми — показываем как окно, чтобы её было
@@ -3374,6 +3383,38 @@ function haptic(kind = "select") {
   }
 }
 
+/** Меню «⋯» в шапке: свободные аудитории и настройки. */
+function initMenu() {
+  const pop = els.menuPop;
+  if (!els.menu || !pop) return;
+  const close = () => {
+    if (pop.hidden) return;
+    pop.classList.add("menu-pop--out");
+    setTimeout(() => {
+      pop.hidden = true;
+      pop.classList.remove("menu-pop--out");
+    }, 160);
+  };
+  els.menu.addEventListener("click", (event) => {
+    event.stopPropagation();
+    haptic("light");
+    if (pop.hidden) pop.hidden = false;
+    else close();
+  });
+  pop.addEventListener("click", (event) => {
+    const item = event.target.closest("[data-menu]");
+    if (!item) return;
+    haptic("select");
+    pop.hidden = true;
+    if (item.dataset.menu === "rooms") showFree();
+    if (item.dataset.menu === "settings") showPicker();
+  });
+  // Тап мимо меню закрывает его, как принято на телефонах.
+  document.addEventListener("click", (event) => {
+    if (!pop.hidden && !pop.contains(event.target)) close();
+  });
+}
+
 /** Переход на соседний день с анимацией въезда с нужной стороны. */
 function goToDay(direction) {
   const next = dayIndex() + direction;
@@ -3767,6 +3808,26 @@ function refreshNow() {
   }
 }
 
+/**
+ * Строка перемены между двумя карточками. Нет смысла рисовать её, если
+ * пары идут в одно время (разные предметы параллельно) или время неизвестно.
+ */
+function breakBetween(prev, next) {
+  const end = prev.dataset.end;
+  const start = next.dataset.start;
+  if (!end || !start) return null;
+  const gap = minutes(start) - minutes(end);
+  if (gap <= 0) return null;
+  const long = gap >= LONG_BREAK;
+  const node = el("div", long ? "gap gap--long" : "gap");
+  node.append(
+    el("span", "gap-line"),
+    el("span", "gap-text", t(long ? "обед · {n} мин" : "перемена · {n} мин", { n: gap })),
+    el("span", "gap-line")
+  );
+  return node;
+}
+
 function renderWindow(slot, bell) {
   const node = el("div", "window");
   node.append(el("span", "window-slot", t("{n} пара", { n: slot })));
@@ -3904,9 +3965,14 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
         : t("{n} пара", { n: first.slot })
     )
   );
+  // Время — отдельной колонкой слева, как в таймлайне: начало крупно,
+  // конец под ним. Так день читается сверху вниз по часам.
+  const when = el("div", "card-when");
   if (bell) {
     const end = range && lastBell ? lastBell.end : bell.end;
-    head.append(el("span", null, `${bell.start} – ${end}`));
+    when.append(el("span", "card-start", bell.start), el("span", "card-end", end));
+    card.dataset.start = bell.start;
+    card.dataset.end = end;
   }
   if (first.subject === MFK) head.append(el("span", "tag", t("МФК")));
   else if (first.elective) head.append(el("span", "tag", t(first.elective)));
@@ -3949,7 +4015,7 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
     body.append(button);
   }
 
-  card.append(body);
+  card.append(when, body);
   if (single && first.room) card.append(roomBadge(first.room));
   return card;
 }
@@ -4242,6 +4308,7 @@ async function init() {
     });
   }
   els.change.addEventListener("click", showPicker);
+  initMenu();
   window.addEventListener("resize", () => moveDrop(tab, false));
   els.queueAdd?.addEventListener("click", openQueueSheet);
   els.qSave?.addEventListener("click", createQueue);

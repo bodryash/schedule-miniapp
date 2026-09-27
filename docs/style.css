@@ -2554,3 +2554,160 @@ body {
     filter: none;
   }
 }
+
+/* --- Таймлайн: время слева колонкой --- */
+.card-when {
+  flex: 0 0 46px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-start {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.card-end {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Время теперь слева — в шапке карточки остался только номер пары и метки. */
+.card .time {
+  font-size: 12px;
+}
+
+/* --- Перемены между парами --- */
+.gap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -2px 6px 8px 64px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.gap-line {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.gap-text {
+  flex: none;
+  letter-spacing: 0.02em;
+}
+
+/* Обед — заметнее: это время поесть или дойти до другого корпуса. */
+.gap--long .gap-text {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.gap--long .gap-line {
+  background: var(--accent-soft);
+  height: 2px;
+}
+
+/* --- Меню «⋯» --- */
+.icon--old {
+  display: none !important;
+}
+
+.bar--schedule {
+  position: relative;
+}
+
+.menu-pop {
+  position: absolute;
+  top: 58px;
+  right: 16px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  transform-origin: top right;
+  animation: menu-in 180ms var(--ease-soft);
+}
+
+.menu-pop--out {
+  animation: menu-out 160ms var(--ease-soft) forwards;
+}
+
+.menu-pop button {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 11px;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-pop button:active {
+  background: var(--accent-soft);
+}
+
+@keyframes menu-in {
+  from { opacity: 0; transform: scale(0.92) translateY(-4px); }
+}
+
+@keyframes menu-out {
+  to { opacity: 0; transform: scale(0.95) translateY(-3px); }
+}
+
+#schedule {
+  position: relative;
+}
+
+/* С колонкой времени слева названию досталось меньше места: чуть меньше
+   кегль и переносы по слогам, иначе длинные слова вылезали за край. */
+.card .subject {
+  font-size: 16px;
+  hyphens: auto;
+  overflow-wrap: break-word;
+}
+
+/* Аудитория в таймлайне — маленькой плашкой в правом верхнем углу, как
+   номер у соседей: большая колонка справа отнимала у названия полкарточки. */
+.card > .room-badge {
+  /* Вне потока: плашка стоит в строке с номером пары, где места с запасом,
+     и не отнимает ширину у названия. */
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  align-self: flex-start;
+  flex-direction: row;
+  gap: 0;
+  min-width: 0;
+  padding: 4px 9px;
+  font-size: 14px;
+  border-radius: 10px;
+}
+
+.card > .room-badge .room-badge-label {
+  display: none;
+}
+
+.card > .room-badge--long {
+  font-size: 12px;
+}

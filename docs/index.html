@@ -240,20 +240,30 @@
           <span class="week" id="week-label"></span>
         </div>
         <div class="bar-actions">
-          <button id="find" class="icon" type="button" aria-label="Поиск">
+          <!-- Поиск живёт во вкладке снизу, аудитории и настройки — в меню:
+               шапка остаётся под дату. Старые кнопки прячем, а не удаляем —
+               на них держатся обработчики и старые сохранённые страницы. -->
+          <button id="menu" class="icon" type="button" aria-label="Меню" aria-haspopup="true">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <circle cx="4.5" cy="10" r="1.6" class="icon-fill" />
+              <circle cx="10" cy="10" r="1.6" class="icon-fill" />
+              <circle cx="15.5" cy="10" r="1.6" class="icon-fill" />
+            </svg>
+          </button>
+          <button id="find" class="icon icon--old" type="button" aria-label="Поиск">
             <svg viewBox="0 0 20 20" aria-hidden="true">
               <circle cx="9" cy="9" r="5.5" />
               <line x1="13.2" y1="13.2" x2="17" y2="17" />
             </svg>
           </button>
-          <button id="rooms" class="icon" type="button" aria-label="Свободные аудитории">
+          <button id="rooms" class="icon icon--old" type="button" aria-label="Свободные аудитории">
             <svg viewBox="0 0 20 20" aria-hidden="true">
               <rect x="5" y="3" width="10" height="14" rx="1.5" />
               <circle cx="12" cy="10.5" r="0.9" />
               <line x1="3" y1="17" x2="17" y2="17" />
             </svg>
           </button>
-          <button id="change" class="icon" type="button" aria-label="Настройки">
+          <button id="change" class="icon icon--old" type="button" aria-label="Настройки">
             <svg viewBox="0 0 20 20" aria-hidden="true">
               <line x1="3" y1="6" x2="17" y2="6" />
               <line x1="3" y1="14" x2="17" y2="14" />
@@ -267,6 +277,10 @@
       <div class="freedom" id="freedom" hidden></div>
     </header>
 
+    <div id="menu-pop" class="menu-pop" hidden>
+      <button type="button" data-menu="rooms"><span>🚪</span><span data-i18n>Свободные аудитории</span></button>
+      <button type="button" data-menu="settings"><span>⚙️</span><span data-i18n>Настройки</span></button>
+    </div>
     <div id="remind-ask" class="ask" hidden></div>
     <div id="notices"></div>
     <div class="month" id="month"></div>
