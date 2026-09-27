@@ -3483,45 +3483,69 @@ function initMenu() {
 function slideSwap(container, direction, render, fromShift = 0) {
   const parent = container.parentElement;
   const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  // Прошлый переход ещё не доиграл — снимаем его, иначе два призрака
+  // наложатся и картинка задёргается при быстром листании.
+  for (const old of parent?.querySelectorAll(":scope > .slide-ghost") || []) old.remove();
+  for (const running of container.getAnimations()) running.cancel();
   if (!direction || !parent || reduce) {
     container.classList.add("no-cascade");
     render();
     return;
   }
+
   const width = container.offsetWidth || document.documentElement.clientWidth;
+  const height = container.offsetHeight;
   // Старую страницу не перерисовываем, а переносим как есть в «призрака»
-  // поверх того же места — она доедет, пока новая уже на своём.
+  // поверх того же места.
   const ghost = el("div", "slide-ghost");
   ghost.style.left = `${container.offsetLeft}px`;
   ghost.style.top = `${container.offsetTop}px`;
   ghost.style.width = `${width}px`;
+  ghost.style.transform = `translateX(${fromShift}px)`;
   ghost.append(...container.childNodes);
   parent.append(ghost);
 
+  // Высоту держим, пока идёт переход: иначе короткий день резко поднимет
+  // низ страницы, прокрутка прыгнет — это и читалось как рывок.
+  container.style.minHeight = `${height}px`;
   container.classList.add("no-cascade");
   render();
 
-  // Страницы не едут на всю ширину — это выглядело как карусель. Старая
-  // коротко уходит в сторону движения и тает, новая наплывает следом с той
-  // же стороны. Перекрытие короткое: к моменту, когда проявляется новая,
-  // старая почти растаяла — двух страниц одновременно глаз не видит.
-  const step = Math.min(48, width * 0.12);
-  const out = (fromShift || 0) - direction * step * 0.6;
-  ghost
-    .animate(
-      [
-        { transform: `translateX(${fromShift}px)`, opacity: 1 },
-        { transform: `translateX(${out}px)`, opacity: 0 },
-      ],
-      { duration: 150, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }
-    )
-    .finished.finally(() => ghost.remove());
-  container.animate(
-    [
-      { transform: `translateX(${direction * step}px)`, opacity: 0 },
-      { transform: "translateX(0)", opacity: 1 },
-    ],
-    { duration: 300, delay: 110, easing: "cubic-bezier(0.16, 1, 0.3, 1)", fill: "backwards" }
+  // Новая страница стоит невидимой на старте, пока браузер не отрисовал её.
+  // Анимацию запускаем через кадр: сборка дня тяжёлая, и если стартовать в
+  // тот же кадр, первые кадры движения теряются — отсюда и рваность.
+  const step = Math.min(28, width * 0.07);
+  container.style.opacity = "0";
+  container.style.transform = `translateX(${direction * step}px)`;
+
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      container.style.opacity = "";
+      container.style.transform = "";
+      // «Проявление через»: старая страница быстро гаснет, чуть уходя в
+      // сторону движения, новая плавно наплывает следом. Перекрытие короткое,
+      // поэтому ни двух страниц разом, ни пустого экрана.
+      ghost
+        .animate(
+          [
+            { transform: `translateX(${fromShift}px)`, opacity: 1 },
+            { transform: `translateX(${fromShift - direction * step}px)`, opacity: 0 },
+          ],
+          { duration: 130, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }
+        )
+        .finished.catch(() => {})
+        .finally(() => ghost.remove());
+      container
+        .animate(
+          [
+            { transform: `translateX(${direction * step}px)`, opacity: 0 },
+            { transform: "translateX(0)", opacity: 1 },
+          ],
+          { duration: 280, delay: 70, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)", fill: "backwards" }
+        )
+        .finished.catch(() => {})
+        .finally(() => (container.style.minHeight = ""));
+    })
   );
 }
 

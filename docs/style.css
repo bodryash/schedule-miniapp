@@ -2987,3 +2987,54 @@ body {
 .card--past .card-line-fill {
   height: 100%;
 }
+
+/* ===== «Идёт сейчас» и «осталось» внутри карточки ===== */
+
+/* Строка разбирается по углам: «осталось 40 мин» — вверху справа, где
+   взгляд ищет цифры, а «идёт сейчас» — внизу, на одной линии со временем
+   конца пары и плашкой аудитории. Сама строка больше не занимает места. */
+.card .now {
+  display: contents;
+}
+
+.card .now-dot,
+.card .now-label,
+.card .now-left {
+  position: absolute;
+  z-index: 1;
+  line-height: 22px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.card .now-left {
+  top: 13px;
+  right: 14px;
+  line-height: 20px;
+}
+
+/* Левый край — там, где начинается текст карточки: отступ, колонка
+   времени и зазор между ними. */
+.card .now-dot {
+  left: 76px;
+  bottom: 22px;
+}
+
+.card .now-label {
+  left: 89px;
+  bottom: 14px;
+}
+
+/* Место внизу нужно и карточке без аудитории, если пара идёт. */
+.card--now .card-body {
+  padding-bottom: 26px;
+}
+
+/* Во время перехода браузер держит обе страницы на отдельных слоях —
+   движение не пересчитывает раскладку и не дёргается. */
+.slide-ghost,
+#lessons,
+#week-body {
+  will-change: transform, opacity;
+}
