@@ -2094,6 +2094,14 @@ function activeGroup() {
   return groupById(prefs.group);
 }
 
+/**
+ * Как записать заход преподавателя. Раньше режим преподавателя вообще не
+ * отмечался при открытии, и такого человека нельзя было найти в /who.
+ */
+function teacherVisit(key) {
+  return { id: `преп:${key}`, course: null, level: "преподаватель" };
+}
+
 /** Все преподаватели из расписания: ключ «Фамилия И.О.», по алфавиту. */
 function allTeachers() {
   const keys = new Set();
@@ -4207,6 +4215,7 @@ async function init() {
     // Сменили группу — сообщаем боту, чтобы статистика знала новую группу.
     const group = !prefs.teacher && groupById(prefs.group);
     if (group && group.id !== before) countOpen({ id: group.id, course: group.course, level: group.level });
+    if (prefs.teacher) countOpen(teacherVisit(prefs.teacher));
   });
   // Telegram может отдать из кэша старый index.html без окна комментариев
   // при свежем app.js. Тогда комментариев просто нет, но расписание открывается.
@@ -4304,6 +4313,7 @@ async function init() {
   if (group?.teacher) {
     loadTeacherNames();
     openTab("schedule");
+    countOpen(teacherVisit(group.teacher));
   } else if (group) {
     openTab("schedule");
     countOpen({ id: group.id, course: group.course, level: group.level });

@@ -445,30 +445,58 @@ async function buildStats(env) {
 }
 
 /** Поимённый список заходивших. `/who 311гэу` — только по этой группе. */
+/**
+ * /who — кто заходил. Без слова — все; с группой — эта группа; «преп» —
+ * все в режиме преподавателя; фамилия преподавателя — кто смотрит его
+ * расписание; @username или имя — поиск конкретного человека.
+ */
 async function buildWho(env, filter) {
   if (!env.STATS) return "Статистика не подключена.";
 
   const limit = 60;
-  const query = filter
-    ? env.STATS.prepare(
-        `SELECT name, username, grp, last FROM people
-         WHERE grp = ? ORDER BY last DESC LIMIT ?`
-      ).bind(filter, limit + 1)
-    : env.STATS.prepare(
-        `SELECT name, username, grp, last FROM people
-         ORDER BY last DESC LIMIT ?`
-      ).bind(limit + 1);
+  const word = String(filter || "").trim();
+  const lower = word.toLowerCase();
+  let query;
+  let head;
+  if (!word) {
+    query = env.STATS.prepare(
+      `SELECT name, username, grp, last FROM people ORDER BY last DESC LIMIT ?`
+    ).bind(limit + 1);
+    head = "<b>Кто заходил</b>";
+  } else if (["преп", "препод", "преподаватели", "преподаватель"].includes(lower)) {
+    query = env.STATS.prepare(
+      `SELECT name, username, grp, last FROM people WHERE grp LIKE 'преп:%'
+       ORDER BY last DESC LIMIT ?`
+    ).bind(limit + 1);
+    head = "<b>Заходили в режиме преподавателя</b>";
+  } else if (word.startsWith("@")) {
+    query = env.STATS.prepare(
+      `SELECT name, username, grp, last FROM people WHERE lower(username) = ?
+       ORDER BY last DESC LIMIT ?`
+    ).bind(lower.slice(1), limit + 1);
+    head = `<b>${escape(word)}</b>`;
+  } else {
+    // Группа — точное совпадение; иначе ищем по фамилии преподавателя и по
+    // имени человека: «/who Пфандер» найдёт и того, кто открыл её расписание.
+    query = env.STATS.prepare(
+      `SELECT name, username, grp, last FROM people
+       WHERE grp = ? OR grp LIKE ? OR lower(name) LIKE ?
+       ORDER BY last DESC LIMIT ?`
+    ).bind(word, `преп:${word}%`, `%${lower}%`, limit + 1);
+    head = `<b>Заходили: ${escape(word)}</b>`;
+  }
 
   const { results = [] } = await query.all();
   if (!results.length) {
-    return filter ? `Из ${escape(filter)} никто не заходил.` : "Пока никто не заходил.";
+    return word ? `По «${escape(word)}» никто не заходил.` : "Пока никто не заходил.";
   }
 
-  const head = filter ? `<b>Заходили из ${escape(filter)}</b>` : "<b>Кто заходил</b>";
   const lines = results.slice(0, limit).map((row) => {
     const who = row.username ? `@${row.username}` : escape(row.name || "без имени");
-    const where = filter ? "" : ` · ${escape(row.grp || "—")}`;
-    return `${who}${where} · ${row.last.slice(0, 10)}`;
+    // Режим преподавателя подписываем понятно, а не служебным ключом.
+    const grp = String(row.grp || "—");
+    const where = grp.startsWith("преп:") ? `👩‍🏫 ${grp.slice(5)}` : grp;
+    return `${who} · ${escape(where)} · ${row.last.slice(0, 10)}`;
   });
 
   if (results.length > limit) lines.push(`… показаны последние ${limit}`);
