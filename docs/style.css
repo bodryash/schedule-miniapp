@@ -2774,33 +2774,6 @@ body {
   display: none;
 }
 
-/* Аудитория — в нижней строке рядом с преподавателем, не поверх. */
-.card-foot {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  margin-top: 4px;
-}
-
-.card-foot .meta {
-  flex: 1;
-  min-width: 0;
-}
-
-.card-foot--end {
-  justify-content: flex-end;
-  margin-top: 10px;
-}
-
-.card-foot .room-badge {
-  align-self: flex-end;
-}
-
-/* Возвращаем плашке аудитории её вид: отдельная колонка сверху отменена. */
-.card > .room-badge {
-  position: static;
-}
-
 /* Названия переносятся по слогам и только между слогами — не посреди
    буквосочетаний и не поверх соседних строк. */
 .card .subject {
@@ -2846,4 +2819,134 @@ body {
 
 #week-body {
   touch-action: pan-y;
+}
+
+/* ===== Порядок внутри карточки ===== */
+
+/* Сетка карточки: колонка времени, содержимое, аудитория в углу. Отступы
+   одни и те же везде — раньше каждый блок добавлял свои, и карточка
+   выглядела собранной из разных кусков. */
+.card {
+  gap: 14px;
+  padding: 14px 14px 14px 14px;
+}
+
+.card .card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Номер пары и метки — одна тихая строка. */
+.card .time {
+  gap: 6px;
+  min-height: 20px;
+  margin: 0;
+}
+
+.card .slot {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 7px;
+}
+
+.card .tag {
+  font-size: 11px;
+}
+
+.card .subject {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.22;
+}
+
+.card .meta {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+/* «10 подгрупп — показать» — аккуратной пилюлей, а не голой ссылкой. */
+.card .subgroups {
+  margin-top: 2px;
+}
+
+.card .subgroups > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+}
+
+.card .subgroups > summary::-webkit-details-marker {
+  display: none;
+}
+
+.card .subgroups[open] > summary {
+  margin-bottom: 6px;
+}
+
+.card .subgroups .meta {
+  padding: 5px 0;
+  border-top: 1px solid var(--line);
+}
+
+/* Склеенные пары внутри карточки — ровный список. */
+.card .segments {
+  margin-top: 6px;
+}
+
+/* Строка «идёт сейчас» — у левого края, тем же ритмом. */
+.card .now {
+  margin-top: 4px;
+}
+
+/* ===== Аудитория: маленькая плашка в углу ===== */
+
+/* Место под плашку оставляем снизу, а не сбоку: название и преподаватель
+   занимают всю ширину, а плашка стоит на одной линии со временем конца. */
+.card--room .card-body {
+  padding-bottom: 26px;
+}
+
+.card > .room-badge {
+  position: absolute;
+  top: auto;
+  right: 14px;
+  bottom: 14px;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  border-radius: 9px;
+}
+
+.card > .room-badge .room-badge-label {
+  display: inline;
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.8;
+  text-transform: lowercase;
+}
+
+.card > .room-badge--long {
+  font-size: 12px;
+}
+
+/* Время конца пары и плашка стоят на одной линии — одинаковая высота. */
+.card-end {
+  line-height: 22px;
 }

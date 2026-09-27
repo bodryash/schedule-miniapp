@@ -3501,16 +3501,27 @@ function slideSwap(container, direction, render, fromShift = 0) {
   container.classList.add("no-cascade");
   render();
 
-  const timing = { duration: 360, easing: "cubic-bezier(0.22, 0.8, 0.28, 1)" };
+  // Страницы не едут на всю ширину — это выглядело как карусель. Старая
+  // коротко уходит в сторону движения и тает, новая наплывает следом с той
+  // же стороны. Перекрытие короткое: к моменту, когда проявляется новая,
+  // старая почти растаяла — двух страниц одновременно глаз не видит.
+  const step = Math.min(48, width * 0.12);
+  const out = (fromShift || 0) - direction * step * 0.6;
   ghost
     .animate(
-      [{ transform: `translateX(${fromShift}px)` }, { transform: `translateX(${-direction * width}px)` }],
-      { ...timing, fill: "forwards" }
+      [
+        { transform: `translateX(${fromShift}px)`, opacity: 1 },
+        { transform: `translateX(${out}px)`, opacity: 0 },
+      ],
+      { duration: 150, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }
     )
     .finished.finally(() => ghost.remove());
   container.animate(
-    [{ transform: `translateX(${direction * width + fromShift}px)` }, { transform: "translateX(0)" }],
-    timing
+    [
+      { transform: `translateX(${direction * step}px)`, opacity: 0 },
+      { transform: "translateX(0)", opacity: 1 },
+    ],
+    { duration: 300, delay: 110, easing: "cubic-bezier(0.16, 1, 0.3, 1)", fill: "backwards" }
   );
 }
 
@@ -4104,10 +4115,7 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
   body.append(head, el("div", "subject", withFlag(first.subject)));
 
   if (single) {
-    const foot = el("div", "card-foot");
-    foot.append(metaLine(first, "", false));
-    if (first.room && !range) foot.append(roomBadge(first.room));
-    body.append(foot);
+    body.append(metaLine(first, "", false));
   } else {
     const details = el("details", "subgroups");
     details.append(el("summary", null, subgroupsLabel(entries.length)));
@@ -4139,13 +4147,13 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
     body.append(button);
   }
 
-  // У склеенной карточки аудитория — в самом низу, под перечнем пар.
-  if (single && first.room && range) {
-    const foot = el("div", "card-foot card-foot--end");
-    foot.append(roomBadge(first.room));
-    body.append(foot);
-  }
   card.append(when, body);
+  // Аудитория — маленькой плашкой в правом нижнем углу, на одной линии со
+  // временем конца пары: низ карточки читается как «до скольких и где».
+  if (single && first.room) {
+    card.classList.add("card--room");
+    card.append(roomBadge(first.room));
+  }
   return card;
 }
 
