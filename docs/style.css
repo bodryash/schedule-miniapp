@@ -3038,3 +3038,28 @@ body {
 #week-body {
   will-change: transform, opacity;
 }
+
+/* ===== Постраничное листание ===== */
+
+/* Соседний день — отдельная страница сбоку, на той же высоте. */
+.day-page {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.day-page > * {
+  animation: none !important;
+  opacity: 1 !important;
+}
+
+/* Дата в шапке: старая и новая стоят в одной клетке, пока меняются. */
+.date {
+  display: grid;
+}
+
+.date-old,
+.date-new {
+  grid-area: 1 / 1;
+}

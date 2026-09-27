@@ -545,6 +545,7 @@ function showConfetti() {
  * вместе с подсветкой идущей пары.
  */
 function refreshFreedom() {
+  if (peeking) return;
   if (!els.freedom || !data) return;
   const now = new Date();
   const line = freedomLine(now);
@@ -2473,6 +2474,48 @@ function lessonsForDay(group, day, week) {
 
 /* ---------- Экран расписания ---------- */
 
+// Куда перелистнули: дата в шапке уезжает в ту же сторону, что и страница.
+let pendingLabel = 0;
+
+/**
+ * Дата меняется как на табло: старая уезжает в сторону листания и гаснет,
+ * новая выезжает следом. Поверх друг друга они не стоят ни кадра.
+ */
+function setDateLabel(text, direction) {
+  const label = els.dateLabel;
+  // Уже едем к этой дате (превью при листании) — не начинаем заново.
+  if ((label.dataset.target || label.textContent) === text) return;
+  label.dataset.target = text;
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  if (!direction || reduce || !label.textContent) {
+    label.textContent = text;
+    return;
+  }
+  const old = el("span", "date-old", label.textContent);
+  const fresh = el("span", "date-new", text);
+  label.replaceChildren(old, fresh);
+  const shift = 22 * direction;
+  old.animate(
+    [
+      { transform: "translateX(0)", opacity: 1, filter: "blur(0)" },
+      { transform: `translateX(${-shift}px)`, opacity: 0, filter: "blur(2px)" },
+    ],
+    { duration: 180, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }
+  );
+  fresh
+    .animate(
+      [
+        { transform: `translateX(${shift}px)`, opacity: 0, filter: "blur(2px)" },
+        { transform: "translateX(0)", opacity: 1, filter: "blur(0)" },
+      ],
+      { duration: 320, delay: 90, easing: "cubic-bezier(0.18, 0.89, 0.32, 1)", fill: "backwards" }
+    )
+    .finished.catch(() => {})
+    .finally(() => {
+      if (label.contains(fresh)) label.textContent = text;
+    });
+}
+
 function showSchedule() {
   const group = activeGroup();
   if (!group) return showPicker();
@@ -2482,7 +2525,8 @@ function showSchedule() {
   els.currentGroup.textContent = group.teacher ? group.title : t("Группа {g}", { g: group.title });
 
   const label = FULL_DATE.format(dateOfDay(selectedDay));
-  els.dateLabel.textContent = label[0].toUpperCase() + label.slice(1);
+  setDateLabel(label[0].toUpperCase() + label.slice(1), pendingLabel);
+  pendingLabel = 0;
   const parity = weekParity(data.weeks);
   // Голубой интерфейс — нечётная неделя, оранжевый — чётная.
   document.body.dataset.parity = parity || "none";
@@ -2591,15 +2635,7 @@ function renderDays() {
       const dots = el("span", "day-dots");
       for (let i = 0; i < Math.min(count, 4); i++) dots.append(el("i"));
       btn.append(dots);
-      btn.addEventListener("click", () => {
-        const target = week * DAYS.length + day - 1;
-        const direction = Math.sign(target - dayIndex());
-        if (!direction) return;
-        haptic("select");
-        selectedDay = day;
-        selectedWeek = week;
-        slideSwap(els.lessons, direction, () => showSchedule());
-      });
+      btn.addEventListener("click", () => flipTo(week * DAYS.length + day - 1));
       nodes.push(btn);
     }
   }
@@ -3549,14 +3585,160 @@ function slideSwap(container, direction, render, fromShift = 0) {
   );
 }
 
-/** Переход на соседний день — страница сдвигается в сторону движения. */
-function goToDay(direction, fromShift = 0) {
-  const next = dayIndex() + direction;
-  if (next < 0 || next >= DAY_COUNT) return false;
-  setDayIndex(next);
+/* ---------- Постраничное листание дней ---------- */
+
+// Соседний день рисуется заранее на отдельной странице справа или слева от
+// текущей. При свайпе обе страницы едут за пальцем — как в галерее фото:
+// видно, куда листаешь, и нет момента, когда одно исчезает, а другое
+// появляется. После отпускания страница докатывается с учётом скорости.
+const PAGE_GAP = 20;
+let peek = null; // { panel, index }
+let peeking = false; // рисуем соседний день — шапку и прокрутку не трогаем
+let paging = false; // идёт докатка — новый свайп подождёт
+
+/** День index — в отдельную страницу, теми же функциями, что и текущий. */
+function renderDayInto(panel, index) {
+  const group = activeGroup();
+  if (!group) return;
+  const saved = { day: selectedDay, week: selectedWeek, lessons: els.lessons, visible };
+  peeking = true;
+  try {
+    setDayIndex(index);
+    els.lessons = panel;
+    renderLessons(group, weekParity(data.weeks));
+  } finally {
+    selectedDay = saved.day;
+    selectedWeek = saved.week;
+    els.lessons = saved.lessons;
+    visible = saved.visible;
+    peeking = false;
+  }
+}
+
+function pageWidth() {
+  return els.lessons.offsetWidth || document.documentElement.clientWidth;
+}
+
+/** Страница соседнего дня, стоящая сбоку от текущей. */
+function ensurePeek(index) {
+  if (peek?.index === index) return peek.panel;
+  dropPeek();
+  const panel = el("div", "day-page");
+  panel.id = "";
+  panel.style.left = `${els.lessons.offsetLeft}px`;
+  panel.style.top = `${els.lessons.offsetTop}px`;
+  panel.style.width = `${pageWidth()}px`;
+  els.lessons.parentElement.append(panel);
+  renderDayInto(panel, index);
+  peek = { panel, index };
+  return panel;
+}
+
+function dropPeek() {
+  peek?.panel.remove();
+  peek = null;
+}
+
+/** Ставит обе страницы по смещению пальца. */
+function placePages(shift, direction) {
+  els.lessons.style.transform = `translate3d(${shift}px, 0, 0)`;
+  if (peek) {
+    const offset = shift + direction * (pageWidth() + PAGE_GAP);
+    peek.panel.style.transform = `translate3d(${offset}px, 0, 0)`;
+  }
+}
+
+/**
+ * Докатка: от текущего смещения до конца (перелистнуть) или назад.
+ * Длительность зависит от оставшегося пути и скорости пальца: быстрый
+ * флик докатывается быстро, медленное дотягивание — спокойно.
+ */
+function settlePages(from, to, direction, velocity, done) {
+  const distance = Math.abs(to - from);
+  const speed = Math.max(velocity, 0.6); // px/мс
+  const duration = Math.min(420, Math.max(200, distance / speed + 120));
+  const easing = "cubic-bezier(0.18, 0.89, 0.32, 1)";
+  const width = pageWidth() + PAGE_GAP;
+  const frames = (x) => [
+    { transform: `translate3d(${x}px, 0, 0)` },
+  ];
+  const current = els.lessons.animate(
+    [...frames(from), ...frames(to)],
+    { duration, easing, fill: "forwards" }
+  );
+  if (peek) {
+    peek.panel.animate(
+      [...frames(from + direction * width), ...frames(to + direction * width)],
+      { duration, easing, fill: "forwards" }
+    );
+  }
+  paging = true;
+  current.finished
+    .catch(() => {})
+    .finally(() => {
+      paging = false;
+      done();
+    });
+}
+
+/**
+ * Дата в шапке и капля в полосе дней начинают движение в момент решения,
+ * вместе со страницей, а не после того как она встала.
+ */
+function previewDay(index, direction) {
+  const week = Math.floor(index / DAYS.length);
+  const day = (index % DAYS.length) + 1;
+  const label = FULL_DATE.format(dateOfDay(day, week));
+  setDateLabel(label[0].toUpperCase() + label.slice(1), direction);
+  const buttons = [...els.days.querySelectorAll(".day")];
+  const target = buttons[index];
+  if (target) {
+    for (const button of buttons) button.classList.toggle("active", button === target);
+    placeDayDrop();
+  }
+}
+
+/** Перелистнули: соседняя страница становится текущей — без вспышки. */
+function commitPage(index, direction) {
+  setDayIndex(index);
+  // Текущая страница перерисовывается в тот же кадр, когда исчезает
+  // соседняя: содержимое у них одинаковое, и подмена не видна.
+  for (const running of els.lessons.getAnimations()) running.cancel();
+  els.lessons.style.transform = "";
+  els.lessons.classList.add("no-cascade");
+  showSchedule();
+  dropPeek();
+}
+
+function resetPages() {
+  for (const running of els.lessons.getAnimations()) running.cancel();
+  els.lessons.style.transform = "";
+  dropPeek();
+}
+
+/** Переход на день index — нажатием по полосе дат или по краю экрана. */
+function flipTo(index) {
+  const direction = Math.sign(index - dayIndex());
+  if (!direction || index < 0 || index >= DAY_COUNT || paging) return false;
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   haptic("select");
-  slideSwap(els.lessons, direction, () => showSchedule(), fromShift);
+  if (reduce) {
+    setDayIndex(index);
+    els.lessons.classList.add("no-cascade");
+    showSchedule();
+    return true;
+  }
+  ensurePeek(index);
+  placePages(0, direction);
+  previewDay(index, direction);
+  const width = pageWidth() + PAGE_GAP;
+  settlePages(0, -direction * width, direction, 0, () => commitPage(index, direction));
   return true;
+}
+
+/** Переход на соседний день. */
+function goToDay(direction) {
+  return flipTo(dayIndex() + direction);
 }
 
 function initSwipe() {
@@ -3578,6 +3760,9 @@ function initSwipe() {
     strip.style.transform = "";
     strip.style.opacity = "";
   };
+  let lastX = 0;
+  let lastAt = 0;
+  let speed = 0;
 
   document.addEventListener("pointerdown", (event) => {
     if (els.schedule.hidden) return;
@@ -3585,7 +3770,7 @@ function initSwipe() {
     // Полоса дней листается сама по себе, кнопки должны нажиматься.
     // Окно домашки лежит поверх расписания: печать в нём не должна листать дни.
     if (event.target.closest?.(".days, button, .sheet")) return;
-    if (sheetOpen()) return;
+    if (sheetOpen() || paging) return;
     pointer = event.pointerId;
     startX = event.clientX;
     startY = event.clientY;
@@ -3595,6 +3780,9 @@ function initSwipe() {
     dragging = false;
     decided = false;
     strip.style.transition = "none";
+    lastX = event.clientX;
+    lastAt = startedAt;
+    speed = 0;
   });
 
   document.addEventListener("pointermove", (event) => {
@@ -3618,7 +3806,17 @@ function initSwipe() {
       (dx > 0 && index === 0) || (dx < 0 && index === DAY_COUNT - 1);
     shift = atEdge ? dx * 0.25 : dx;
 
-    strip.style.transform = `translateX(${shift.toFixed(1)}px)`;
+    // Скорость — по последним движениям, а не от начала жеста.
+    const at = performance.now();
+    if (at > lastAt) speed = 0.8 * ((event.clientX - lastX) / (at - lastAt)) + 0.2 * speed;
+    lastX = event.clientX;
+    lastAt = at;
+
+    // Соседний день появляется сбоку, как только понятно, куда тянут.
+    const direction = shift < 0 ? 1 : -1;
+    if (!atEdge) ensurePeek(index + direction);
+    else dropPeek();
+    placePages(shift, direction);
   });
 
   const finish = (event) => {
@@ -3643,23 +3841,23 @@ function initSwipe() {
     }
     dragging = false;
 
-    const velocity = Math.abs(shift) / Math.max(1, performance.now() - startedAt);
+    const velocity = Math.abs(speed);
     const far = Math.abs(shift) > strip.clientWidth * SWIPE_DISTANCE;
     const direction = shift < 0 ? 1 : -1;
+    // Флик в обратную сторону в конце жеста отменяет перелистывание.
+    const flick = velocity > SWIPE_VELOCITY && Math.sign(-speed) === direction;
 
     const next = dayIndex() + direction;
-    if ((far || velocity > SWIPE_VELOCITY) && next >= 0 && next < DAY_COUNT) {
-      // Страница доезжает с того места, где её отпустил палец.
-      const from = shift;
-      release();
-      goToDay(direction, from);
+    const width = pageWidth() + PAGE_GAP;
+    if ((far || flick) && next >= 0 && next < DAY_COUNT && peek?.index === next) {
+      haptic("select");
+      previewDay(next, direction);
+      settlePages(shift, -direction * width, direction, velocity, () => commitPage(next, direction));
       return;
     }
 
-    // Не дотянули — возвращаем на место.
-    strip.style.transition = "transform 260ms cubic-bezier(0.22, 0.8, 0.28, 1)";
-    strip.style.transform = "translateX(0)";
-    strip.addEventListener("transitionend", release, { once: true });
+    // Не дотянули — обе страницы возвращаются на место.
+    settlePages(shift, 0, direction, velocity, resetPages);
   };
 
   document.addEventListener("pointerup", finish);
@@ -3669,6 +3867,7 @@ function initSwipe() {
 /** При открытии подводим к идущей паре, если она не попала на экран. */
 let scrolledToNow = false;
 function scrollToNow() {
+  if (peeking) return;
   if (scrolledToNow) return;
   const card = els.lessons.querySelector(".card--now");
   if (!card) return;
@@ -3810,6 +4009,7 @@ function nextLesson() {
 
 /** Строка «дальше» под днями: что и через сколько. */
 function refreshNext() {
+  if (peeking) return;
   const today = isoDate(dateOfDay(selectedDay)) === isoDate(new Date());
   if (!today || !visible.length) {
     els.next.hidden = true;
