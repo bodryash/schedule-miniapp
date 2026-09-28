@@ -185,6 +185,8 @@ async function loadNotices(group) {
     }
     applyCancels();
     applyHomework();
+    // Точки под датами — без отменённых пар, как и заставка.
+    if (!els.schedule.hidden && notices.cancels.length) renderDays();
     // Отмены приехали — план для напоминаний надо пересобрать с ними.
     sendReminderSettings();
   } catch {
@@ -3052,6 +3054,10 @@ function lessonsForDay(group, day, week) {
 // Куда перелистнули: дата в шапке уезжает в ту же сторону, что и страница.
 let pendingLabel = 0;
 
+// Когда пришли отмены и замены — заставка ждёт их, чтобы не считать
+// отменённую пару.
+let noticesReady = Promise.resolve();
+
 /**
  * Дата меняется как на табло: старая уезжает в сторону листания и гаснет,
  * новая выезжает следом. Поверх друг друга они не стоят ни кадра.
@@ -3141,7 +3147,7 @@ function showSchedule() {
   renderDays();
   renderRemindAsk();
   renderLessons(group, parity);
-  loadNotices(group);
+  noticesReady = loadNotices(group);
   ensureHomeworkWeek(selectedWeek);
 }
 
@@ -3246,11 +3252,12 @@ function renderDays() {
       const btn = el("button", active ? "day active" : "day");
       if (isoDate(date) === todayIso) btn.classList.add("day--today");
       btn.append(el("span", "day-name", DAYS[day - 1]), el("span", "day-num", String(date.getDate())));
-      // Точки под числом — сколько пар в этот день. Больше четырёх не рисуем:
-      // пять кружков в ряд уже не считываются, а только рябят.
+      // Точки под числом — ровно столько, сколько пар в этот день, как на
+      // заставке. Раньше больше четырёх не рисовали, и в пятипарный день
+      // точки под датой и на заставке расходились.
       const count = dayLoad(day, week);
       const dots = el("span", "day-dots");
-      for (let i = 0; i < Math.min(count, 4); i++) dots.append(el("i"));
+      for (let i = 0; i < Math.min(count, 7); i++) dots.append(el("i"));
       btn.append(dots);
       btn.addEventListener("click", () => {
         const direction = Math.sign(week * DAYS.length + day - 1 - dayIndex());
@@ -5095,7 +5102,13 @@ function showSplashTimes(plan, delay) {
 async function finishSplash() {
   if (!els.splash) return;
   const fonts = document.fonts?.ready || Promise.resolve();
-  await Promise.race([fonts, new Promise((r) => setTimeout(r, 1500))]);
+  // Ждём и отмены с заменами: они приходят от бота чуть позже расписания,
+  // и без них заставка ставила точку на уже отменённую пару — в расписании
+  // она зачёркнута, а точка есть. Долго не ждём: сеть бывает медленной.
+  await Promise.race([
+    Promise.all([fonts, noticesReady]),
+    new Promise((r) => setTimeout(r, 1800)),
+  ]);
   const played = assembleSplash(splashDayPlan());
   const waited = performance.now() - splashStarted;
   const rest = Math.max(played, SPLASH_MIN - waited);
