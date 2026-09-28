@@ -3056,6 +3056,24 @@ let pendingLabel = 0;
  * Дата меняется как на табло: старая уезжает в сторону листания и гаснет,
  * новая выезжает следом. Поверх друг друга они не стоят ни кадра.
  */
+/**
+ * Дата всегда в одну строку: «Среда, 30 сентября» помещалась, а
+ * «Понедельник, 28 сентября» переносилась — шапка меняла высоту, и при
+ * листании прыгал весь экран. Длинную дату чуть уменьшаем, чтобы влезла.
+ */
+function fitDateLabel(text) {
+  const label = els.dateLabel;
+  label.style.fontSize = "";
+  const probe = el("span", "date-probe", text);
+  label.append(probe);
+  const room = label.clientWidth;
+  const need = probe.scrollWidth;
+  probe.remove();
+  if (!room || need <= room) return;
+  const base = parseFloat(getComputedStyle(label).fontSize);
+  label.style.fontSize = `${Math.max(17, Math.floor((base * room) / need))}px`;
+}
+
 function setDateLabel(text, direction) {
   const label = els.dateLabel;
   // Откуда уезжаем — дата, к которой ехали, а не текст целиком: при быстром
@@ -3064,6 +3082,7 @@ function setDateLabel(text, direction) {
   const from = label.dataset.target || label.textContent;
   if (from === text) return;
   label.dataset.target = text;
+  fitDateLabel(text);
   // Прошлый переход не доиграл — обрываем его, чтобы надписи не копились.
   for (const child of label.children) {
     for (const running of child.getAnimations()) running.cancel();
@@ -4974,26 +4993,16 @@ function dayBlocks(group, day, week) {
   return [...byStart.values()].sort((a, b) => minutes(a.start) - minutes(b.start));
 }
 
+/**
+ * Заставка собирает ровно тот день, на котором откроется расписание. Раньше
+ * вечером она показывала завтрашний, а под ней открывался сегодняшний — и
+ * точек было не столько, сколько пар на экране.
+ */
 function splashDayPlan() {
   const group = activeGroup();
   if (!group || !data) return null;
-  const bells = new Map(data.bells.map((b) => [b.n, b]));
-  const now = new Date();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  for (let shift = 0; shift < DAY_COUNT; shift++) {
-    const index = dayIndex() + shift;
-    if (index >= DAY_COUNT) break;
-    const week = Math.floor(index / DAYS.length);
-    const day = (index % DAYS.length) + 1;
-    const date = dateOfDay(day, week);
-    const times = dayBlocks(group, day, week);
-    if (!times.length) continue;
-    // Сегодняшний день, который уже кончился, не показываем — берём следующий.
-    const today = isoDate(date) === isoDate(now);
-    if (today && minutes(times.at(-1).end) <= nowMinutes) continue;
-    return { date, times };
-  }
-  return null;
+  const times = dayBlocks(group, selectedDay, selectedWeek);
+  return times.length ? { date: dateOfDay(selectedDay), times } : null;
 }
 
 /**
@@ -5008,7 +5017,7 @@ function assembleSplash(plan) {
 
   if (!plan) {
     // Группа ещё не выбрана — показывать нечего, сразу к настройкам.
-    els.splashDay.textContent = activeGroup() ? t("Пар впереди нет 🎉") : "";
+    els.splashDay.textContent = activeGroup() ? t("Пар нет 🎉") : "";
     return activeGroup() ? 500 : 0;
   }
 
@@ -5037,8 +5046,9 @@ function assembleSplash(plan) {
   const fillAt = 120 + dots.length * 110 + 280;
   els.splashFill.style.transitionDelay = `${fillAt}ms`;
   if (els.splashComet) els.splashComet.style.transitionDelay = `${fillAt}ms`;
+  // Вибраций ровно столько, сколько точек: лишний толчок в конце сборки
+  // путал — казалось, что пар больше.
   requestAnimationFrame(() => track.classList.add("splash-track--fill"));
-  setTimeout(() => haptic("medium"), fillAt + 620);
 
   els.splashTimes.replaceChildren(
     el("span", null, plan.times[0].start),
@@ -5199,7 +5209,12 @@ async function init() {
   loadAbsences().then(() => applyAbsenceButtons());
   loadMine().then(() => applyMine());
   initWeekSwipe();
-  window.addEventListener("resize", () => moveDrop(tab, false));
+  window.addEventListener("resize", () => {
+    moveDrop(tab, false);
+    // Поворот экрана меняет ширину — размер даты подбираем заново.
+    const text = els.dateLabel?.dataset.target || els.dateLabel?.textContent;
+    if (text) fitDateLabel(text);
+  });
   els.queueAdd?.addEventListener("click", openQueueSheet);
   els.qSave?.addEventListener("click", createQueue);
   els.qCancel?.addEventListener("click", () => (els.qSheet.hidden = true));

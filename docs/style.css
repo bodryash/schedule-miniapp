@@ -3638,18 +3638,25 @@ body {
   right: 40px;
 }
 
-/* Золотая рамка избранного — сверху, справа и снизу. Левый край занят
-   полосой карточки («сейчас», «по выбору», «важно»), и золото поверх неё
-   косило. Рамка — отдельным слоем поверх карточки, по её скруглению. */
-.card--mine::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  border: 2px solid rgba(245, 159, 0, 0.65);
-  border-left: 0;
-  border-radius: inherit;
-  pointer-events: none;
+/* Рамка избранного — это граница самой карточки. Отдельный слой поверх
+   обрезался по внутреннему краю, и слева рамка съезжала; а у текущей пары
+   стык синей полосы и золотого слоя выходил грязным. Одна граница с
+   разным цветом сторон стыкуется в углах аккуратно: слева — цвет полосы
+   карточки (сейчас, по выбору, МФК, важно), у обычной — тоже золото.
+   Отступы уменьшены на ширину рамки — содержимое не сдвигается. */
+.card--mine {
+  border-style: solid;
+  border-width: 2px 2px 2px 3px;
+  border-color: rgba(245, 159, 0, 0.7);
+  border-left-color: var(--mark, rgba(245, 159, 0, 0.7));
+  padding-top: 12px;
+  padding-right: 12px;
+  padding-bottom: 12px;
+}
+
+/* У «важно» своя красная полоса была тенью — внутри рамки она лишняя. */
+.card--mine.card--important {
+  box-shadow: none !important;
 }
 
 .week-row--mine .week-subject::after {
@@ -3700,4 +3707,26 @@ body {
     opacity: 0;
     transform: translateY(12px) scale(0.98);
   }
+}
+
+/* Дата в шапке — всегда одной строкой: высота шапки не меняется от дня
+   к дню, и экран при листании не прыгает. Размер подгоняет fitDateLabel. */
+.bar--schedule .date {
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.date-probe {
+  position: absolute;
+  visibility: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Высота строки даты — постоянная: уменьшенный шрифт длинной даты стоит
+   по центру той же строки, а не делает шапку ниже. */
+.bar--schedule .date {
+  height: 32px;
+  line-height: 32px;
+  align-items: center;
 }
