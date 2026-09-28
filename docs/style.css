@@ -3638,9 +3638,17 @@ body {
   right: 40px;
 }
 
+/* Обводка по самому краю карточки, а не тенью внутри: слева у карточки
+   своя полоса (выбор, «сейчас», «важно»), и тень начиналась после неё —
+   рамка съезжала внутрь. Обводка идёт по скруглению и полосу не трогает. */
+.card {
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  transition: outline-color 300ms ease;
+}
+
 .card--mine {
-  box-shadow: inset 0 0 0 2px rgba(245, 159, 0, 0.55);
-  transition: box-shadow 300ms ease;
+  outline-color: rgba(245, 159, 0, 0.6);
 }
 
 .week-row--mine .week-subject::after {
