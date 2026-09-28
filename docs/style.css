@@ -3295,3 +3295,320 @@ body {
 .sheet--abs .abs-row--warn { --abs-state: #f59f00; }
 .sheet--abs .abs-row--stop,
 .sheet--abs .abs-row--over { --abs-state: #e03131; }
+
+/* ===== Пропуски: оформление целиком ===== */
+
+/* Цвет состояния — настоящее свойство, чтобы он плавно перетекал из
+   зелёного в жёлтый и красный, а не переключался. */
+@property --abs-state {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
+@property --abs-tint {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
+.sheet--abs {
+  padding-top: 20px;
+}
+
+.sheet--abs h2 {
+  margin: 0;
+  font-family: "Unbounded", system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.sheet--abs .sheet-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.sheet--abs #abs-note {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* Предупреждение о приватности — спокойное, но заметное. */
+.abs-private {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 9%, var(--card));
+  animation: abs-in 380ms cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
+}
+
+.abs-private-icon {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.abs-private-text {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+/* Приветствие до первого запуска. */
+.abs-intro {
+  animation: abs-in 420ms cubic-bezier(0.2, 0.9, 0.25, 1) 60ms backwards;
+}
+
+.abs-intro-title {
+  margin-bottom: 8px;
+  font-family: "Unbounded", system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.abs-intro p {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.abs-intro .abs-intro-hint {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.abs-start {
+  margin-top: 6px;
+}
+
+/* Строка предмета. */
+.sheet--abs .abs-row {
+  --abs-state: transparent;
+  --abs-tint: transparent;
+  margin-bottom: 10px;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 16px;
+  background:
+    linear-gradient(90deg, var(--abs-tint), transparent 60%),
+    color-mix(in srgb, var(--muted) 8%, var(--card));
+  box-shadow: inset 4px 0 0 var(--abs-state);
+  transition: --abs-state 450ms ease, --abs-tint 450ms ease;
+  animation: abs-in 420ms cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
+  animation-delay: min(calc(var(--i, 0) * 45ms + 80ms), 400ms);
+}
+
+.sheet--abs .abs-row--ok {
+  --abs-state: #2f9e44;
+  --abs-tint: rgba(47, 158, 68, 0.1);
+}
+
+.sheet--abs .abs-row--warn {
+  --abs-state: #f59f00;
+  --abs-tint: rgba(245, 159, 0, 0.13);
+}
+
+.sheet--abs .abs-row--stop,
+.sheet--abs .abs-row--over {
+  --abs-state: #e03131;
+  --abs-tint: rgba(224, 49, 49, 0.12);
+}
+
+@keyframes abs-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+}
+
+.abs-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.abs-name {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.abs-count {
+  flex: none;
+  min-width: 26px;
+  font-family: "Unbounded", system-ui, sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  transition: color 400ms ease;
+}
+
+.abs-row--ok .abs-count { color: #2f9e44; }
+.abs-row--warn .abs-count { color: #e67700; }
+.abs-row--stop .abs-count,
+.abs-row--over .abs-count { color: #e03131; }
+
+.abs-status {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--muted);
+  transition: color 400ms ease;
+}
+
+.abs-row--stop .abs-status,
+.abs-row--over .abs-status {
+  color: #e03131;
+  font-weight: 600;
+}
+
+.abs-limit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.abs-limit-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.abs-step {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--card);
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 120ms ease, background-color 160ms ease;
+}
+
+.abs-step:active {
+  transform: scale(0.88);
+  background: var(--accent-soft);
+}
+
+.abs-limit-value {
+  min-width: 24px;
+  font-family: "Unbounded", system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.abs-dates-toggle {
+  transition: transform 120ms ease, background-color 160ms ease;
+}
+
+.abs-dates-toggle:active {
+  transform: scale(0.95);
+}
+
+/* Даты раскрываются по высоте плавно: сетка из нуля строк в одну. */
+.abs-fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 320ms cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+.abs-row--open .abs-fold {
+  grid-template-rows: 1fr;
+}
+
+.abs-fold > .abs-dates {
+  min-height: 0;
+  overflow: hidden;
+  margin-top: 0;
+  padding-top: 0;
+  opacity: 0;
+  transition: opacity 240ms ease, padding-top 320ms ease;
+}
+
+.abs-row--open .abs-fold > .abs-dates {
+  padding-top: 12px;
+  opacity: 1;
+}
+
+.abs-date {
+  transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease, transform 120ms ease;
+}
+
+.abs-date:active {
+  transform: scale(0.92);
+}
+
+.abs-toggle {
+  transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease, transform 120ms ease;
+}
+
+.abs-toggle:active {
+  transform: scale(0.94);
+}
+
+.abs-stop {
+  margin-top: 8px;
+}
+
+/* Закрытие окна: затемнение тает, окно уезжает вниз. */
+.sheet-backdrop--out {
+  animation: backdrop-out 260ms ease forwards;
+}
+
+.sheet-backdrop--out .sheet {
+  animation: sheet-down 260ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes backdrop-out {
+  to { background-color: rgba(0, 0, 0, 0); }
+}
+
+@keyframes sheet-down {
+  to {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet--abs .abs-row,
+  .abs-private,
+  .abs-intro,
+  .sheet-backdrop--out,
+  .sheet-backdrop--out .sheet {
+    animation: none;
+  }
+
+  .abs-fold {
+    transition: none;
+  }
+}
+
+/* Окна снизу — поверх полосы разделов: иначе она закрывала их кнопки. */
+.sheet-backdrop {
+  z-index: 40;
+}
