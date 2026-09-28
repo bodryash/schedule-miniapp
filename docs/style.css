@@ -3638,17 +3638,18 @@ body {
   right: 40px;
 }
 
-/* Обводка по самому краю карточки, а не тенью внутри: слева у карточки
-   своя полоса (выбор, «сейчас», «важно»), и тень начиналась после неё —
-   рамка съезжала внутрь. Обводка идёт по скруглению и полосу не трогает. */
-.card {
-  outline: 2px solid transparent;
-  outline-offset: -2px;
-  transition: outline-color 300ms ease;
-}
-
-.card--mine {
-  outline-color: rgba(245, 159, 0, 0.6);
+/* Золотая рамка избранного — сверху, справа и снизу. Левый край занят
+   полосой карточки («сейчас», «по выбору», «важно»), и золото поверх неё
+   косило. Рамка — отдельным слоем поверх карточки, по её скруглению. */
+.card--mine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: 2px solid rgba(245, 159, 0, 0.65);
+  border-left: 0;
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 .week-row--mine .week-subject::after {
