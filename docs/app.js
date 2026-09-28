@@ -5005,10 +5005,14 @@ function splashDayPlan() {
   return times.length ? { date: dateOfDay(selectedDay), times } : null;
 }
 
+// Сколько летит комета через весь день — совпадает с переходом в CSS.
+const COMET_FLIGHT = 600;
+
 /**
- * Сборка: бегущие точки ожидания растворяются, на их место по одной
- * прилетают точки пар — каждая в своё время дня. Потом полоса заливается
- * от первой пары до последней, и заставка уходит.
+ * Сборка: на полосу по одной падают все пары дня, кроме последней. Потом
+ * через весь день пролетает комета, долетает до правого края и сама
+ * становится последней парой. Точек и толчков вибрации ровно столько,
+ * сколько пар в расписании.
  */
 function assembleSplash(plan) {
   const track = els.splashTrack;
@@ -5024,40 +5028,67 @@ function assembleSplash(plan) {
   const label = FULL_DATE.format(plan.date);
   els.splashDay.textContent = label[0].toUpperCase() + label.slice(1);
 
-  // Шкала — от первой пары до последней: так точки не жмутся в угол.
-  const from = minutes(plan.times[0].start);
-  const to = minutes(plan.times.at(-1).end);
-  const span = Math.max(1, to - from);
-  const dots = plan.times.slice(0, 8).map((time, i) => {
-    const dot = el("span", "splash-dot splash-dot--pair");
-    const left = ((minutes(time.start) - from) / span) * 100;
-    dot.style.left = `${left}%`;
-    // Прилетают снизу-сбоку, у каждой свой разброс — выглядит живее, чем строем.
+  const times = plan.times.slice(0, 8);
+  // Шкала — от первой пары до последней: последняя стоит ровно у правого
+  // края, туда и прилетает комета. Одна пара — она посередине.
+  const from = minutes(times[0].start);
+  const span = minutes(times.at(-1).start) - from;
+  const place = (time) => (span > 0 ? ((minutes(time.start) - from) / span) * 100 : 50);
+
+  const landing = (dot, i) => {
     dot.style.setProperty("--fly-x", `${(i % 2 ? 1 : -1) * (18 + i * 6)}px`);
     dot.style.setProperty("--fly-y", `${26 + (i % 3) * 10}px`);
     dot.style.animationDelay = `${120 + i * 110}ms`;
     // Щелчок вибрации — в момент приземления, а не старта: так точки
     // ощущаются пальцем, как будто падают на экран.
     setTimeout(() => haptic("soft"), 120 + i * 110 + 300);
+  };
+
+  // Одна пара — просто падает на середину, комете лететь некуда.
+  if (times.length === 1) {
+    const dot = el("span", "splash-dot splash-dot--pair");
+    dot.style.left = "50%";
+    landing(dot, 0);
+    track.append(dot);
+    showSplashTimes(plan, 520);
+    return 1100;
+  }
+
+  const dots = times.slice(0, -1).map((time, i) => {
+    const dot = el("span", "splash-dot splash-dot--pair");
+    dot.style.left = `${place(time)}%`;
+    landing(dot, i);
     return dot;
   });
   track.append(...dots);
 
+  // Комета стартует, когда последняя из упавших точек легла на место.
   const fillAt = 120 + dots.length * 110 + 280;
   els.splashFill.style.transitionDelay = `${fillAt}ms`;
   if (els.splashComet) els.splashComet.style.transitionDelay = `${fillAt}ms`;
-  // Вибраций ровно столько, сколько точек: лишний толчок в конце сборки
-  // путал — казалось, что пар больше.
   requestAnimationFrame(() => track.classList.add("splash-track--fill"));
 
+  // Долетела — гаснет и оставляет на своём месте последнюю пару.
+  setTimeout(() => {
+    track.classList.add("splash-track--landed");
+    const last = el("span", "splash-dot splash-dot--pair splash-dot--comet");
+    last.style.left = "100%";
+    track.append(last);
+    haptic("soft");
+  }, fillAt + COMET_FLIGHT);
+
+  showSplashTimes(plan, fillAt + 200);
+  return fillAt + COMET_FLIGHT + 420;
+}
+
+/** Время начала и конца дня под полосой. */
+function showSplashTimes(plan, delay) {
   els.splashTimes.replaceChildren(
     el("span", null, plan.times[0].start),
     el("span", null, plan.times.at(-1).end)
   );
-  els.splashTimes.style.transitionDelay = `${fillAt + 200}ms`;
+  els.splashTimes.style.transitionDelay = `${delay}ms`;
   requestAnimationFrame(() => els.splashTimes.classList.add("splash-times--on"));
-
-  return fillAt + 760;
 }
 
 /** Уходим, когда готовы и расписание, и шрифты — и сборка доиграла. */

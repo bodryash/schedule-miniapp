@@ -3730,3 +3730,25 @@ body {
   line-height: 32px;
   align-items: center;
 }
+
+/* Комета долетела до правого края: гаснет, а на её месте остаётся точка
+   последней пары — без полёта снизу, с толчком и кругом, как у остальных. */
+.splash-track--landed .splash-comet {
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.splash-dot--comet {
+  animation: splash-comet-land 420ms cubic-bezier(0.3, 1.5, 0.5, 1) forwards;
+}
+
+@keyframes splash-comet-land {
+  from {
+    opacity: 1;
+    transform: scale(1.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
