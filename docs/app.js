@@ -171,6 +171,7 @@ async function loadNotices(group) {
     notices.changes = body.changes || [];
     notices.owner = Boolean(body.owner);
     applyTheme(body.theme || "");
+    notices.important = body.important || [];
     notices.homework = body.homework || [];
     notices.canEdit = Boolean(body.canEdit);
     notices.canComment = Boolean(body.canComment);
@@ -424,6 +425,8 @@ function homeworkFor(card) {
  * одно задание стояло бы дважды.
  */
 function applyHomework() {
+  applyImportant();
+  applyAbsenceButtons();
   const seen = new Set();
   for (const card of els.lessons.querySelectorAll(".card")) {
     card.querySelector(".hw")?.remove();
@@ -1502,6 +1505,375 @@ function showBanned(ban) {
   banTimer = setInterval(tick, 1000);
 }
 
+/* ---------- Важные пары ---------- */
+
+const plainKey = (text) => String(text || "").toLowerCase().replace(/ё/g, "е");
+
+/**
+ * Пары, которые владелец пометил как важные (/important): преподаватель по
+ * фамилии или предмет целиком. Красная полоса и метка — у всех студентов.
+ */
+function applyImportant() {
+  const list = notices.important || [];
+  for (const card of els.lessons.querySelectorAll(".card")) {
+    const teachers = plainKey(card.dataset.teachers);
+    const subject = plainKey(card.dataset.subject);
+    const hit = list.some((row) =>
+      row.kind === "subject"
+        ? plainKey(row.value) === subject
+        : new RegExp(`(^|[^а-яa-z])${plainKey(row.value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(teachers)
+    );
+    card.classList.toggle("card--important", hit);
+    const head = card.querySelector(".time");
+    const tag = head?.querySelector(".tag--important");
+    if (hit && head && !tag) head.append(el("span", "tag tag--important", t("важно")));
+    if (!hit) tag?.remove();
+  }
+}
+
+/* ---------- Пропуски ---------- */
+
+// Свой счётчик у каждого студента, в облаке Telegram: переживает смену
+// телефона, и никто, кроме самого человека, его не видит. Вне Telegram —
+// в памяти браузера. Считаем только семинары и практики: посещаемость
+// отмечают там.
+const ABS_KEY = "absences";
+const ABS_TYPES = ["семинар", "практика"];
+let absences = { on: false, marks: {}, limits: {} };
+let absLoaded = false;
+// Строки с раскрытыми датами — чтобы после отметки список не схлопывался.
+const openRows = new Set();
+
+function cloudGet(key) {
+  return new Promise((resolve) => {
+    const cloud = tg?.CloudStorage;
+    if (cloud?.getItem) {
+      try {
+        cloud.getItem(key, (error, value) => resolve(error ? null : value || null));
+        return;
+      } catch {
+        // Старый клиент — падаем на память браузера.
+      }
+    }
+    try {
+      resolve(localStorage.getItem(`schedule.${key}`));
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+function cloudSet(key, value) {
+  try {
+    localStorage.setItem(`schedule.${key}`, value);
+  } catch {
+    // Приватный режим — останется только облако.
+  }
+  try {
+    tg?.CloudStorage?.setItem?.(key, value, () => {});
+  } catch {
+    // Облака нет — хватит и памяти браузера.
+  }
+}
+
+async function loadAbsences() {
+  if (absLoaded) return absences;
+  const raw = await cloudGet(ABS_KEY);
+  try {
+    const parsed = JSON.parse(raw || "null");
+    if (parsed && typeof parsed === "object") {
+      absences = { on: Boolean(parsed.on), marks: parsed.marks || {}, limits: parsed.limits || {} };
+    }
+  } catch {
+    // Испорченная запись — начинаем с чистого листа.
+  }
+  absLoaded = true;
+  return absences;
+}
+
+function saveAbsences() {
+  // Облако Telegram держит до 4 КБ на ключ — хранить даты коротко:
+  // «0928-3» — 28 сентября, третья пара.
+  cloudSet(ABS_KEY, JSON.stringify(absences));
+}
+
+const absMark = (date, slot) => `${isoDate(date).slice(5).replace("-", "")}-${slot}`;
+
+function isAbsTracked(type) {
+  return ABS_TYPES.includes(String(type || "").toLowerCase());
+}
+
+/** Пропущена ли пара этого предмета в этот день. */
+function isMissed(subject, date, slot) {
+  return (absences.marks[subject] || []).includes(absMark(date, slot));
+}
+
+function toggleMissed(subject, date, slot) {
+  const mark = absMark(date, slot);
+  const list = new Set(absences.marks[subject] || []);
+  if (list.has(mark)) list.delete(mark);
+  else list.add(mark);
+  absences.marks[subject] = [...list];
+  if (!absences.marks[subject].length) delete absences.marks[subject];
+  saveAbsences();
+}
+
+/**
+ * Кнопка «пропустил» под семинаром, который уже начался. У будущих пар её
+ * нет: пропуск отмечают после, а не заранее.
+ */
+function applyAbsenceButtons() {
+  for (const card of els.lessons.querySelectorAll(".card")) card.querySelector(".abs-toggle")?.remove();
+  if (!absences.on) return;
+  const date = dateOfDay(selectedDay);
+  const now = new Date();
+  const today = isoDate(date) === isoDate(now);
+  if (isoDate(date) > isoDate(now)) return;
+  for (const card of els.lessons.querySelectorAll(".card")) {
+    if (!isAbsTracked(card.dataset.type) || card.classList.contains("card--cancelled")) continue;
+    if (today && card.dataset.start && minutes(card.dataset.start) > now.getHours() * 60 + now.getMinutes()) continue;
+    const subject = card.dataset.subject;
+    const slot = Number(card.dataset.slot);
+    const missed = isMissed(subject, date, slot);
+    const button = el("button", missed ? "abs-toggle abs-toggle--on" : "abs-toggle", missed ? t("пропуск ✕") : t("пропустил?"));
+    button.type = "button";
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleMissed(subject, date, slot);
+      haptic(isMissed(subject, date, slot) ? "warning" : "light");
+      applyAbsenceButtons();
+    });
+    (card.querySelector(".card-body") || card).append(button);
+  }
+}
+
+/** Прошедшие семинары предмета — чтобы отметить пропуск задним числом. */
+function pastSeminars(subject) {
+  const group = activeGroup();
+  const weeks = data.weeks || [];
+  const out = [];
+  if (!group || !weeks.length) return out;
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  const cursor = new Date(`${weeks[0].from}T00:00:00`);
+  for (; isoDate(cursor) <= isoDate(now); cursor.setDate(cursor.getDate() + 1)) {
+    const weekday = cursor.getDay();
+    if (weekday === 0) continue;
+    const parity = parityOfDate(cursor);
+    const slots = [
+      ...new Set(
+        data.lessons
+          .filter(
+            (l) =>
+              l.group === group.id &&
+              l.subject === subject &&
+              isAbsTracked(l.type) &&
+              l.day === weekday &&
+              (l.week === "all" || parity === null || l.week === parity) &&
+              matchesPrefs(l)
+          )
+          .map((l) => l.slot)
+      ),
+    ].sort((a, b) => a - b);
+    for (const slot of slots) {
+      // Сегодняшний, который ещё не начался, — не прошедший.
+      const start = bells.get(slot)?.start;
+      if (isoDate(cursor) === isoDate(now) && start && minutes(start) > nowMinutes) continue;
+      out.push({ date: new Date(cursor), slot });
+    }
+  }
+  return out.reverse();
+}
+
+/** Семинары предмета за семестр: сколько всего и сколько уже прошло. */
+function seminarCount(subject) {
+  const group = activeGroup();
+  const weeks = data.weeks || [];
+  if (!group || !weeks.length) return { total: 0, past: 0 };
+  const todayIso = isoDate(new Date());
+  let total = 0;
+  let past = 0;
+  const cursor = new Date(`${weeks[0].from}T00:00:00`);
+  const last = weeks.at(-1).to;
+  for (; isoDate(cursor) <= last; cursor.setDate(cursor.getDate() + 1)) {
+    const weekday = cursor.getDay();
+    if (weekday === 0) continue;
+    const parity = parityOfDate(cursor);
+    const slots = new Set(
+      data.lessons
+        .filter(
+          (l) =>
+            l.group === group.id &&
+            l.subject === subject &&
+            isAbsTracked(l.type) &&
+            l.day === weekday &&
+            (l.week === "all" || parity === null || l.week === parity) &&
+            matchesPrefs(l)
+        )
+        .map((l) => l.slot)
+    );
+    total += slots.size;
+    if (isoDate(cursor) <= todayIso) past += slots.size;
+  }
+  return { total, past };
+}
+
+/** Предметы, по которым считаем: семинары и практики своей группы. */
+function absenceSubjects() {
+  const group = activeGroup();
+  if (!group || group.teacher) return [];
+  const set = new Set(
+    data.lessons
+      .filter((l) => l.group === group.id && isAbsTracked(l.type) && matchesPrefs(l) && !MILITARY.test(l.subject))
+      .map((l) => l.subject)
+  );
+  return [...set].sort((a, b) => tr(a).localeCompare(tr(b), "ru"));
+}
+
+async function openAbsences() {
+  if (!els.absSheet) return;
+  await loadAbsences();
+  renderAbsences();
+  els.absSheet.hidden = false;
+}
+
+function closeAbsences() {
+  els.absSheet.hidden = true;
+  applyAbsenceButtons();
+}
+
+function renderAbsences() {
+  const body = els.absBody;
+  const group = activeGroup();
+  if (group?.teacher) {
+    els.absNote.textContent = "";
+    body.replaceChildren(el("p", "hint", t("Счётчик пропусков — для студентов.")));
+    return;
+  }
+
+  if (!absences.on) {
+    els.absNote.textContent = t("Только для вас — никто больше этого не видит");
+    const intro = el("div", "abs-intro");
+    intro.append(
+      el("p", null, t("Отмечайте пропущенные семинары — приложение посчитает, сколько ещё можно пропустить до лимита.")),
+      el("p", "hint", t("Под каждым прошедшим семинаром появится кнопка «пропустил?». Лимит для каждого предмета задаёте сами."))
+    );
+    const start = el("button", "primary", t("Начать считать"));
+    start.type = "button";
+    start.addEventListener("click", () => {
+      absences.on = true;
+      saveAbsences();
+      haptic("success");
+      renderAbsences();
+      applyAbsenceButtons();
+    });
+    intro.append(start);
+    body.replaceChildren(intro);
+    return;
+  }
+
+  els.absNote.textContent = t("Семинары и практики · лимит задаёте сами");
+  const rows = absenceSubjects().map((subject) => {
+    const { total, past } = seminarCount(subject);
+    const missed = (absences.marks[subject] || []).length;
+    const limit = absences.limits[subject];
+    const left = limit == null ? null : limit - missed;
+    const state = left == null ? "none" : left <= 0 ? (left < 0 ? "over" : "stop") : left === 1 ? "warn" : "ok";
+
+    const row = el("div", `abs-row abs-row--${state}`);
+    const head = el("div", "abs-head");
+    head.append(el("div", "abs-name", withFlag(tr(subject))));
+    head.append(el("div", "abs-count", `${missed}`));
+    row.append(head);
+
+    const status =
+      left == null
+        ? t("пропущено {n} · прошло {past} из {total}", { n: missed, past, total })
+        : left < 0
+          ? t("перебор на {n} — пора остановиться", { n: -left })
+          : left === 0
+            ? t("хватит — лимит исчерпан")
+            : t("можно ещё {n} · прошло {past} из {total}", { n: left, past, total });
+    row.append(el("div", "abs-status", status));
+
+    // Лимит — степпером: − число +. Пусто — лимит не задан.
+    const stepper = el("div", "abs-limit");
+    stepper.append(el("span", "abs-limit-label", t("лимит")));
+    const minus = el("button", "abs-step", "−");
+    const value = el("span", "abs-limit-value", limit == null ? "—" : String(limit));
+    const plus = el("button", "abs-step", "+");
+    minus.type = plus.type = "button";
+    const change = (delta) => {
+      const current = absences.limits[subject];
+      let next = current == null ? (delta > 0 ? Math.max(1, Math.round(total / 4)) : null) : current + delta;
+      if (next != null && next < 0) next = null;
+      if (next == null) delete absences.limits[subject];
+      else absences.limits[subject] = Math.min(next, Math.max(total, 1));
+      saveAbsences();
+      haptic("select");
+      renderAbsences();
+    };
+    minus.addEventListener("click", () => change(-1));
+    plus.addEventListener("click", () => change(1));
+    stepper.append(minus, value, plus);
+
+    // Отметить задним числом: расписание показывает только эту и следующую
+    // неделю, и пропуск позапрошлой иначе было бы негде поставить.
+    const held = pastSeminars(subject);
+    if (held.length) {
+      const toggle = el("button", "abs-dates-toggle", openRows.has(subject) ? t("скрыть даты") : t("отметить по датам"));
+      toggle.type = "button";
+      toggle.addEventListener("click", () => {
+        if (openRows.has(subject)) openRows.delete(subject);
+        else openRows.add(subject);
+        haptic("select");
+        renderAbsences();
+      });
+      stepper.append(toggle);
+    }
+    row.append(stepper);
+
+    if (openRows.has(subject)) {
+      const dates = el("div", "abs-dates");
+      const several = new Set(held.map((p) => isoDate(p.date))).size < held.length;
+      for (const { date, slot } of held) {
+        const missedHere = isMissed(subject, date, slot);
+        const label = several ? `${SHORT_DATE.format(date)} · ${slot}` : SHORT_DATE.format(date);
+        const chip = el("button", missedHere ? "abs-date abs-date--on" : "abs-date", label);
+        chip.type = "button";
+        chip.addEventListener("click", () => {
+          toggleMissed(subject, date, slot);
+          haptic(isMissed(subject, date, slot) ? "warning" : "light");
+          renderAbsences();
+          applyAbsenceButtons();
+        });
+        dates.append(chip);
+      }
+      row.append(dates);
+    }
+    return row;
+  });
+
+  if (!rows.length) rows.push(el("p", "hint", t("У группы нет семинаров и практик.")));
+
+  const stop = el("button", "ghost abs-stop", t("Перестать считать"));
+  stop.type = "button";
+  stop.addEventListener("click", () => {
+    const ask = t("Выключить счётчик? Отметки сохранятся — их можно вернуть, включив снова.");
+    const off = () => {
+      absences.on = false;
+      saveAbsences();
+      renderAbsences();
+      applyAbsenceButtons();
+    };
+    if (tg?.showConfirm) tg.showConfirm(ask, (yes) => yes && off());
+    else if (confirm(ask)) off();
+  });
+
+  body.replaceChildren(...rows, stop);
+}
+
 /* ---------- Отмена пар владельцем ---------- */
 
 const CANCEL_URL = "https://fgp-schedule-bot.bodryash.workers.dev/cancel";
@@ -2002,6 +2374,10 @@ const els = {
   mfkList: document.getElementById("mfk-list"),
   splash: document.getElementById("splash"),
   menu: document.getElementById("menu"),
+  absSheet: document.getElementById("abs-sheet"),
+  absBody: document.getElementById("abs-body"),
+  absNote: document.getElementById("abs-note"),
+  absClose: document.getElementById("abs-close"),
   menuPop: document.getElementById("menu-pop"),
   splashDay: document.getElementById("splash-day"),
   splashTrack: document.getElementById("splash-track"),
@@ -3553,6 +3929,7 @@ function initMenu() {
     pop.hidden = true;
     if (item.dataset.menu === "rooms") showFree();
     if (item.dataset.menu === "settings") showPicker();
+    if (item.dataset.menu === "absences") openAbsences();
   });
   // Тап мимо меню закрывает его, как принято на телефонах.
   document.addEventListener("click", (event) => {
@@ -4202,6 +4579,8 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
   card.dataset.slots = slots.join(",");
   card.dataset.subject = first.subject;
   card.dataset.subgroups = [...new Set(entries.map((e) => e.subgroup).filter(Boolean))].join(",");
+  card.dataset.teachers = entries.map((e) => e.teacher || "").join(" | ");
+  card.dataset.type = first.type || "";
 
   const head = el("div", "time");
   const range = slots.length > 1;
@@ -4567,6 +4946,12 @@ async function init() {
   }
   els.change.addEventListener("click", showPicker);
   initMenu();
+  els.absClose?.addEventListener("click", closeAbsences);
+  els.absSheet?.addEventListener("click", (event) => {
+    if (event.target === els.absSheet) closeAbsences();
+  });
+  // Счётчик нужен сразу: кнопки «пропустил?» стоят в карточках.
+  loadAbsences().then(() => applyAbsenceButtons());
   initWeekSwipe();
   window.addEventListener("resize", () => moveDrop(tab, false));
   els.queueAdd?.addEventListener("click", openQueueSheet);

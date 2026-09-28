@@ -3104,3 +3104,194 @@ body {
     animation: none;
   }
 }
+
+/* ===== Важные пары ===== */
+.card--important {
+  border-left-color: #e03131 !important;
+  box-shadow: inset 3px 0 0 #e03131;
+}
+
+.tag--important {
+  background: rgba(224, 49, 49, 0.14);
+  color: #e03131;
+  font-weight: 700;
+}
+
+/* ===== Пропуски ===== */
+.abs-toggle {
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 5px 11px;
+  border: 1.5px dashed var(--line);
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.abs-toggle--on {
+  border-style: solid;
+  border-color: transparent;
+  background: rgba(224, 49, 49, 0.12);
+  color: #e03131;
+}
+
+.sheet--abs {
+  max-height: 86dvh;
+}
+
+.abs-intro p {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.abs-intro .hint {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.abs-row {
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  border-radius: 14px;
+  background: var(--bg);
+  border-left: 4px solid var(--line);
+}
+
+.abs-row--ok { border-left-color: #2f9e44; }
+.abs-row--warn { border-left-color: #f59f00; }
+.abs-row--stop,
+.abs-row--over { border-left-color: #e03131; }
+
+.abs-head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.abs-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.abs-count {
+  flex: none;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.abs-row--stop .abs-count,
+.abs-row--over .abs-count { color: #e03131; }
+.abs-row--warn .abs-count { color: #f59f00; }
+
+.abs-status {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.abs-row--stop .abs-status,
+.abs-row--over .abs-status {
+  color: #e03131;
+  font-weight: 600;
+}
+
+.abs-limit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.abs-limit-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.abs-step {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  font: inherit;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.abs-limit-value {
+  min-width: 22px;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.abs-stop {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.abs-dates-toggle {
+  margin-left: auto;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.abs-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+/* Дата прошедшего семинара: тап — пропуск, ещё тап — снять. */
+.abs-date {
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--card);
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.abs-date--on {
+  border-color: transparent;
+  background: #e03131;
+  color: #fff;
+  text-decoration: line-through;
+}
+
+/* Полоса состояния — тенью, а не рамкой: общие правила окна обнуляют
+   рамки у вложенных блоков. Фон строки чуть темнее окна, чтобы строки
+   читались отдельными карточками. */
+.sheet--abs .abs-row {
+  border: 0;
+  background: color-mix(in srgb, var(--muted) 8%, var(--card));
+  box-shadow: inset 4px 0 0 var(--abs-state, transparent);
+}
+
+.sheet--abs .abs-row--ok { --abs-state: #2f9e44; }
+.sheet--abs .abs-row--warn { --abs-state: #f59f00; }
+.sheet--abs .abs-row--stop,
+.sheet--abs .abs-row--over { --abs-state: #e03131; }

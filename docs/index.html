@@ -279,6 +279,7 @@
 
     <div id="menu-pop" class="menu-pop" hidden>
       <button type="button" data-menu="rooms"><span>🚪</span><span data-i18n>Свободные аудитории</span></button>
+      <button type="button" data-menu="absences"><span>📋</span><span data-i18n>Пропуски</span></button>
       <button type="button" data-menu="settings"><span>⚙️</span><span data-i18n>Настройки</span></button>
     </div>
     <div id="remind-ask" class="ask" hidden></div>
@@ -428,6 +429,20 @@
       <div class="sheet-actions">
         <button id="qn-cancel" class="ghost" type="button" data-i18n>Отмена</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Пропуски: личный счётчик, хранится в облаке Telegram у самого студента -->
+  <div id="abs-sheet" class="sheet-backdrop" hidden>
+    <div class="sheet sheet--abs" role="dialog" aria-modal="true" aria-labelledby="abs-title">
+      <div class="sheet-top">
+        <div>
+          <h2 id="abs-title" data-i18n>Пропуски</h2>
+          <div class="group-name" id="abs-note"></div>
+        </div>
+        <button id="abs-close" class="icon" type="button" aria-label="Закрыть">×</button>
+      </div>
+      <div id="abs-body"></div>
     </div>
   </div>
 

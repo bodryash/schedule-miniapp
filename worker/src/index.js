@@ -1190,6 +1190,53 @@ async function sendReminders(env) {
   return sent.length;
 }
 
+/* ---------- Важные пары ---------- */
+
+const IMPORTANT_HELP = [
+  "<b>Важные пары</b> — красная полоса и метка «важно» у всех студентов.",
+  "",
+  "/important Ильин — все пары преподавателя (по фамилии)",
+  "/important предмет Теория международных отношений — все пары предмета",
+  "/unimportant Ильин — снять",
+  "/important — список",
+].join("\n");
+
+/** Весь список — он короткий и один на всех, приложение сверяет само. */
+async function importantList(env) {
+  if (!env.STATS) return [];
+  const { results = [] } = await env.STATS.prepare(
+    "SELECT kind, value FROM important ORDER BY created LIMIT 50"
+  ).all();
+  return results;
+}
+
+async function importantCommand(env, text) {
+  const body = String(text).replace(/^\/(un)?important(@\w+)?/, "").trim();
+  const remove = text.startsWith("/unimportant");
+  if (!body) {
+    const list = await importantList(env);
+    const lines = list.map((row) => `• ${row.kind === "subject" ? "предмет" : "преподаватель"}: ${escape(row.value)}`);
+    return [IMPORTANT_HELP, "", lines.length ? lines.join("\n") : "Пока ничего не помечено."].join("\n");
+  }
+  // «предмет …» — точное название, как в расписании; иначе — фамилия.
+  const subject = body.match(/^предмет\s+(.+)$/i);
+  const kind = subject ? "subject" : "teacher";
+  const value = (subject ? subject[1] : body.split(/\s+/)[0]).trim().slice(0, 120);
+  if (remove) {
+    const result = await env.STATS.prepare("DELETE FROM important WHERE value = ? COLLATE NOCASE")
+      .bind(value)
+      .run();
+    return result.meta?.changes ? `Снято: ${escape(value)}.` : `«${escape(value)}» не был помечен.`;
+  }
+  await env.STATS.prepare(
+    `INSERT INTO important (kind, value, created) VALUES (?, ?, ?)
+     ON CONFLICT(value) DO UPDATE SET kind = excluded.kind`
+  )
+    .bind(kind, value, new Date().toISOString())
+    .run();
+  return `🔴 Помечено как важное — ${kind === "subject" ? "предмет" : "преподаватель"}: ${escape(value)}.\nСтуденты увидят при следующем открытии расписания.`;
+}
+
 /* ---------- Темы оформления ---------- */
 
 const THEME_NAMES = { гламур: "glam", glam: "glam", брутал: "brutal", brutal: "brutal" };
@@ -2066,7 +2113,8 @@ export default {
       // Счётчики комментариев — только своей группе: чужим они ни к чему.
       const comments = commenter ? await commentCounts(env, group.id, range).catch(() => []) : [];
       const theme = await themeFor(env, user?.id, group).catch(() => "");
-      const payload = { notices, cancels, changes, theme, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments };
+      const important = await importantList(env).catch(() => []);
+      const payload = { notices, cancels, changes, theme, important, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments };
       return new Response(JSON.stringify(payload), {
         headers: {
           "content-type": "application/json; charset=utf-8",
@@ -2558,6 +2606,15 @@ export default {
       if (isOwner(env, message.chat.id)) {
         reply = text.startsWith("/themes") ? await themesList(env) : await themeCommand(env, text);
       }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: reply,
+        parse_mode: "HTML",
+      });
+    }
+
+    if (message && /^\/(un)?important(?:@\w+)?(?:\s|$)/.test(text)) {
+      const reply = isOwner(env, message.chat.id) ? await importantCommand(env, text) : "Команда недоступна.";
       await callTelegram(env.BOT_TOKEN, "sendMessage", {
         chat_id: message.chat.id,
         text: reply,
