@@ -3257,7 +3257,12 @@ function renderDays() {
       // точки под датой и на заставке расходились.
       const count = dayLoad(day, week);
       const dots = el("span", "day-dots");
-      for (let i = 0; i < Math.min(count, 7); i++) dots.append(el("i"));
+      for (let i = 0; i < Math.min(count, 7); i++) {
+        const dot = el("i");
+        // Номер точки — для очереди, в которой они загораются.
+        dot.style.setProperty("--d", i);
+        dots.append(dot);
+      }
       btn.append(dots);
       btn.addEventListener("click", () => {
         const direction = Math.sign(week * DAYS.length + day - 1 - dayIndex());

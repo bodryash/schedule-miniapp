@@ -3079,15 +3079,13 @@ body {
   100% { transform: scale(1); }
 }
 
-/* Точки пар загораются по очереди, как отсчёт. */
+/* Точки пар загораются по очереди, как отсчёт. Задержка — от номера
+   точки, а не прописана для первых четырёх: пятая и дальше тоже идут
+   в свою очередь, а не вспыхивают раньше всех. */
 .day--pop .day-dots i {
   animation: tile-dot 380ms cubic-bezier(0.3, 1.5, 0.5, 1) backwards;
+  animation-delay: calc(90ms + var(--d, 0) * 50ms);
 }
-
-.day--pop .day-dots i:nth-child(1) { animation-delay: 90ms; }
-.day--pop .day-dots i:nth-child(2) { animation-delay: 140ms; }
-.day--pop .day-dots i:nth-child(3) { animation-delay: 190ms; }
-.day--pop .day-dots i:nth-child(4) { animation-delay: 240ms; }
 
 @keyframes tile-dot {
   from {
