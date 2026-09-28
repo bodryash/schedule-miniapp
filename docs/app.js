@@ -427,6 +427,7 @@ function homeworkFor(card) {
 function applyHomework() {
   applyImportant();
   applyAbsenceButtons();
+  applyMine();
   const seen = new Set();
   for (const card of els.lessons.querySelectorAll(".card")) {
     card.querySelector(".hw")?.remove();
@@ -1432,6 +1433,7 @@ function showWeek() {
       const row = el("button", lessonCancelOn(lesson, isoDate(date)) ? "week-row week-row--off" : "week-row");
       row.type = "button";
       row.append(el("span", "week-slot", String(slot)));
+      if (entries.some((entry) => isMine(entry.subject, date, slot))) row.classList.add("week-row--mine");
       row.append(
         el("span", "week-subject", extra ? `${withFlag(tr(lesson.subject))} +${extra}` : withFlag(tr(lesson.subject)))
       );
@@ -1528,6 +1530,71 @@ function applyImportant() {
     const tag = head?.querySelector(".tag--important");
     if (hit && head && !tag) head.append(el("span", "tag tag--important", t("важно")));
     if (!hit) tag?.remove();
+  }
+}
+
+/* ---------- Свои важные пары ---------- */
+
+// Студент сам помечает пары, которые ему важны: контрольная, коллоквиум,
+// сдача. Хранится там же, где пропуски, — у него в Telegram.
+const MINE_KEY = "mine";
+let mine = { marks: {} };
+let mineLoaded = false;
+
+async function loadMine() {
+  if (mineLoaded) return mine;
+  try {
+    const parsed = JSON.parse((await cloudGet(MINE_KEY)) || "null");
+    if (parsed && typeof parsed === "object") mine = { marks: parsed.marks || {} };
+  } catch {
+    // Испорченная запись — начинаем с чистого листа.
+  }
+  mineLoaded = true;
+  return mine;
+}
+
+function isMine(subject, date, slot) {
+  return (mine.marks[subject] || []).includes(absMark(date, slot));
+}
+
+function toggleMine(subject, date, slot) {
+  const mark = absMark(date, slot);
+  const list = new Set(mine.marks[subject] || []);
+  if (list.has(mark)) list.delete(mark);
+  else list.add(mark);
+  mine.marks[subject] = [...list];
+  if (!mine.marks[subject].length) delete mine.marks[subject];
+  cloudSet(MINE_KEY, JSON.stringify(mine));
+}
+
+/** Звёздочка в строке номера пары: тап — важно для меня, ещё тап — снять. */
+function applyMine() {
+  const date = dateOfDay(selectedDay);
+  for (const card of els.lessons.querySelectorAll(".card")) {
+    card.querySelector(".mine-star")?.remove();
+    const subject = card.dataset.subject;
+    const head = card.querySelector(".time");
+    if (!subject || !head) continue;
+    const slot = Number(card.dataset.slot);
+    const on = isMine(subject, date, slot);
+    card.classList.toggle("card--mine", on);
+    const star = el("button", on ? "mine-star mine-star--on" : "mine-star", on ? "★" : "☆");
+    star.type = "button";
+    star.setAttribute("aria-label", t("Важно для меня"));
+    star.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleMine(subject, date, slot);
+      const now = isMine(subject, date, slot);
+      haptic(now ? "success" : "light");
+      star.classList.toggle("mine-star--on", now);
+      star.textContent = now ? "★" : "☆";
+      card.classList.toggle("card--mine", now);
+      star.animate(
+        [{ transform: "scale(0.6) rotate(-30deg)" }, { transform: "scale(1.35) rotate(12deg)", offset: 0.55 }, { transform: "none" }],
+        { duration: 460, easing: "cubic-bezier(0.3, 1.5, 0.5, 1)" }
+      );
+    });
+    head.append(star);
   }
 }
 
@@ -1655,8 +1722,11 @@ function applyAbsenceButtons() {
   }
 }
 
-/** Прошедшие семинары предмета — чтобы отметить пропуск задним числом. */
-function pastSeminars(subject) {
+/**
+ * Все семинары предмета до конца семестра: прошедшие — чтобы отметить
+ * пропуск задним числом, будущие — чтобы спланировать его заранее.
+ */
+function semesterSeminars(subject) {
   const group = activeGroup();
   const weeks = data.weeks || [];
   const out = [];
@@ -1665,7 +1735,8 @@ function pastSeminars(subject) {
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const bells = new Map(data.bells.map((b) => [b.n, b]));
   const cursor = new Date(`${weeks[0].from}T00:00:00`);
-  for (; isoDate(cursor) <= isoDate(now); cursor.setDate(cursor.getDate() + 1)) {
+  const lastDay = weeks.at(-1).to;
+  for (; isoDate(cursor) <= lastDay; cursor.setDate(cursor.getDate() + 1)) {
     const weekday = cursor.getDay();
     if (weekday === 0) continue;
     const parity = parityOfDate(cursor);
@@ -1685,13 +1756,15 @@ function pastSeminars(subject) {
       ),
     ].sort((a, b) => a - b);
     for (const slot of slots) {
-      // Сегодняшний, который ещё не начался, — не прошедший.
+      // Сегодняшний, который ещё не начался, — уже будущий.
       const start = bells.get(slot)?.start;
-      if (isoDate(cursor) === isoDate(now) && start && minutes(start) > nowMinutes) continue;
-      out.push({ date: new Date(cursor), slot });
+      const upcoming =
+        isoDate(cursor) > isoDate(now) ||
+        (isoDate(cursor) === isoDate(now) && start && minutes(start) > nowMinutes);
+      out.push({ date: new Date(cursor), slot, upcoming: Boolean(upcoming) });
     }
   }
-  return out.reverse();
+  return out;
 }
 
 /** Семинары предмета за семестр: сколько всего и сколько уже прошло. */
@@ -1762,21 +1835,30 @@ function closeAbsences() {
 }
 
 /** Состояние предмета: сколько пропущено, сколько можно, какого цвета строка. */
+/** Отметка «0928-3» — уже прошедший семинар или ещё впереди. */
+function markIsAhead(mark) {
+  const today = isoDate(new Date()).slice(5).replace("-", "");
+  return mark.slice(0, 4) > today;
+}
+
 function absState(subject) {
   const { total, past } = seminarCount(subject);
-  const missed = (absences.marks[subject] || []).length;
+  const marks = absences.marks[subject] || [];
+  const planned = marks.filter(markIsAhead).length;
+  const missed = marks.length - planned;
   const limit = absences.limits[subject];
-  const left = limit == null ? null : limit - missed;
+  const left = limit == null ? null : limit - missed - planned;
   const state = left == null ? "none" : left <= 0 ? (left < 0 ? "over" : "stop") : left === 1 ? "warn" : "ok";
+  const plan = planned ? ` · ${t("в планах {n}", { n: planned })}` : "";
   const status =
-    left == null
+    (left == null
       ? t("пропущено {n} · прошло {past} из {total}", { n: missed, past, total })
       : left < 0
         ? t("перебор на {n} — пора остановиться", { n: -left })
         : left === 0
           ? t("хватит — лимит исчерпан")
-          : t("можно ещё {n} · прошло {past} из {total}", { n: left, past, total });
-  return { total, missed, limit, state, status };
+          : t("можно ещё {n} · прошло {past} из {total}", { n: left, past, total })) + plan;
+  return { total, missed, planned, limit, state, status };
 }
 
 /** Число меняется с толчком — видно, что отметка засчиталась. */
@@ -1803,7 +1885,7 @@ function refreshAbsRow(row) {
   for (const name of ["none", "ok", "warn", "stop", "over"]) {
     row.classList.toggle(`abs-row--${name}`, info.state === name);
   }
-  bump(row.querySelector(".abs-count"), String(info.missed));
+  bump(row.querySelector(".abs-count"), String(info.missed + info.planned));
   const status = row.querySelector(".abs-status");
   if (status.textContent !== info.status) {
     status.textContent = info.status;
@@ -1853,18 +1935,24 @@ function buildAbsRow(subject, index) {
   // Отметить задним числом: расписание показывает только эту и следующую
   // неделю, и пропуск позапрошлой иначе было бы негде поставить. Даты
   // раскрываются плавно — высота растёт, а не прыгает.
-  const held = pastSeminars(subject);
+  const held = semesterSeminars(subject);
   if (held.length) {
-    const toggle = el("button", "abs-dates-toggle", t("отметить по датам"));
+    const toggle = el("button", "abs-dates-toggle", t("все даты"));
     toggle.type = "button";
     controls.append(toggle);
 
     const fold = el("div", "abs-fold");
     const dates = el("div", "abs-dates");
     const several = new Set(held.map((p) => isoDate(p.date))).size < held.length;
-    for (const { date, slot } of held) {
+    // Черта «сегодня» между прошедшими и будущими — видно, где сейчас.
+    let dividerShown = false;
+    for (const { date, slot, upcoming } of held) {
+      if (upcoming && !dividerShown) {
+        dates.append(el("span", "abs-now", t("сегодня")));
+        dividerShown = true;
+      }
       const label = several ? `${SHORT_DATE.format(date)} · ${slot}` : SHORT_DATE.format(date);
-      const chip = el("button", "abs-date", label);
+      const chip = el("button", upcoming ? "abs-date abs-date--ahead" : "abs-date", label);
       chip.type = "button";
       chip.dataset.date = date.toISOString();
       chip.dataset.slot = slot;
@@ -1881,13 +1969,13 @@ function buildAbsRow(subject, index) {
 
     const open = openRows.has(subject);
     row.classList.toggle("abs-row--open", open);
-    toggle.textContent = open ? t("скрыть даты") : t("отметить по датам");
+    toggle.textContent = open ? t("скрыть даты") : t("все даты");
     toggle.addEventListener("click", () => {
       const now = !row.classList.contains("abs-row--open");
       if (now) openRows.add(subject);
       else openRows.delete(subject);
       row.classList.toggle("abs-row--open", now);
-      toggle.textContent = now ? t("скрыть даты") : t("отметить по датам");
+      toggle.textContent = now ? t("скрыть даты") : t("все даты");
       haptic("select");
     });
   }
@@ -1945,7 +2033,7 @@ function renderAbsences() {
     return;
   }
 
-  els.absNote.textContent = t("Семинары и практики · лимит задаёте сами");
+  els.absNote.textContent = t("Семинары и практики до конца семестра · будущие даты — план");
   const rows = absenceSubjects().map((subject, i) => buildAbsRow(subject, i));
   if (!rows.length) rows.push(el("p", "hint", t("У группы нет семинаров и практик.")));
 
@@ -5044,8 +5132,9 @@ async function init() {
   els.absSheet?.addEventListener("click", (event) => {
     if (event.target === els.absSheet) closeAbsences();
   });
-  // Счётчик нужен сразу: кнопки «пропустил?» стоят в карточках.
+  // Счётчик и свои пометки нужны сразу: их кнопки стоят в карточках.
   loadAbsences().then(() => applyAbsenceButtons());
+  loadMine().then(() => applyMine());
   initWeekSwipe();
   window.addEventListener("resize", () => moveDrop(tab, false));
   els.queueAdd?.addEventListener("click", openQueueSheet);

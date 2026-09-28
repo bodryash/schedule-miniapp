@@ -3612,3 +3612,62 @@ body {
 .sheet-backdrop {
   z-index: 40;
 }
+
+/* ===== Свои важные пары ===== */
+.mine-star {
+  margin-left: auto;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--muted);
+  opacity: 0.55;
+  cursor: pointer;
+  transition: color 250ms ease, opacity 250ms ease;
+}
+
+.mine-star--on {
+  color: #f59f00;
+  opacity: 1;
+}
+
+/* «Осталось N мин» стоит в том же углу — звезда уступает ему место. */
+.card--now .mine-star {
+  margin-right: 86px;
+}
+
+.card--mine {
+  box-shadow: inset 0 0 0 2px rgba(245, 159, 0, 0.55);
+  transition: box-shadow 300ms ease;
+}
+
+.week-row--mine .week-subject::after {
+  content: " ★";
+  color: #f59f00;
+}
+
+/* ===== Пропуски: даты на весь семестр ===== */
+.abs-date--ahead {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+/* Запланированный пропуск — пунктиром, а не сплошной заливкой. */
+.abs-date--ahead.abs-date--on {
+  border: 1.5px dashed #e03131;
+  background: rgba(224, 49, 49, 0.1);
+  color: #e03131;
+  text-decoration: none;
+}
+
+.abs-now {
+  flex-basis: 100%;
+  margin: 4px 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
