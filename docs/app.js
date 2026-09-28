@@ -1433,7 +1433,7 @@ function showWeek() {
       const row = el("button", lessonCancelOn(lesson, isoDate(date)) ? "week-row week-row--off" : "week-row");
       row.type = "button";
       row.append(el("span", "week-slot", String(slot)));
-      if (entries.some((entry) => isMine(entry.subject, date, slot))) row.classList.add("week-row--mine");
+      if (entries.some((entry) => isMine(entry.subject, date))) row.classList.add("week-row--mine");
       row.append(
         el("span", "week-subject", extra ? `${withFlag(tr(lesson.subject))} +${extra}` : withFlag(tr(lesson.subject)))
       );
@@ -1535,17 +1535,20 @@ function applyImportant() {
 
 /* ---------- Свои важные пары ---------- */
 
-// Студент сам помечает пары, которые ему важны: контрольная, коллоквиум,
-// сдача. Хранится там же, где пропуски, — у него в Telegram.
+// Студент сам помечает важные ему предметы звёздочкой. Помечается пара, на
+// которой нажали, и все следующие пары этого предмета — прошлые остаются
+// как были. Хранится там же, где пропуски, — у него в Telegram.
 const MINE_KEY = "mine";
-let mine = { marks: {} };
+let mine = { subjects: {}, told: false };
 let mineLoaded = false;
 
 async function loadMine() {
   if (mineLoaded) return mine;
   try {
     const parsed = JSON.parse((await cloudGet(MINE_KEY)) || "null");
-    if (parsed && typeof parsed === "object") mine = { marks: parsed.marks || {} };
+    if (parsed && typeof parsed === "object") {
+      mine = { subjects: parsed.subjects || {}, told: Boolean(parsed.told) };
+    }
   } catch {
     // Испорченная запись — начинаем с чистого листа.
   }
@@ -1553,18 +1556,30 @@ async function loadMine() {
   return mine;
 }
 
-function isMine(subject, date, slot) {
-  return (mine.marks[subject] || []).includes(absMark(date, slot));
+/** Отмечена ли эта пара: предмет в избранном с этой даты или раньше. */
+function isMine(subject, date) {
+  const from = mine.subjects[subject];
+  return Boolean(from) && isoDate(date) >= from;
 }
 
-function toggleMine(subject, date, slot) {
-  const mark = absMark(date, slot);
-  const list = new Set(mine.marks[subject] || []);
-  if (list.has(mark)) list.delete(mark);
-  else list.add(mark);
-  mine.marks[subject] = [...list];
-  if (!mine.marks[subject].length) delete mine.marks[subject];
+/**
+ * Звёздочка на незвёздной паре — предмет в избранном с этого дня и дальше.
+ * На звёздной — снимается со всего предмета: так проще, чем помнить, с
+ * какой даты что отмечено.
+ */
+function toggleMine(subject, date) {
+  if (isMine(subject, date)) delete mine.subjects[subject];
+  else mine.subjects[subject] = isoDate(date);
   cloudSet(MINE_KEY, JSON.stringify(mine));
+}
+
+/** Короткая подсказка снизу — сама тает через несколько секунд. */
+function toast(text) {
+  document.querySelector(".toast")?.remove();
+  const node = el("div", "toast", text);
+  document.body.append(node);
+  setTimeout(() => node.classList.add("toast--out"), 4200);
+  setTimeout(() => node.remove(), 4600);
 }
 
 /** Звёздочка в строке номера пары: тап — важно для меня, ещё тап — снять. */
@@ -1575,24 +1590,33 @@ function applyMine() {
     const subject = card.dataset.subject;
     const head = card.querySelector(".time");
     if (!subject || !head) continue;
-    const slot = Number(card.dataset.slot);
-    const on = isMine(subject, date, slot);
+    const on = isMine(subject, date);
     card.classList.toggle("card--mine", on);
     const star = el("button", on ? "mine-star mine-star--on" : "mine-star", on ? "★" : "☆");
     star.type = "button";
     star.setAttribute("aria-label", t("Важно для меня"));
     star.addEventListener("click", (event) => {
       event.stopPropagation();
-      toggleMine(subject, date, slot);
-      const now = isMine(subject, date, slot);
+      toggleMine(subject, date);
+      const now = isMine(subject, date);
       haptic(now ? "success" : "light");
-      star.classList.toggle("mine-star--on", now);
-      star.textContent = now ? "★" : "☆";
-      card.classList.toggle("card--mine", now);
-      star.animate(
-        [{ transform: "scale(0.6) rotate(-30deg)" }, { transform: "scale(1.35) rotate(12deg)", offset: 0.55 }, { transform: "none" }],
-        { duration: 460, easing: "cubic-bezier(0.3, 1.5, 0.5, 1)" }
-      );
+      // Звезда переключается у всех карточек этого предмета на экране.
+      applyMine();
+      const fresh = [...els.lessons.querySelectorAll(".card")]
+        .filter((c) => c.dataset.subject === subject)
+        .map((c) => c.querySelector(".mine-star"));
+      for (const node of fresh) {
+        node?.animate(
+          [{ transform: "scale(0.6) rotate(-30deg)" }, { transform: "scale(1.35) rotate(12deg)", offset: 0.55 }, { transform: "none" }],
+          { duration: 460, easing: "cubic-bezier(0.3, 1.5, 0.5, 1)" }
+        );
+      }
+      // Как это работает — объясняем один раз, при первой звезде.
+      if (now && !mine.told) {
+        mine.told = true;
+        cloudSet(MINE_KEY, JSON.stringify(mine));
+        toast(t("★ Отмечены эта пара и все следующие пары этого предмета. Снять — нажмите на звезду у любой из них."));
+      }
     });
     head.append(star);
   }
@@ -1944,13 +1968,7 @@ function buildAbsRow(subject, index) {
     const fold = el("div", "abs-fold");
     const dates = el("div", "abs-dates");
     const several = new Set(held.map((p) => isoDate(p.date))).size < held.length;
-    // Черта «сегодня» между прошедшими и будущими — видно, где сейчас.
-    let dividerShown = false;
     for (const { date, slot, upcoming } of held) {
-      if (upcoming && !dividerShown) {
-        dates.append(el("span", "abs-now", t("сегодня")));
-        dividerShown = true;
-      }
       const label = several ? `${SHORT_DATE.format(date)} · ${slot}` : SHORT_DATE.format(date);
       const chip = el("button", upcoming ? "abs-date abs-date--ahead" : "abs-date", label);
       chip.type = "button";
@@ -3150,8 +3168,7 @@ function placeDayDrop() {
 function dayLoad(day, week) {
   const group = activeGroup();
   if (!group) return 0;
-  const lessons = lessonsForDay(group, day, week);
-  return new Set(lessons.map((l) => `${l.slot}|${l.subject}`)).size;
+  return dayBlocks(group, day, week).length;
 }
 
 /**
@@ -4905,6 +4922,58 @@ const splashStarted = performance.now();
  * Пары ближайшего учебного дня как отрезки времени — из них и собирается
  * полоса. Сегодня пары кончились или воскресенье — берём следующий день.
  */
+/**
+ * Пары дня так, как их показывает расписание: одинаковые пары подряд —
+ * один блок, параллельные (языки, подгруппы) — одно время. Раньше заставка
+ * и точки под датами считали каждую пару отдельно и расходились с
+ * карточками: военная кафедра на весь день давала шесть точек вместо одной.
+ */
+function dayBlocks(group, day, week) {
+  const date = dateOfDay(day, week);
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  let list = lessonsForDay(group, day, week);
+  const mine = group.teacher ? [] : mfkLessons(day);
+  if (mine.length) list = [...list.filter((lesson) => lesson.subject !== MFK), ...mine];
+  list = list.filter((lesson) => !lessonCancelOn(lesson, isoDate(date))).sort((a, b) => a.slot - b.slot);
+
+  const bySlot = new Map();
+  for (const lesson of list) {
+    if (!bySlot.has(lesson.slot)) bySlot.set(lesson.slot, new Map());
+    const buckets = bySlot.get(lesson.slot);
+    if (!buckets.has(lesson.subject)) buckets.set(lesson.subject, []);
+    buckets.get(lesson.subject).push(lesson);
+  }
+
+  // Та же склейка, что у карточек в renderLessons.
+  const runs = [];
+  const open = new Map();
+  for (const slot of [...bySlot.keys()].sort((a, b) => a - b)) {
+    for (const [subject, entries] of bySlot.get(slot)) {
+      const signature = isLanguage(subject) ? null : lessonSignature(entries);
+      const run = open.get(subject);
+      if (signature && run && run.signature === signature && run.slots.at(-1) === slot - 1) {
+        run.slots.push(slot);
+      } else {
+        const fresh = { entries, signature, slots: [slot] };
+        open.set(subject, fresh);
+        runs.push(fresh);
+      }
+    }
+  }
+
+  // Время блока — как на карточке: начало первой пары, конец последней.
+  const byStart = new Map();
+  for (const run of runs) {
+    const time = timesOf(run.entries[0], bells);
+    if (!time) continue;
+    const last = run.slots.length > 1 ? bells.get(run.slots.at(-1)) : null;
+    const block = { start: time.start, end: last ? last.end : time.end };
+    const known = byStart.get(block.start);
+    if (!known || minutes(block.end) > minutes(known.end)) byStart.set(block.start, block);
+  }
+  return [...byStart.values()].sort((a, b) => minutes(a.start) - minutes(b.start));
+}
+
 function splashDayPlan() {
   const group = activeGroup();
   if (!group || !data) return null;
@@ -4917,13 +4986,7 @@ function splashDayPlan() {
     const week = Math.floor(index / DAYS.length);
     const day = (index % DAYS.length) + 1;
     const date = dateOfDay(day, week);
-    const blocks = new Map();
-    for (const lesson of lessonsForDay(group, day, week)) {
-      if (lessonCancelOn(lesson, isoDate(date))) continue;
-      const time = timesOf(lesson, bells);
-      if (time && !blocks.has(time.start)) blocks.set(time.start, time);
-    }
-    const times = [...blocks.values()].sort((a, b) => minutes(a.start) - minutes(b.start));
+    const times = dayBlocks(group, day, week);
     if (!times.length) continue;
     // Сегодняшний день, который уже кончился, не показываем — берём следующий.
     const today = isoDate(date) === isoDate(now);

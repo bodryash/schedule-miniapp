@@ -3633,9 +3633,9 @@ body {
   opacity: 1;
 }
 
-/* «Осталось N мин» стоит в том же углу — звезда уступает ему место. */
-.card--now .mine-star {
-  margin-right: 86px;
+/* Звезда — в самом углу, «осталось N мин» стоит левее неё. */
+.card .now-left {
+  right: 40px;
 }
 
 .card--mine {
@@ -3662,12 +3662,33 @@ body {
   text-decoration: none;
 }
 
-.abs-now {
-  flex-basis: 100%;
-  margin: 4px 0 2px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--accent);
+
+/* Подсказка снизу — над полосой разделов, тает сама. */
+.toast {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(92px + env(safe-area-inset-bottom));
+  z-index: 50;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--text) 88%, transparent);
+  color: var(--bg);
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  animation: toast-in 320ms cubic-bezier(0.2, 0.9, 0.25, 1);
+  transition: opacity 380ms ease, transform 380ms ease;
+}
+
+.toast--out {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
 }
