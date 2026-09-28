@@ -5109,10 +5109,11 @@ async function finishSplash() {
   const fonts = document.fonts?.ready || Promise.resolve();
   // Ждём и отмены с заменами: они приходят от бота чуть позже расписания,
   // и без них заставка ставила точку на уже отменённую пару — в расписании
-  // она зачёркнута, а точка есть. Долго не ждём: сеть бывает медленной.
+  // она зачёркнута, а точка есть. Но не дольше 0,6 с: обычно бот отвечает
+  // за 0,2–0,4, а ждать дольше — значит показывать пустой экран.
   await Promise.race([
     Promise.all([fonts, noticesReady]),
-    new Promise((r) => setTimeout(r, 1800)),
+    new Promise((r) => setTimeout(r, 600)),
   ]);
   const played = assembleSplash(splashDayPlan());
   const waited = performance.now() - splashStarted;
@@ -5343,6 +5344,10 @@ async function init() {
   loadMfk().then(() => {
     if (!els.schedule.hidden) showSchedule();
   });
+  // Стили грузятся параллельно с расписанием, не задерживая заставку.
+  // Показывать и мерить экран (капля, размер даты) — только с ними,
+  // иначе всё посчиталось бы по голой разметке.
+  await Promise.race([window.__cssReady, new Promise((r) => setTimeout(r, 4000))]);
   const group = activeGroup();
   if (group?.teacher) {
     loadTeacherNames();
