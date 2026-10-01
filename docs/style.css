@@ -3760,3 +3760,228 @@ body {
   transform: none;
   filter: none;
 }
+
+/* --- События факультета: ночной лес, костёр, искры --- */
+
+/* Плашка — сцена, а не объявление: своя ночь в любой теме, поэтому цвета
+   не берём у Telegram. Звёзды — точки в фоне, лес — SVG по низу. */
+.event {
+  position: relative;
+  overflow: hidden;
+  margin: 0 0 10px;
+  padding: 11px 86px 13px 14px;
+  min-height: 74px;
+  border-radius: 16px;
+  color: #fff;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  background:
+    radial-gradient(1px 1px at 12% 22%, #fff 60%, transparent),
+    radial-gradient(1px 1px at 27% 12%, rgba(255, 255, 255, 0.8) 60%, transparent),
+    radial-gradient(1.5px 1.5px at 41% 30%, #fff 60%, transparent),
+    radial-gradient(1px 1px at 55% 14%, rgba(255, 255, 255, 0.7) 60%, transparent),
+    radial-gradient(1px 1px at 63% 36%, #fff 60%, transparent),
+    radial-gradient(1.5px 1.5px at 74% 10%, #fff 60%, transparent),
+    radial-gradient(1px 1px at 88% 26%, rgba(255, 255, 255, 0.8) 60%, transparent),
+    radial-gradient(120px 70px at calc(100% - 34px) 100%, rgba(255, 140, 40, 0.38), transparent 70%),
+    linear-gradient(165deg, #121c38 0%, #1a2c4a 48%, #1f3a35 100%);
+  box-shadow: 0 6px 20px rgba(12, 20, 40, 0.22);
+  animation: event-in 560ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+
+/* Свои — тёплый ободок: это их праздник. */
+.event--ours {
+  box-shadow:
+    0 0 0 1.5px rgba(255, 170, 70, 0.6),
+    0 8px 26px rgba(255, 120, 30, 0.22);
+}
+
+/* Мерцающие звёзды поверх неподвижных. */
+.event::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(1.5px 1.5px at 19% 40%, #fff 60%, transparent),
+    radial-gradient(1px 1px at 35% 24%, #fff 60%, transparent),
+    radial-gradient(1.5px 1.5px at 48% 8%, #fff 60%, transparent),
+    radial-gradient(1px 1px at 69% 22%, #fff 60%, transparent),
+    radial-gradient(1px 1px at 81% 6%, #fff 60%, transparent);
+  animation: event-twinkle 3.2s ease-in-out infinite alternate;
+}
+
+/* Месяц. */
+.event::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  right: 58px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  box-shadow: inset -4px 2px 0 0 #f4e6b4;
+  transform: rotate(-20deg);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.event-scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.event-forest {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 34px;
+}
+
+.event-trees-far { fill: #1d3b3a; }
+.event-trees { fill: #0e1f22; }
+
+.event-fire {
+  position: absolute;
+  right: 22px;
+  bottom: 5px;
+  font-size: 30px;
+  line-height: 1;
+  transform-origin: 50% 90%;
+  filter: drop-shadow(0 0 10px rgba(255, 140, 30, 0.75));
+  animation: event-flicker 1.4s ease-in-out infinite;
+}
+
+.event-sparks {
+  position: absolute;
+  right: 36px;
+  bottom: 30px;
+  width: 0;
+  height: 0;
+}
+
+.event-sparks i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #ffc163;
+  box-shadow: 0 0 6px #ff9a1f;
+  opacity: 0;
+  animation: event-spark 2.7s ease-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+/* Тап — искры летят разом и выше. */
+.event--burst .event-sparks i {
+  animation: event-spark-burst 900ms ease-out both;
+  animation-delay: calc(var(--delay, 0s) * 0.08);
+}
+
+.event-text {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
+.event-when {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 214, 150, 0.95);
+}
+
+.event-title {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.event-sub {
+  font-size: 13px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.event-close {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 20px;
+  line-height: 32px;
+  cursor: pointer;
+}
+
+/* Огонёк на плитке дня праздника. */
+.day--event {
+  position: relative;
+}
+
+.day--event::after {
+  content: attr(data-icon);
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 11px;
+  line-height: 1;
+  transform-origin: 50% 90%;
+  filter: drop-shadow(0 0 3px rgba(255, 140, 30, 0.7));
+  animation: event-flicker 1.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes event-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@keyframes event-twinkle {
+  from { opacity: 0.25; }
+  to { opacity: 1; }
+}
+
+@keyframes event-flicker {
+  0%, 100% { transform: scale(1) rotate(-2deg); }
+  30% { transform: scale(1.06, 0.96) rotate(2deg); }
+  55% { transform: scale(0.97, 1.05) rotate(-1deg); }
+  80% { transform: scale(1.04, 0.98) rotate(1.5deg); }
+}
+
+@keyframes event-spark {
+  0% { opacity: 0; transform: translate(0, 0) scale(1); }
+  12% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx, 0), -44px) scale(0.3); }
+}
+
+@keyframes event-spark-burst {
+  0% { opacity: 0; transform: translate(0, 0) scale(1.3); }
+  10% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(var(--dx, 0) * 2.4), -70px) scale(0.3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event,
+  .event::before,
+  .event-fire,
+  .event-sparks i,
+  .day--event::after {
+    animation: none;
+  }
+  .event-sparks { display: none; }
+}

@@ -543,6 +543,182 @@ function showConfetti() {
   setTimeout(() => box.remove(), 2600);
 }
 
+/* ---------- События факультета ---------- */
+
+// Праздники, которых нет в расписании. За несколько дней в шапке горит
+// плашка с отсчётом. Тем, чей это праздник, — огонёк на плитке дня и
+// конфетти при первом открытии в сам день.
+const EVENTS = [
+  {
+    id: "posvyat-2026",
+    date: "2026-10-02",
+    title: "Посвящение первокурсников",
+    place: "Красновидово",
+    icon: "🔥",
+    // Свои — первый курс бакалавриата: посвящают их.
+    ours: (group) => !group.teacher && group.level === "бакалавриат" && group.course === 1,
+  },
+];
+// За сколько дней до события появляется плашка.
+const EVENT_AHEAD = 3;
+const EVENT_HIDDEN_KEY = "schedule.eventsHidden";
+const EVENT_CELEBRATED_KEY = "schedule.eventsCelebrated";
+
+function daysUntil(iso, now = new Date()) {
+  // Полдень, а не полночь: переход на летнее время не съест сутки.
+  return Math.round((new Date(`${iso}T12:00:00`) - new Date(`${isoDate(now)}T12:00:00`)) / 86400000);
+}
+
+function upcomingEvent() {
+  for (const event of EVENTS) {
+    const days = daysUntil(event.date);
+    if (days >= 0 && days <= EVENT_AHEAD) return { ...event, days };
+  }
+  return null;
+}
+
+function eventOn(iso) {
+  return EVENTS.find((event) => event.date === iso) || null;
+}
+
+function storedList(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function storeInList(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify([...storedList(key), value].slice(-20)));
+  } catch {
+    // Без хранилища плашка просто покажется снова.
+  }
+}
+
+/** Ёлки по нижнему краю плашки: дальний ряд светлее, ближний темнее. */
+function forestSvg() {
+  const row = (count, min, max, cls, shift) => {
+    let d = "";
+    for (let i = 0; i < count; i++) {
+      const x = (i + 0.5) * (400 / count) + ((i * 37 + shift) % 11) - 5;
+      const h = min + (((i * 53 + shift) % 17) / 16) * (max - min);
+      const w = h * 0.34;
+      const f = (n) => n.toFixed(1);
+      d += `M${f(x - w)} 40L${f(x)} ${f(40 - h * 0.8)}L${f(x + w)} 40Z`;
+      d += `M${f(x - w * 0.72)} ${f(40 - h * 0.42)}L${f(x)} ${f(40 - h)}L${f(x + w * 0.72)} ${f(40 - h * 0.42)}Z`;
+    }
+    return `<path class="${cls}" d="${d}"/>`;
+  };
+  return (
+    `<svg class="event-forest" viewBox="0 0 400 40" preserveAspectRatio="xMidYMax slice">` +
+    row(30, 12, 22, "event-trees-far", 3) +
+    row(19, 16, 31, "event-trees", 0) +
+    `</svg>`
+  );
+}
+
+let eventBox = null;
+
+function renderEvent() {
+  const group = activeGroup();
+  const event = group ? upcomingEvent() : null;
+  // Скрытая заранее плашка возвращается в сам день: «сегодня» важнее.
+  const stamp = event ? `${event.id}:${event.days === 0 ? "day" : "before"}` : "";
+  const show = Boolean(event) && !storedList(EVENT_HIDDEN_KEY).includes(stamp);
+  const ours = show && event.ours(group);
+  if (!eventBox) {
+    eventBox = el("div", "event-box");
+    // Коробку вставляем сами: в старой закэшированной разметке её нет.
+    (document.getElementById("remind-ask") || els.days).before(eventBox);
+  }
+  // Перерисовываем, только если что-то поменялось: showSchedule зовётся на
+  // каждом листании дня, а искры и выезд не должны начинаться заново.
+  const key = show ? `${stamp}:${event.days}:${ours}:${group.id}` : "";
+  if (eventBox.dataset.key === key) return;
+  eventBox.dataset.key = key;
+  if (!show) return eventBox.replaceChildren();
+
+  const card = el("div", `event${ours ? " event--ours" : ""}${event.days === 0 ? " event--today" : ""}`);
+  const when =
+    event.days === 0
+      ? t("Сегодня")
+      : event.days === 1
+        ? t("Завтра")
+        : event.days === 2
+          ? t("Послезавтра")
+          : t("Через {n} дн.", { n: event.days });
+  const text = el("div", "event-text");
+  text.append(el("span", "event-when", `${when} · ${t(event.place)}`), el("b", "event-title", t(event.title)));
+  const sub = ours
+    ? event.days === 0
+      ? t("Добро пожаловать на ФГП! Это твой день 🎉")
+      : t("Это твой праздник — ждём тебя!")
+    : group.teacher
+      ? ""
+      : t("Поздравь первокурсников 🙌");
+  if (sub) text.append(el("span", "event-sub", sub));
+
+  const scene = el("div", "event-scene");
+  scene.setAttribute("aria-hidden", "true");
+  scene.innerHTML = forestSvg();
+  const sparks = el("span", "event-sparks");
+  for (let i = 0; i < 10; i++) {
+    const spark = el("i");
+    spark.style.setProperty("--dx", `${Math.round(Math.random() * 28 - 14)}px`);
+    spark.style.setProperty("--delay", `${(i * 0.27 + Math.random() * 0.2).toFixed(2)}s`);
+    sparks.append(spark);
+  }
+  const fire = el("span", "event-fire", event.icon);
+  scene.append(sparks, fire);
+
+  const close = el("button", "event-close", "×");
+  close.type = "button";
+  close.setAttribute("aria-label", t("Скрыть"));
+  close.addEventListener("click", (e) => {
+    e.stopPropagation();
+    haptic("light");
+    storeInList(EVENT_HIDDEN_KEY, stamp);
+    const out = card.animate(
+      [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(-6px) scale(0.97)" }],
+      { duration: 220, easing: "ease-in" }
+    );
+    out.onfinish = () => renderEvent();
+  });
+
+  // Тап по плашке — салют. Просто чтобы было приятно.
+  card.addEventListener("click", () => {
+    haptic("success");
+    showConfetti();
+    fire.animate(
+      [{ transform: "scale(1)" }, { transform: "scale(1.45) translateY(-3px)", offset: 0.4 }, { transform: "scale(1)" }],
+      { duration: 520, easing: "cubic-bezier(0.3, 1.5, 0.5, 1)" }
+    );
+    card.classList.remove("event--burst");
+    void card.offsetWidth;
+    card.classList.add("event--burst");
+  });
+
+  card.append(scene, text, close);
+  eventBox.replaceChildren(card);
+
+  // Заставка ещё на экране — конфетти запустит она, когда уйдёт.
+  const splash = els.splash;
+  if (!splash || !splash.isConnected || splash.classList.contains("splash--gone")) celebrateEvent();
+}
+
+/** В сам день своим — конфетти при первом открытии. Один раз. */
+function celebrateEvent() {
+  const group = activeGroup();
+  const event = group ? upcomingEvent() : null;
+  if (!event || event.days !== 0 || !event.ours(group)) return;
+  if (storedList(EVENT_CELEBRATED_KEY).includes(event.id)) return;
+  storeInList(EVENT_CELEBRATED_KEY, event.id);
+  showConfetti();
+  haptic("success");
+}
+
 /* ---------- Отсчёт до свободы ---------- */
 
 /**
@@ -3146,6 +3322,7 @@ function showSchedule() {
 
   renderDays();
   renderRemindAsk();
+  renderEvent();
   renderLessons(group, parity);
   noticesReady = loadNotices(group);
   ensureHomeworkWeek(selectedWeek);
@@ -3241,6 +3418,7 @@ function renderDayEnd() {
 function renderDays() {
   const nodes = [];
   const todayIso = isoDate(new Date());
+  const group = activeGroup();
 
   for (let week = 0; week < WEEKS; week++) {
     if (week > 0) nodes.push(el("span", "days-split"));
@@ -3251,6 +3429,12 @@ function renderDays() {
 
       const btn = el("button", active ? "day active" : "day");
       if (isoDate(date) === todayIso) btn.classList.add("day--today");
+      // День праздника — огонёк в углу плитки, у тех, чей это праздник.
+      const holiday = group && eventOn(isoDate(date));
+      if (holiday && holiday.ours(group)) {
+        btn.classList.add("day--event");
+        btn.dataset.icon = holiday.icon;
+      }
       btn.append(el("span", "day-name", DAYS[day - 1]), el("span", "day-num", String(date.getDate())));
       // Точки под числом — ровно столько, сколько пар в этот день, как на
       // заставке. Раньше больше четырёх не рисовали, и в пятипарный день
@@ -5038,7 +5222,9 @@ function assembleSplash(plan) {
   }
 
   const label = FULL_DATE.format(plan.date);
-  els.splashDay.textContent = label[0].toUpperCase() + label.slice(1);
+  const holiday = eventOn(isoDate(plan.date));
+  const icon = holiday && holiday.ours(activeGroup()) ? ` ${holiday.icon}` : "";
+  els.splashDay.textContent = label[0].toUpperCase() + label.slice(1) + icon;
 
   const times = plan.times.slice(0, 8);
   // Шкала — от первой пары до последней: последняя стоит ровно у правого
@@ -5133,6 +5319,8 @@ function dropSplash() {
   }
   splash.classList.add("splash--gone");
   setTimeout(() => splash.remove(), 700);
+  // Расписание развернулось — теперь можно и салют в честь праздника.
+  setTimeout(celebrateEvent, 450);
 }
 
 /* ---------- Запуск ---------- */
