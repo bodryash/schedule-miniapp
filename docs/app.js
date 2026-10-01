@@ -530,7 +530,10 @@ function initConfetti() {
 
 function showConfetti() {
   const box = el("div", "confetti");
-  const colors = ["#ff2d87", "#ffd166", "#4c6ef5", "#2ea6ff", "#40c057", "#ff922b"];
+  // У чемпиона и салют золотой.
+  const colors = document.body.classList.contains("champion")
+    ? ["#ffd700", "#f5c542", "#e6b422", "#fff3b0", "#d4a017", "#ffcc4d"]
+    : ["#ff2d87", "#ffd166", "#4c6ef5", "#2ea6ff", "#40c057", "#ff922b"];
   for (let i = 0; i < 40; i++) {
     const piece = el("i");
     piece.style.left = `${Math.random() * 100}%`;
@@ -1334,6 +1337,58 @@ function applyTheme(granted = grantedTheme) {
   for (const cls of Object.values(THEMES)) {
     document.body.classList.toggle(cls, THEMES[name] === cls);
   }
+  renderChampion(name === "champion");
+}
+
+/* Тема «Чемпион» — приз победителю кликера. Кроме золота — лента под
+   датой с бликом и салют при первом открытии за день: приз должен
+   чувствоваться, а не просто перекрашивать кнопки. */
+const CHAMPION_KEY = "schedule.championSalute";
+
+function renderChampion(on) {
+  let ribbon = document.querySelector(".champion-ribbon");
+  if (!on) return ribbon?.remove();
+  if (!ribbon && els.freedom) {
+    ribbon = el("button", "champion-ribbon");
+    ribbon.type = "button";
+    ribbon.append(el("span", "champion-crown", "👑"), el("span", "", t("Чемпион кликера посвящения")));
+    // Тап по ленте — салют. Чемпиону можно.
+    ribbon.addEventListener("click", () => {
+      haptic("success");
+      showConfetti();
+    });
+    els.freedom.after(ribbon);
+  }
+  championSalute();
+}
+
+function championSalute() {
+  const today = isoDate(new Date());
+  let last = "";
+  try {
+    last = localStorage.getItem(CHAMPION_KEY) || "";
+    if (last === today) return;
+    localStorage.setItem(CHAMPION_KEY, today);
+  } catch {
+    // Без хранилища салют будет при каждом открытии — не беда.
+  }
+  afterSplash(() => {
+    showConfetti();
+    haptic("success");
+    if (!last) toast(t("👑 Тема «Чемпион» — твой приз за кликер посвящения. Носи с гордостью!"));
+  });
+}
+
+// Что показать, когда уйдёт заставка: под ней салюта не видно.
+const afterSplashQueue = [];
+
+function afterSplash(fn) {
+  const splash = els.splash;
+  if (!splash || !splash.isConnected || splash.classList.contains("splash--gone")) {
+    setTimeout(fn, 300);
+    return;
+  }
+  afterSplashQueue.push(fn);
 }
 
 // Пасхалка открыта: слово набрано или гламур уже включён.
@@ -5683,7 +5738,10 @@ function dropSplash() {
   splash.classList.add("splash--gone");
   setTimeout(() => splash.remove(), 700);
   // Расписание развернулось — теперь можно и салют в честь праздника.
-  setTimeout(celebrateEvent, 450);
+  setTimeout(() => {
+    celebrateEvent();
+    afterSplashQueue.splice(0).forEach((fn) => fn());
+  }, 450);
 }
 
 /* ---------- Запуск ---------- */
