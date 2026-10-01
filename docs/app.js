@@ -555,8 +555,11 @@ const EVENTS = [
     title: "Посвящение первокурсников",
     place: "Красновидово",
     icon: "🔥",
-    // До этого момента плашка — кликер с таблицей лидеров.
-    clicker: "2026-10-02T00:00:00+03:00",
+    // До этого момента плашка — кликер с таблицей лидеров: до конца
+    // посвящения, полночь с пятницы на субботу.
+    clicker: "2026-10-03T00:00:00+03:00",
+    // После праздника плашка ещё висит с итогами — чтобы все увидели чемпиона.
+    until: "2026-10-05",
     // Свои — первый курс бакалавриата: посвящают их.
     ours: (group) => !group.teacher && group.level === "бакалавриат" && group.course === 1,
   },
@@ -573,8 +576,10 @@ function daysUntil(iso, now = new Date()) {
 
 function upcomingEvent() {
   for (const event of EVENTS) {
+    // days < 0 — праздник прошёл, но плашка ещё висит с итогами.
     const days = daysUntil(event.date);
-    if (days >= 0 && days <= EVENT_AHEAD) return { ...event, days };
+    const last = event.until ? daysUntil(event.until) : days;
+    if (days <= EVENT_AHEAD && last >= 0) return { ...event, days };
   }
   return null;
 }
@@ -626,9 +631,11 @@ let eventBox = null;
 function renderEvent() {
   const group = activeGroup();
   const event = group ? upcomingEvent() : null;
-  // Скрытая заранее плашка возвращается в сам день: «сегодня» важнее.
-  const stamp = event ? `${event.id}:${event.days === 0 ? "day" : "before"}` : "";
-  const show = Boolean(event) && !storedList(EVENT_HIDDEN_KEY).includes(stamp);
+  // Скрытая заранее плашка возвращается в сам день и ещё раз — с итогами.
+  const stamp = event ? `${event.id}:${event.days === 0 ? "day" : event.days > 0 ? "before" : "after"}` : "";
+  // Итоги — это итоги кликера: преподавателям, которые не играли, они ни к чему.
+  const relevant = Boolean(event) && (event.days >= 0 || (Boolean(event.clicker) && !group.teacher));
+  const show = relevant && !storedList(EVENT_HIDDEN_KEY).includes(stamp);
   const ours = show && event.ours(group);
   if (!eventBox) {
     eventBox = el("div", "event-box");
@@ -644,7 +651,9 @@ function renderEvent() {
 
   const card = el("div", `event${ours ? " event--ours" : ""}${event.days === 0 ? " event--today" : ""}`);
   const when =
-    event.days === 0
+    event.days < 0
+      ? t("Итоги")
+      : event.days === 0
       ? t("Сегодня")
       : event.days === 1
         ? t("Завтра")
@@ -653,13 +662,18 @@ function renderEvent() {
           : t("Через {n} дн.", { n: event.days });
   const text = el("div", "event-text");
   text.append(el("span", "event-when", `${when} · ${t(event.place)}`), el("b", "event-title", t(event.title)));
-  const sub = ours
-    ? event.days === 0
-      ? t("Добро пожаловать на ФГП! Это твой день 🎉")
-      : t("Это твой праздник — ждём тебя!")
-    : group.teacher
-      ? ""
-      : t("Поздравь первокурсников 🙌");
+  const sub =
+    event.days < 0
+      ? ours
+        ? t("Добро пожаловать на ФГП! 🎓")
+        : ""
+      : ours
+        ? event.days === 0
+          ? t("Добро пожаловать на ФГП! Это твой день 🎉")
+          : t("Это твой праздник — ждём тебя!")
+        : group.teacher
+          ? ""
+          : t("Поздравь первокурсников 🙌");
   if (sub) text.append(el("span", "event-sub", sub));
   // Играют все студенты; преподавателям плашка — просто новость.
   const playing = Boolean(event.clicker) && !group.teacher;
@@ -871,7 +885,7 @@ function clickerTap(e, card, fire) {
   }
   if (!clicker.told) {
     clicker.told = true;
-    toast(t("Кликер посвящения: кто нажмёт больше всех до полуночи, получит приз 👑 В таблице лидеров видно имя из Telegram и группу."));
+    toast(t("Кликер посвящения: кто нажмёт больше всех до полуночи с пятницы на субботу, получит приз 👑 В таблице лидеров видно имя из Telegram и группу."));
   }
   saveClickerLocal();
   if (tg?.initData) scheduleClickerFlush();
@@ -1003,7 +1017,7 @@ function renderClickerSheet() {
     el(
       "p",
       "",
-      t("Тема «Чемпион» на месяц: золотое оформление и корона у названия группы — больше ни у кого такой нет. А в день посвящения имя победителя увидит весь факультет.")
+      t("Тема «Чемпион» на месяц: золотое оформление и корона у названия группы — больше ни у кого такой нет. А имя победителя весь факультет увидит на этой плашке.")
     )
   );
   nodes.push(prize);
@@ -4830,7 +4844,8 @@ function initSwipe() {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     // Полоса дней листается сама по себе, кнопки должны нажиматься.
     // Окно домашки лежит поверх расписания: печать в нём не должна листать дни.
-    if (event.target.closest?.(".days, button, .sheet")) return;
+    // Плашка праздника — кликер: тап у её края листал день, как в сторис.
+    if (event.target.closest?.(".days, button, .sheet, .event")) return;
     if (sheetOpen()) return;
     pointer = event.pointerId;
     startX = event.clientX;

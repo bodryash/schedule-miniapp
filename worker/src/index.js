@@ -1317,7 +1317,8 @@ async function themesList(env) {
 // Праздничная плашка в приложении — ещё и кликер: кто нажмёт больше всех
 // до конца, получает приз. Приложение копит нажатия и шлёт пачкой раз в
 // несколько секунд, здесь пачка проверяется на скорость и прибавляется.
-const CLICKER = { event: "posvyat-2026", ends: Date.parse("2026-10-02T00:00:00+03:00") };
+// До конца посвящения — полночь с пятницы на субботу.
+const CLICKER = { event: "posvyat-2026", ends: Date.parse("2026-10-03T00:00:00+03:00") };
 // Пальцами быстрее 20 нажатий в секунду не выходит — лишнее не засчитываем.
 const CLICKER_RATE = 20;
 // Пачка приходит раз в несколько секунд. Если связи не было дольше,
@@ -1454,7 +1455,7 @@ async function clickerCommand(env, text) {
     .bind(CLICKER.event)
     .first();
   const ended = Date.now() >= CLICKER.ends;
-  const head = `${CLICKER_HELP}\n\n${ended ? "Окончен" : "Идёт до 2 октября, 00:00 МСК"}. Игроков: ${totals?.players || 0}, нажатий: ${totals?.taps || 0}.`;
+  const head = `${CLICKER_HELP}\n\n${ended ? "Окончен" : "Идёт до 3 октября, 00:00 МСК — ночь с пятницы на субботу"}. Игроков: ${totals?.players || 0}, нажатий: ${totals?.taps || 0}.`;
   if (!results.length) return `${head}\n\nПока никто не кликал.`;
   const lines = results.map((row, i) => {
     const minutes = Math.max(1, Math.round(row.active / 60));
