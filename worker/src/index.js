@@ -1321,18 +1321,34 @@ async function themesList(env) {
 const CLICKER = { event: "posvyat-2026", ends: Date.parse("2026-10-03T00:00:00+03:00") };
 // Пальцами быстрее 20 нажатий в секунду не выходит — лишнее не засчитываем.
 const CLICKER_RATE = 20;
-// Пачка приходит раз в CLICKER_FLUSH. Если связи не было дольше,
-// засчитываем не больше чем за минуту.
-const CLICKER_WINDOW = 60;
-// Как часто приложения шлют пачки — задаётся здесь, а не в приложении:
-// если дневной лимит Cloudflare (100 тысяч запросов и записей на весь бот)
-// начнёт кончаться, интервал поднимается одним деплоем воркера, и
-// телефоны подхватывают его со следующим ответом. Не больше 50 секунд —
-// иначе пачка перестанет влезать в CLICKER_WINDOW.
-const CLICKER_FLUSH = 15000;
+// Пачка приходит раз в 15 секунд – 2 минуты (см. CLICKER_FLUSH_MIN/MAX).
+// Если связи не было дольше, засчитываем не больше чем за две с половиной.
+const CLICKER_WINDOW = 150;
+// Как часто приложения шлют пачки, решает сервер — сам, по нагрузке. У
+// бесплатного Cloudflare 100 тысяч запросов и записей в базу на сутки на
+// весь бот; кликеру отдаём до 6 тысяч пачек в час. Чем больше людей
+// кликает прямо сейчас, тем реже каждый шлёт пачку: до 25 человек — раз
+// в 15 секунд, 100 — раз в минуту, от 200 — раз в 2 минуты. Счётчик на телефоне
+// растёт мгновенно при любом интервале, реже обновляется только таблица.
+// Дольше 2 минут приложение не ждёт, а пачка за это время должна влезть
+// в CLICKER_WINDOW.
+const CLICKER_FLUSH_MIN = 15000;
+const CLICKER_FLUSH_MAX = 120000;
+const CLICKER_PER_HOUR = 6000;
 // Таблица лидеров читает всех игроков разом, поэтому держим её в памяти:
 // иначе каждый открывший таблицу тратил бы дневной лимит чтений базы.
-let clickerCache = { at: 0, rows: [] };
+let clickerCache = { at: 0, rows: [], flush: CLICKER_FLUSH_MIN };
+
+/** Интервал пачек по числу кликающих сейчас — тех, кто прислал пачку недавно. */
+function clickerFlush(rows) {
+  const now = Math.floor(Date.now() / 1000);
+  // Окно — два прошлых интервала: при редких пачках активный игрок иначе
+  // выпадал бы из подсчёта, и интервал бы скакал туда-обратно.
+  const span = Math.max(120, (2 * clickerCache.flush) / 1000);
+  const active = rows.filter((row) => now - row.updated < span).length;
+  const wanted = Math.ceil((active * 3600) / CLICKER_PER_HOUR) * 1000;
+  return Math.min(CLICKER_FLUSH_MAX, Math.max(CLICKER_FLUSH_MIN, wanted));
+}
 
 function clickerName(user) {
   const first = String(user.first_name || "").trim();
@@ -1343,15 +1359,17 @@ function clickerName(user) {
 async function clickerRows(env) {
   const ttl = Date.now() >= CLICKER.ends ? 300000 : 15000;
   if (Date.now() - clickerCache.at < ttl) return clickerCache.rows;
+  // Убранных из таблицы читаем тоже: пачки они шлют, нагрузку дают.
   const { results = [] } = await env.STATS.prepare(
-    `SELECT user_id, name, grp, taps FROM clicker
-     WHERE event = ? AND banned = 0 AND taps > 0
+    `SELECT user_id, name, grp, taps, updated, banned FROM clicker
+     WHERE event = ? AND taps > 0
      ORDER BY taps DESC, updated ASC`
   )
     .bind(CLICKER.event)
     .all();
-  clickerCache = { at: Date.now(), rows: results };
-  return results;
+  const rows = results.filter((row) => !row.banned);
+  clickerCache = { at: Date.now(), rows, flush: clickerFlush(results) };
+  return rows;
 }
 
 function clickerBoard(rows, userId, mine, group) {
@@ -1416,7 +1434,7 @@ async function clickerApi(env, body) {
       .first();
     mine = row?.taps ?? null;
   }
-  if (!body.board) return { ok: true, mine, ends: CLICKER.ends, ended, flush: CLICKER_FLUSH };
+  if (!body.board) return { ok: true, mine, ends: CLICKER.ends, ended, flush: clickerCache.flush };
 
   if (mine === null) {
     const row = await env.STATS.prepare("SELECT taps FROM clicker WHERE event = ? AND user_id = ?")
@@ -1425,7 +1443,7 @@ async function clickerApi(env, body) {
     mine = row?.taps || 0;
   }
   const rows = await clickerRows(env);
-  return { ok: true, mine, ends: CLICKER.ends, ended, flush: CLICKER_FLUSH, board: clickerBoard(rows, user.id, mine, group) };
+  return { ok: true, mine, ends: CLICKER.ends, ended, flush: clickerCache.flush, board: clickerBoard(rows, user.id, mine, group) };
 }
 
 const CLICKER_HELP = [
