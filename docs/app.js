@@ -736,7 +736,10 @@ function burstSparks(card) {
 // получает приз. Нажатия копятся здесь и уходят пачкой раз в несколько
 // секунд: запрос на каждое нажатие съел бы дневной лимит бота за час.
 const CLICKER_URL = "https://fgp-schedule-bot.bodryash.workers.dev/clicker";
-const CLICKER_FLUSH = 4000;
+// Раз в 10 секунд: у бота 100 тысяч запросов и записей в базу на сутки на
+// всё сразу, и при пачке раз в 4 секунды сотни кликающих выбрали бы их к
+// вечеру — встали бы и кликер, и напоминания, и отмены пар.
+const CLICKER_FLUSH = 10000;
 const CLICKER_LOCAL = "schedule.clicker";
 const NUMBER = new Intl.NumberFormat(LANG === "ru" ? "ru-RU" : LANG);
 const clicker = {
@@ -970,7 +973,7 @@ function openClickerSheet() {
   clickerSync();
   // Пока таблица открыта — обновляем её, чтобы было видно, как обгоняют.
   clearInterval(clickerPoll);
-  clickerPoll = setInterval(() => (clicker.busy ? renderClickerSheet() : clickerSync()), 10000);
+  clickerPoll = setInterval(() => (clicker.busy ? renderClickerSheet() : clickerSync()), 20000);
 }
 
 function closeClickerSheet() {
