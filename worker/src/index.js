@@ -1321,9 +1321,15 @@ async function themesList(env) {
 const CLICKER = { event: "posvyat-2026", ends: Date.parse("2026-10-03T00:00:00+03:00") };
 // Пальцами быстрее 20 нажатий в секунду не выходит — лишнее не засчитываем.
 const CLICKER_RATE = 20;
-// Пачка приходит раз в несколько секунд. Если связи не было дольше,
-// засчитываем не больше чем за полминуты.
-const CLICKER_WINDOW = 30;
+// Пачка приходит раз в CLICKER_FLUSH. Если связи не было дольше,
+// засчитываем не больше чем за минуту.
+const CLICKER_WINDOW = 60;
+// Как часто приложения шлют пачки — задаётся здесь, а не в приложении:
+// если дневной лимит Cloudflare (100 тысяч запросов и записей на весь бот)
+// начнёт кончаться, интервал поднимается одним деплоем воркера, и
+// телефоны подхватывают его со следующим ответом. Не больше 50 секунд —
+// иначе пачка перестанет влезать в CLICKER_WINDOW.
+const CLICKER_FLUSH = 15000;
 // Таблица лидеров читает всех игроков разом, поэтому держим её в памяти:
 // иначе каждый открывший таблицу тратил бы дневной лимит чтений базы.
 let clickerCache = { at: 0, rows: [] };
@@ -1410,7 +1416,7 @@ async function clickerApi(env, body) {
       .first();
     mine = row?.taps ?? null;
   }
-  if (!body.board) return { ok: true, mine, ends: CLICKER.ends, ended };
+  if (!body.board) return { ok: true, mine, ends: CLICKER.ends, ended, flush: CLICKER_FLUSH };
 
   if (mine === null) {
     const row = await env.STATS.prepare("SELECT taps FROM clicker WHERE event = ? AND user_id = ?")
@@ -1419,7 +1425,7 @@ async function clickerApi(env, body) {
     mine = row?.taps || 0;
   }
   const rows = await clickerRows(env);
-  return { ok: true, mine, ends: CLICKER.ends, ended, board: clickerBoard(rows, user.id, mine, group) };
+  return { ok: true, mine, ends: CLICKER.ends, ended, flush: CLICKER_FLUSH, board: clickerBoard(rows, user.id, mine, group) };
 }
 
 const CLICKER_HELP = [

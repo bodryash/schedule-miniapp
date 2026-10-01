@@ -736,10 +736,11 @@ function burstSparks(card) {
 // получает приз. Нажатия копятся здесь и уходят пачкой раз в несколько
 // секунд: запрос на каждое нажатие съел бы дневной лимит бота за час.
 const CLICKER_URL = "https://fgp-schedule-bot.bodryash.workers.dev/clicker";
-// Раз в 10 секунд: у бота 100 тысяч запросов и записей в базу на сутки на
-// всё сразу, и при пачке раз в 4 секунды сотни кликающих выбрали бы их к
-// вечеру — встали бы и кликер, и напоминания, и отмены пар.
-const CLICKER_FLUSH = 10000;
+// Пачка раз в 15 секунд: у бота 100 тысяч запросов и записей в базу на
+// сутки на всё сразу, и при частых пачках сотни кликающих выбрали бы их к
+// вечеру — встали бы и кликер, и напоминания, и отмены пар. Сервер может
+// прислать интервал побольше, если запас начнёт кончаться.
+const CLICKER_FLUSH = 15000;
 const CLICKER_LOCAL = "schedule.clicker";
 const NUMBER = new Intl.NumberFormat(LANG === "ru" ? "ru-RU" : LANG);
 const clicker = {
@@ -752,6 +753,7 @@ const clicker = {
   busy: false,
   timer: 0,
   view: "players",
+  flush: CLICKER_FLUSH,
   pulse: null,
   bump: null,
 };
@@ -901,7 +903,7 @@ function scheduleClickerFlush() {
   clicker.timer = setTimeout(() => {
     clicker.timer = 0;
     clickerSync();
-  }, CLICKER_FLUSH);
+  }, clicker.flush);
 }
 
 /** Отправляет накопленные нажатия и забирает таблицу лидеров. */
@@ -922,6 +924,7 @@ async function clickerSync(keepalive = false) {
     const body = await res.json();
     if (!body.ok) throw new Error(body.error || "error");
     if (body.ends) clicker.ends = body.ends;
+    if (body.flush >= 4000 && body.flush <= 120000) clicker.flush = body.flush;
     // Сервер — источник правды: если пачку урезал предел скорости, счёт
     // честно станет меньше. Нажатия, сделанные пока шёл запрос, — сверху.
     if (typeof body.mine === "number") clicker.mine = body.mine + clicker.pending;
@@ -972,13 +975,22 @@ function openClickerSheet() {
   haptic("light");
   clickerSync();
   // Пока таблица открыта — обновляем её, чтобы было видно, как обгоняют.
-  clearInterval(clickerPoll);
-  clickerPoll = setInterval(() => (clicker.busy ? renderClickerSheet() : clickerSync()), 20000);
+  // Вдвое реже пачек: таблица сама по себе дорогая для лимитов.
+  clearTimeout(clickerPoll);
+  const poll = () => {
+    clickerPoll = setTimeout(() => {
+      if (clickerSheet.hidden) return;
+      if (clicker.busy) renderClickerSheet();
+      else clickerSync();
+      poll();
+    }, clicker.flush * 2);
+  };
+  poll();
 }
 
 function closeClickerSheet() {
   const sheet = clickerSheet;
-  clearInterval(clickerPoll);
+  clearTimeout(clickerPoll);
   if (!sheet || sheet.hidden || sheet.classList.contains("sheet-backdrop--out")) return;
   haptic("light");
   sheet.classList.add("sheet-backdrop--out");
