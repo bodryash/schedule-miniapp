@@ -1944,7 +1944,7 @@ body.glam-noir .room-badge {
 /* --- Сессия --- */
 
 /* Учебные недели кончились: интерфейс тревожный, но читаемый. */
-body.exams:not(.glam):not(.glam-noir) {
+body.exams:not(.glam):not(.glam-noir):not(.champion) {
   --accent: #e03131;
   --accent-soft: rgba(224, 49, 49, 0.14);
 }
@@ -3984,4 +3984,252 @@ body {
     animation: none;
   }
   .event-sparks { display: none; }
+}
+
+/* --- Кликер посвящения --- */
+
+/* Плашка-кликер: не выделяется текст, не приближается двойным тапом. */
+.event--clicker {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.event-clicker {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  min-width: 0;
+}
+
+.event-count {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.13);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.event-count b {
+  margin-right: 3px;
+  font-size: 14px;
+  color: #ffd27a;
+  font-variant-numeric: tabular-nums;
+}
+
+.event-place {
+  flex: none;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 196, 90, 0.2);
+  color: #ffd27a;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.event-top {
+  flex: none;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.event-plus {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffd27a;
+  text-shadow: 0 0 8px rgba(255, 150, 40, 0.8);
+  transform: translate(-50%, -50%);
+  animation: event-plus 650ms ease-out forwards;
+}
+
+@keyframes event-plus {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  to {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx, 0px)), -260%) scale(1.15);
+  }
+}
+
+/* Окно с таблицей лидеров. */
+.sheet--clicker .clicker-note {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.clicker-prize {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(245, 190, 60, 0.2), rgba(255, 130, 40, 0.12));
+}
+
+.clicker-prize b {
+  font-size: 14px;
+}
+
+.clicker-prize p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.clicker-seg {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.clicker-seg button {
+  flex: 1;
+  padding: 7px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.clicker-seg .clicker-seg-on {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.clicker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+}
+
+.clicker-row--me {
+  background: rgba(245, 170, 50, 0.16);
+}
+
+.clicker-place {
+  flex: none;
+  width: 26px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.clicker-who {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.clicker-name {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.clicker-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.clicker-taps {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.clicker-gap {
+  padding: 0 0 2px;
+  text-align: center;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.clicker-total,
+.clicker-fine {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.clicker-fine {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-plus {
+    animation-duration: 1ms;
+  }
+}
+
+/* --- Чемпион: приз победителю кликера --- */
+
+/* Золото на обычном фоне и корона у названия группы. Выдаёт владелец
+   командой /theme, сам человек её не включит. */
+body.champion {
+  --accent: #d4a017;
+  --accent-soft: rgba(212, 160, 23, 0.16);
+  --accent-text: #2a1d00;
+  --line: rgba(212, 160, 23, 0.22);
+}
+
+body.champion[data-parity="even"] {
+  --accent: #e8a33a;
+  --accent-soft: rgba(232, 163, 58, 0.18);
+}
+
+body.champion .date {
+  color: #c08e12;
+  text-shadow: 0 0 18px rgba(245, 200, 80, 0.35);
+}
+
+body.champion #current-group::before {
+  content: "👑 ";
+}
+
+body.champion .room-badge {
+  background: linear-gradient(135deg, #f0c24b, #b8860b);
+  color: #2a1d00;
+}
+
+/* Заголовок окна кликера — в одну строку на узком телефоне. */
+.sheet--clicker h2 {
+  font-size: 18px;
 }

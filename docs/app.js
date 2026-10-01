@@ -555,6 +555,8 @@ const EVENTS = [
     title: "Посвящение первокурсников",
     place: "Красновидово",
     icon: "🔥",
+    // До этого момента плашка — кликер с таблицей лидеров.
+    clicker: "2026-10-02T00:00:00+03:00",
     // Свои — первый курс бакалавриата: посвящают их.
     ours: (group) => !group.teacher && group.level === "бакалавриат" && group.course === 1,
   },
@@ -659,6 +661,9 @@ function renderEvent() {
       ? ""
       : t("Поздравь первокурсников 🙌");
   if (sub) text.append(el("span", "event-sub", sub));
+  // Играют все студенты; преподавателям плашка — просто новость.
+  const playing = Boolean(event.clicker) && !group.teacher;
+  if (playing) text.append(clickerRow(event));
 
   const scene = el("div", "event-scene");
   scene.setAttribute("aria-hidden", "true");
@@ -687,18 +692,26 @@ function renderEvent() {
     out.onfinish = () => renderEvent();
   });
 
-  // Тап по плашке — салют. Просто чтобы было приятно.
-  card.addEventListener("click", () => {
-    haptic("success");
-    showConfetti();
-    fire.animate(
-      [{ transform: "scale(1)" }, { transform: "scale(1.45) translateY(-3px)", offset: 0.4 }, { transform: "scale(1)" }],
-      { duration: 520, easing: "cubic-bezier(0.3, 1.5, 0.5, 1)" }
-    );
-    card.classList.remove("event--burst");
-    void card.offsetWidth;
-    card.classList.add("event--burst");
-  });
+  if (playing) {
+    // Нажатие — по касанию, а не по «клику»: так засчитывается каждый палец
+    // и нет задержки, которую браузер держит, ожидая двойного тапа.
+    card.classList.add("event--clicker");
+    card.addEventListener("pointerdown", (e) => {
+      if (e.target.closest("button")) return;
+      clickerTap(e, card, fire);
+    });
+  } else {
+    // Тап по плашке — салют. Просто чтобы было приятно.
+    card.addEventListener("click", () => {
+      haptic("success");
+      showConfetti();
+      fire.animate(
+        [{ transform: "scale(1)" }, { transform: "scale(1.45) translateY(-3px)", offset: 0.4 }, { transform: "scale(1)" }],
+        { duration: 520, easing: "cubic-bezier(0.3, 1.5, 0.5, 1)" }
+      );
+      burstSparks(card);
+    });
+  }
 
   card.append(scene, text, close);
   eventBox.replaceChildren(card);
@@ -706,6 +719,355 @@ function renderEvent() {
   // Заставка ещё на экране — конфетти запустит она, когда уйдёт.
   const splash = els.splash;
   if (!splash || !splash.isConnected || splash.classList.contains("splash--gone")) celebrateEvent();
+}
+
+function burstSparks(card) {
+  card.classList.remove("event--burst");
+  void card.offsetWidth;
+  card.classList.add("event--burst");
+}
+
+/* ---------- Кликер посвящения ---------- */
+
+// Плашка праздника — ещё и кликер: кто нажмёт больше всех до конца, тот
+// получает приз. Нажатия копятся здесь и уходят пачкой раз в несколько
+// секунд: запрос на каждое нажатие съел бы дневной лимит бота за час.
+const CLICKER_URL = "https://fgp-schedule-bot.bodryash.workers.dev/clicker";
+const CLICKER_FLUSH = 4000;
+const CLICKER_LOCAL = "schedule.clicker";
+const NUMBER = new Intl.NumberFormat(LANG === "ru" ? "ru-RU" : LANG);
+const clicker = {
+  event: "",
+  ends: 0,
+  mine: 0,
+  pending: 0,
+  board: null,
+  told: false,
+  busy: false,
+  timer: 0,
+  view: "players",
+  pulse: null,
+  bump: null,
+};
+let clickerNodes = null;
+let clickerHooked = false;
+
+function clickerEnded() {
+  return Boolean(clicker.ends) && Date.now() >= clicker.ends;
+}
+
+function saveClickerLocal() {
+  try {
+    const { event, mine, pending, told } = clicker;
+    localStorage.setItem(CLICKER_LOCAL, JSON.stringify({ event, mine, pending, told }));
+  } catch {
+    // Без хранилища счёт всё равно придёт с сервера.
+  }
+}
+
+function readClickerLocal() {
+  try {
+    return JSON.parse(localStorage.getItem(CLICKER_LOCAL) || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+
+/** Строка под заголовком плашки: свои нажатия, место и кнопка таблицы. */
+function clickerRow(event) {
+  if (clicker.event !== event.id) {
+    clicker.event = event.id;
+    clicker.ends = Date.parse(event.clicker);
+    const saved = readClickerLocal();
+    if (saved.event === event.id) {
+      clicker.mine = Number(saved.mine) || 0;
+      // Не успевшие уйти нажатия прошлого раза отправим сейчас.
+      clicker.pending = Number(saved.pending) || 0;
+      clicker.told = Boolean(saved.told);
+    }
+  }
+  const row = el("div", "event-clicker");
+  const count = el("span", "event-count");
+  const place = el("span", "event-place");
+  const top = el("button", "event-top", `🏆 ${t("Топ")}`);
+  top.type = "button";
+  top.setAttribute("aria-label", t("Таблица лидеров"));
+  top.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openClickerSheet();
+  });
+  row.append(count, place, top);
+  clickerNodes = { count, place };
+  updateClickerRow();
+
+  if (!clickerHooked) {
+    clickerHooked = true;
+    // Свернули приложение — досылаем пачку сразу, не дожидаясь таймера.
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden || !clicker.pending) return;
+      clearTimeout(clicker.timer);
+      clicker.timer = 0;
+      clickerSync(true);
+    });
+  }
+  clickerSync();
+  return row;
+}
+
+function updateClickerRow(bump = false) {
+  if (!clickerNodes) return;
+  const { count, place } = clickerNodes;
+  const board = clicker.board;
+  if (clickerEnded()) {
+    const champion = board?.top?.[0];
+    count.textContent = !champion
+      ? t("Кликер окончен")
+      : champion.me
+        ? t("👑 Первое место — твоё!")
+        : `👑 ${champion.name}, ${champion.group}`;
+    place.hidden = !champion;
+    if (champion) place.textContent = NUMBER.format(champion.taps);
+    return;
+  }
+  if (!clicker.mine) {
+    count.textContent = t("👆 Жми — приз лучшему");
+    place.hidden = true;
+    return;
+  }
+  count.replaceChildren(el("b", "", NUMBER.format(clicker.mine)), document.createTextNode(" 👆"));
+  place.hidden = !board?.place;
+  if (board?.place) place.textContent = `#${board.place}`;
+  if (bump) {
+    clicker.bump?.cancel();
+    clicker.bump = count.animate([{ transform: "scale(1.12)" }, { transform: "none" }], {
+      duration: 180,
+      easing: "ease-out",
+    });
+  }
+}
+
+function clickerTap(e, card, fire) {
+  if (e.button > 0) return;
+  clicker.pulse?.cancel();
+  clicker.pulse = fire.animate(
+    [{ transform: "scale(1)" }, { transform: "scale(1.3) translateY(-2px)", offset: 0.35 }, { transform: "scale(1)" }],
+    { duration: 280, easing: "ease-out" }
+  );
+  plusOne(card, e);
+  if (clickerEnded()) {
+    haptic("light");
+    updateClickerRow();
+    return;
+  }
+  clicker.mine += 1;
+  clicker.pending += 1;
+  haptic("light");
+  updateClickerRow(true);
+  // Каждая сотня — салют.
+  if (clicker.mine % 100 === 0) {
+    showConfetti();
+    burstSparks(card);
+    haptic("success");
+  }
+  if (!clicker.told) {
+    clicker.told = true;
+    toast(t("Кликер посвящения: кто нажмёт больше всех до полуночи, получит приз 👑 В таблице лидеров видно имя из Telegram и группу."));
+  }
+  saveClickerLocal();
+  if (tg?.initData) scheduleClickerFlush();
+}
+
+/** «+1» вылетает из-под пальца. */
+function plusOne(card, e) {
+  const rect = card.getBoundingClientRect();
+  const node = el("span", "event-plus", "+1");
+  node.style.left = `${e.clientX - rect.left}px`;
+  node.style.top = `${e.clientY - rect.top}px`;
+  node.style.setProperty("--dx", `${Math.round(Math.random() * 24 - 12)}px`);
+  card.append(node);
+  setTimeout(() => node.remove(), 700);
+  const all = card.querySelectorAll(".event-plus");
+  if (all.length > 12) all[0].remove();
+}
+
+function scheduleClickerFlush() {
+  if (clicker.timer) return;
+  clicker.timer = setTimeout(() => {
+    clicker.timer = 0;
+    clickerSync();
+  }, CLICKER_FLUSH);
+}
+
+/** Отправляет накопленные нажатия и забирает таблицу лидеров. */
+async function clickerSync(keepalive = false) {
+  const group = activeGroup();
+  if (!tg?.initData || !group || group.teacher || !clicker.event || clicker.busy) return;
+  clicker.busy = true;
+  const taps = clicker.pending;
+  clicker.pending = 0;
+  let answered = false;
+  try {
+    const res = await fetch(CLICKER_URL, {
+      method: "POST",
+      keepalive,
+      body: JSON.stringify({ initData: tg.initData, group: group.id, event: clicker.event, taps, board: true }),
+    });
+    answered = true;
+    const body = await res.json();
+    if (!body.ok) throw new Error(body.error || "error");
+    if (body.ends) clicker.ends = body.ends;
+    // Сервер — источник правды: если пачку урезал предел скорости, счёт
+    // честно станет меньше. Нажатия, сделанные пока шёл запрос, — сверху.
+    if (typeof body.mine === "number") clicker.mine = body.mine + clicker.pending;
+    if (body.board) clicker.board = body.board;
+  } catch {
+    // Не дошло — нажатия не теряем, уйдут со следующей пачкой. Если же
+    // сервер ответил отказом, повторять бессмысленно.
+    if (!answered) clicker.pending += taps;
+  } finally {
+    clicker.busy = false;
+  }
+  saveClickerLocal();
+  updateClickerRow();
+  if (clickerSheet && !clickerSheet.hidden) renderClickerSheet();
+  if (clicker.pending && !clickerEnded()) scheduleClickerFlush();
+}
+
+/* Окно с таблицей лидеров. Собирается в коде: в закэшированной у Telegram
+   старой разметке его нет. */
+let clickerSheet = null;
+let clickerPoll = 0;
+
+function openClickerSheet() {
+  if (!clickerSheet) {
+    clickerSheet = el("div", "sheet-backdrop");
+    clickerSheet.hidden = true;
+    const sheet = el("div", "sheet sheet--abs sheet--clicker");
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    const top = el("div", "sheet-top");
+    const head = el("div");
+    head.append(el("h2", "", t("🏆 Кликер посвящения")), el("div", "clicker-note"));
+    const close = el("button", "icon", "×");
+    close.type = "button";
+    close.setAttribute("aria-label", t("Закрыть"));
+    close.addEventListener("click", closeClickerSheet);
+    top.append(head, close);
+    sheet.append(top, el("div", "clicker-body"));
+    clickerSheet.append(sheet);
+    clickerSheet.addEventListener("click", (e) => {
+      if (e.target === clickerSheet) closeClickerSheet();
+    });
+    document.body.append(clickerSheet);
+  }
+  renderClickerSheet();
+  clickerSheet.classList.remove("sheet-backdrop--out");
+  clickerSheet.hidden = false;
+  haptic("light");
+  clickerSync();
+  // Пока таблица открыта — обновляем её, чтобы было видно, как обгоняют.
+  clearInterval(clickerPoll);
+  clickerPoll = setInterval(() => (clicker.busy ? renderClickerSheet() : clickerSync()), 10000);
+}
+
+function closeClickerSheet() {
+  const sheet = clickerSheet;
+  clearInterval(clickerPoll);
+  if (!sheet || sheet.hidden || sheet.classList.contains("sheet-backdrop--out")) return;
+  haptic("light");
+  sheet.classList.add("sheet-backdrop--out");
+  setTimeout(() => {
+    sheet.hidden = true;
+    sheet.classList.remove("sheet-backdrop--out");
+  }, 260);
+}
+
+function clickerLine(place, title, sub, taps, me) {
+  const row = el("div", me ? "clicker-row clicker-row--me" : "clicker-row");
+  const who = el("span", "clicker-who");
+  who.append(el("span", "clicker-name", title), el("span", "clicker-sub", sub));
+  row.append(el("span", "clicker-place", place), who, el("b", "clicker-taps", NUMBER.format(taps)));
+  return row;
+}
+
+function renderClickerSheet() {
+  if (!clickerSheet) return;
+  const left = clicker.ends - Date.now();
+  clickerSheet.querySelector(".clicker-note").textContent =
+    left > 0 ? t("До конца {time}", { time: humanLeft(left / 60000) }) : t("Кликер окончен — итоги");
+
+  const nodes = [];
+  const prize = el("div", "clicker-prize");
+  prize.append(
+    el("b", "", t("👑 Приз за первое место")),
+    el(
+      "p",
+      "",
+      t("Тема «Чемпион» на месяц: золотое оформление и корона у названия группы — больше ни у кого такой нет. А в день посвящения имя победителя увидит весь факультет.")
+    )
+  );
+  nodes.push(prize);
+
+  const board = clicker.board;
+  if (!tg?.initData) nodes.push(el("p", "empty", t("Таблица работает только в Telegram")));
+  else if (!board) nodes.push(el("p", "empty", t("Загружаем…")));
+  else {
+    const seg = el("div", "clicker-seg");
+    for (const [id, label] of [
+      ["players", t("Игроки")],
+      ["groups", t("Группы")],
+    ]) {
+      const button = el("button", clicker.view === id ? "clicker-seg-on" : "", label);
+      button.type = "button";
+      button.addEventListener("click", () => {
+        if (clicker.view === id) return;
+        clicker.view = id;
+        haptic("select");
+        renderClickerSheet();
+      });
+      seg.append(button);
+    }
+    nodes.push(seg);
+
+    const list = el("div", "clicker-list");
+    const medal = (i) => ["🥇", "🥈", "🥉"][i] || String(i + 1);
+    if (clicker.view === "players") {
+      if (!board.top.length) list.append(el("p", "empty", t("Пока никто не кликал — будь первым!")));
+      board.top.forEach((row, i) =>
+        list.append(clickerLine(medal(i), row.name, row.me ? `${row.group} · ${t("это вы")}` : row.group, row.taps, row.me))
+      );
+      // Сам не в десятке — показываем своё место отдельной строкой снизу.
+      if (board.place && !board.top.some((row) => row.me)) {
+        list.append(el("div", "clicker-gap", "⋯"));
+        list.append(clickerLine(String(board.place), t("Вы"), activeGroup()?.title || "", clicker.mine, true));
+      }
+    } else {
+      board.groups.forEach((row, i) =>
+        list.append(clickerLine(medal(i), row.group, t("игроков: {n}", { n: row.players }), row.taps, row.me))
+      );
+      const mine = board.myGroup;
+      if (mine && !board.groups.some((row) => row.me)) {
+        list.append(el("div", "clicker-gap", "⋯"));
+        list.append(clickerLine(String(mine.place), mine.group, t("игроков: {n}", { n: mine.players }), mine.taps, true));
+      }
+    }
+    nodes.push(list);
+    nodes.push(
+      el(
+        "p",
+        "clicker-total",
+        t("Игроков: {players} · нажатий: {taps}", { players: NUMBER.format(board.players), taps: NUMBER.format(board.total) })
+      )
+    );
+  }
+  nodes.push(
+    el(
+      "p",
+      "clicker-fine",
+      t("В таблице видно имя из Telegram и группу. Больше 20 нажатий в секунду не засчитывается, а победителя проверяем вручную — автокликер не поможет.")
+    )
+  );
+  clickerSheet.querySelector(".clicker-body").replaceChildren(...nodes);
 }
 
 /** В сам день своим — конфетти при первом открытии. Один раз. */
@@ -943,7 +1305,7 @@ function initReminders() {
 
 // Брутал выдаёт владелец командой /theme, гламур человек находит сам —
 // словом «гламур» в поиске по МФК. Тема с сервера сильнее найденной.
-const THEMES = { glam: "glam", brutal: "glam-noir" };
+const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion" };
 const GLAM_KEY = "schedule.glam";
 
 let grantedTheme = "";

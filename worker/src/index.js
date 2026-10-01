@@ -1239,13 +1239,21 @@ async function importantCommand(env, text) {
 
 /* ---------- Темы оформления ---------- */
 
-const THEME_NAMES = { гламур: "glam", glam: "glam", брутал: "brutal", brutal: "brutal" };
+const THEME_NAMES = {
+  гламур: "glam",
+  glam: "glam",
+  брутал: "brutal",
+  brutal: "brutal",
+  чемпион: "champion",
+  champion: "champion",
+};
 
 const THEME_HELP = [
   "<b>Темы оформления</b> — выдаёт только владелец, сам человек их не включает.",
   "",
   "/theme @ivanov гламур — розовые акценты",
   "/theme @ivanov брутал — чёрный с золотом",
+  "/theme @ivanov чемпион — золото и корона, приз победителю кликера",
   "/theme @ivanov снять — вернуть обычный вид",
   "/theme 311гэу гламур — всей группе, можно и курс («3курс», «все»)",
   "/themes — кому что выдано",
@@ -1302,6 +1310,160 @@ async function themesList(env) {
   if (!results.length) return `${THEME_HELP}\n\nПока никому ничего не выдано.`;
   const lines = results.map((row) => `• ${escape(targetLabel(row.target))} — ${escape(row.theme)}`);
   return [THEME_HELP, "", ...lines].join("\n");
+}
+
+/* ---------- Кликер посвящения ---------- */
+
+// Праздничная плашка в приложении — ещё и кликер: кто нажмёт больше всех
+// до конца, получает приз. Приложение копит нажатия и шлёт пачкой раз в
+// несколько секунд, здесь пачка проверяется на скорость и прибавляется.
+const CLICKER = { event: "posvyat-2026", ends: Date.parse("2026-10-02T00:00:00+03:00") };
+// Пальцами быстрее 20 нажатий в секунду не выходит — лишнее не засчитываем.
+const CLICKER_RATE = 20;
+// Пачка приходит раз в несколько секунд. Если связи не было дольше,
+// засчитываем не больше чем за полминуты.
+const CLICKER_WINDOW = 30;
+// Таблица лидеров читает всех игроков разом, поэтому держим её в памяти:
+// иначе каждый открывший таблицу тратил бы дневной лимит чтений базы.
+let clickerCache = { at: 0, rows: [] };
+
+function clickerName(user) {
+  const first = String(user.first_name || "").trim();
+  const last = String(user.last_name || "").trim();
+  return (`${first}${last ? ` ${last[0]}.` : ""}`.trim() || "Без имени").slice(0, 40);
+}
+
+async function clickerRows(env) {
+  const ttl = Date.now() >= CLICKER.ends ? 300000 : 15000;
+  if (Date.now() - clickerCache.at < ttl) return clickerCache.rows;
+  const { results = [] } = await env.STATS.prepare(
+    `SELECT user_id, name, grp, taps FROM clicker
+     WHERE event = ? AND banned = 0 AND taps > 0
+     ORDER BY taps DESC, updated ASC`
+  )
+    .bind(CLICKER.event)
+    .all();
+  clickerCache = { at: Date.now(), rows: results };
+  return results;
+}
+
+function clickerBoard(rows, userId, mine, group) {
+  // Своё место — по свежему своему счёту против чуть устаревших чужих.
+  const others = rows.filter((row) => row.user_id !== userId);
+  const place = mine > 0 ? others.filter((row) => row.taps > mine).length + 1 : null;
+  const top = others.slice(0, 10).map((row) => ({ name: row.name, group: row.grp, taps: row.taps, me: false }));
+  if (place && place <= 10) {
+    const me = rows.find((row) => row.user_id === userId);
+    top.splice(place - 1, 0, { name: me?.name || "", group: me?.grp || group, taps: mine, me: true });
+    top.length = Math.min(top.length, 10);
+  }
+
+  const byGroup = new Map();
+  for (const row of rows) {
+    const item = byGroup.get(row.grp) || { group: row.grp, taps: 0, players: 0 };
+    item.taps += row.user_id === userId ? mine : row.taps;
+    item.players += 1;
+    byGroup.set(row.grp, item);
+  }
+  const groups = [...byGroup.values()].sort((a, b) => b.taps - a.taps);
+  const groupPlace = groups.findIndex((item) => item.group === group) + 1;
+  return {
+    top,
+    place,
+    players: rows.length,
+    total: rows.reduce((sum, row) => sum + (row.user_id === userId ? mine : row.taps), 0),
+    groups: groups.slice(0, 10).map((item) => ({ ...item, me: item.group === group })),
+    myGroup: groupPlace ? { ...groups[groupPlace - 1], place: groupPlace } : null,
+  };
+}
+
+async function clickerApi(env, body) {
+  const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+  if (!user?.id) return { ok: false, error: "no user" };
+  if (body.event !== CLICKER.event) return { ok: false, error: "no event" };
+  const group = String(body.group || "").slice(0, 24);
+  // Преподаватели не играют: у них «группа» — это они сами.
+  if (!group || group.startsWith("преп:")) return { ok: false, error: "no group" };
+  if (await appBan(env, user.id).catch(() => null)) return { ok: false, error: "banned" };
+
+  const now = Math.floor(Date.now() / 1000);
+  const ended = Date.now() >= CLICKER.ends;
+  const taps = Math.max(0, Math.min(Math.floor(Number(body.taps) || 0), CLICKER_RATE * CLICKER_WINDOW));
+  let mine = null;
+  if (taps && !ended) {
+    // Предел скорости считается в самом запросе: две пачки, присланные
+    // разом, не обойдут его, прочитав одно и то же «последнее время».
+    const row = await env.STATS.prepare(
+      `INSERT INTO clicker (event, user_id, name, username, grp, taps, active, updated)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, MIN(?9, MAX(1, ?6 / ?8)), ?7)
+       ON CONFLICT(event, user_id) DO UPDATE SET
+         taps = taps + MIN(excluded.taps, ?8 * MAX(1, MIN(?9, ?7 - updated))),
+         active = active + MAX(1, MIN(?9, ?7 - updated)),
+         updated = ?7,
+         name = excluded.name,
+         username = excluded.username,
+         grp = excluded.grp
+       RETURNING taps`
+    )
+      .bind(CLICKER.event, user.id, clickerName(user), String(user.username || ""), group, taps, now, CLICKER_RATE, CLICKER_WINDOW)
+      .first();
+    mine = row?.taps ?? null;
+  }
+  if (!body.board) return { ok: true, mine, ends: CLICKER.ends, ended };
+
+  if (mine === null) {
+    const row = await env.STATS.prepare("SELECT taps FROM clicker WHERE event = ? AND user_id = ?")
+      .bind(CLICKER.event, user.id)
+      .first();
+    mine = row?.taps || 0;
+  }
+  const rows = await clickerRows(env);
+  return { ok: true, mine, ends: CLICKER.ends, ended, board: clickerBoard(rows, user.id, mine, group) };
+}
+
+const CLICKER_HELP = [
+  "<b>Кликер посвящения</b> — нажатия на праздничную плашку в приложении.",
+  "",
+  "/clicker — таблица с id и скоростью",
+  "/clicker ban 123456789 — убрать из таблицы (автокликер)",
+  "/clicker unban 123456789 — вернуть",
+  "/theme 123456789 чемпион — выдать приз победителю",
+].join("\n");
+
+async function clickerCommand(env, text) {
+  const [action = "", id = ""] = String(text).replace(/^\/clicker(@\w+)?/, "").trim().split(/\s+/);
+  if (action === "ban" || action === "unban") {
+    if (!/^\d+$/.test(id)) return CLICKER_HELP;
+    const result = await env.STATS.prepare("UPDATE clicker SET banned = ? WHERE event = ? AND user_id = ?")
+      .bind(action === "ban" ? 1 : 0, CLICKER.event, Number(id))
+      .run();
+    clickerCache.at = 0;
+    if (!result.meta?.changes) return `Игрока с id ${escape(id)} в кликере нет.`;
+    return action === "ban" ? `Убран из таблицы: id ${escape(id)}.` : `Возвращён в таблицу: id ${escape(id)}.`;
+  }
+
+  const { results = [] } = await env.STATS.prepare(
+    `SELECT user_id, name, username, grp, taps, active, banned FROM clicker
+     WHERE event = ? AND taps > 0 ORDER BY banned ASC, taps DESC LIMIT 20`
+  )
+    .bind(CLICKER.event)
+    .all();
+  const totals = await env.STATS.prepare(
+    "SELECT COUNT(*) AS players, COALESCE(SUM(taps), 0) AS taps FROM clicker WHERE event = ? AND banned = 0"
+  )
+    .bind(CLICKER.event)
+    .first();
+  const ended = Date.now() >= CLICKER.ends;
+  const head = `${CLICKER_HELP}\n\n${ended ? "Окончен" : "Идёт до 2 октября, 00:00 МСК"}. Игроков: ${totals?.players || 0}, нажатий: ${totals?.taps || 0}.`;
+  if (!results.length) return `${head}\n\nПока никто не кликал.`;
+  const lines = results.map((row, i) => {
+    const minutes = Math.max(1, Math.round(row.active / 60));
+    const rate = (row.taps / Math.max(1, row.active)).toFixed(1);
+    const who = `${escape(row.name)}${row.username ? ` @${escape(row.username)}` : ""}`;
+    const mark = row.banned ? "🚫 " : `${i + 1}. `;
+    return `${mark}${who} · ${escape(row.grp)} — <b>${row.taps}</b>\n    id <code>${row.user_id}</code> · кликал ~${minutes} мин · ${rate}/с`;
+  });
+  return [head, "", ...lines].join("\n");
 }
 
 /* ---------- Очереди ---------- */
@@ -2216,6 +2378,23 @@ export default {
       });
     }
 
+    if (url.pathname === "/clicker" && request.method === "POST") {
+      let result;
+      try {
+        result = await clickerApi(env, JSON.parse(await request.text()));
+      } catch {
+        result = { ok: false, error: "bad request" };
+      }
+      return new Response(JSON.stringify(result), {
+        status: result.ok ? 200 : 400,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "no-store",
+        },
+      });
+    }
+
     if (url.pathname === "/queues" && request.method === "POST") {
       let result;
       try {
@@ -2606,6 +2785,15 @@ export default {
       if (isOwner(env, message.chat.id)) {
         reply = text.startsWith("/themes") ? await themesList(env) : await themeCommand(env, text);
       }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: reply,
+        parse_mode: "HTML",
+      });
+    }
+
+    if (message && /^\/clicker(?:@\w+)?(?:\s|$)/.test(text)) {
+      const reply = isOwner(env, message.chat.id) ? await clickerCommand(env, text) : "Команда недоступна.";
       await callTelegram(env.BOT_TOKEN, "sendMessage", {
         chat_id: message.chat.id,
         text: reply,
