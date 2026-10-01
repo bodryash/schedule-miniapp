@@ -566,7 +566,6 @@ const EVENTS = [
 ];
 // За сколько дней до события появляется плашка.
 const EVENT_AHEAD = 3;
-const EVENT_HIDDEN_KEY = "schedule.eventsHidden";
 const EVENT_CELEBRATED_KEY = "schedule.eventsCelebrated";
 
 function daysUntil(iso, now = new Date()) {
@@ -631,11 +630,12 @@ let eventBox = null;
 function renderEvent() {
   const group = activeGroup();
   const event = group ? upcomingEvent() : null;
-  // Скрытая заранее плашка возвращается в сам день и ещё раз — с итогами.
   const stamp = event ? `${event.id}:${event.days === 0 ? "day" : event.days > 0 ? "before" : "after"}` : "";
   // Итоги — это итоги кликера: преподавателям, которые не играли, они ни к чему.
   const relevant = Boolean(event) && (event.days >= 0 || (Boolean(event.clicker) && !group.teacher));
-  const show = relevant && !storedList(EVENT_HIDDEN_KEY).includes(stamp);
+  // Плашка висит всегда: крестик закрывали случайно, пытаясь кликать, и
+  // теряли кликер. Скрытые раньше плашки тоже возвращаются.
+  const show = relevant;
   const ours = show && event.ours(group);
   if (!eventBox) {
     eventBox = el("div", "event-box");
@@ -692,20 +692,6 @@ function renderEvent() {
   const fire = el("span", "event-fire", event.icon);
   scene.append(sparks, fire);
 
-  const close = el("button", "event-close", "×");
-  close.type = "button";
-  close.setAttribute("aria-label", t("Скрыть"));
-  close.addEventListener("click", (e) => {
-    e.stopPropagation();
-    haptic("light");
-    storeInList(EVENT_HIDDEN_KEY, stamp);
-    const out = card.animate(
-      [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(-6px) scale(0.97)" }],
-      { duration: 220, easing: "ease-in" }
-    );
-    out.onfinish = () => renderEvent();
-  });
-
   if (playing) {
     // Нажатие — по касанию, а не по «клику»: так засчитывается каждый палец
     // и нет задержки, которую браузер держит, ожидая двойного тапа.
@@ -727,7 +713,7 @@ function renderEvent() {
     });
   }
 
-  card.append(scene, text, close);
+  card.append(scene, text);
   eventBox.replaceChildren(card);
 
   // Заставка ещё на экране — конфетти запустит она, когда уйдёт.

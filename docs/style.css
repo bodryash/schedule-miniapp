@@ -3911,21 +3911,6 @@ body {
   color: rgba(255, 255, 255, 0.82);
 }
 
-.event-close {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 20px;
-  line-height: 32px;
-  cursor: pointer;
-}
-
 /* Огонёк на плитке дня праздника. */
 .day--event {
   position: relative;
