@@ -4278,3 +4278,70 @@ body.champion .card--now {
     animation: none;
   }
 }
+
+/* Главный приз кликера — NFT-подарок: картинка и редкости, по нажатию
+   открывается в Telegram. */
+.clicker-nft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 10px 0 2px;
+  padding: 8px;
+  border: 0;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  box-shadow: 0 2px 10px rgba(255, 60, 140, 0.12);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.clicker-nft-image {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #b9b6ae;
+}
+
+.clicker-nft-image--none {
+  display: grid;
+  place-items: center;
+  font-size: 34px;
+}
+
+.clicker-nft-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.clicker-nft-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #d6336c;
+}
+
+.clicker-nft-title {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.clicker-nft-traits {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.clicker-nft-open {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}

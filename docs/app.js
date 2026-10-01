@@ -838,7 +838,7 @@ function updateClickerRow(bump = false) {
     return;
   }
   if (!clicker.mine) {
-    count.textContent = t("👆 Жми — приз лучшему");
+    count.textContent = t("👆 Жми — NFT лучшему");
     place.hidden = true;
     return;
   }
@@ -879,7 +879,7 @@ function clickerTap(e, card, fire) {
   }
   if (!clicker.told) {
     clicker.told = true;
-    toast(t("Кликер посвящения: кто нажмёт больше всех до полуночи с пятницы на субботу, получит приз 👑 В таблице лидеров видно имя из Telegram и группу."));
+    toast(t("Кликер посвящения: кто нажмёт больше всех до полуночи с пятницы на субботу, получит NFT-подарок Light Sword #2776 и тему «Чемпион» 👑 В таблице лидеров видно имя из Telegram и группу."));
   }
   saveClickerLocal();
   if (tg?.initData) scheduleClickerFlush();
@@ -1008,6 +1008,41 @@ function clickerLine(place, title, sub, taps, me) {
   return row;
 }
 
+// Главный приз — коллекционный подарок Telegram владельца бота. Картинка —
+// с Fragment, где лежат все такие подарки; по нажатию подарок открывается
+// в самом Telegram, со всеми его редкостями.
+const CLICKER_NFT = {
+  title: "Light Sword #2776",
+  link: "https://t.me/nft/LightSword-2776",
+  image: "https://nft.fragment.com/gift/lightsword-2776.medium.jpg",
+};
+const NEW_PRIZE_TEXT = "И тема «Чемпион» на месяц: золотое оформление и корона у названия группы — больше ни у кого такой нет. А имя победителя весь факультет увидит на этой плашке.";
+
+function clickerNft() {
+  const card = el("button", "clicker-nft");
+  card.type = "button";
+  const image = el("img", "clicker-nft-image");
+  image.src = CLICKER_NFT.image;
+  image.alt = "";
+  image.loading = "lazy";
+  // Картинка не загрузилась — остаётся меч-эмодзи на том же месте.
+  image.addEventListener("error", () => image.replaceWith(el("span", "clicker-nft-image clicker-nft-image--none", "🗡")));
+  const text = el("span", "clicker-nft-text");
+  text.append(
+    el("span", "clicker-nft-kicker", t("NFT-подарок Telegram")),
+    el("span", "clicker-nft-title", CLICKER_NFT.title),
+    el("span", "clicker-nft-traits", t("Jedi Princess 3% · фон Platinum 1,5% · символ Sea Horse 0,2%")),
+    el("span", "clicker-nft-open", t("Посмотреть в Telegram ›"))
+  );
+  card.append(image, text);
+  card.addEventListener("click", () => {
+    haptic("light");
+    if (tg?.openTelegramLink) tg.openTelegramLink(CLICKER_NFT.link);
+    else window.open(CLICKER_NFT.link, "_blank");
+  });
+  return card;
+}
+
 function renderClickerSheet() {
   if (!clickerSheet) return;
   const left = clicker.ends - Date.now();
@@ -1016,14 +1051,7 @@ function renderClickerSheet() {
 
   const nodes = [];
   const prize = el("div", "clicker-prize");
-  prize.append(
-    el("b", "", t("👑 Приз за первое место")),
-    el(
-      "p",
-      "",
-      t("Тема «Чемпион» на месяц: золотое оформление и корона у названия группы — больше ни у кого такой нет. А имя победителя весь факультет увидит на этой плашке.")
-    )
-  );
+  prize.append(el("b", "", t("👑 Призы за первое место")), clickerNft(), el("p", "", t(NEW_PRIZE_TEXT)));
   nodes.push(prize);
 
   const board = clicker.board;
