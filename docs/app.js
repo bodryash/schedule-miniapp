@@ -3795,33 +3795,42 @@ function showSchedule() {
 // родиться заново на новом месте.
 const dayDrop = el("span", "days-drop");
 dayDrop.setAttribute("aria-hidden", "true");
+// Внутри капли — копии тех же плиток, но цветом выбранного дня. Капля едет
+// над полосой и показывает из них только то, что под ней, поэтому цифра
+// перекрашивается ровно по её краю. Раньше капля ехала под плитками: цифра
+// белела раньше, чем капля доезжала, и на миг пропадала на светлом фоне.
+const dayDropInner = el("span", "days-drop-inner");
+dayDrop.append(dayDropInner);
 let dayDropPlaced = false;
 let daysShown = false;
 let lastDayIndex = -1;
 
 function placeDayDrop() {
-  const active = els.days.querySelector(".day.active");
+  const active = els.days.querySelector(":scope > .day.active");
   if (!active) return;
   // Первый раз ставим без движения — иначе капля выезжала бы из угла.
   if (!dayDropPlaced) dayDrop.classList.add("days-drop--still");
-  const moving = dayDropPlaced && dayDrop.style.transform &&
-    dayDrop.style.transform !== `translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
+  // Копии плиток стоят в капле на тех же местах, что и сами плитки.
+  const ghosts = [...els.days.querySelectorAll(":scope > .day")].map((tile) => {
+    const ghost = tile.cloneNode(true);
+    // Копия — не выбранный день: искать его должны только среди настоящих.
+    ghost.classList.remove("active");
+    ghost.tabIndex = -1;
+    ghost.style.left = `${tile.offsetLeft}px`;
+    ghost.style.top = `${tile.offsetTop}px`;
+    ghost.style.width = `${tile.offsetWidth}px`;
+    ghost.style.height = `${tile.offsetHeight}px`;
+    return ghost;
+  });
+  dayDropInner.replaceChildren(...ghosts);
+  const x = active.offsetLeft;
+  const y = active.offsetTop;
   dayDrop.style.width = `${active.offsetWidth}px`;
   dayDrop.style.height = `${active.offsetHeight}px`;
-  dayDrop.style.transform = `translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
-  // В пути капля вытягивается и сплющивается, как настоящая, и на месте
-  // пружинит обратно. Отдельным свойством scale — перемещению не мешает.
-  if (moving && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-    dayDrop.animate(
-      [
-        { scale: "1 1" },
-        { scale: "1.18 0.86", offset: 0.4 },
-        { scale: "0.96 1.05", offset: 0.75 },
-        { scale: "1 1" },
-      ],
-      { duration: 420, easing: "ease-out" }
-    );
-  }
+  dayDrop.style.transform = `translate(${x}px, ${y}px)`;
+  // Содержимое едет навстречу ровно на столько же: копии остаются над
+  // своими плитками, пока сама капля скользит.
+  dayDropInner.style.transform = `translate(${-x}px, ${-y}px)`;
   if (!dayDropPlaced) {
     dayDropPlaced = true;
     requestAnimationFrame(() => dayDrop.classList.remove("days-drop--still"));
@@ -3890,6 +3899,8 @@ function renderDays() {
       const date = dateOfDay(day, week);
 
       const btn = el("button", active ? "day active" : "day");
+      btn.dataset.week = week;
+      if (day === 1) btn.classList.add("day--week-start");
       if (isoDate(date) === todayIso) btn.classList.add("day--today");
       // День праздника — огонёк в углу плитки, у тех, чей это праздник.
       const holiday = group && eventOn(isoDate(date));
@@ -3925,10 +3936,11 @@ function renderDays() {
   }
 
   els.days.replaceChildren(dayDrop, ...nodes);
-  // Новая выбранная плитка отзывается: число подпрыгивает, точки пар
-  // вспыхивают по очереди. Первый показ — плитки выезжают лесенкой.
+  // На новом выбранном дне точки пар вспыхивают по очереди. Первый показ —
+  // плитки выезжают лесенкой.
   const index = dayIndex();
-  const active = els.days.querySelector(".day.active");
+  const changed = index !== lastDayIndex;
+  const active = els.days.querySelector(":scope > .day.active");
   if (!daysShown) {
     els.days.classList.add("days--intro");
     nodes.filter((node) => node.classList?.contains("day")).forEach((node, i) => node.style.setProperty("--i", i));
@@ -3943,20 +3955,33 @@ function renderDays() {
     const month = MONTH_NAME.format(dateOfDay(selectedDay));
     els.month.textContent = month[0].toUpperCase() + month.slice(1);
   }
-  keepSelectedVisible();
+  // День не менялся (пришли отмены, полосу перерисовали) — полосу не
+  // трогаем: её могли пролистать руками.
+  if (changed || !daysScrolled) keepSelectedVisible();
 }
 
-/** Полоса шире экрана, поэтому подводим выбранный день к центру. */
+/**
+ * Полоса — две страницы по неделе. Внутри недели она стоит на месте и едет
+ * только капля; к другой неделе полоса перелистывается целиком. Раньше
+ * выбранный день каждый раз подводился к центру, и вся строка ехала при
+ * любом тапе — вместе с каплей это выглядело дёргано.
+ */
 function keepSelectedVisible() {
-  const active = els.days.querySelector(".day.active");
+  const strip = els.days;
+  const active = strip.querySelector(":scope > .day.active");
+  const first = strip.querySelector(`:scope > .day--week-start[data-week="${selectedWeek}"]`) || active;
   if (!active) return;
+  const pad = parseFloat(getComputedStyle(strip).paddingLeft) || 0;
+  const max = Math.max(0, strip.scrollWidth - strip.clientWidth);
+  let left = Math.min(max, Math.max(0, first.offsetLeft - pad));
+  // Узкий экран, неделя не влезла: выбранный день важнее начала недели.
+  const right = active.offsetLeft + active.offsetWidth + pad;
+  if (right > left + strip.clientWidth) left = Math.min(max, right - strip.clientWidth);
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  active.scrollIntoView({
-    behavior: reduce || !daysScrolled ? "auto" : "smooth",
-    inline: "center",
-    block: "nearest",
-  });
+  const behavior = reduce || !daysScrolled ? "auto" : "smooth";
   daysScrolled = true;
+  if (Math.abs(strip.scrollLeft - left) < 1) return;
+  strip.scrollTo({ left, behavior });
 }
 
 let daysScrolled = false;

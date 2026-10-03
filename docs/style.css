@@ -3068,17 +3068,6 @@ body {
   }
 }
 
-/* Выбрали день — число подпрыгивает с пружиной. */
-.day--pop .day-num {
-  animation: tile-num 460ms cubic-bezier(0.3, 1.6, 0.5, 1);
-}
-
-@keyframes tile-num {
-  0% { transform: scale(0.82); }
-  55% { transform: scale(1.12); }
-  100% { transform: scale(1); }
-}
-
 /* Точки пар загораются по очереди, как отсчёт. Задержка — от номера
    точки, а не прописана для первых четырёх: пятая и дальше тоже идут
    в свою очередь, а не вспыхивают раньше всех. */
@@ -3096,7 +3085,6 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .days--intro .day,
-  .day--pop .day-num,
   .day--pop .day-dots i,
   #lessons > * {
     animation: none;
@@ -4344,4 +4332,101 @@ body.champion .card--now {
   font-size: 12px;
   font-weight: 600;
   color: var(--accent);
+}
+
+/* ===== Полоса дней: капля скользит над плитками ===== */
+
+/* Капля — поверх плиток и несёт в себе их копии цветом выбранного дня.
+   Едет ровно, без пружины и сплющивания: цифры перекрашиваются по её
+   краю сами, и больше ничего в строке не шевелится. */
+.days-drop {
+  z-index: 2;
+  overflow: hidden;
+  transition:
+    transform 320ms cubic-bezier(0.32, 0.72, 0, 1),
+    width 320ms cubic-bezier(0.32, 0.72, 0, 1),
+    background-color 200ms ease;
+}
+
+.days-drop-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.days-drop--still,
+.days-drop--still .days-drop-inner {
+  transition: none;
+}
+
+#days .days-drop .day {
+  position: absolute;
+  z-index: auto;
+  margin: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--accent-text);
+  transition: none;
+}
+
+#days .days-drop .day .day-name,
+#days .days-drop .day .day-num {
+  color: var(--accent-text);
+  transition: none;
+}
+
+#days .days-drop .day .day-dots i {
+  background: var(--accent-text);
+  opacity: 0.85;
+}
+
+/* Сама выбранная плитка под каплей выглядит как обычная: пока капля не
+   доехала, это просто серая плитка с тёмной цифрой, а не дырка в строке. */
+#days > .day.active {
+  background: var(--card);
+  color: var(--text);
+}
+
+#days > .day.active .day-name {
+  color: var(--muted);
+}
+
+#days > .day.active .day-num {
+  color: var(--text);
+}
+
+#days > .day.active .day-dots i {
+  background: var(--muted);
+  opacity: 0.6;
+}
+
+/* Точки пар вспыхивают по очереди уже на капле, когда она приехала. */
+#days > .day--pop .day-dots i {
+  animation: none;
+}
+
+.days-drop .day--pop .day-dots i {
+  animation-delay: calc(170ms + var(--d, 0) * 45ms);
+}
+
+/* Полоса листается страницами по неделе, а не подводит каждый день к
+   центру: липнем к понедельникам. */
+#days {
+  scroll-padding-inline: 16px;
+}
+
+#days > * {
+  scroll-snap-align: none;
+}
+
+#days > .day--week-start {
+  scroll-snap-align: start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .days-drop,
+  .days-drop-inner {
+    transition: none;
+  }
 }
