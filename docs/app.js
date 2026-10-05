@@ -1222,14 +1222,35 @@ function reminderPlan() {
         if (lessonCancelOn(lesson, iso)) continue;
         const time = timesOf(lesson, bells);
         if (!time) continue;
-        plan.push({ day: iso, start: time.start, end: time.end, subject: tr(lesson.subject), room: roomLabel(lesson.room || "") });
+        plan.push({ day: iso, start: time.start, end: time.end, subject: tr(lesson.subject), raw: lesson.subject, room: roomLabel(lesson.room || "") });
       }
     }
   }
-  // Склеенные пары одного предмета подряд: напоминать надо о начале блока.
-  return plan.filter(
-    (item, i) => i === 0 || item.day !== plan[i - 1].day || item.subject !== plan[i - 1].subject
-  );
+  // Пары одного предмета подряд — один блок: напоминать надо о его начале,
+  // но конец у него — конец последней пары. Раньше от блока оставалась
+  // первая пара со своим временем, и бот писал про сдвоенную как про одну.
+  const blocks = [];
+  const open = new Map();
+  for (const item of plan) {
+    const id = `${item.day}|${item.subject}`;
+    const last = open.get(id);
+    // Подряд — значит, между концом одной и началом другой только перемена
+    // или обед. Языки не склеиваем: в расписании это тоже отдельные пары.
+    const gap = last ? minutes(item.start) - minutes(last.end) : Infinity;
+    if (last && item.start === last.start) continue;
+    if (last && gap >= 0 && gap <= 60 && !isLanguage(item.raw)) {
+      last.end = item.end;
+      if (item.room && !last.room.split(", ").includes(item.room)) {
+        last.room = [last.room, item.room].filter(Boolean).join(", ");
+      }
+      continue;
+    }
+    const block = { ...item };
+    open.set(id, block);
+    blocks.push(block);
+  }
+  for (const block of blocks) delete block.raw;
+  return blocks;
 }
 
 function sendReminderSettings() {

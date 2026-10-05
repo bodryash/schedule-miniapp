@@ -1059,6 +1059,31 @@ const SOON_EARLY = 3;
 
 const START_MINUTES = "(CAST(substr(p.start, 1, 2) AS INTEGER) * 60 + CAST(substr(p.start, 4, 2) AS INTEGER))";
 
+/**
+ * Сколько пар в блоке «с 9:00 до 12:15»: пара — полтора часа, перемена —
+ * около пятнадцати минут. Сдвоенная пара приходит из приложения одной
+ * записью, и без этого бот считал её за одну.
+ */
+function pairsIn(start, end) {
+  const at = (time) => {
+    const [h, m] = String(time || "").split(":").map(Number);
+    return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+  };
+  const from = at(start);
+  const to = at(end);
+  if (from === null || to === null || to <= from) return 1;
+  return Math.max(1, Math.round((to - from + 15) / 105));
+}
+
+function pairsWord(n) {
+  const tens = n % 100;
+  const ones = n % 10;
+  if (tens >= 11 && tens <= 14) return "пар";
+  if (ones === 1) return "пара";
+  if (ones >= 2 && ones <= 4) return "пары";
+  return "пар";
+}
+
 function minutesWord(n) {
   const tens = n % 100;
   const ones = n % 10;
@@ -1079,7 +1104,7 @@ async function sendReminders(env) {
   // предметов, они идут одной строкой, а не пятью уведомлениями подряд.
   const { results: soon = [] } = await env.STATS.prepare(
     `SELECT p.tg_id, p.start, group_concat(p.subject, ' / ') AS subjects,
-            max(p.room) AS room, ${START_MINUTES} AS at
+            max(p.room) AS room, max(p.end) AS end, ${START_MINUTES} AS at
      FROM reminder_plan p JOIN reminders r ON r.tg_id = p.tg_id
      WHERE p.day = ? AND r.before > 0
        AND ${START_MINUTES} - r.before <= ? + ?
@@ -1096,7 +1121,18 @@ async function sendReminders(env) {
     outgoing.push({
       tg_id: row.tg_id,
       key: `${now.day}|${row.start}`,
-      text: `⏰ Через ${left} ${minutesWord(left)}: ${escape(row.subjects)}${row.room ? ` · ${escape(row.room)}` : ""}\nНачало в ${row.start}.`,
+      text: (() => {
+        const pairs = pairsIn(row.start, row.end);
+        return [
+          `⏰ Через ${left} ${minutesWord(left)}: ${escape(row.subjects)}`,
+          row.room ? `📍 ${escape(row.room)}` : "",
+          pairs > 1
+            ? `${pairs} ${pairsWord(pairs)} подряд: с ${row.start} до ${row.end}.`
+            : `Начало в ${row.start}${row.end ? `, до ${row.end}` : ""}.`,
+        ]
+          .filter(Boolean)
+          .join("\n");
+      })(),
     });
   }
 
@@ -1128,18 +1164,26 @@ async function sendReminders(env) {
         const byStart = new Map();
         for (const lesson of plan.filter((l) => l.tg_id === id)) {
           if (!byStart.has(lesson.start)) byStart.set(lesson.start, { ...lesson, subjects: [] });
-          byStart.get(lesson.start).subjects.push(lesson.subject);
+          const block = byStart.get(lesson.start);
+          block.subjects.push(lesson.subject);
+          // Несколько предметов в одно время: блок кончается с самым длинным.
+          if ((lesson.end || "") > (block.end || "")) block.end = lesson.end;
         }
         const lessons = [...byStart.values()];
         if (!lessons.length) continue;
+        for (const l of lessons) l.pairs = pairsIn(l.start, l.end);
+        const total = lessons.reduce((sum, l) => sum + l.pairs, 0);
         const lines = lessons.map(
-          (l) => `${l.start}–${l.end || "?"} · ${escape(l.subjects.join(" / "))}${l.room ? ` · ${escape(l.room)}` : ""}`
+          (l) =>
+            `${l.start}–${l.end || "?"} · ${escape(l.subjects.join(" / "))}` +
+            (l.pairs > 1 ? ` (${l.pairs} ${pairsWord(l.pairs)} подряд)` : "") +
+            (l.room ? `\n      📍 ${escape(l.room)}` : "")
         );
         outgoing.push({
           tg_id: id,
           key: `${now.day}|morning`,
           text: [
-            `☀️ Сегодня ${lessons.length === 1 ? "одна пара" : `пар: ${lessons.length}`}`,
+            `☀️ Сегодня ${total === 1 ? "одна пара" : `пар: ${total}`}`,
             "",
             ...lines,
             "",
