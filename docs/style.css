@@ -4430,3 +4430,200 @@ body.champion .card--now {
     transition: none;
   }
 }
+
+/* ===== Личные заметки к паре ===== */
+.note-pen {
+  margin-left: auto;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--muted);
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+/* Звезда сама прижималась вправо — теперь это делает карандаш перед ней. */
+.note-pen + .mine-star {
+  margin-left: 2px;
+}
+
+.note-pen--on {
+  color: #e8890c;
+  opacity: 1;
+}
+
+.note {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(245, 180, 0, 0.14);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+
+.note-text {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.sheet--note .note-area {
+  margin-top: 0;
+}
+
+.sheet--note .note-private {
+  margin: 8px 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sheet--note .note-save {
+  width: 100%;
+}
+
+/* ===== Мой семестр ===== */
+.freedom {
+  cursor: pointer;
+}
+
+.sheet--semester .sem-note {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.sem-hero {
+  padding: 16px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--card));
+}
+
+.sem-percent {
+  font-family: "Unbounded", system-ui, sans-serif;
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.sem-hero-text {
+  margin: 4px 0 12px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.sem-bar {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 22%, transparent);
+  overflow: hidden;
+}
+
+.sem-bar-fill {
+  display: block;
+  height: 100%;
+  width: calc(var(--p, 0) * 100%);
+  border-radius: inherit;
+  background: var(--accent);
+  animation: sem-grow 700ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+@keyframes sem-grow {
+  from { width: 0; }
+}
+
+.sem-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.sem-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.sem-tile b {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sem-tile span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sem-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.sem-fact {
+  display: flex;
+  gap: 10px;
+}
+
+.sem-title {
+  margin: 18px 0 8px;
+  font-size: 15px;
+}
+
+.sem-row {
+  padding: 8px 0;
+}
+
+.sem-row-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.sem-row-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sem-row-count {
+  flex: none;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sem-row .sem-bar {
+  height: 5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sem-bar-fill { animation: none; }
+}
+
+/* «Осталось N мин» на идущей паре — левее карандаша и звезды. */
+.card .now-left {
+  right: 68px;
+}

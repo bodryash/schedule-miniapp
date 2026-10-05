@@ -430,6 +430,7 @@ function applyHomework() {
   applyImportant();
   applyAbsenceButtons();
   applyMine();
+  applyNotes();
   const seen = new Set();
   for (const card of els.lessons.querySelectorAll(".card")) {
     card.querySelector(".hw")?.remove();
@@ -2262,6 +2263,356 @@ function applyMine() {
   }
 }
 
+/* ---------- Личные заметки к паре ---------- */
+
+// «Принести доклад», «сдать до пятницы» — к конкретной паре конкретного
+// дня. Хранятся в облаке Telegram у самого студента, как пропуски: никто
+// другой их не видит, боту они не уходят. Облако берёт не больше 4096
+// знаков на запись, поэтому заметки лежат по неделям.
+const NOTE_MAX = 300;
+const NOTE_WEEK_MAX = 3800;
+const noteWeeks = new Map();
+
+function noteWeekKey(date) {
+  const monday = new Date(date);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  return `notes-${isoDate(monday)}`;
+}
+
+function noteId(date, slot, subject) {
+  return `${isoDate(date)}|${slot}|${subject}`;
+}
+
+async function loadNotes() {
+  for (let week = 0; week < WEEKS; week++) {
+    const key = noteWeekKey(dateOfDay(1, week));
+    if (noteWeeks.has(key)) continue;
+    let items = {};
+    try {
+      const parsed = JSON.parse((await cloudGet(key)) || "{}");
+      if (parsed && typeof parsed === "object") items = parsed;
+    } catch {
+      // Испорченная запись — начинаем неделю с чистого листа.
+    }
+    noteWeeks.set(key, items);
+  }
+}
+
+function noteOf(date, slot, subject) {
+  return noteWeeks.get(noteWeekKey(date))?.[noteId(date, slot, subject)] || "";
+}
+
+/** Сохраняет или стирает заметку. false — на неделю уже не лезет. */
+function saveNote(date, slot, subject, text) {
+  const key = noteWeekKey(date);
+  const items = { ...(noteWeeks.get(key) || {}) };
+  if (text) items[noteId(date, slot, subject)] = text;
+  else delete items[noteId(date, slot, subject)];
+  const value = JSON.stringify(items);
+  if (value.length > NOTE_WEEK_MAX) return false;
+  noteWeeks.set(key, items);
+  cloudSet(key, value);
+  return true;
+}
+
+/** Карандаш рядом со звездой и сама заметка под парой. */
+function applyNotes() {
+  const date = dateOfDay(selectedDay);
+  for (const card of els.lessons.querySelectorAll(".card")) {
+    card.querySelector(".note-pen")?.remove();
+    card.querySelector(".note")?.remove();
+    const subject = card.dataset.subject;
+    const head = card.querySelector(".time");
+    if (!subject || !head) continue;
+    const slot = Number(card.dataset.slot);
+    const text = noteOf(date, slot, subject);
+    const open = (event) => {
+      event.stopPropagation();
+      openNote(card);
+    };
+    const pen = el("button", text ? "note-pen note-pen--on" : "note-pen", "✎");
+    pen.type = "button";
+    pen.setAttribute("aria-label", t("Заметка"));
+    pen.addEventListener("click", open);
+    // Перед звездой: она прижата к правому краю, карандаш встаёт слева от неё.
+    const star = head.querySelector(".mine-star");
+    if (star) star.before(pen);
+    else head.append(pen);
+    if (!text) continue;
+    const line = el("button", "note");
+    line.type = "button";
+    line.append(el("span", "note-icon", "📝"), el("span", "note-text", text));
+    line.addEventListener("click", open);
+    (card.querySelector(".card-body") || card).append(line);
+  }
+}
+
+let noteSheet = null;
+let noting = null;
+
+function openNote(card) {
+  if (!noteSheet) {
+    noteSheet = el("div", "sheet-backdrop");
+    noteSheet.hidden = true;
+    const sheet = el("div", "sheet sheet--note");
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    const area = el("textarea", "note-area");
+    area.rows = 4;
+    area.maxLength = NOTE_MAX;
+    area.placeholder = t("Принести доклад, сдать до пятницы…");
+    const save = el("button", "primary note-save", t("Сохранить"));
+    save.type = "button";
+    const actions = el("div", "sheet-actions");
+    const remove = el("button", "ghost note-delete", t("Удалить"));
+    const cancel = el("button", "ghost", t("Отмена"));
+    remove.type = cancel.type = "button";
+    actions.append(remove, cancel);
+    sheet.append(
+      el("div", "group-name note-when"),
+      el("h2", "note-title"),
+      area,
+      el("p", "note-private", t("🔒 Заметку видите только вы: она хранится в вашем Telegram.")),
+      el("p", "error note-error"),
+      save,
+      actions
+    );
+    noteSheet.append(sheet);
+    const submit = (text) => {
+      if (!noting) return;
+      if (!saveNote(noting.date, noting.slot, noting.subject, text.trim())) {
+        const error = noteSheet.querySelector(".note-error");
+        error.textContent = t("На эту неделю заметок уже слишком много — сократите или удалите старые.");
+        error.hidden = false;
+        return;
+      }
+      haptic(text.trim() ? "success" : "light");
+      closeNote();
+      applyNotes();
+      if (tab === "week") showWeek();
+    };
+    save.addEventListener("click", () => submit(area.value));
+    remove.addEventListener("click", () => submit(""));
+    cancel.addEventListener("click", closeNote);
+    noteSheet.addEventListener("click", (event) => {
+      if (event.target === noteSheet) closeNote();
+    });
+    document.body.append(noteSheet);
+  }
+  const date = dateOfDay(selectedDay);
+  noting = { date, slot: Number(card.dataset.slot), subject: card.dataset.subject };
+  const label = FULL_DATE.format(date);
+  const slotLabel = card.querySelector(".slot")?.textContent || "";
+  noteSheet.querySelector(".note-when").textContent = `${label[0].toUpperCase()}${label.slice(1)} · ${slotLabel}`;
+  noteSheet.querySelector(".note-title").textContent = tr(noting.subject);
+  const existing = noteOf(date, noting.slot, noting.subject);
+  const area = noteSheet.querySelector(".note-area");
+  area.value = existing;
+  noteSheet.querySelector(".note-delete").hidden = !existing;
+  noteSheet.querySelector(".note-error").hidden = true;
+  noteSheet.hidden = false;
+  haptic("light");
+  area.focus();
+}
+
+function closeNote() {
+  if (noteSheet) noteSheet.hidden = true;
+  noting = null;
+  document.activeElement?.blur?.();
+}
+
+/* ---------- Мой семестр ---------- */
+
+/**
+ * Все пары семестра по своему расписанию: с подгруппами, языками и
+ * военной кафедрой, как в настройках. Отмены и замены прошлых недель
+ * приложение не знает, поэтому счёт — по расписанию, а не по журналу.
+ */
+function semesterLessons() {
+  const group = activeGroup();
+  const weeks = data.weeks || [];
+  const out = [];
+  if (!group || !weeks.length) return out;
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const todayIso = isoDate(now);
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  const cursor = new Date(`${weeks[0].from}T00:00:00`);
+  const last = weeks.at(-1).to;
+  for (; isoDate(cursor) <= last; cursor.setDate(cursor.getDate() + 1)) {
+    const weekday = cursor.getDay();
+    if (weekday === 0) continue;
+    const parity = parityOfDate(cursor);
+    const list = group.teacher
+      ? teacherLessons(group.teacher, parity, weekday)
+      : data.lessons.filter(
+          (l) =>
+            l.group === group.id &&
+            l.day === weekday &&
+            (l.week === "all" || parity === null || l.week === parity) &&
+            matchesPrefs(l)
+        );
+    // Параллельные записи одной пары (подгруппы) — одна пара.
+    const seen = new Set();
+    const iso = isoDate(cursor);
+    for (const lesson of list) {
+      const id = `${lesson.slot}|${lesson.subject}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const time = timesOf(lesson, bells);
+      const done = iso < todayIso || (iso === todayIso && time && minutes(time.end) <= nowMinutes);
+      out.push({ iso, weekday, slot: lesson.slot, subject: lesson.subject, type: lesson.type || "", done: Boolean(done) });
+    }
+  }
+  return out;
+}
+
+function semesterStats() {
+  const lessons = semesterLessons();
+  // Две пары в одно время (дисциплины по выбору, если не выбрано) — один поход.
+  const slots = new Map();
+  for (const l of lessons) slots.set(`${l.iso}|${l.slot}`, l);
+  const all = [...slots.values()];
+  const done = all.filter((l) => l.done).length;
+  const bySubject = new Map();
+  for (const l of lessons) {
+    const item = bySubject.get(l.subject) || { subject: l.subject, total: 0, done: 0 };
+    item.total += 1;
+    if (l.done) item.done += 1;
+    bySubject.set(l.subject, item);
+  }
+  const days = new Map();
+  for (const l of all) {
+    const day = days.get(l.iso) || { weekday: l.weekday, count: 0, first: 99, done: true };
+    day.count += 1;
+    day.first = Math.min(day.first, l.slot);
+    day.done = day.done && l.done;
+    days.set(l.iso, day);
+  }
+  const dayList = [...days.values()];
+  const load = new Map();
+  for (const day of dayList) {
+    const item = load.get(day.weekday) || { sum: 0, n: 0 };
+    item.sum += day.count;
+    item.n += 1;
+    load.set(day.weekday, item);
+  }
+  const heavy = [...load].map(([weekday, v]) => ({ weekday, avg: v.sum / v.n })).sort((a, b) => b.avg - a.avg)[0];
+  return {
+    total: all.length,
+    done,
+    subjects: [...bySubject.values()].sort((a, b) => b.total - a.total),
+    daysLeft: dayList.filter((d) => !d.done).length,
+    earlyLeft: dayList.filter((d) => !d.done && d.first === 1).length,
+    lectures: all.filter((l) => l.type === "лекция").length,
+    heavy,
+  };
+}
+
+let semesterSheet = null;
+
+function openSemester() {
+  if (!data || !activeGroup()) return;
+  if (!semesterSheet) {
+    semesterSheet = el("div", "sheet-backdrop");
+    semesterSheet.hidden = true;
+    const sheet = el("div", "sheet sheet--abs sheet--semester");
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    const top = el("div", "sheet-top");
+    const head = el("div");
+    head.append(el("h2", "", t("Мой семестр")), el("div", "sem-note"));
+    const close = el("button", "icon", "×");
+    close.type = "button";
+    close.setAttribute("aria-label", t("Закрыть"));
+    close.addEventListener("click", closeSemester);
+    top.append(head, close);
+    sheet.append(top, el("div", "sem-body"));
+    semesterSheet.append(sheet);
+    semesterSheet.addEventListener("click", (event) => {
+      if (event.target === semesterSheet) closeSemester();
+    });
+    document.body.append(semesterSheet);
+  }
+  renderSemester();
+  semesterSheet.classList.remove("sheet-backdrop--out");
+  semesterSheet.hidden = false;
+}
+
+function closeSemester() {
+  const sheet = semesterSheet;
+  if (!sheet || sheet.hidden || sheet.classList.contains("sheet-backdrop--out")) return;
+  haptic("light");
+  sheet.classList.add("sheet-backdrop--out");
+  setTimeout(() => {
+    sheet.hidden = true;
+    sheet.classList.remove("sheet-backdrop--out");
+  }, 260);
+}
+
+function semBar(done, total) {
+  const bar = el("span", "sem-bar");
+  const fill = el("span", "sem-bar-fill");
+  fill.style.setProperty("--p", total ? done / total : 0);
+  bar.append(fill);
+  return bar;
+}
+
+function renderSemester() {
+  const stats = semesterStats();
+  const body = semesterSheet.querySelector(".sem-body");
+  semesterSheet.querySelector(".sem-note").textContent = t("По вашему расписанию, без учёта отмен");
+  if (!stats.total) {
+    body.replaceChildren(el("p", "empty", t("Пар в этом семестре нет")));
+    return;
+  }
+  const percent = Math.round((stats.done / stats.total) * 100);
+  const hero = el("div", "sem-hero");
+  hero.append(
+    el("div", "sem-percent", `${percent}%`),
+    el("div", "sem-hero-text", t("семестра позади")),
+    semBar(stats.done, stats.total)
+  );
+
+  const tile = (value, label) => {
+    const node = el("div", "sem-tile");
+    node.append(el("b", "", String(value)), el("span", "", label));
+    return node;
+  };
+  const hours = (n) => Math.round(n * 1.5);
+  const tiles = el("div", "sem-tiles");
+  tiles.append(
+    tile(stats.done, t("пар позади")),
+    tile(stats.total - stats.done, t("пар впереди")),
+    tile(hours(stats.done), t("часов на парах")),
+    tile(stats.daysLeft, t("учебных дней осталось"))
+  );
+
+  const facts = el("div", "sem-facts");
+  const fact = (icon, text) => {
+    const node = el("div", "sem-fact");
+    node.append(el("span", "sem-fact-icon", icon), el("span", "", text));
+    return node;
+  };
+  if (stats.heavy) {
+    facts.append(
+      fact("🏋️", t("Самый тяжёлый день — {day}, в среднем пар: {n}", { day: new Intl.DateTimeFormat(LOCALE, { weekday: "long" }).format(new Date(2024, 0, stats.heavy.weekday)), n: stats.heavy.avg.toFixed(1).replace(".", ",") }))
+    );
+  }
+  facts.append(fact("⏰", t("Подъёмов к первой паре осталось: {n}", { n: stats.earlyLeft })));
+  facts.append(fact("🎓", t("Лекций {a}, семинаров и практик {b}", { a: stats.lectures, b: stats.total - stats.lectures })));
+
+  const list = el("div", "sem-list");
+  for (const item of stats.subjects) {
+    const row = el("div", "sem-row");
+    const headRow = el("div", "sem-row-head");
+    headRow.append(el("span", "sem-row-name", tr(item.subject)), el("span", "sem-row-count", `${item.done} / ${item.total}`));
+    row.append(headRow, semBar(item.done, item.total));
+    list.append(row);
+  }
+  body.replaceChildren(hero, tiles, facts, el("h3", "sem-title", t("По предметам")), list);
+}
+
 /* ---------- Пропуски ---------- */
 
 // Свой счётчик у каждого студента, в облаке Telegram: переживает смену
@@ -2815,7 +3166,7 @@ const commentKey = (day, subject) => `${day}|${subject}`;
 
 /** Открыто ли окно снизу. Окон может не быть в закэшированном index.html. */
 function sheetOpen() {
-  return [els.hwSheet, els.cmSheet].some((sheet) => sheet && !sheet.hidden);
+  return Boolean(document.querySelector(".sheet-backdrop:not([hidden])"));
 }
 
 /** Счётчики недели приходят целиком — заменяем её дни, остальные не трогаем. */
@@ -3786,6 +4137,7 @@ function showSchedule() {
   renderRemindAsk();
   renderEvent();
   renderLessons(group, parity);
+  loadNotes().then(applyNotes);
   noticesReady = loadNotices(group);
   ensureHomeworkWeek(selectedWeek);
 }
@@ -4831,6 +5183,22 @@ function initMenu() {
     if (item.dataset.menu === "rooms") showFree();
     if (item.dataset.menu === "settings") showPicker();
     if (item.dataset.menu === "absences") openAbsences();
+    if (item.dataset.menu === "semester") openSemester();
+  });
+  // Пункт добавляем сами: в закэшированной старой разметке его нет.
+  if (!pop.querySelector('[data-menu="semester"]')) {
+    const item = el("button");
+    item.type = "button";
+    item.dataset.menu = "semester";
+    item.append(el("span", "", "📊"), el("span", "", t("Мой семестр")));
+    const settings = pop.querySelector('[data-menu="settings"]');
+    if (settings) settings.before(item);
+    else pop.append(item);
+  }
+  // Строка отсчёта под датой — тоже вход в статистику семестра.
+  els.freedom?.addEventListener("click", () => {
+    haptic("light");
+    openSemester();
   });
   // Тап мимо меню закрывает его, как принято на телефонах.
   document.addEventListener("click", (event) => {
