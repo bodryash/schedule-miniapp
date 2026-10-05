@@ -4627,3 +4627,16 @@ body.champion .card--now {
 .card .now-left {
   right: 68px;
 }
+
+/* Карандаш заметки: сам значок в шрифте мелкий, поэтому крупнее звезды,
+   и с запасом под палец — отрицательные поля не раздувают строку. */
+.note-pen {
+  margin: -8px -2px -8px auto;
+  padding: 8px 8px;
+  font-size: 23px;
+  opacity: 0.6;
+}
+
+.card .now-left {
+  right: 78px;
+}
