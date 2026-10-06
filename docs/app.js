@@ -4789,6 +4789,8 @@ function renderTeacherCard(teacher) {
   const title = [...teacher.titles].sort((a, b) => b[1] - a[1])[0]?.[0];
   const facts = [title ? t(title) : null, lessonsCount(teacher.lessons.size)].filter(Boolean);
   body.append(el("div", "teacher-meta", facts.join(" · ")));
+  const where = teacherNow(teacher.key);
+  if (where) body.append(el("div", where.now ? "teacher-now teacher-now--on" : "teacher-now", where.text));
   const subjects = el("div", "teacher-subjects");
   for (const subject of [...teacher.subjects].slice(0, 6)) subjects.append(el("span", "tag", tr(subject)));
   body.append(subjects);
@@ -4801,6 +4803,196 @@ function renderTeacherCard(teacher) {
   }
   card.append(body);
   return card;
+}
+
+/**
+ * Где преподаватель сейчас или когда его ближайшая пара — чтобы поймать
+ * с зачёткой. По расписанию: отмены и замены у чужих групп приложение не
+ * знает, поэтому это «должен быть», а не «точно там».
+ */
+function teacherNow(key) {
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  for (let shift = 0; shift < 14; shift++) {
+    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + shift);
+    const weekday = date.getDay();
+    if (weekday === 0) continue;
+    const lessons = teacherLessons(key, parityOfDate(date), weekday)
+      .map((lesson) => ({ lesson, time: timesOf(lesson, bells) }))
+      .filter((item) => item.time)
+      .sort((a, b) => minutes(a.time.start) - minutes(b.time.start));
+    for (const { lesson, time } of lessons) {
+      const place = roomLabel(lesson.room || "");
+      if (shift === 0) {
+        if (minutes(time.end) <= nowMinutes) continue;
+        if (minutes(time.start) <= nowMinutes) {
+          return { now: true, text: t("🟢 Сейчас: {place}, до {end}", { place: place || tr(lesson.subject), end: time.end }) };
+        }
+        return { now: false, text: t("Сегодня в {start} — {place}", { start: time.start, place: place || tr(lesson.subject) }) };
+      }
+      const day = shift === 1 ? t("Завтра") : SHORT_DATE.format(date);
+      return { now: false, text: t("{day} в {start} — {place}", { day, start: time.start, place: place || tr(lesson.subject) }) };
+    }
+  }
+  return null;
+}
+
+/* ---------- Когда пересечься ---------- */
+
+// Общие окна с другой группой: когда оба свободны. Своё расписание — как в
+// настройках (подгруппа, язык), чужое — все пары группы: чужих подгрупп
+// приложение не знает, так что «занят» у друга — с запасом.
+const MEET_KEY = "schedule.meetGroup";
+let meetSheet = null;
+
+function meetBusy(lessons) {
+  return new Set(lessons.map((lesson) => lesson.slot));
+}
+
+function meetDay(group, friend, day, week) {
+  const parity = weekParity(data.weeks, week);
+  const mine = meetBusy(lessonsForDay(group, day, week).filter((l) => !lessonCancelOn(l, isoDate(dateOfDay(day, week)))));
+  const theirs = meetBusy(
+    data.lessons.filter((l) => l.group === friend.id && l.day === day && (l.week === "all" || parity === null || l.week === parity))
+  );
+  return { mine, theirs };
+}
+
+function openMeet() {
+  const group = activeGroup();
+  if (!data || !group) return;
+  if (!meetSheet) {
+    meetSheet = el("div", "sheet-backdrop");
+    meetSheet.hidden = true;
+    const sheet = el("div", "sheet sheet--abs sheet--meet");
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    const top = el("div", "sheet-top");
+    const head = el("div");
+    head.append(el("h2", "", t("Когда пересечься")), el("div", "meet-note", t("Общие окна с другой группой")));
+    const close = el("button", "icon", "×");
+    close.type = "button";
+    close.setAttribute("aria-label", t("Закрыть"));
+    close.addEventListener("click", closeMeet);
+    top.append(head, close);
+    const select = el("select", "meet-select");
+    select.addEventListener("change", () => {
+      try {
+        localStorage.setItem(MEET_KEY, select.value);
+      } catch {
+        // Не запомнится — выберут ещё раз.
+      }
+      haptic("select");
+      renderMeet();
+    });
+    sheet.append(top, select, el("div", "meet-body"));
+    meetSheet.append(sheet);
+    meetSheet.addEventListener("click", (event) => {
+      if (event.target === meetSheet) closeMeet();
+    });
+    document.body.append(meetSheet);
+  }
+  // Группы — по курсам, своя не нужна.
+  const select = meetSheet.querySelector(".meet-select");
+  const byCourse = new Map();
+  for (const g of data.groups) {
+    if (g.id === group.id) continue;
+    const title = courseTitle(g);
+    if (!byCourse.has(title)) byCourse.set(title, []);
+    byCourse.get(title).push(g);
+  }
+  const first = new Option(t("Выберите группу друга"), "");
+  select.replaceChildren(
+    first,
+    ...[...byCourse].map(([title, groups]) => {
+      const box = document.createElement("optgroup");
+      box.label = title;
+      box.append(...groups.map((g) => new Option(g.title, g.id)));
+      return box;
+    })
+  );
+  let saved = "";
+  try {
+    saved = localStorage.getItem(MEET_KEY) || "";
+  } catch {
+    // Без памяти — начнём с пустого выбора.
+  }
+  select.value = [...select.options].some((o) => o.value === saved) ? saved : "";
+  renderMeet();
+  meetSheet.classList.remove("sheet-backdrop--out");
+  meetSheet.hidden = false;
+}
+
+function closeMeet() {
+  const sheet = meetSheet;
+  if (!sheet || sheet.hidden || sheet.classList.contains("sheet-backdrop--out")) return;
+  haptic("light");
+  sheet.classList.add("sheet-backdrop--out");
+  setTimeout(() => {
+    sheet.hidden = true;
+    sheet.classList.remove("sheet-backdrop--out");
+  }, 260);
+}
+
+function renderMeet() {
+  const body = meetSheet.querySelector(".meet-body");
+  const group = activeGroup();
+  const friend = groupById(meetSheet.querySelector(".meet-select").value);
+  if (!friend) {
+    body.replaceChildren(el("p", "empty", t("Выберите группу — покажем, когда вы оба свободны на этой неделе")));
+    return;
+  }
+  const bells = data.bells;
+  const todayIso = isoDate(new Date());
+  const nodes = [];
+  for (let day = 1; day <= DAYS.length; day++) {
+    const date = dateOfDay(day);
+    if (isoDate(date) < todayIso) continue;
+    const { mine, theirs } = meetDay(group, friend, day, selectedWeek);
+    const used = [...mine, ...theirs];
+    const row = el("div", "meet-day");
+    const label = SHORT_DATE.format(date);
+    row.append(el("div", "meet-day-title", `${DAYS[day - 1]}, ${label}`));
+    if (!used.length) {
+      row.append(el("div", "meet-free meet-free--all", t("Оба свободны весь день 🎉")));
+      nodes.push(row);
+      continue;
+    }
+    const last = Math.max(...used);
+    const firstSlot = Math.min(...used);
+    const shown = bells.filter((b) => b.n <= Math.max(last, 5));
+    const grid = el("div", "meet-grid");
+    grid.style.setProperty("--n", shown.length);
+    const line = (name, busy) => {
+      grid.append(el("span", "meet-who", name));
+      for (const bell of shown) {
+        const cell = el("i", busy.has(bell.n) ? "meet-cell meet-cell--busy" : "meet-cell");
+        if (!mine.has(bell.n) && !theirs.has(bell.n) && bell.n > firstSlot && bell.n < last) cell.classList.add("meet-cell--both");
+        grid.append(cell);
+      }
+    };
+    grid.append(el("span", "meet-who"));
+    for (const bell of shown) grid.append(el("span", "meet-time", bell.start));
+    line(t("Вы"), mine);
+    line(friend.title, theirs);
+    row.append(grid);
+
+    const facts = [];
+    const gaps = shown.filter((b) => b.n > firstSlot && b.n < last && !mine.has(b.n) && !theirs.has(b.n));
+    if (!theirs.size) facts.push([t("У {group} пар нет", { group: friend.title }), false]);
+    if (!mine.size) facts.push([t("У вас пар нет"), false]);
+    if (gaps.length) facts.push([t("Общее окно: {list}", { list: gaps.map((b) => `${b.start}–${b.end}`).join(", ") }), true]);
+    const start = bells.find((b) => b.n === firstSlot);
+    const end = bells.find((b) => b.n === last);
+    if (firstSlot > 1 && start) facts.push([t("Оба свободны до {time}", { time: start.start }), false]);
+    if (end) facts.push([t("Оба свободны после {time}", { time: end.end }), false]);
+    for (const [text, good] of facts) row.append(el("div", good ? "meet-free meet-free--gap" : "meet-free", text));
+    nodes.push(row);
+  }
+  if (!nodes.length) nodes.push(el("p", "empty", t("На этой неделе дни уже прошли — пролистайте на следующую")));
+  nodes.push(el("p", "meet-fine", t("У друга учтены все пары группы — без его подгруппы и языка, так что свободен он может быть и чаще.")));
+  body.replaceChildren(...nodes);
 }
 
 const CREATOR_WORDS = ["бодрин", "бодрин федор", "федор михайлович", "создатель", "bodryash"];
@@ -5206,7 +5398,17 @@ function initMenu() {
     if (item.dataset.menu === "settings") showPicker();
     if (item.dataset.menu === "absences") openAbsences();
     if (item.dataset.menu === "semester") openSemester();
+    if (item.dataset.menu === "meet") openMeet();
   });
+  if (!pop.querySelector('[data-menu="meet"]')) {
+    const item = el("button");
+    item.type = "button";
+    item.dataset.menu = "meet";
+    item.append(el("span", "", "🤝"), el("span", "", t("Когда пересечься")));
+    const settings = pop.querySelector('[data-menu="settings"]');
+    if (settings) settings.before(item);
+    else pop.append(item);
+  }
   // Пункт добавляем сами: в закэшированной старой разметке его нет.
   if (!pop.querySelector('[data-menu="semester"]')) {
     const item = el("button");

@@ -4683,3 +4683,102 @@ body.champion .card--now {
 @media (prefers-reduced-motion: reduce) {
   .splash-hello span { animation: none; }
 }
+
+/* ===== Где сейчас преподаватель ===== */
+.teacher-now {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.teacher-now--on {
+  color: #2f9e44;
+}
+
+/* ===== Когда пересечься ===== */
+.sheet--meet .meet-note {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.meet-select {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.meet-day {
+  padding: 12px 0;
+  border-top: 1px solid var(--line, rgba(128, 128, 128, 0.18));
+}
+
+.meet-day-title {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.meet-grid {
+  display: grid;
+  grid-template-columns: 64px repeat(var(--n, 5), 1fr);
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.meet-who {
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.meet-time {
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.meet-cell {
+  height: 14px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
+}
+
+.meet-cell--busy {
+  background: var(--accent);
+}
+
+.meet-cell--both {
+  background: rgba(47, 158, 68, 0.35);
+}
+
+.meet-free {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.meet-free--gap,
+.meet-free--all {
+  font-weight: 600;
+  color: #2f9e44;
+}
+
+.meet-fine {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
