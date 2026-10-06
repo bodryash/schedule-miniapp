@@ -497,11 +497,26 @@ async function buildWho(env, filter) {
     // Режим преподавателя подписываем понятно, а не служебным ключом.
     const grp = String(row.grp || "—");
     const where = grp.startsWith("преп:") ? `👩‍🏫 ${grp.slice(5)}` : grp;
-    return `${who} · ${escape(where)} · ${row.last.slice(0, 10)}`;
+    return `${who} · ${escape(where)} · ${visitTime(row.last)}`;
   });
 
   if (results.length > limit) lines.push(`… показаны последние ${limit}`);
   return [head, "", ...lines].join("\n");
+}
+
+/** Время захода по Москве: «сегодня 09:41», «вчера 23:05», «03.10 14:20». */
+function visitTime(iso) {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return String(iso || "").slice(0, 10);
+  const moscow = (date) => new Date(date.getTime() + 3 * 3600000).toISOString();
+  const stamp = moscow(at);
+  const today = moscow(new Date()).slice(0, 10);
+  const yesterday = moscow(new Date(Date.now() - 86400000)).slice(0, 10);
+  const time = stamp.slice(11, 16);
+  const day = stamp.slice(0, 10);
+  if (day === today) return `сегодня ${time}`;
+  if (day === yesterday) return `вчера ${time}`;
+  return `${day.slice(8, 10)}.${day.slice(5, 7)} ${time}`;
 }
 
 function escape(text) {
