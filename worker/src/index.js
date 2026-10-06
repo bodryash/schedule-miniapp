@@ -1318,6 +1318,199 @@ const THEME_HELP = [
   "/themes — кому что выдано",
 ].join("\n");
 
+/* ---------- Слово недели ---------- */
+
+// Раз в неделю — одно трудное слово или фамилия из глобалистики на весь
+// факультет. Буквы подсвечиваются, как в «Вордли». Кто угадал первым —
+// получает корону себе и своей группе на неделю. Слово знает только
+// сервер: приложение шлёт попытку и получает раскраску.
+const WORD_TRIES_PER_DAY = 3;
+// Игра начинается в понедельник в полдень по Москве, а не в полночь —
+// иначе корону забирали бы те, кто не спит.
+const WORD_START_HOUR = 12;
+
+/** Понедельник игровой недели и сегодняшний день — по Москве. */
+function wordClock(now = Date.now()) {
+  const moscow = new Date(now + 3 * 3600000);
+  const shifted = new Date(now + 3 * 3600000 - WORD_START_HOUR * 3600000);
+  const monday = new Date(shifted);
+  monday.setUTCDate(shifted.getUTCDate() - ((shifted.getUTCDay() + 6) % 7));
+  const week = monday.toISOString().slice(0, 10);
+  // Следующий старт — понедельник через неделю, в полдень.
+  const next = Date.parse(`${week}T00:00:00Z`) + 7 * 86400000 + (WORD_START_HOUR - 3) * 3600000;
+  return { week, day: moscow.toISOString().slice(0, 10), next };
+}
+
+const wordNorm = (text) => String(text || "").toUpperCase().replace(/Ё/g, "Е").replace(/[^А-Я]/g, "");
+
+function wordMarks(guess, word) {
+  const marks = Array(word.length).fill("x");
+  const left = {};
+  for (let i = 0; i < word.length; i++) {
+    if (guess[i] === word[i]) marks[i] = "g";
+    else left[word[i]] = (left[word[i]] || 0) + 1;
+  }
+  for (let i = 0; i < word.length; i++) {
+    if (marks[i] === "g" || !left[guess[i]]) continue;
+    marks[i] = "y";
+    left[guess[i]] -= 1;
+  }
+  return marks.join("");
+}
+
+/** Слово этой недели; если ещё не назначено — берём следующее из списка. */
+async function wordOfWeek(env, week) {
+  const find = () => env.STATS.prepare("SELECT word, hint FROM word_list WHERE week = ?").bind(week).first();
+  let row = await find();
+  if (row) return row;
+  await env.STATS.prepare(
+    `UPDATE word_list SET week = ?1
+     WHERE id = (SELECT MIN(id) FROM word_list WHERE week IS NULL)
+       AND NOT EXISTS (SELECT 1 FROM word_list WHERE week = ?1)`
+  )
+    .bind(week)
+    .run();
+  row = await find();
+  return row || null;
+}
+
+async function wordApi(env, body) {
+  const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+  if (!user?.id) return { ok: false, error: "no user" };
+  const group = String(body.group || "").slice(0, 24);
+  if (!group) return { ok: false, error: "no group" };
+  if (await appBan(env, user.id).catch(() => null)) return { ok: false, error: "banned" };
+
+  const clock = wordClock();
+  const row = await wordOfWeek(env, clock.week);
+  if (!row) return { ok: true, empty: true, next: clock.next };
+  const word = wordNorm(row.word);
+
+  const mine = async () =>
+    (
+      await env.STATS.prepare("SELECT guess, marks, day FROM word_guesses WHERE week = ? AND user_id = ? ORDER BY n")
+        .bind(clock.week, user.id)
+        .all()
+    ).results || [];
+  const winner = () => env.STATS.prepare("SELECT user_id, name, grp FROM word_wins WHERE week = ?").bind(clock.week).first();
+
+  let guesses = await mine();
+  let win = await winner();
+  let error = "";
+  const guess = wordNorm(body.guess);
+  if (body.guess) {
+    const today = guesses.filter((g) => g.day === clock.day).length;
+    if (win) error = "solved";
+    else if (guess.length !== word.length) error = "length";
+    else if (today >= WORD_TRIES_PER_DAY) error = "limit";
+    else if (guesses.some((g) => g.guess === guess)) error = "repeat";
+    else {
+      await env.STATS.prepare(
+        "INSERT OR IGNORE INTO word_guesses (week, user_id, n, guess, marks, day) VALUES (?, ?, ?, ?, ?, ?)"
+      )
+        .bind(clock.week, user.id, guesses.length + 1, guess, wordMarks(guess, word), clock.day)
+        .run();
+      if (guess === word) {
+        // Первый — тот, чья запись легла раньше: остальные натыкаются на ключ.
+        await env.STATS.prepare(
+          "INSERT OR IGNORE INTO word_wins (week, user_id, name, grp, created) VALUES (?, ?, ?, ?, ?)"
+        )
+          .bind(clock.week, user.id, clickerName(user), group, new Date().toISOString())
+          .run();
+        win = await winner();
+      }
+      guesses = await mine();
+    }
+  }
+
+  const players = await env.STATS.prepare(
+    "SELECT COUNT(DISTINCT user_id) AS people, COUNT(*) AS tries FROM word_guesses WHERE week = ?"
+  )
+    .bind(clock.week)
+    .first();
+  return {
+    ok: true,
+    error,
+    week: clock.week,
+    next: clock.next,
+    length: word.length,
+    hint: row.hint,
+    guesses: guesses.map((g) => ({ guess: g.guess, marks: g.marks })),
+    left: Math.max(0, WORD_TRIES_PER_DAY - guesses.filter((g) => g.day === clock.day).length),
+    perDay: WORD_TRIES_PER_DAY,
+    people: players?.people || 0,
+    tries: players?.tries || 0,
+    // Слово открываем только после победы — до неё его знает один сервер.
+    winner: win ? { name: win.name, group: win.grp, me: win.user_id === user.id, word } : null,
+  };
+}
+
+/** Корона: последний угадавший за семь дней — он сам и вся его группа. */
+async function crownFor(env, userId, group) {
+  if (!env.STATS) return null;
+  const since = new Date(Date.now() - 7 * 86400000).toISOString();
+  const row = await env.STATS.prepare(
+    "SELECT user_id, name, grp FROM word_wins WHERE created > ? ORDER BY created DESC LIMIT 1"
+  )
+    .bind(since)
+    .first();
+  if (!row || (row.grp !== group?.id && row.user_id !== userId)) return null;
+  return { name: row.name, group: row.grp, me: row.user_id === userId };
+}
+
+const WORD_HELP = [
+  "<b>Слово недели</b> — игра в приложении: первый угадавший забирает корону себе и группе.",
+  "",
+  "/word — что сейчас загадано, сколько играют, кто угадал",
+  "/word add ВАЛЛЕРСТАЙН социолог, мир-система — добавить слово в очередь (подсказка после слова)",
+  "/word now ГЕГЕМОНИЯ термин — заменить слово этой недели (попытки и победитель сбросятся)",
+  "/word list — очередь слов",
+].join("\n");
+
+async function wordCommand(env, text) {
+  const [action = "", raw = "", ...rest] = String(text).replace(/^\/word(@\w+)?/, "").trim().split(/\s+/);
+  const clock = wordClock();
+  const word = wordNorm(raw);
+  const hint = rest.join(" ").slice(0, 80);
+  if (action === "add" || action === "now") {
+    if (word.length < 4 || word.length > 14) return "Слово — от 4 до 14 русских букв, без пробелов и дефисов.";
+    if (action === "add") {
+      await env.STATS.prepare("INSERT INTO word_list (word, hint) VALUES (?, ?)").bind(word, hint).run();
+      return `В очередь добавлено: <b>${word}</b>${hint ? ` — ${escape(hint)}` : ""}.`;
+    }
+    await env.STATS.batch([
+      env.STATS.prepare("DELETE FROM word_list WHERE week = ?").bind(clock.week),
+      env.STATS.prepare("INSERT INTO word_list (word, hint, week) VALUES (?, ?, ?)").bind(word, hint, clock.week),
+      env.STATS.prepare("DELETE FROM word_guesses WHERE week = ?").bind(clock.week),
+      env.STATS.prepare("DELETE FROM word_wins WHERE week = ?").bind(clock.week),
+    ]);
+    return `Слово этой недели теперь: <b>${word}</b>. Попытки и победитель сброшены.`;
+  }
+  if (action === "list") {
+    const { results = [] } = await env.STATS.prepare(
+      "SELECT word, hint FROM word_list WHERE week IS NULL ORDER BY id LIMIT 40"
+    ).all();
+    if (!results.length) return "Очередь пуста — добавьте слова: /word add СЛОВО подсказка";
+    return ["<b>Очередь слов</b>", "", ...results.map((r, i) => `${i + 1}. ${r.word}${r.hint ? ` — ${escape(r.hint)}` : ""}`)].join("\n");
+  }
+  const row = await wordOfWeek(env, clock.week);
+  const stats = await env.STATS.prepare(
+    "SELECT COUNT(DISTINCT user_id) AS people, COUNT(*) AS tries FROM word_guesses WHERE week = ?"
+  )
+    .bind(clock.week)
+    .first();
+  const win = await env.STATS.prepare("SELECT user_id, name, grp FROM word_wins WHERE week = ?").bind(clock.week).first();
+  const queue = await env.STATS.prepare("SELECT COUNT(*) AS n FROM word_list WHERE week IS NULL").first();
+  return [
+    WORD_HELP,
+    "",
+    row ? `Неделя с ${clock.week}: <b>${wordNorm(row.word)}</b>${row.hint ? ` — ${escape(row.hint)}` : ""}` : "На эту неделю слова нет — очередь пуста.",
+    `Играют: ${stats?.people || 0}, попыток: ${stats?.tries || 0}.`,
+    win ? `👑 Угадал(а): ${escape(win.name)} · ${escape(win.grp)} · id <code>${win.user_id}</code>` : "Пока никто не угадал.",
+    `В очереди слов: ${queue?.n || 0}.`,
+  ].join("\n");
+}
+
 /* ---------- Приветствие на заставке ---------- */
 
 const HELLO_MAX = 120;
@@ -2428,7 +2621,8 @@ export default {
       const theme = await themeFor(env, user?.id, group).catch(() => "");
       const important = await importantList(env).catch(() => []);
       const hello = await helloFor(env, user?.id, group).catch(() => "");
-      const payload = { notices, cancels, changes, theme, hello, important, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments };
+      const crown = await crownFor(env, user?.id, group).catch(() => null);
+      const payload = { notices, cancels, changes, theme, hello, crown, important, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments };
       return new Response(JSON.stringify(payload), {
         headers: {
           "content-type": "application/json; charset=utf-8",
@@ -2517,6 +2711,23 @@ export default {
       let result;
       try {
         result = await saveReminders(env, JSON.parse(await request.text()));
+      } catch {
+        result = { ok: false, error: "bad request" };
+      }
+      return new Response(JSON.stringify(result), {
+        status: result.ok ? 200 : 400,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "no-store",
+        },
+      });
+    }
+
+    if (url.pathname === "/word" && request.method === "POST") {
+      let result;
+      try {
+        result = await wordApi(env, JSON.parse(await request.text()));
       } catch {
         result = { ok: false, error: "bad request" };
       }
@@ -2932,6 +3143,15 @@ export default {
     }
 
     // Отмена пар меняет расписание всем — только владелец.
+    if (message && /^\/word(?:@\w+)?(?:\s|$)/.test(text)) {
+      const reply = isOwner(env, message.chat.id) ? await wordCommand(env, text) : "Команда недоступна.";
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: reply,
+        parse_mode: "HTML",
+      });
+    }
+
     if (message && /^\/hellos?(?:@\w+)?(?:\s|$)/.test(text)) {
       let reply = "Команда недоступна.";
       if (isOwner(env, message.chat.id)) {
