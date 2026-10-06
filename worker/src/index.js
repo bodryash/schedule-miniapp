@@ -1418,6 +1418,21 @@ async function wordApi(env, body) {
           .bind(clock.week, user.id, clickerName(user), group, new Date().toISOString())
           .run();
         win = await winner();
+        // Владельцу — сразу: корону выдаёт игра, но знать о победе надо ему.
+        // Только если победил именно этот человек, а не опоздавший вторым.
+        if (win?.user_id === user.id && env.OWNER_ID) {
+          const tries = guesses.length + 1;
+          await callTelegram(env.BOT_TOKEN, "sendMessage", {
+            chat_id: env.OWNER_ID,
+            parse_mode: "HTML",
+            text: [
+              `👑 Слово недели угадано: <b>${word}</b>`,
+              `${escape(clickerName(user))}${user.username ? ` @${escape(user.username)}` : ""} · ${escape(group)}`,
+              `С ${tries}-й попытки · id <code>${user.id}</code>`,
+              "Корона у этой группы на неделю. Новое слово — в понедельник в 12:00.",
+            ].join("\n"),
+          }).catch(() => {});
+        }
       }
       guesses = await mine();
     }
