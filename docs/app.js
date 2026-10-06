@@ -6022,6 +6022,26 @@ const HELLO_WISHES = [
   "Пусть в столовой не будет очереди",
 ];
 
+// Преподавателю студенческие пожелания не годятся: «добрых преподавателей»
+// и «пусть спросят то, что вы знаете» — не про него.
+const HELLO_TEACHER = [
+  "Пусть аудитория будет внимательной",
+  "Лёгких пар и сильных вопросов",
+  "Пусть все придут подготовленными",
+  "Сил, кофе и хорошего настроения",
+  "Пусть проектор заработает с первого раза",
+  "Хорошего дня — он будет что надо",
+];
+
+/** Режим преподавателя — из сохранённых настроек: приложение их ещё не разобрало. */
+function helloTeacher() {
+  try {
+    return Boolean(JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")?.teacher);
+  } catch {
+    return false;
+  }
+}
+
 function helloName() {
   return String(tg?.initDataUnsafe?.user?.first_name || "").trim().slice(0, 24);
 }
@@ -6049,7 +6069,10 @@ function helloLines() {
   const wish =
     hour >= 20 || hour < 5
       ? "Отдыхайте — завтра всё успеется"
-      : HELLO_WISHES[(now.getDate() * 5 + now.getMonth()) % HELLO_WISHES.length];
+      : (() => {
+          const list = helloTeacher() ? HELLO_TEACHER : HELLO_WISHES;
+          return list[(now.getDate() * 5 + now.getMonth()) % list.length];
+        })();
   // Без имени: в Telegram там часто ник, а не имя, и «Доброе утро, xX_fox_Xx!»
   // звучит странно. Имя остаётся только в надписи владельца — через {имя}.
   return { title: `${t(hi)}!`, wish: t(wish), custom: false };
