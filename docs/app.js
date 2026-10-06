@@ -172,6 +172,7 @@ async function loadNotices(group) {
     notices.owner = Boolean(body.owner);
     applyTheme(body.theme || "");
     notices.important = body.important || [];
+    saveHello(body.hello || "");
     notices.homework = body.homework || [];
     notices.canEdit = Boolean(body.canEdit);
     notices.canComment = Boolean(body.canComment);
@@ -6004,9 +6005,97 @@ async function checkForUpdate() {
   location.replace(url);
 }
 
+/* ---------- Приветствие на заставке ---------- */
+
+// Над датой — пара тёплых слов: по времени суток, с именем из Telegram.
+// Владелец может написать человеку или группе своё (/hello у бота): оно
+// приходит вместе с объявлениями и запоминается, чтобы в следующий раз
+// появиться с первого кадра, не дожидаясь сети.
+const HELLO_KEY = "schedule.hello";
+const HELLO_WISHES = [
+  "Пусть пары пролетят незаметно",
+  "Лёгкого дня и добрых преподавателей",
+  "Пусть сегодня всё получится",
+  "Сил, кофе и хорошего настроения",
+  "Пусть спросят то, что вы знаете",
+  "Хорошего дня — он будет что надо",
+  "Пусть в столовой не будет очереди",
+];
+
+function helloName() {
+  return String(tg?.initDataUnsafe?.user?.first_name || "").trim().slice(0, 24);
+}
+
+function helloLines() {
+  const name = helloName();
+  let custom = "";
+  try {
+    custom = localStorage.getItem(HELLO_KEY) || "";
+  } catch {
+    // Без памяти — обычное приветствие.
+  }
+  if (custom) {
+    // Имени может не быть (открыли вне Telegram) — тогда убираем и осиротевшие
+    // запятые: «{имя}, удачи!» становится «Удачи!», а не «, удачи!».
+    let filled = custom.replace(/{имя}|{name}/gi, name).replace(/ +([,!.?])/g, "$1");
+    if (!name) filled = filled.replace(/^[\s,]+/, "").replace(/,\s*([!.?])/g, "$1");
+    filled = filled.trim();
+    return { title: filled.charAt(0).toUpperCase() + filled.slice(1), wish: "", custom: true };
+  }
+  const now = new Date();
+  const hour = now.getHours();
+  const hi = hour >= 5 && hour < 11 ? "Доброе утро" : hour < 17 ? "Добрый день" : hour < 23 ? "Добрый вечер" : "Доброй ночи";
+  // Пожелание своё на каждый день, а не на каждое открытие.
+  const wish =
+    hour >= 20 || hour < 5
+      ? "Отдыхайте — завтра всё успеется"
+      : HELLO_WISHES[(now.getDate() * 5 + now.getMonth()) % HELLO_WISHES.length];
+  return { title: name ? `${t(hi)}, ${name}!` : `${t(hi)}!`, wish: t(wish), custom: false };
+}
+
+/** Слова выезжают по одному — надпись как будто произносится. */
+function renderHello() {
+  const splash = els.splash;
+  if (!splash || !splash.isConnected) return;
+  let box = splash.querySelector(".splash-hello");
+  if (!box) {
+    box = el("div", "splash-hello");
+    splash.prepend(box);
+  }
+  const { title, wish, custom } = helloLines();
+  const key = `${title}|${wish}`;
+  if (box.dataset.key === key) return;
+  box.dataset.key = key;
+  box.classList.toggle("splash-hello--custom", custom);
+  let index = 0;
+  const words = (text, cls) => {
+    const line = el("div", cls);
+    for (const word of text.split(/\s+/).filter(Boolean)) {
+      const span = el("span", "", word);
+      span.style.setProperty("--w", index++);
+      line.append(span, " ");
+    }
+    return line;
+  };
+  box.replaceChildren(words(title, "splash-hello-title"), ...(wish ? [words(wish, "splash-hello-wish")] : []));
+}
+
+/** Надпись от владельца пришла — запоминаем; если заставка ещё на экране, меняем сразу. */
+function saveHello(text) {
+  try {
+    if (text) localStorage.setItem(HELLO_KEY, text);
+    else localStorage.removeItem(HELLO_KEY);
+  } catch {
+    // Не запомнилось — покажем в этот раз, если успеем.
+  }
+  renderHello();
+}
+
+renderHello();
+
 /* ---------- Заставка: день собирается из точек ---------- */
 
-const SPLASH_MIN = 1400; // не короче: иначе сборка не успевает прочитаться
+const SPLASH_MIN = 1700; // не короче: иначе сборка и приветствие не успевают прочитаться
 const SPLASH_MAX = 3200; // и не дольше, даже если сеть тормозит
 const splashStarted = performance.now();
 

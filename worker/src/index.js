@@ -1303,6 +1303,73 @@ const THEME_HELP = [
   "/themes — кому что выдано",
 ].join("\n");
 
+/* ---------- Приветствие на заставке ---------- */
+
+const HELLO_MAX = 120;
+const HELLO_HELP = [
+  "<b>Приветствие на заставке</b> — надпись, которую человек видит при открытии расписания.",
+  "",
+  "/hello @ivanov Удачи на коллоквиуме! — одному человеку",
+  "/hello 311гэу С днём группы! — группе, можно курс («3курс») и «все»",
+  "/hello @ivanov снять — вернуть обычное приветствие",
+  "/hellos — кому что написано",
+  "",
+  "«{имя}» в тексте заменится на имя из Telegram. Личная надпись важнее групповой. Человек увидит её со следующего открытия.",
+].join("\n");
+
+/** Надпись для человека: личная важнее групповой, та — курсовой и общей. */
+async function helloFor(env, userId, group) {
+  if (!env.STATS) return "";
+  const row = await env.STATS.prepare(
+    `SELECT text FROM greetings WHERE target IN (?, ?, ?, '*')
+     ORDER BY CASE target WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END LIMIT 1`
+  )
+    .bind(
+      `user:${userId || 0}`,
+      group?.id || "—",
+      courseOf(group || {}),
+      `user:${userId || 0}`,
+      group?.id || "—",
+      courseOf(group || {})
+    )
+    .first();
+  return row?.text || "";
+}
+
+async function helloCommand(env, text) {
+  const rest = glueCourse(String(text).replace(/^\/hello(@\w+)?/, "").trim());
+  const [target = "", ...words] = rest.split(/\s+/).filter(Boolean);
+  const body = words.join(" ").trim();
+  if (!target || !body) return HELLO_HELP;
+  const off = ["снять", "убрать", "off", "нет"].includes(body.toLowerCase());
+  if (!off && body.length > HELLO_MAX) return `Слишком длинно: ${body.length} знаков, а на заставку влезает ${HELLO_MAX}.`;
+
+  const resolved = await resolveTargets(target, env);
+  if (resolved.error) return resolved.error;
+  const now = new Date().toISOString();
+  await env.STATS.batch(
+    resolved.ids.map((id) =>
+      off
+        ? env.STATS.prepare("DELETE FROM greetings WHERE target = ?").bind(id)
+        : env.STATS.prepare(
+            `INSERT INTO greetings (target, text, created) VALUES (?, ?, ?)
+             ON CONFLICT(target) DO UPDATE SET text = excluded.text, created = excluded.created`
+          ).bind(id, body, now)
+    )
+  );
+  const who = resolved.ids.map((id) => targetLabel(id)).join(", ");
+  return off ? `Приветствие снято: ${escape(who)}.` : `Приветствие для ${escape(who)}:\n«${escape(body)}»`;
+}
+
+async function hellosList(env) {
+  const { results = [] } = await env.STATS.prepare(
+    "SELECT target, text FROM greetings ORDER BY created DESC LIMIT 60"
+  ).all();
+  if (!results.length) return `${HELLO_HELP}\n\nПока никому ничего не написано.`;
+  const lines = results.map((row) => `• ${escape(targetLabel(row.target))} — «${escape(row.text)}»`);
+  return [HELLO_HELP, "", ...lines].join("\n");
+}
+
 /** Тема человека: личная важнее групповой. */
 async function themeFor(env, userId, group) {
   if (!env.STATS) return "";
@@ -2345,7 +2412,8 @@ export default {
       const comments = commenter ? await commentCounts(env, group.id, range).catch(() => []) : [];
       const theme = await themeFor(env, user?.id, group).catch(() => "");
       const important = await importantList(env).catch(() => []);
-      const payload = { notices, cancels, changes, theme, important, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments };
+      const hello = await helloFor(env, user?.id, group).catch(() => "");
+      const payload = { notices, cancels, changes, theme, hello, important, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments };
       return new Response(JSON.stringify(payload), {
         headers: {
           "content-type": "application/json; charset=utf-8",
@@ -2849,6 +2917,18 @@ export default {
     }
 
     // Отмена пар меняет расписание всем — только владелец.
+    if (message && /^\/hellos?(?:@\w+)?(?:\s|$)/.test(text)) {
+      let reply = "Команда недоступна.";
+      if (isOwner(env, message.chat.id)) {
+        reply = /^\/hellos/.test(text) ? await hellosList(env) : await helloCommand(env, text);
+      }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: reply,
+        parse_mode: "HTML",
+      });
+    }
+
     if (message && /^\/themes?(?:@\w+)?(?:\s|$)/.test(text)) {
       let reply = "Команда недоступна.";
       if (isOwner(env, message.chat.id)) {
