@@ -9,5 +9,12 @@
       "word",
       "emails"
     ]
+  },
+  {
+    "id": "msu-ffm",
+    "university": "МГУ",
+    "faculty": "Факультет фундаментальной медицины",
+    "path": "msu-ffm",
+    "features": []
   }
 ]
