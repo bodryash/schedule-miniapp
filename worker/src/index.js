@@ -2635,9 +2635,18 @@ async function handleUnnotice(env, text) {
   return result.meta?.changes ? `Объявление №${id} снято.` : `Действующего объявления №${id} нет.`;
 }
 
+// Бот переехал на свой сервер. Старый адрес в Cloudflare остаётся
+// переходником: приложения, которые ещё держат в кэше прежнюю версию,
+// стучатся сюда — и их запросы уходят на новый сервер, в ту же базу.
+const MOVED_TO = "https://api.bodryash.ru";
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (!OWN_SERVER && MOVED_TO) {
+      const body = request.method === "GET" || request.method === "HEAD" ? undefined : await request.arrayBuffer();
+      return fetch(`${MOVED_TO}${url.pathname}${url.search}`, { method: request.method, headers: request.headers, body });
+    }
 
     // Приложение спрашивает объявления своей группы. Сайт на другом адресе,
     // поэтому разрешаем чтение отовсюду: здесь только публичные тексты.
@@ -3402,6 +3411,9 @@ export default {
 
   // Раз в минуту разбираем очередь рассылки.
   async scheduled(event, env, ctx) {
+    // Напоминания и рассылки теперь шлёт свой сервер — здесь молчим, иначе
+    // всё ушло бы дважды.
+    if (!OWN_SERVER && MOVED_TO) return;
     // Лимит обращений наружу — общий на весь запуск. Сначала напоминания:
     // они привязаны ко времени. Рассылке — что осталось, остальное она
     // доотправит в следующие минуты. Запас в 6 — на запросы к базе.

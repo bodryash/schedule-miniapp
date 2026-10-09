@@ -62,12 +62,9 @@ function translatePage() {
   }
 }
 const STORAGE_KEY = "schedule.prefs";
-// Где живёт бот. Приложение на своём домене ходит к боту на том же домене,
-// на прежнем адресе — к прежнему боту в Cloudflare. Одна сборка работает и
-// там, и там: так новый сервер можно проверить, не трогая студентов.
-const API_URL = /(^|\.)bodryash\.ru$/.test(location.hostname)
-  ? "https://api.bodryash.ru"
-  : "https://fgp-schedule-bot.bodryash.workers.dev";
+// Где живёт бот: свой сервер в России. Прежний адрес в Cloudflare остался
+// переходником для версий приложения, которые ещё лежат в кэше.
+const API_URL = "https://api.bodryash.ru";
 const HIT_URL = `${API_URL}/hit`;
 
 /**
