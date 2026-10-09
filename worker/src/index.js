@@ -3188,6 +3188,33 @@ export default {
 
     // Присланный PDF обновляет расписание. Только от владельца: иначе кто
     // угодно опубликовал бы поддельное расписание для всего факультета.
+    // Что студенты пишут боту словами и присылают фотографией — на своём
+    // сервере складываем рядом с файлами: так приходят названия вуза и
+    // группы и расписания-картинки. Команды и владельца не трогаем.
+    if (
+      message &&
+      message.chat.type === "private" &&
+      String(message.chat.id) !== String(env.OWNER_ID) &&
+      globalThis.SCHEDULE_SAVE_NOTE
+    ) {
+      const photo = message.photo?.at(-1);
+      if (photo) {
+        await Promise.resolve(
+          globalThis.SCHEDULE_SAVE_FILE?.({ ...photo, file_name: "photo.jpg" }, message.from, message.caption || "")
+        ).catch(() => {});
+      }
+      const words = message.text && !message.text.startsWith("/") ? message.text : message.caption || "";
+      if (words || photo) {
+        await Promise.resolve(globalThis.SCHEDULE_SAVE_NOTE(message.from, words, Boolean(photo || message.document))).catch(() => {});
+      }
+      if (photo) {
+        await callTelegram(env.BOT_TOKEN, "sendMessage", {
+          chat_id: message.chat.id,
+          text: "Спасибо! Передал расписание — добавим и сообщим. Если не написали, допишите вуз, факультет и группу.",
+        }).catch(() => {});
+      }
+    }
+
     const document = message?.document;
     if (document) {
       const owner = String(message.chat.id) === String(env.OWNER_ID);

@@ -4,7 +4,7 @@
 //
 // Запуск: node --env-file=/etc/schedule/env server/index.mjs
 import { createServer } from "node:http";
-import { existsSync, mkdirSync, readFileSync, readdirSync, statfsSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statfsSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDatabase } from "./d1.mjs";
@@ -63,6 +63,15 @@ globalThis.SCHEDULE_SAVE_FILE = async (document, from, caption) => {
   writeFileSync(
     join(INBOX, `${stamp}_${safe}.json`),
     JSON.stringify({ at: new Date().toISOString(), from: { id: from?.id, name: [from?.first_name, from?.last_name].filter(Boolean).join(" "), username: from?.username || "" }, caption, name: document.file_name, size: document.file_size }, null, 2)
+  );
+};
+
+// Слова, которые студенты пишут боту: одной строкой на сообщение.
+globalThis.SCHEDULE_SAVE_NOTE = async (from, text, withFile) => {
+  mkdirSync(INBOX, { recursive: true });
+  appendFileSync(
+    join(INBOX, "messages.jsonl"),
+    JSON.stringify({ at: new Date().toISOString(), id: from?.id, name: [from?.first_name, from?.last_name].filter(Boolean).join(" "), username: from?.username || "", text: String(text || "").slice(0, 1000), file: withFile }) + "\n"
   );
 };
 
