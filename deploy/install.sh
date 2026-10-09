@@ -7,7 +7,7 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update -q
-apt-get install -y -q curl git sqlite3 rclone ufw unattended-upgrades debian-keyring debian-archive-keyring apt-transport-https
+apt-get install -y -q curl git sqlite3 rclone ufw unattended-upgrades
 
 # Node 24: в нём встроенный SQLite, отдельных библиотек боту не нужно.
 if ! command -v node >/dev/null || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 24 ]; then
@@ -15,10 +15,10 @@ if ! command -v node >/dev/null || [ "$(node -p 'process.versions.node.split("."
   apt-get install -y -q nodejs
 fi
 
-# Caddy — веб-сервер с автоматическими сертификатами.
+# Caddy — веб-сервер с автоматическими сертификатами. Из штатных пакетов
+# Ubuntu: собственное хранилище Caddy из России отвечает отказом.
+rm -f /etc/apt/sources.list.d/caddy-stable.list
 if ! command -v caddy >/dev/null; then
-  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > /etc/apt/sources.list.d/caddy-stable.list
   apt-get update -q
   apt-get install -y -q caddy
 fi
