@@ -26,7 +26,7 @@ fi
 id schedule >/dev/null 2>&1 || useradd --system --home /opt/schedule --shell /usr/sbin/nologin schedule
 mkdir -p /opt/schedule /var/lib/schedule/backups /etc/schedule
 if [ ! -d /opt/schedule/.git ]; then
-  git clone -q https://github.com/bodryash/schedule-miniapp.git /opt/schedule
+  git clone -q --branch "${BRANCH:-main}" https://github.com/bodryash/schedule-miniapp.git /opt/schedule
 fi
 chown -R schedule:schedule /opt/schedule /var/lib/schedule
 git config --system --add safe.directory /opt/schedule
@@ -38,6 +38,18 @@ if [ ! -f /etc/schedule/env ]; then
 fi
 chown root:schedule /etc/schedule/env
 chmod 640 /etc/schedule/env
+
+# У api.telegram.org два адреса, и у части российских хостеров один из них
+# не отвечает: бот зависал бы на каждом втором сообщении. Закрепляем тот,
+# что отвечает отсюда; если не отвечает ни один — оставляем как есть.
+if ! grep -q "api.telegram.org" /etc/hosts; then
+  for ip in 149.154.167.220 149.154.166.110; do
+    if curl -s -m 8 -o /dev/null --resolve "api.telegram.org:443:$ip" https://api.telegram.org/; then
+      echo "$ip api.telegram.org" >> /etc/hosts
+      break
+    fi
+  done
+fi
 
 # Память под пики: файл подкачки на 2 ГБ, если его ещё нет.
 if ! swapon --show | grep -q .; then
