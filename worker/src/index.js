@@ -3211,6 +3211,9 @@ export default {
         // Расписание чужого факультета от студента — владельцу, вместе с
         // тем, кто прислал: добавляет факультеты он.
         if (!owner && env.OWNER_ID) {
+          // На своём сервере файл ещё и сохраняется — чтобы подключить
+          // факультет, не пересылая файл вручную.
+          await Promise.resolve(globalThis.SCHEDULE_SAVE_FILE?.(document, message.from, message.caption || "")).catch(() => {});
           await callTelegram(env.BOT_TOKEN, "forwardMessage", {
             chat_id: env.OWNER_ID,
             from_chat_id: message.chat.id,

@@ -4,7 +4,7 @@
 //
 // Запуск: node --env-file=/etc/schedule/env server/index.mjs
 import { createServer } from "node:http";
-import { existsSync, mkdirSync, readFileSync, readdirSync, statfsSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statfsSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDatabase } from "./d1.mjs";
@@ -44,6 +44,26 @@ const env = {
   STATS_SALT: process.env.STATS_SALT,
   WEBHOOK_SECRET: process.env.WEBHOOK_SECRET,
   GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+};
+
+// Расписания новых факультетов, которые студенты присылают боту, кладём в
+// папку рядом с базой: файл и рядом — кто и когда прислал.
+const INBOX = join(dirname(DB_PATH), "inbox");
+globalThis.SCHEDULE_SAVE_FILE = async (document, from, caption) => {
+  if (!document?.file_id || (document.file_size || 0) > 20 * 1024 * 1024) return;
+  const info = await (await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/getFile?file_id=${encodeURIComponent(document.file_id)}`, { signal: AbortSignal.timeout(15000) })).json();
+  if (!info.ok) return;
+  const file = await fetch(`https://api.telegram.org/file/bot${env.BOT_TOKEN}/${info.result.file_path}`, { signal: AbortSignal.timeout(60000) });
+  if (!file.ok) return;
+  mkdirSync(INBOX, { recursive: true });
+  // Имя файла — чужое: оставляем только безопасные знаки.
+  const safe = String(document.file_name || "file").replace(/[^\p{L}\p{N}._ -]/gu, "_").slice(-80);
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  writeFileSync(join(INBOX, `${stamp}_${safe}`), Buffer.from(await file.arrayBuffer()));
+  writeFileSync(
+    join(INBOX, `${stamp}_${safe}.json`),
+    JSON.stringify({ at: new Date().toISOString(), from: { id: from?.id, name: [from?.first_name, from?.last_name].filter(Boolean).join(" "), username: from?.username || "" }, caption, name: document.file_name, size: document.file_size }, null, 2)
+  );
 };
 
 // В Cloudflare фоновую работу доживает сама платформа. Здесь процесс живёт
