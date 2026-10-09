@@ -1,0 +1,4 @@
+# Скрипты и настройки сервера — всегда с переводами строк Unix: с Windows-переводами bash и systemd их не поймут.
+*.sh text eol=lf
+deploy/* text eol=lf
+server/* text eol=lf
