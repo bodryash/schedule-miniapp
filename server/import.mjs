@@ -6,6 +6,7 @@
 // D1 — тот же SQLite, поэтому выгрузка ложится как есть. В конце сверяем
 // число строк в каждой таблице с тем, что было в выгрузке.
 import { existsSync, readFileSync } from "node:fs";
+import { createHmac } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 
 const [dump, target] = process.argv.slice(2);
@@ -54,6 +55,20 @@ for (const name of tables) {
     bad += 1;
     console.log(`✗ ${name}: в выгрузке ${want}, в базе ${got}`);
   }
+}
+// Ключ строки «кто заходил» — хэш id с серверным секретом. Секрет на новом
+// сервере свой, поэтому пересчитываем ключи: иначе при первом же заходе
+// каждый человек записался бы второй раз.
+if (process.env.STATS_SALT) {
+  const rows = db.prepare("SELECT uid, tg_id FROM people WHERE tg_id IS NOT NULL").all();
+  const update = db.prepare("UPDATE people SET uid = ? WHERE uid = ?");
+  db.exec("BEGIN");
+  for (const row of rows) {
+    const uid = createHmac("sha256", process.env.STATS_SALT).update(String(row.tg_id)).digest("hex").slice(0, 32);
+    if (uid !== row.uid) update.run(uid, row.uid);
+  }
+  db.exec("COMMIT");
+  console.log(`Ключи заходов пересчитаны: ${rows.length}`);
 }
 const check = db.prepare("PRAGMA integrity_check").get();
 db.close();

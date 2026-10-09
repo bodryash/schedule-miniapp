@@ -13,6 +13,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 // Адрес приложения бот читает при загрузке, поэтому сначала задаём его, а
 // потом уже подключаем код бота.
+globalThis.SCHEDULE_OWN_SERVER = true;
 if (process.env.APP_URL) globalThis.SCHEDULE_APP_URL = process.env.APP_URL.replace(/\/?$/, "/");
 const { default: worker } = await import("../worker/src/index.js");
 const PORT = Number(process.env.PORT || 8787);

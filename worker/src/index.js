@@ -194,7 +194,13 @@ const REPO = "bodryash/schedule-miniapp";
 // За один запуск воркер успевает немного: обращений наружу разрешено около
 // полусотни. Поэтому за раз рассылаем порцию, остальное — на следующей
 // минуте.
-const BATCH = 40;
+// Порции отправки. В Cloudflare запуск ограничен 50 обращениями наружу,
+// поэтому там порции маленькие. На своём сервере этого предела нет: шлём
+// до 600 сообщений в минуту — это 10 в секунду, втрое ниже потолка
+// Telegram, и порция успевает уйти до следующей минуты.
+const OWN_SERVER = Boolean(globalThis.SCHEDULE_OWN_SERVER);
+const BATCH = OWN_SERVER ? 600 : 40;
+const SEND_BUDGET = OWN_SERVER ? 700 : 44;
 
 /** Готовит черновик рассылки и показывает его с кнопками подтверждения. */
 async function draftBroadcast(env, chatId, text, { button = false } = {}) {
@@ -1063,7 +1069,7 @@ function moscowNow() {
 // полусотни сообщений остальные просто не отправлялись — а окно было ровно
 // в одну минуту, так что до них очередь уже не доходила. Теперь за запуск
 // уходит не больше порции, остальные — в следующие минуты.
-const REMIND_BATCH = 24;
+const REMIND_BATCH = OWN_SERVER ? 600 : 24;
 
 // Утро — не одна минута, а окно: если в 7:30 не успели всем, дошлём до 8:30.
 const MORNING_FROM = 7 * 60 + 30;
@@ -3320,7 +3326,7 @@ export default {
           console.log("reminders failed", String(error?.message || error));
           return REMIND_BATCH;
         });
-        await drainOutbox(env, Math.min(BATCH, 44 - (used || 0)));
+        await drainOutbox(env, Math.min(BATCH, SEND_BUDGET - (used || 0)));
       })()
     );
   },
