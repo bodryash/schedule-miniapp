@@ -23,5 +23,12 @@
     "faculty": "Институт гуманитарного образования и культуры — Культурология",
     "path": "rgu-kosygina-kult",
     "features": []
+  },
+  {
+    "id": "msu-mm",
+    "university": "МГУ",
+    "faculty": "Механико-математический факультет",
+    "path": "msu-mm",
+    "features": []
   }
 ]
