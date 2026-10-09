@@ -1,0 +1,23 @@
+[Unit]
+Description=Бот расписания
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=schedule
+Group=schedule
+WorkingDirectory=/opt/schedule
+ExecStart=/usr/bin/node --env-file=/etc/schedule/env --disable-warning=ExperimentalWarning server/index.mjs
+# Упал — поднимаем сам, через две секунды.
+Restart=always
+RestartSec=2
+# Служба видит только свой код и свою базу.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/schedule
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target

@@ -62,7 +62,13 @@ function translatePage() {
   }
 }
 const STORAGE_KEY = "schedule.prefs";
-const HIT_URL = "https://fgp-schedule-bot.bodryash.workers.dev/hit";
+// Где живёт бот. Приложение на своём домене ходит к боту на том же домене,
+// на прежнем адресе — к прежнему боту в Cloudflare. Одна сборка работает и
+// там, и там: так новый сервер можно проверить, не трогая студентов.
+const API_URL = /(^|\.)bodryash\.ru$/.test(location.hostname)
+  ? "https://api.bodryash.ru"
+  : "https://fgp-schedule-bot.bodryash.workers.dev";
+const HIT_URL = `${API_URL}/hit`;
 
 /**
  * Сообщает воркеру, что расписание открыли: обезличенный счётчик, чтобы
@@ -84,7 +90,7 @@ function countOpen(group) {
 
 // Объявления об изменениях публикует владелец командой /notice боту. Сайт
 // статический, поэтому за ними ходим к воркеру.
-const NOTICES_URL = "https://fgp-schedule-bot.bodryash.workers.dev/notices";
+const NOTICES_URL = `${API_URL}/notices`;
 const DISMISSED_KEY = "schedule.dismissedNotices";
 
 // cancels — отменённые пары (/cancel), приходят тем же запросом.
@@ -373,7 +379,7 @@ function applyCancels() {
 
 /* ---------- Домашка ---------- */
 
-const HOMEWORK_URL = "https://fgp-schedule-bot.bodryash.workers.dev/homework";
+const HOMEWORK_URL = `${API_URL}/homework`;
 
 /** Понедельник–суббота недели ленты (0 — текущая) для запроса домашки. */
 function weekRange(week) {
@@ -740,7 +746,7 @@ function burstSparks(card) {
 // Плашка праздника — ещё и кликер: кто нажмёт больше всех до конца, тот
 // получает приз. Нажатия копятся здесь и уходят пачкой раз в несколько
 // секунд: запрос на каждое нажатие съел бы дневной лимит бота за час.
-const CLICKER_URL = "https://fgp-schedule-bot.bodryash.workers.dev/clicker";
+const CLICKER_URL = `${API_URL}/clicker`;
 // Пачка раз в 15 секунд: у бота 100 тысяч запросов и записей в базу на
 // сутки на всё сразу, и при частых пачках сотни кликающих выбрали бы их к
 // вечеру — встали бы и кликер, и напоминания, и отмены пар. Сервер может
@@ -1203,7 +1209,7 @@ function refreshExamMode() {
 
 /* ---------- Напоминания ---------- */
 
-const REMIND_URL = "https://fgp-schedule-bot.bodryash.workers.dev/reminders";
+const REMIND_URL = `${API_URL}/reminders`;
 
 /**
  * План на две недели бот сам построить не может: языковая подгруппа,
@@ -1614,7 +1620,7 @@ function mfkLessons(day) {
 
 /* ---------- Очереди ---------- */
 
-const QUEUES_URL = "https://fgp-schedule-bot.bodryash.workers.dev/queues";
+const QUEUES_URL = `${API_URL}/queues`;
 
 // Ответ воркера целиком: очереди группы, места в них и мои права.
 let queues = { loaded: false, manager: false, owner: false, me: null, list: [], spots: [] };
@@ -3090,7 +3096,7 @@ function renderAbsences() {
 
 /* ---------- Отмена пар владельцем ---------- */
 
-const CANCEL_URL = "https://fgp-schedule-bot.bodryash.workers.dev/cancel";
+const CANCEL_URL = `${API_URL}/cancel`;
 
 /** Отмены пары slot этого предмета — их и вернёт кнопка «Вернуть». */
 function slotCancels(slot, subject) {
@@ -3182,7 +3188,7 @@ function restoreLesson(ids) {
 
 /* ---------- Комментарии ---------- */
 
-const COMMENTS_URL = "https://fgp-schedule-bot.bodryash.workers.dev/comments";
+const COMMENTS_URL = `${API_URL}/comments`;
 const COMMENT_MAX = 300;
 
 const commentKey = (day, subject) => `${day}|${subject}`;
@@ -4845,7 +4851,7 @@ function teacherNow(key) {
 // Буквы подсвечиваются: зелёная — на месте, жёлтая — есть в слове, серая —
 // нет. Три попытки в день. Первый угадавший забирает корону себе и своей
 // группе на неделю. Слово знает только бот: сюда приходит одна раскраска.
-const WORD_URL = "https://fgp-schedule-bot.bodryash.workers.dev/word";
+const WORD_URL = `${API_URL}/word`;
 const WORD_KEYS = ["ЙЦУКЕНГШЩЗХЪ", "ФЫВАПРОЛДЖЭ", "ЯЧСМИТЬБЮ"];
 const CROWN_TOLD = "schedule.crownTold";
 const word = { state: null, typed: "", busy: false, fresh: -1 };

@@ -11,7 +11,7 @@
  * в общий чат группы.
  */
 
-const DATA_URL = "https://bodryash.github.io/schedule-miniapp/data/";
+const DATA_URL = `${globalThis.SCHEDULE_APP_URL || "https://bodryash.github.io/schedule-miniapp/"}data/`;
 const APP_LINK = "https://t.me/FGPshedulebot/schedule";
 
 // Факультет живёт по Москве, а воркер — по UTC. Без сдвига после 21:00

@@ -1,0 +1,34 @@
+# Caddy сам получает и продлевает сертификаты для обоих адресов.
+{
+	email hello@bodryash.ru
+}
+
+# Приложение: обычные файлы из папки docs.
+app.bodryash.ru {
+	root * /opt/schedule/docs
+	encode zstd gzip
+	file_server
+
+	# Страница всегда свежая, остальное браузер держит недолго: версия и так
+	# зашита в адреса скриптов и стилей.
+	@page path / /index.html
+	header @page Cache-Control "no-cache"
+	@assets path *.js *.css *.json *.woff2 *.png *.svg
+	header @assets Cache-Control "public, max-age=600"
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}
+
+# Бот: всё уходит службе на этом же сервере.
+api.bodryash.ru {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8787 {
+		header_up X-Forwarded-Host {host}
+	}
+	request_body {
+		max_size 512KB
+	}
+}

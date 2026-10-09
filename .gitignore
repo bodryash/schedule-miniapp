@@ -6,3 +6,9 @@ venv/
 source/*.pdf
 node_modules/
 .wrangler/
+
+# База и секреты своего сервера
+/data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

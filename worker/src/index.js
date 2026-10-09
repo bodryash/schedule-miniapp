@@ -31,7 +31,9 @@ import {
   unbanCommand,
 } from "./comments.js";
 
-const WEB_APP_URL = "https://bodryash.github.io/schedule-miniapp/";
+// На своём сервере адрес приложения задаётся в настройках (APP_URL), в
+// Cloudflare остаётся прежний.
+const WEB_APP_URL = globalThis.SCHEDULE_APP_URL || "https://bodryash.github.io/schedule-miniapp/";
 
 // Тестовая сборка: папка docs отдельным воркером, чтобы проверить новое до
 // выкладки студентам. Обновить:
