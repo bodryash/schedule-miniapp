@@ -2635,6 +2635,76 @@ async function handleUnnotice(env, text) {
   return result.meta?.changes ? `Объявление №${id} снято.` : `Действующего объявления №${id} нет.`;
 }
 
+/* ---------- Сторож своего сервера ---------- */
+
+/**
+ * Работает в Cloudflare — то есть вне сервера, и скажет о беде, даже когда
+ * сервер лежит целиком. О каждой беде пишет один раз, когда она началась,
+ * и ещё раз — когда прошла; иначе сообщения шли бы каждую минуту.
+ */
+async function watchServer(env) {
+  if (!env.STATS || !env.OWNER_ID) return;
+  await env.STATS.prepare("CREATE TABLE IF NOT EXISTS watch (key TEXT PRIMARY KEY, since TEXT NOT NULL, fails INTEGER NOT NULL DEFAULT 1)").run();
+
+  const problems = new Map();
+  let health = null;
+  try {
+    const res = await fetch(`${MOVED_TO}/healthz`, { signal: AbortSignal.timeout(12000) });
+    health = res.ok ? await res.json() : null;
+    if (!health?.ok) problems.set("down", `Сервер отвечает с ошибкой (код ${res.status}).`);
+  } catch {
+    problems.set("down", "Сервер не отвечает: приложение не получает отмены, домашку и очереди, бот молчит.");
+  }
+  if (health?.ok) {
+    if (health.tickAge !== null && health.tickAge > 240) problems.set("tick", "На сервере встала минутная задача: напоминания и рассылки не уходят.");
+    if (health.telegramOk === false) problems.set("telegram-out", "Сервер не достаёт до Telegram: напоминания и ответы бота не уходят.");
+    if (health.diskFree !== null && health.diskFree < 10) problems.set("disk", `На диске сервера осталось ${health.diskFree}% места.`);
+    if (health.backupAge !== null && health.backupAge > 36) problems.set("backup", `Ночная копия базы не делалась ${health.backupAge} ч.`);
+  }
+
+  // Доходят ли до бота сообщения от Telegram — раз в пять минут.
+  if (new Date().getUTCMinutes() % 5 === 0) {
+    const info = await callTelegram(env.BOT_TOKEN, "getWebhookInfo", {}).catch(() => null);
+    const result = info?.result;
+    if (result) {
+      const fresh = result.last_error_date && Date.now() / 1000 - result.last_error_date < 360;
+      if (result.pending_update_count > 5 || (fresh && result.pending_update_count > 0)) {
+        problems.set("telegram-in", `Сообщения от Telegram не доходят до бота: в очереди ${result.pending_update_count}. ${result.last_error_message || ""}`.trim());
+      }
+    }
+  }
+
+  const { results: known = [] } = await env.STATS.prepare("SELECT key, fails FROM watch").all();
+  const before = new Map(known.map((row) => [row.key, row.fails]));
+  const send = (text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text }).catch(() => {});
+
+  for (const [key, text] of problems) {
+    const fails = (before.get(key) || 0) + 1;
+    await env.STATS.prepare(
+      "INSERT INTO watch (key, since, fails) VALUES (?, ?, 1) ON CONFLICT(key) DO UPDATE SET fails = fails + 1"
+    )
+      .bind(key, new Date().toISOString())
+      .run();
+    // Одна неудачная проверка — ещё не беда: сеть моргает. Пишем со второй
+    // подряд. Очередь Telegram проверяется раз в пять минут — о ней сразу.
+    if (fails === (key === "telegram-in" ? 1 : 2)) await send(`🚨 Сторож: ${text}`);
+  }
+  for (const [key, fails] of before) {
+    if (problems.has(key) || (key === "telegram-in" && new Date().getUTCMinutes() % 5 !== 0)) continue;
+    await env.STATS.prepare("DELETE FROM watch WHERE key = ?").bind(key).run();
+    if (fails >= (key === "telegram-in" ? 1 : 2)) await send(`✅ Сторож: прошло — ${WATCH_NAMES[key] || key}.`);
+  }
+}
+
+const WATCH_NAMES = {
+  down: "сервер снова отвечает",
+  tick: "минутная задача снова работает",
+  "telegram-out": "сервер снова достаёт до Telegram",
+  "telegram-in": "сообщения от Telegram снова доходят",
+  disk: "места на диске снова хватает",
+  backup: "копия базы сделана",
+};
+
 // Бот переехал на свой сервер. Старый адрес в Cloudflare остаётся
 // переходником: приложения, которые ещё держат в кэше прежнюю версию,
 // стучатся сюда — и их запросы уходят на новый сервер, в ту же базу.
@@ -3411,9 +3481,13 @@ export default {
 
   // Раз в минуту разбираем очередь рассылки.
   async scheduled(event, env, ctx) {
-    // Напоминания и рассылки теперь шлёт свой сервер — здесь молчим, иначе
-    // всё ушло бы дважды.
-    if (!OWN_SERVER && MOVED_TO) return;
+    // Напоминания и рассылки теперь шлёт свой сервер. Здесь остался сторож:
+    // раз в минуту смотрит на сервер со стороны и пишет владельцу, если
+    // что-то сломалось.
+    if (!OWN_SERVER && MOVED_TO) {
+      ctx.waitUntil(watchServer(env).catch((error) => console.log("watch failed", String(error?.message || error))));
+      return;
+    }
     // Лимит обращений наружу — общий на весь запуск. Сначала напоминания:
     // они привязаны ко времени. Рассылке — что осталось, остальное она
     // доотправит в следующие минуты. Запас в 6 — на запросы к базе.

@@ -4,7 +4,7 @@
 //
 // Запуск: node --env-file=/etc/schedule/env server/index.mjs
 import { createServer } from "node:http";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statfsSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDatabase } from "./d1.mjs";
@@ -75,6 +75,40 @@ function readBody(req) {
 
 const stats = { started: Date.now(), requests: 0, errors: 0, slow: 0 };
 
+// Что видит сторож снаружи: место на диске, возраст ночной копии, когда
+// последний раз отработала минутная задача и доходит ли бот до Telegram.
+const watch = { tick: 0, telegram: 0, telegramOk: null };
+
+function vitals() {
+  const out = { tickAge: watch.tick ? Math.round((Date.now() - watch.tick) / 1000) : null, telegramOk: watch.telegramOk };
+  try {
+    const disk = statfsSync(dirname(DB_PATH));
+    out.diskFree = Math.round((Number(disk.bavail) / Number(disk.blocks)) * 100);
+  } catch {
+    out.diskFree = null;
+  }
+  try {
+    const dir = join(dirname(DB_PATH), "backups");
+    const newest = Math.max(0, ...readdirSync(dir).map((name) => statSync(join(dir, name)).mtimeMs));
+    out.backupAge = newest ? Math.round((Date.now() - newest) / 3600000) : null;
+  } catch {
+    out.backupAge = null;
+  }
+  return out;
+}
+
+/** Раз в пять минут — достаёт ли бот до Telegram: без этого не уйдут напоминания. */
+async function checkTelegram() {
+  if (Date.now() - watch.telegram < 5 * 60000) return;
+  watch.telegram = Date.now();
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/getMe`, { signal: AbortSignal.timeout(10000) });
+    watch.telegramOk = res.ok;
+  } catch {
+    watch.telegramOk = false;
+  }
+}
+
 const server = createServer(async (req, res) => {
   const startedAt = performance.now();
   stats.requests += 1;
@@ -83,7 +117,7 @@ const server = createServer(async (req, res) => {
     if (req.url === "/healthz") {
       STATS.raw.prepare("SELECT 1").get();
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ ok: true, uptime: Math.round((Date.now() - stats.started) / 1000), ...stats }));
+      res.end(JSON.stringify({ ok: true, uptime: Math.round((Date.now() - stats.started) / 1000), ...stats, ...vitals() }));
       return;
     }
 
@@ -111,6 +145,8 @@ let ticking = false;
 async function tick() {
   if (ticking) return; // прошлый запуск ещё идёт — не наслаиваем
   ticking = true;
+  watch.tick = Date.now();
+  checkTelegram();
   try {
     await new Promise((resolve) => {
       const pending = [];
