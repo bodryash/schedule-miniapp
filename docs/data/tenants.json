@@ -16,5 +16,12 @@
     "faculty": "Факультет фундаментальной медицины",
     "path": "msu-ffm",
     "features": []
+  },
+  {
+    "id": "rgu-kosygina-kult",
+    "university": "РГУ им. А.Н. Косыгина",
+    "faculty": "Институт гуманитарного образования и культуры — Культурология",
+    "path": "rgu-kosygina-kult",
+    "features": []
   }
 ]
