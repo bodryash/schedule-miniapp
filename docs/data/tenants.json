@@ -1,0 +1,13 @@
+[
+  {
+    "id": "msu-fgp",
+    "university": "МГУ",
+    "faculty": "Факультет глобальных процессов",
+    "path": "",
+    "features": [
+      "mfk",
+      "word",
+      "emails"
+    ]
+  }
+]

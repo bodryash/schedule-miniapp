@@ -1534,6 +1534,49 @@ async function wordCommand(env, text) {
   ].join("\n");
 }
 
+/* ---------- Удаление своих данных ---------- */
+
+const FORGET_HELP = [
+  "<b>Удаление данных</b>",
+  "",
+  "Бот хранит о вас: имя и ник из Telegram, группу, время последнего захода, настройки напоминаний, места в очередях, комментарии, попытки в играх.",
+  "",
+  "Чтобы стереть всё это, отправьте: <code>/forget да</code>",
+  "Расписание после этого продолжит открываться — данные появятся снова, только если вы снова им воспользуетесь.",
+].join("\n");
+
+/**
+ * Стирает всё, что бот знает о человеке. Блокировки не трогаем: иначе
+ * забаненный снимал бы бан одной командой. Домашка, которую он вносил как
+ * староста, остаётся группе — обезличенной.
+ */
+async function forgetUser(env, userId) {
+  const id = Number(userId);
+  const uid = toHex(await hmac(env.STATS_SALT || "salt", String(id))).slice(0, 32);
+  const run = (sql, ...args) => env.STATS.prepare(sql).bind(...args);
+  const results = await env.STATS.batch([
+    run("DELETE FROM people WHERE tg_id = ? OR uid = ?", id, uid),
+    run("DELETE FROM users WHERE id = ?", id),
+    run("DELETE FROM outbox WHERE chat_id = ?", id),
+    run("DELETE FROM reminders WHERE tg_id = ?", id),
+    run("DELETE FROM reminder_plan WHERE tg_id = ?", id),
+    run("DELETE FROM reminder_sent WHERE tg_id = ?", id),
+    run("DELETE FROM queue_spots WHERE tg_id = ?", id),
+    run("DELETE FROM comments WHERE tg_id = ?", id),
+    run("DELETE FROM comment_reports WHERE tg_id = ?", id),
+    run("DELETE FROM clicker WHERE user_id = ?", id),
+    run("DELETE FROM word_guesses WHERE user_id = ?", id),
+    run("UPDATE word_wins SET name = '', user_id = 0 WHERE user_id = ?", id),
+    run("DELETE FROM starostas WHERE tg_id = ?", id),
+    run("DELETE FROM themes WHERE target = ?", `user:${id}`),
+    run("DELETE FROM greetings WHERE target = ?", `user:${id}`),
+    run("DELETE FROM notices WHERE grp = ?", `user:${id}`),
+    run("UPDATE homework SET author = 0 WHERE author = ?", id),
+    run("UPDATE queues SET author = 0 WHERE author = ?", id),
+  ]);
+  return results.reduce((sum, r) => sum + (r.meta?.changes || 0), 0);
+}
+
 /* ---------- Приветствие на заставке ---------- */
 
 const HELLO_MAX = 120;
@@ -3012,6 +3055,17 @@ export default {
 
     // Отвечаем только на команды; на всё остальное молчим, но подтверждаем
     // приём — иначе Telegram будет слать этот апдейт снова и снова.
+    // Стереть свои данные может каждый — и только свои.
+    if (message && /^\/forget(?:@\w+)?(?:\s|$)/.test(text) && message.chat.type === "private") {
+      const sure = /\s(да|yes)\s*$/i.test(text);
+      let reply = FORGET_HELP;
+      if (sure) {
+        const removed = await forgetUser(env, message.from.id).catch(() => -1);
+        reply = removed < 0 ? "Не получилось удалить — попробуйте позже." : "Готово: ваши данные стёрты.";
+      }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: reply, parse_mode: "HTML" });
+    }
+
     if (message && text.startsWith("/start")) {
       // Китайский и корейский — сами по языку Telegram. Английский только
       // подсказкой: многие русские студенты держат Telegram на английском.

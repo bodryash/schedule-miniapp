@@ -495,7 +495,31 @@ async function loadJson(path) {
   return response.json();
 }
 
-export const loadGroups = () => loadJson("groups.json");
+const DEFAULT_TENANT = "msu-fgp";
+
+/**
+ * Группы всех факультетов. У ФГП номера как есть («101»), у остальных — с
+ * факультетом впереди («spbu-law/101»): номера в разных вузах совпадают,
+ * а отмены, домашка и очереди хранятся по номеру группы.
+ */
+export async function loadGroups() {
+  const tenants = await loadJson("tenants.json").catch(() => [{ id: DEFAULT_TENANT, path: "" }]);
+  const lists = await Promise.all(
+    tenants.map(async (tenant) => {
+      const groups = await loadJson(`${tenant.path ? `${tenant.path}/` : ""}groups.json`).catch((error) => {
+        // Свой факультет обязан загрузиться; чужой с ошибкой — пропускаем.
+        if (tenant.id === DEFAULT_TENANT) throw error;
+        return [];
+      });
+      return groups.map((group) =>
+        tenant.id === DEFAULT_TENANT
+          ? { ...group, tenant: tenant.id }
+          : { ...group, id: `${tenant.id}/${group.id}`, title: group.title || group.id, tenant: tenant.id }
+      );
+    })
+  );
+  return lists.flat();
+}
 const loadGroup = (id) => loadJson(`groups/${encodeURIComponent(id)}.json`);
 // Не загрузились переводы — карточка уйдёт с русскими названиями, но уйдёт.
 const loadSubjects = () => loadJson("subjects.json").catch(() => ({}));

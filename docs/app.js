@@ -1521,8 +1521,9 @@ let MFK_LIST = null;
 async function loadMfk() {
   if (MFK_LIST) return MFK_LIST;
   try {
-    const res = await fetch("data/mfk.json", { cache: "no-cache" });
-    MFK_LIST = res.ok ? await res.json() : [];
+    // Межфакультетские курсы — особенность МГУ, у других их нет.
+    const res = tenantHas("mfk") ? await fetch(dataFile("mfk.json"), { cache: "no-cache" }) : null;
+    MFK_LIST = res?.ok ? await res.json() : [];
   } catch {
     MFK_LIST = [];
   }
@@ -3717,6 +3718,122 @@ function el(tag, className, text) {
   return node;
 }
 
+/* ---------- Вузы и факультеты ---------- */
+
+// Каждый факультет — отдельная папка с расписанием (data/<папка>/). ФГП
+// МГУ, с которого всё началось, лежит прямо в data/ и остаётся выбором по
+// умолчанию: у тех, кто уже пользуется, ничего не меняется.
+//
+// Номера групп в разных вузах совпадают («101» есть везде), а бот хранит
+// отмены, домашку и очереди по номеру группы. Поэтому у всех, кроме ФГП,
+// к номеру при загрузке приписывается факультет: «spbu-law/101». Так и
+// приложение, и бот различают группы, не зная друг о друге ничего нового.
+const DEFAULT_TENANT = "msu-fgp";
+const TENANTS_KEY = "schedule.tenants";
+let TENANTS = [{ id: DEFAULT_TENANT, university: "МГУ", faculty: "Факультет глобальных процессов", path: "", features: ["mfk", "word", "emails"] }];
+
+function tenantId() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")?.tenant || DEFAULT_TENANT;
+  } catch {
+    return DEFAULT_TENANT;
+  }
+}
+
+function tenant() {
+  return TENANTS.find((item) => item.id === tenantId()) || TENANTS[0];
+}
+
+/** Есть ли у факультета возможность: МФК и «слово недели» — не у всех. */
+function tenantHas(feature) {
+  return (tenant().features || []).includes(feature);
+}
+
+/** Путь к файлу данных своего факультета. */
+function dataFile(name) {
+  const path = tenant().path || "";
+  return `data/${path ? `${path}/` : ""}${name}`;
+}
+
+/**
+ * Список вузов: сначала тот, что запомнили с прошлого раза, — чтобы не
+ * ждать сеть перед расписанием; свежий подтягиваем следом.
+ */
+async function loadTenants() {
+  const apply = (list) => {
+    if (Array.isArray(list) && list.length && list.every((item) => item?.id)) TENANTS = list;
+  };
+  let cached = false;
+  try {
+    const saved = JSON.parse(localStorage.getItem(TENANTS_KEY) || "null");
+    if (saved) {
+      apply(saved);
+      cached = true;
+    }
+  } catch {
+    // Испорченная запись — возьмём из сети.
+  }
+  const fresh = fetch("data/tenants.json", { cache: "no-cache" })
+    .then((res) => (res.ok ? res.json() : null))
+    .then((list) => {
+      if (!list) return;
+      apply(list);
+      try {
+        localStorage.setItem(TENANTS_KEY, JSON.stringify(list));
+      } catch {
+        // Не запомнилось — в следующий раз спросим снова.
+      }
+    })
+    .catch(() => {});
+  // Ждём сеть, только если выбранного факультета в памяти нет.
+  if (!cached || !TENANTS.some((item) => item.id === tenantId())) await fresh;
+}
+
+/** Приписывает факультет к номерам групп — всем, кроме ФГП. */
+function scopeData(schedule) {
+  const id = tenant().id;
+  if (id === DEFAULT_TENANT) return schedule;
+  const scoped = (group) => `${id}/${group}`;
+  for (const group of schedule.groups || []) group.id = scoped(group.id);
+  for (const lesson of schedule.lessons || []) lesson.group = scoped(lesson.group);
+  return schedule;
+}
+
+/** Выбор вуза и факультета на экране настроек — когда их больше одного. */
+function fillTenants() {
+  let row = document.getElementById("tenant-row");
+  if (TENANTS.length < 2) return row?.remove();
+  if (!row) {
+    row = el("label");
+    row.id = "tenant-row";
+    const select = el("select");
+    select.id = "tenant";
+    select.addEventListener("change", () => {
+      // Другой факультет — другое расписание целиком: проще начать с
+      // чистого листа, чем менять данные под работающим приложением.
+      savePrefs({ tenant: select.value });
+      location.reload();
+    });
+    row.append(el("span", "", t("Вуз и факультет")), select);
+    (document.getElementById("student-fields") || els.course.closest("label")).before(row);
+  }
+  const select = row.querySelector("select");
+  const byUniversity = new Map();
+  for (const item of TENANTS) {
+    if (!byUniversity.has(item.university)) byUniversity.set(item.university, []);
+    byUniversity.get(item.university).push(item);
+  }
+  select.replaceChildren(
+    ...[...byUniversity].map(([university, list]) => {
+      const box = document.createElement("optgroup");
+      box.label = university;
+      box.append(...list.map((item) => new Option(item.faculty, item.id)));
+      return box;
+    })
+  );
+  select.value = tenant().id;
+}
+
 function readPrefs() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
@@ -3978,6 +4095,9 @@ function showPicker() {
   els.picker.hidden = false;
   // Возвращаться некуда, пока группа не выбрана хотя бы раз.
   els.close.hidden = !activeGroup();
+  fillTenants();
+  // Межфакультетские курсы — только там, где они есть.
+  if (els.mfkRow) els.mfkRow.style.display = tenantHas("mfk") ? "" : "none";
   fillCourses();
   fillRole();
   fillReminders();
@@ -4709,8 +4829,8 @@ async function loadTeacherNames() {
       .then((res) => (res.ok ? res.json() : {}))
       .catch(() => ({}));
   [TEACHER_NAMES, TEACHER_EMAILS] = await Promise.all([
-    get("data/teacher_names.json"),
-    get("data/teacher_emails.json"),
+    get(dataFile("teacher_names.json")),
+    tenantHas("emails") ? get(dataFile("teacher_emails.json")) : Promise.resolve({}),
   ]);
 }
 
@@ -5649,7 +5769,7 @@ function initMenu() {
     if (item.dataset.menu === "meet") openMeet();
     if (item.dataset.menu === "word") openWord();
   });
-  if (!pop.querySelector('[data-menu="word"]')) {
+  if (tenantHas("word") && !pop.querySelector('[data-menu="word"]')) {
     const item = el("button");
     item.type = "button";
     item.dataset.menu = "word";
@@ -6817,19 +6937,21 @@ async function init() {
   // Страховка: что бы ни случилось с загрузкой, заставка не зависнет.
   setTimeout(dropSplash, SPLASH_MAX + 1500);
 
+  await loadTenants();
+
   // Переводы названий грузим вместе с расписанием; не загрузились —
   // покажем по-русски, но расписание откроется.
   const subjects =
     LANG === "ru"
       ? Promise.resolve({})
-      : fetch("data/subjects.json", { cache: "no-cache" })
+      : fetch(dataFile("subjects.json"), { cache: "no-cache" })
           .then((res) => (res.ok ? res.json() : {}))
           .catch(() => ({}));
 
   try {
-    const res = await fetch("data/schedule.json", { cache: "no-cache" });
+    const res = await fetch(dataFile("schedule.json"), { cache: "no-cache" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    data = await res.json();
+    data = scopeData(await res.json());
   } catch (e) {
     fail(t("Не удалось загрузить расписание. Попробуйте позже."));
     console.error(e);
@@ -6870,7 +6992,8 @@ async function init() {
   els.save.addEventListener("click", () => {
     haptic("success");
     const before = prefs.group;
-    prefs = collectPrefs();
+    // Настройки собираются заново — выбранный вуз надо сохранить.
+    prefs = { ...collectPrefs(), tenant: tenantId() };
     if (els.role?.value === "teacher" && els.teacher?.value) {
       prefs = { ...prefs, teacher: els.teacher.value, teacherName: TEACHER_NAMES?.[els.teacher.value] || els.teacher.value };
     }
