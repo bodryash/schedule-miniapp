@@ -3066,6 +3066,23 @@ export default {
       await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: reply, parse_mode: "HTML" });
     }
 
+    // Пришли из настроек приложения добавить свой факультет — объясняем, что прислать.
+    if (message && /^\/start(?:@\w+)?\s+faculty/.test(text)) {
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: [
+          "Добавим расписание вашего факультета 🙌",
+          "",
+          "Пришлите сюда:",
+          "• расписание — файлом (PDF, Excel) или ссылкой на страницу вуза;",
+          "• название вуза и факультета;",
+          "• если знаете — даты начала и конца семестра и какая неделя первая: чётная или нечётная.",
+          "",
+          "Как только добавим — напишем.",
+        ].join("\n"),
+      });
+    }
+
     if (message && text.startsWith("/start")) {
       // Китайский и корейский — сами по языку Telegram. Английский только
       // подсказкой: многие русские студенты держат Telegram на английском.
@@ -3110,8 +3127,22 @@ export default {
             ? pdf
               ? await startUpdate(env, document)
               : "Это не PDF. Пришлите файл расписания."
-            : "Файлы принимаю только от владельца.",
+            : "Спасибо! Передал расписание — добавим факультет и сообщим. Если не написали, допишите следующим сообщением вуз и факультет.",
         });
+        // Расписание чужого факультета от студента — владельцу, вместе с
+        // тем, кто прислал: добавляет факультеты он.
+        if (!owner && env.OWNER_ID) {
+          await callTelegram(env.BOT_TOKEN, "forwardMessage", {
+            chat_id: env.OWNER_ID,
+            from_chat_id: message.chat.id,
+            message_id: message.message_id,
+          }).catch(() => {});
+          await callTelegram(env.BOT_TOKEN, "sendMessage", {
+            chat_id: env.OWNER_ID,
+            parse_mode: "HTML",
+            text: `📥 Расписание для нового факультета от ${escape(clickerName(message.from || {}))}${message.from?.username ? ` @${escape(message.from.username)}` : ""} · id <code>${message.from?.id}</code>`,
+          }).catch(() => {});
+        }
       }
     }
 

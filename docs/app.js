@@ -3802,20 +3802,42 @@ function scopeData(schedule) {
 /** Выбор вуза и факультета на экране настроек — когда их больше одного. */
 function fillTenants() {
   let row = document.getElementById("tenant-row");
-  if (TENANTS.length < 2) return row?.remove();
   if (!row) {
     row = el("label");
     row.id = "tenant-row";
     const select = el("select");
     select.id = "tenant";
+    // Подсказка для тех, чьего факультета ещё нет: как его добавить.
+    const hint = el("div", "tenant-hint");
+    hint.id = "tenant-hint";
+    hint.hidden = true;
+    const send = el("a", "tenant-send", t("Прислать расписание боту"));
+    send.href = "https://t.me/FGPshedulebot?start=faculty";
+    send.addEventListener("click", (event) => {
+      if (!tg?.openTelegramLink) return;
+      event.preventDefault();
+      tg.openTelegramLink(send.href);
+    });
+    hint.append(
+      el("p", "", t("Расписания вашего факультета пока нет. Пришлите его боту — файлом или ссылкой, с названием вуза и факультета. Добавим и сообщим.")),
+      send
+    );
     select.addEventListener("change", () => {
+      if (select.value === "") {
+        hint.hidden = false;
+        haptic("light");
+        return;
+      }
+      hint.hidden = true;
+      if (select.value === tenant().id) return;
       // Другой факультет — другое расписание целиком: проще начать с
       // чистого листа, чем менять данные под работающим приложением.
       savePrefs({ tenant: select.value });
       location.reload();
     });
     row.append(el("span", "", t("Вуз и факультет")), select);
-    (document.getElementById("student-fields") || els.course.closest("label")).before(row);
+    const anchor = document.getElementById("student-fields") || els.course.closest("label");
+    anchor.before(row, hint);
   }
   const select = row.querySelector("select");
   const byUniversity = new Map();
@@ -3831,7 +3853,24 @@ function fillTenants() {
       return box;
     })
   );
+  // Место под новые факультеты — в списке всегда, даже пока он один.
+  select.append(new Option(t("Моего факультета нет в списке…"), ""));
   select.value = tenant().id;
+  document.getElementById("tenant-hint").hidden = true;
+  renderConsent();
+}
+
+/** Согласие на обработку данных — под кнопкой «Сохранить», со ссылкой на политику. */
+function renderConsent() {
+  if (document.getElementById("consent") || !els.save) return;
+  const note = el("p", "consent");
+  note.id = "consent";
+  const link = el("a", "", t("политикой обработки данных"));
+  link.href = "privacy.html";
+  link.target = "_blank";
+  link.rel = "noopener";
+  note.append(t("Нажимая «Сохранить», вы соглашаетесь с"), " ", link, ". ", t("Стереть свои данные можно командой /forget в боте."));
+  els.save.after(note);
 }
 
 function readPrefs() {

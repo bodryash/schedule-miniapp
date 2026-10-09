@@ -4950,3 +4950,35 @@ body.word-crown:not(.champion) #current-group::after {
 @media (prefers-reduced-motion: reduce) {
   .word-tile--flip { animation: none; }
 }
+
+/* ===== Вузы, согласие ===== */
+.tenant-hint {
+  margin: -4px 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--card));
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.tenant-hint p {
+  margin: 0 0 8px;
+}
+
+.tenant-send {
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.consent {
+  margin: 10px 2px 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+  text-align: center;
+}
+
+.consent a {
+  color: var(--accent);
+}
