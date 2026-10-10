@@ -49,10 +49,8 @@ jobs:
           git config user.name "schedule-bot"
           git config user.email "schedule-bot@users.noreply.github.com"
           git add docs/data
-          # Дата обновления меняется каждый день — её одной для публикации мало.
-          if git diff --cached --quiet -- . ':(exclude)docs/data/tenants.json' || [ -z "$(git diff --cached -G'"lessons"|"dates"' --name-only)" ]; then
+          if git diff --cached --quiet; then
             echo "Расписания не изменились."
-            git reset -q
           else
             git commit -q -m "Расписания из РУЗ обновлены"
             git push -q

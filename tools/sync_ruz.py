@@ -115,7 +115,15 @@ def main():
     folder = DATA / args.id
     folder.mkdir(parents=True, exist_ok=True)
     dump = lambda value: json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-    (folder / "schedule.json").write_text(dump(schedule), encoding="utf-8")
+    # Пары не изменились — файл не трогаем: иначе из-за одной даты
+    # обновления расписание публиковалось бы каждую ночь.
+    target = folder / "schedule.json"
+    if target.exists():
+        old = json.loads(target.read_text(encoding="utf-8"))
+        if old.get("lessons") == schedule["lessons"] and old.get("groups") == groups:
+            print(f"{args.id}: без изменений")
+            return
+    target.write_text(dump(schedule), encoding="utf-8")
     (folder / "groups.json").write_text(dump(groups), encoding="utf-8")
     registry = DATA / "tenants.json"
     tenants = json.loads(registry.read_text(encoding="utf-8"))
