@@ -16,6 +16,7 @@ import {
   normalize,
   parityOf,
   parseDay,
+  shiftOf,
   today,
 } from "./inline.js";
 import {
@@ -1021,12 +1022,15 @@ async function saveReminders(env, body) {
 
   const morning = body.morning ? 1 : 0;
   const before = Math.min(60, Math.max(0, Number(body.before) || 0));
+  // План приходит в местном времени вуза: запоминаем, на сколько часов он
+  // впереди Москвы, чтобы напоминать по его часам, а не по московским.
+  const shift = await shiftOf(body.group);
   await env.STATS.prepare(
-    `INSERT INTO reminders (tg_id, grp, morning, before, updated) VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO reminders (tg_id, grp, morning, before, updated, shift) VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(tg_id) DO UPDATE SET grp = excluded.grp, morning = excluded.morning,
-       before = excluded.before, updated = excluded.updated`
+       before = excluded.before, updated = excluded.updated, shift = excluded.shift`
   )
-    .bind(user.id, String(body.group || ""), morning, before, new Date().toISOString())
+    .bind(user.id, String(body.group || ""), morning, before, new Date().toISOString(), shift)
     .run();
 
   const plan = Array.isArray(body.plan) ? body.plan.slice(0, 120) : [];
@@ -1054,9 +1058,12 @@ async function saveReminders(env, body) {
   return { ok: true };
 }
 
-/** Московское время: расписание живёт по нему, а воркер — по UTC. */
-function moscowNow() {
-  const now = new Date(Date.now() + 3 * 3600000);
+/**
+ * Время, по которому живёт расписание: московское плюс сдвиг вуза в часах
+ * (Оренбург — 2, Владивосток — 7). Воркер сам живёт по UTC.
+ */
+function moscowNow(shift = 0) {
+  const now = new Date(Date.now() + (3 + shift) * 3600000);
   return {
     day: now.toISOString().slice(0, 10),
     minutes: now.getUTCHours() * 60 + now.getUTCMinutes(),
@@ -1120,6 +1127,18 @@ function minutesWord(n) {
 async function sendReminders(env) {
   if (!env.STATS) return;
   const now = moscowNow();
+  // У каждого часового пояса своё «сейчас» — собираем по поясам.
+  const { results: zones = [] } = await env.STATS.prepare("SELECT DISTINCT shift FROM reminders").all();
+  const outgoing = [];
+  for (const { shift } of zones) {
+    if (outgoing.length >= REMIND_BATCH) break;
+    outgoing.push(...(await dueReminders(env, moscowNow(shift), shift, REMIND_BATCH - outgoing.length)));
+  }
+  return deliverReminders(env, outgoing, now);
+}
+
+/** Кому в этом часовом поясе пора написать: не больше limit сообщений. */
+async function dueReminders(env, now, shift, limit) {
   const outgoing = [];
 
   // Сначала «скоро пара»: оно срочнее утреннего списка. Одно сообщение на
@@ -1129,7 +1148,7 @@ async function sendReminders(env) {
     `SELECT p.tg_id, p.start, group_concat(p.subject, ' / ') AS subjects,
             max(p.room) AS room, max(p.end) AS end, ${START_MINUTES} AS at
      FROM reminder_plan p JOIN reminders r ON r.tg_id = p.tg_id
-     WHERE p.day = ? AND r.before > 0
+     WHERE p.day = ? AND r.before > 0 AND r.shift = ?
        AND ${START_MINUTES} - r.before <= ? + ?
        AND ${START_MINUTES} > ?
        AND NOT EXISTS (SELECT 1 FROM reminder_sent s WHERE s.tg_id = p.tg_id AND s.key = ? || p.start)
@@ -1137,7 +1156,7 @@ async function sendReminders(env) {
      ORDER BY at
      LIMIT ?`
   )
-    .bind(now.day, now.minutes, SOON_EARLY, now.minutes, `${now.day}|`, REMIND_BATCH)
+    .bind(now.day, shift, now.minutes, SOON_EARLY, now.minutes, `${now.day}|`, limit)
     .all();
   for (const row of soon) {
     const left = Math.max(1, row.at - now.minutes);
@@ -1160,15 +1179,15 @@ async function sendReminders(env) {
   }
 
   // Утро: сколько осталось места в порции.
-  const room = REMIND_BATCH - outgoing.length;
+  const room = limit - outgoing.length;
   if (room > 0 && now.minutes >= MORNING_FROM && now.minutes < MORNING_TO) {
     const { results: people = [] } = await env.STATS.prepare(
-      `SELECT r.tg_id FROM reminders r WHERE r.morning = 1
+      `SELECT r.tg_id FROM reminders r WHERE r.morning = 1 AND r.shift = ?
        AND EXISTS (SELECT 1 FROM reminder_plan p WHERE p.tg_id = r.tg_id AND p.day = ?)
        AND NOT EXISTS (SELECT 1 FROM reminder_sent s WHERE s.tg_id = r.tg_id AND s.key = ?)
        LIMIT ?`
     )
-      .bind(now.day, `${now.day}|morning`, room)
+      .bind(shift, now.day, `${now.day}|morning`, room)
       .all();
 
     if (people.length) {
@@ -1217,6 +1236,10 @@ async function sendReminders(env) {
     }
   }
 
+  return outgoing;
+}
+
+async function deliverReminders(env, outgoing, now) {
   // Отправляем по одному. Отметку ставим и когда Telegram отказал (человек
   // заблокировал бота) — долбиться в него каждую минуту не надо. А если
   // упала сама отправка (кончился лимит обращений), дальше не шлём: эти
@@ -1251,8 +1274,10 @@ async function sendReminders(env) {
   if (outgoing.length) console.log(`reminders: sent ${sent.length} of ${outgoing.length}`);
 
   // Старые отметки не нужны: чистим раз в сутки, в начале утреннего окна.
+  // Вчерашние оставляем: к западу от Москвы вчера ещё может длиться.
   if (now.minutes === MORNING_FROM) {
-    await env.STATS.prepare("DELETE FROM reminder_sent WHERE key < ?").bind(now.day).run();
+    const yesterday = new Date(Date.now() + 3 * 3600000 - 86400000).toISOString().slice(0, 10);
+    await env.STATS.prepare("DELETE FROM reminder_sent WHERE key < ?").bind(yesterday).run();
   }
   return sent.length;
 }

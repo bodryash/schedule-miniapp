@@ -520,6 +520,19 @@ export async function loadGroups() {
   );
   return lists.flat();
 }
+
+/**
+ * На сколько часов факультет впереди Москвы. Пояс записан в tenants.json
+ * («tz»: 5 — это UTC+5); не записан — значит, московский.
+ */
+export async function shiftOf(groupId) {
+  const id = String(groupId || "");
+  const slash = id.indexOf("/");
+  if (slash < 0) return 0;
+  const tenants = await loadJson("tenants.json").catch(() => []);
+  const tenant = tenants.find((t) => t.id === id.slice(0, slash));
+  return Number.isFinite(tenant?.tz) ? tenant.tz - 3 : 0;
+}
 const loadGroup = (id) => loadJson(`groups/${encodeURIComponent(id)}.json`);
 // Не загрузились переводы — карточка уйдёт с русскими названиями, но уйдёт.
 const loadSubjects = () => loadJson("subjects.json").catch(() => ({}));

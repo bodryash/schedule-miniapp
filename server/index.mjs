@@ -35,6 +35,14 @@ const STATS = openDatabase(DB_PATH);
 // Пустая база — создаём таблицы. В готовой schema.sql ничего не трогает:
 // там везде IF NOT EXISTS.
 STATS.raw.exec(readFileSync(join(here, "..", "worker", "schema.sql"), "utf8"));
+// Столбцы, появившиеся позже таблиц: в старой базе их надо добавить.
+for (const change of ["ALTER TABLE reminders ADD COLUMN shift INTEGER NOT NULL DEFAULT 0"]) {
+  try {
+    STATS.raw.exec(change);
+  } catch {
+    // Уже есть.
+  }
+}
 if (fresh) console.log(`Создана новая база: ${DB_PATH}`);
 
 const env = {

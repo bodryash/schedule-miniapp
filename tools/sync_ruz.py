@@ -128,7 +128,7 @@ def main():
     registry = DATA / "tenants.json"
     tenants = json.loads(registry.read_text(encoding="utf-8"))
     keep = next((t for t in tenants if t["id"] == args.id), {})
-    entry = {"id": args.id, "university": args.university, "faculty": args.name, "path": args.id, "features": keep.get("features", []),
+    entry = {**keep, "id": args.id, "university": args.university, "faculty": args.name, "path": args.id, "features": keep.get("features", []),
              "source": {"kind": "ruz", "base": args.base, "faculty": args.faculty}}
     registry.write_text(json.dumps([t for t in tenants if t["id"] != args.id] + [entry], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Итого: групп {len(groups)}, пар {len(lessons)}, записано в docs/data/{args.id}/")

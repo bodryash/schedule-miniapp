@@ -177,7 +177,8 @@ def main():
 
     registry = DATA / "tenants.json"
     tenants = json.loads(registry.read_text(encoding="utf-8"))
-    entry = {"id": args.id, "university": args.university, "faculty": args.faculty, "path": args.id, "features": []}
+    keep = next((t for t in tenants if t["id"] == args.id), {})
+    entry = {**keep, "id": args.id, "university": args.university, "faculty": args.faculty, "path": args.id, "features": keep.get("features", [])}
     tenants = [t for t in tenants if t["id"] != args.id] + [entry]
     registry.write_text(json.dumps(tenants, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
