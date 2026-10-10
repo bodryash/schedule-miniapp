@@ -65,17 +65,21 @@ const STORAGE_KEY = "schedule.prefs";
 
 // Шрифт цифр — дело вкуса и к расписанию не относится: хранится отдельно
 // от настроек группы и не сбрасывается при смене факультета.
-const DIGITS_KEY = "schedule.digits";
 const DIGITS = { tall: "Вытянутый", pixel: "Пиксельный", plain: "Обычный" };
-function digitsStyle() {
+// Два независимых выбора: цифры (числа дней, время пар) и шапка (день и дата).
+const FONT_PICKS = [
+  { attr: "digits", key: "schedule.digits", title: "Шрифт цифр", sample: () => "09:00" },
+  { attr: "head", key: "schedule.head", title: "Шрифт шапки", sample: () => t("Суббота") },
+];
+function fontStyle(pick) {
   try {
-    const saved = localStorage.getItem(DIGITS_KEY);
+    const saved = localStorage.getItem(pick.key);
     return DIGITS[saved] ? saved : "tall";
   } catch {
     return "tall";
   }
 }
-document.body.dataset.digits = digitsStyle();
+for (const pick of FONT_PICKS) document.body.dataset[pick.attr] = fontStyle(pick);
 // Где живёт бот: свой сервер в России. Прежний адрес в Cloudflare остался
 // переходником для версий приложения, которые ещё лежат в кэше.
 const API_URL = "https://api.bodryash.ru";
@@ -4018,26 +4022,32 @@ function fillDigits() {
     box.id = "digits";
     (document.getElementById("profiles") || els.picker.querySelector(".bar")).after(box);
   }
-  const row = el("div", "profiles-row");
-  for (const [id, title] of Object.entries(DIGITS)) {
-    const chip = el("button", id === digitsStyle() ? "chip chip--on digits-chip" : "chip digits-chip");
-    chip.type = "button";
-    chip.dataset.digits = id;
-    chip.append(el("span", "digits-sample", "09:00"), el("span", "digits-title", t(title)));
-    chip.addEventListener("click", () => {
-      haptic("light");
-      try {
-        localStorage.setItem(DIGITS_KEY, id);
-      } catch {
-        // Не сохранилось — выбор проживёт до закрытия.
-      }
-      document.body.dataset.digits = id;
-      fillDigits();
-      refitDate();
-    });
-    row.append(chip);
+  const nodes = [];
+  for (const pick of FONT_PICKS) {
+    const row = el("div", "profiles-row");
+    for (const [id, title] of Object.entries(DIGITS)) {
+      const chip = el("button", id === fontStyle(pick) ? "chip chip--on digits-chip" : "chip digits-chip");
+      chip.type = "button";
+      chip.dataset[pick.attr] = id;
+      chip.append(el("span", "digits-sample", pick.sample()), el("span", "digits-title", t(title)));
+      chip.addEventListener("click", () => {
+        haptic("light");
+        try {
+          localStorage.setItem(pick.key, id);
+        } catch {
+          // Не сохранилось — выбор проживёт до закрытия.
+        }
+        document.body.dataset[pick.attr] = id;
+        fillDigits();
+        refitDate();
+      });
+      row.append(chip);
+    }
+    const title = el("div", "profiles-title", t(pick.title));
+    if (nodes.length) title.classList.add("profiles-title--next");
+    nodes.push(title, row);
   }
-  box.replaceChildren(el("div", "profiles-title", t("Шрифт цифр")), row);
+  box.replaceChildren(...nodes);
 }
 
 /** Блок профилей вверху настроек. edit: { id } — открыто поле названия. */
@@ -6886,10 +6896,12 @@ function assembleSplash(plan) {
 
   if (!plan) {
     // Группа ещё не выбрана — показывать нечего, сразу к настройкам.
-    els.splashDay.textContent = activeGroup() ? t("Пар нет 🎉") : "";
-    // Пар нет — нет и полосы дня: схлопываться не к чему, уходим иначе.
-    els.splash.classList.add("splash--free");
-    return activeGroup() ? 500 : 0;
+    if (!activeGroup()) {
+      els.splashDay.textContent = "";
+      els.splash.classList.add("splash--free");
+      return 0;
+    }
+    return assembleFreeSplash();
   }
 
   const label = FULL_DATE.format(plan.date);
@@ -6950,6 +6962,41 @@ function assembleSplash(plan) {
   return fillAt + COMET_FLIGHT + 420;
 }
 
+/**
+ * Заставка свободного дня — своя сцена вместо полосы с парами: от центра
+ * расходятся три кольца, каждое отдаётся в пальцы чуть сильнее прошлого, а
+ * в середину выпрыгивает значок дня. Дата остаётся на месте — сцена
+ * встаёт под ней, там, где у учебного дня летит комета.
+ */
+function assembleFreeSplash() {
+  const splash = els.splash;
+  splash.classList.add("splash--free");
+  const date = dateOfDay(selectedDay);
+  const [emoji, title] =
+    LANG === "ru"
+      ? FREE_DAYS[(date.getDate() * 7 + date.getMonth()) % FREE_DAYS.length]
+      : ["🎉", t("Пар нет 🎉").replace("🎉", "").trim()];
+  const scene = el("div", "splash-free");
+  const rect = els.splashTrack.getBoundingClientRect();
+  scene.style.top = `${Math.round(rect.top + rect.height / 2)}px`;
+  for (let i = 0; i < 3; i++) {
+    const ring = el("span", "splash-free-ring");
+    ring.style.setProperty("--i", i);
+    scene.append(ring);
+  }
+  for (let i = 0; i < 8; i++) {
+    const ray = el("span", "splash-free-ray");
+    ray.style.setProperty("--a", `${i * 45}deg`);
+    scene.append(ray);
+  }
+  scene.append(el("span", "splash-free-emoji", emoji), el("span", "splash-free-title", title));
+  splash.append(scene);
+  // Три толчка по нарастающей — и короткий «успех», когда значок встал.
+  ["soft", "light", "medium"].forEach((kind, i) => setTimeout(() => haptic(kind), 120 + i * 170));
+  setTimeout(() => haptic("success"), 760);
+  return 1500;
+}
+
 /** Время начала и конца дня под полосой. */
 function showSplashTimes(plan, delay) {
   els.splashTimes.replaceChildren(
@@ -6992,7 +7039,18 @@ function dropSplash() {
   // Свободный день: заставка не складывается в пустую линию, а тает, и
   // в этот же момент на экране заново собирается сцена «пар нет» — раньше
   // она успевала отыграть под заставкой, и открывалась уже застывшей.
-  if (free && els.lessons?.querySelector(".free-day")) els.lessons.replaceChildren(renderFreeDay());
+  if (free) {
+    // Заставка стягивается в точку — туда, где стоял значок. Под ней в это
+    // время заново собирается экран «пар нет».
+    const emoji = splash.querySelector(".splash-free-emoji")?.getBoundingClientRect();
+    if (emoji) {
+      splash.style.setProperty("--iris-x", `${emoji.left + emoji.width / 2}px`);
+      splash.style.setProperty("--iris-y", `${emoji.top + emoji.height / 2}px`);
+    }
+    setTimeout(() => {
+      if (els.lessons?.querySelector(".free-day")) els.lessons.replaceChildren(renderFreeDay());
+    }, 240);
+  }
   splash.classList.add("splash--gone");
   setTimeout(() => splash.remove(), 700);
   // Расписание развернулось — теперь можно и салют в честь праздника.

@@ -15,6 +15,7 @@
   <!-- Шрифт названий нужен с первого кадра: без предзагрузки браузер
        вспоминает о нём, только встретив заголовок, и текст перескакивает. -->
   <link rel="preload" href="fonts/unbounded.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/oswald-cyr.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Расписание">
@@ -103,6 +104,14 @@
   <script>
     (function () {
       try {
+        // Стиль цифр и шапки нужен заставке сразу: иначе дата сменила бы
+        // шрифт на глазах, когда загрузится код приложения.
+        try {
+          document.body.dataset.digits = localStorage.getItem("schedule.digits") || "tall";
+          document.body.dataset.head = localStorage.getItem("schedule.head") || "tall";
+        } catch (e) {
+          document.body.dataset.digits = document.body.dataset.head = "tall";
+        }
         var day = new Date();
         if (day.getDay() === 0) day.setDate(day.getDate() + 1);
         var locale = { ru: "ru-RU", en: "en-GB", zh: "zh-CN", ko: "ko-KR" }[window.__lang] || "ru-RU";

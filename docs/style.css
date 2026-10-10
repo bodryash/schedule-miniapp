@@ -5480,6 +5480,15 @@ body::before {
   src: url("fonts/pixelify.woff2") format("woff2");
   font-weight: 400 700;
   font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212, U+2215;
+}
+
+@font-face {
+  font-family: "Pixelify Sans";
+  src: url("fonts/pixelify-cyr.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
 }
 
 body[data-digits="tall"],
@@ -5560,7 +5569,7 @@ body[data-digits="plain"] .card-end { font-size: 16px; }
 
 /* У Bebas Neue нет кириллицы, поэтому слова набраны Oswald — того же
    склада, узкий и высокий. Прописными он и выглядит как афишный Bebas. */
-body[data-digits="tall"] .bar--schedule .date {
+body[data-head="tall"] .bar--schedule .date {
   font-family: "Oswald", "Bebas Neue", "Bahnschrift Condensed", "Roboto Condensed", system-ui, sans-serif;
   font-size: 36px;
   font-weight: 600;
@@ -5568,7 +5577,279 @@ body[data-digits="tall"] .bar--schedule .date {
   text-transform: uppercase;
 }
 
-body[data-digits="tall"] .bar--schedule .date {
+body[data-head="tall"] .bar--schedule .date {
   height: 42px;
   line-height: 42px;
+}
+
+/* ===================================================================
+   Заставка, вторая редакция. Комета и точки пар — прежние; новое всё
+   вокруг: свет на фоне, афишная дата, крупная полоса и уход «занавесом»
+   вверх вместо схлопывания в линию. У свободного дня — своя сцена.
+   =================================================================== */
+.splash {
+  overflow: hidden;
+  gap: 26px;
+  clip-path: none;
+  background:
+    radial-gradient(120% 50% at -10% -6%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 62%),
+    radial-gradient(100% 44% at 112% 2%, color-mix(in srgb, #8f7bff 18%, transparent), transparent 64%),
+    radial-gradient(120% 46% at 50% 112%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%),
+    var(--bg);
+  will-change: transform;
+}
+
+/* Дата — афишей. Появляется из разрядки: буквы съезжаются к своим местам. */
+body[data-head="tall"] .splash-day {
+  font-family: "Oswald", "Bebas Neue", "Bahnschrift Condensed", system-ui, sans-serif;
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.05;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.splash-day {
+  font-size: 24px;
+  font-weight: 800;
+  filter: none;
+  animation: splash-title 700ms var(--ease-soft) both;
+}
+
+@keyframes splash-title {
+  from { opacity: 0; letter-spacing: 0.22em; transform: translateY(8px); }
+  to { opacity: 1; letter-spacing: 0.015em; transform: none; }
+}
+
+/* Полоса дня — толще, точки — крупнее и со свечением. */
+.splash-track {
+  width: min(300px, 100%);
+  height: 18px;
+}
+
+.splash-line,
+.splash-fill {
+  top: 7px;
+  height: 4px;
+  border-radius: 4px;
+}
+
+.splash-line {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.splash-fill {
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #8f7bff));
+}
+
+.splash-dot {
+  top: 2px;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+}
+
+.splash-dot--pair {
+  box-shadow: 0 0 0 4px var(--bg), 0 6px 14px -2px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.splash-comet {
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  box-shadow:
+    -14px 0 14px 2px color-mix(in srgb, var(--accent) 45%, transparent),
+    0 0 16px 6px var(--accent-soft),
+    0 0 5px 1px var(--accent);
+}
+
+.splash-times {
+  width: min(300px, 100%);
+  margin-top: -14px;
+  font-family: var(--digits);
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  color: var(--text);
+}
+
+/* Уход: заставка поднимается занавесом, нижний край скругляется, а её
+   содержимое чуть отстаёт — получается глубина. */
+.splash--gone {
+  clip-path: none;
+  animation: splash-lift 640ms cubic-bezier(0.7, 0, 0.2, 1) forwards;
+  box-shadow: 0 30px 60px rgba(18, 22, 40, 0.28);
+}
+
+.splash--gone > * {
+  transition: transform 640ms cubic-bezier(0.7, 0, 0.2, 1), opacity 320ms ease 120ms;
+  transform: translateY(70px);
+  opacity: 0;
+}
+
+@keyframes splash-lift {
+  to {
+    transform: translateY(-104%);
+    border-radius: 0 0 48px 48px;
+  }
+}
+
+/* --- Свободный день: кольца, лучи и значок --- */
+.splash--free .splash-track,
+.splash--free .splash-times {
+  opacity: 0;
+  transition: opacity 200ms var(--ease-soft);
+}
+
+.splash-free {
+  position: absolute;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 0;
+  height: 0;
+  margin-top: 78px;
+}
+
+.splash-free-ring {
+  position: absolute;
+  width: 84px;
+  height: 84px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: splash-free-ring 900ms var(--ease-out) calc(120ms + var(--i) * 170ms) both;
+}
+
+.splash-free-ray {
+  position: absolute;
+  width: 3px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--accent);
+  opacity: 0;
+  animation: splash-free-ray 560ms var(--ease-out) 720ms both;
+}
+
+.splash-free-emoji {
+  position: absolute;
+  font-size: 66px;
+  line-height: 1;
+  animation: splash-free-pop 620ms cubic-bezier(0.3, 1.6, 0.5, 1) 560ms both;
+}
+
+.splash-free-title {
+  position: absolute;
+  top: 62px;
+  white-space: nowrap;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--muted);
+  animation: free-rise 420ms var(--ease-soft) 900ms both;
+}
+
+@keyframes splash-free-ring {
+  from { opacity: 0.85; transform: scale(0.2); }
+  to { opacity: 0; transform: scale(2.6); }
+}
+
+@keyframes splash-free-ray {
+  from { opacity: 1; transform: rotate(var(--a)) translateY(-44px) scaleY(0.4); }
+  to { opacity: 0; transform: rotate(var(--a)) translateY(-86px) scaleY(1); }
+}
+
+@keyframes splash-free-pop {
+  from { opacity: 0; transform: scale(0.2) rotate(-25deg); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Уход свободного дня: экран стягивается в точку на месте значка. */
+.splash--free.splash--gone {
+  animation: splash-iris 560ms cubic-bezier(0.7, 0, 0.3, 1) forwards;
+  box-shadow: none;
+}
+
+.splash--free.splash--gone > * {
+  transform: none;
+  opacity: 1;
+  transition: none;
+}
+
+.splash--free.splash--gone .splash-day {
+  transform: none;
+  opacity: 1;
+}
+
+@keyframes splash-iris {
+  from { clip-path: circle(150% at var(--iris-x, 50%) var(--iris-y, 50%)); }
+  to { clip-path: circle(0% at var(--iris-x, 50%) var(--iris-y, 50%)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-day,
+  .splash-free-ring,
+  .splash-free-ray,
+  .splash-free-emoji,
+  .splash-free-title {
+    animation: none;
+  }
+
+  .splash-free-ring,
+  .splash-free-ray {
+    display: none;
+  }
+
+  .splash--gone,
+  .splash--free.splash--gone {
+    animation: none;
+    opacity: 0;
+    transition: opacity 200ms ease;
+  }
+
+  .splash--gone > * {
+    transform: none;
+  }
+}
+
+/* --- Шапка пиксельным шрифтом --- */
+body[data-head="pixel"] .bar--schedule .date {
+  font-family: "Pixelify Sans", ui-monospace, monospace;
+  font-size: 29px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+body[data-head="pixel"] .splash-day {
+  font-family: "Pixelify Sans", ui-monospace, monospace;
+  font-size: 27px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Образцы в настройках: каждая плитка показывает свой шрифт. */
+.digits-chip[data-head="tall"] .digits-sample {
+  font-family: "Oswald", "Bebas Neue", system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 26px;
+  text-transform: uppercase;
+}
+
+.digits-chip[data-head="pixel"] .digits-sample {
+  font-family: "Pixelify Sans", ui-monospace, monospace;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 26px;
+}
+
+.digits-chip[data-head="plain"] .digits-sample {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 26px;
+}
+
+.profiles-title--next {
+  margin-top: 14px;
 }
