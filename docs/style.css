@@ -5243,9 +5243,12 @@ body {
 }
 
 /* --- Заставка в свободный день: без полосы и без схлопывания --- */
+/* Полоса гаснет, но место за собой оставляет: если её убрать совсем,
+   надпись над ней подпрыгивает к середине экрана. */
 .splash--free .splash-track,
 .splash--free .splash-times {
-  display: none;
+  opacity: 0;
+  transition: opacity 240ms var(--ease-soft);
 }
 
 .splash--free.splash--gone {
@@ -5362,4 +5365,105 @@ body {
   .free-day-star {
     opacity: 0.35;
   }
+}
+
+/* ===================================================================
+   Вторая редакция оформления. Раньше всё было плоским: белый лист и
+   серые плашки. Теперь у экрана есть воздух (мягкий цветной свет сверху),
+   у карточек — край и тень, у цифр — свой вытянутый шрифт.
+   =================================================================== */
+:root {
+  --edge: color-mix(in srgb, var(--text) 7%, transparent);
+  --surface: color-mix(in srgb, var(--card) 62%, var(--bg));
+  --shadow-card: 0 1px 2px rgba(18, 22, 40, 0.05), 0 12px 26px -16px rgba(18, 22, 40, 0.28);
+  --shadow-chip: 0 1px 1px rgba(18, 22, 40, 0.04), 0 8px 16px -12px rgba(18, 22, 40, 0.3);
+  /* Цифры: узкие и высокие. Свой файл шрифта подключится под именем Digits;
+     до тех пор — самое узкое, что есть на телефоне. */
+  --digits: "Digits", "Bahnschrift Condensed", "SF Compact Display", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif;
+}
+
+/* Свет за содержимым: два больших пятна у верхнего края, цвет — от недели. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(130% 55% at -10% -8%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 62%),
+    radial-gradient(100% 46% at 112% 4%, color-mix(in srgb, #8f7bff 13%, transparent), transparent 64%),
+    radial-gradient(120% 40% at 50% 112%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%);
+  transition: opacity 400ms var(--ease-soft);
+}
+
+.card,
+.week-day,
+.dayend {
+  background-color: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge), var(--shadow-card);
+}
+
+.card {
+  border-radius: 22px;
+}
+
+.card--now {
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 42%, transparent),
+    0 16px 32px -18px color-mix(in srgb, var(--accent) 75%, transparent);
+}
+
+.day {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge), var(--shadow-chip);
+}
+
+.day.active {
+  background: linear-gradient(165deg, color-mix(in srgb, var(--accent) 82%, #fff), var(--accent) 70%);
+  box-shadow: 0 12px 22px -10px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+.day-num {
+  font-family: var(--digits);
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-start,
+.card-end,
+.week-time,
+.week-slot {
+  font-family: var(--digits);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.card-start,
+.card-end {
+  font-size: 20px;
+}
+
+.next {
+  border-radius: 16px;
+  background: linear-gradient(115deg, var(--accent-soft), color-mix(in srgb, var(--accent) 5%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.icon {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge), var(--shadow-chip);
+}
+
+.room-badge {
+  box-shadow: 0 8px 16px -10px rgba(60, 90, 255, 0.75);
+}
+
+/* Тени плиток дней не должны обрезаться краем прокручиваемой полосы. */
+.days {
+  padding-top: 4px;
+  padding-bottom: 16px;
+  margin-bottom: -8px;
 }
