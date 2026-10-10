@@ -4839,6 +4839,21 @@ function renderFreeDay() {
       : ["🎉", t("Пар нет 🎉").replace("🎉", "").trim(), ""];
   // Сцена: значок падает сверху и пружинит, под ним расходится круг, вокруг
   // всплывают искры. Подписи поднимаются следом — день «собирается» за секунду.
+  // Фон: три цветных пятна медленно плавают за значком, поверх мерцают
+  // редкие точки. Пустой экран перестаёт быть белым листом.
+  const sky = el("div", "free-day-sky");
+  for (let i = 1; i <= 3; i++) sky.append(el("span", `free-day-blob free-day-blob--${i}`));
+  const seed = date.getDate() * 31 + date.getMonth() * 7;
+  for (let i = 0; i < 9; i++) {
+    const star = el("span", "free-day-star");
+    // Места точек — от даты: у каждого дня своё «небо», но оно не скачет.
+    star.style.left = `${8 + ((seed * (i + 3) * 37) % 84)}%`;
+    star.style.top = `${6 + ((seed * (i + 5) * 53) % 78)}%`;
+    star.style.setProperty("--d", `${(i * 430) % 3000}ms`);
+    star.style.setProperty("--s", `${3 + ((seed + i) % 3)}px`);
+    sky.append(star);
+  }
+  node.append(sky);
   const stage = el("div", "free-day-stage");
   stage.append(el("span", "free-day-halo"), el("span", "free-day-ring"));
   for (let i = 0; i < 6; i++) {

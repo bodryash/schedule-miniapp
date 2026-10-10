@@ -5262,3 +5262,104 @@ body {
 @keyframes splash-melt {
   to { opacity: 0; }
 }
+
+/* --- Свободный день: живой фон вместо белого листа --- */
+.free-day {
+  position: relative;
+  isolation: isolate;
+  min-height: 56vh;
+}
+
+.free-day-sky {
+  position: absolute;
+  inset: -24px -16px -40px;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  /* Края растворяются: фон не упирается в рамку, а сходит на нет. */
+  -webkit-mask-image: radial-gradient(ellipse 60% 56% at 50% 36%, #000 22%, transparent 76%);
+  mask-image: radial-gradient(ellipse 60% 56% at 50% 36%, #000 22%, transparent 76%);
+  animation: free-sky-in 900ms var(--ease-soft) both;
+}
+
+.free-day-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(44px);
+  opacity: 0.55;
+  will-change: transform;
+}
+
+.free-day-blob--1 {
+  left: 2%;
+  top: 2%;
+  width: 210px;
+  height: 210px;
+  background: var(--accent);
+  opacity: 0.26;
+  animation: free-drift-1 16s ease-in-out infinite alternate;
+}
+
+.free-day-blob--2 {
+  right: -2%;
+  top: 10%;
+  width: 200px;
+  height: 200px;
+  background: color-mix(in srgb, var(--accent) 25%, #8f7bff);
+  opacity: 0.24;
+  animation: free-drift-2 19s ease-in-out infinite alternate;
+}
+
+.free-day-blob--3 {
+  left: 24%;
+  top: 46%;
+  width: 240px;
+  height: 180px;
+  background: color-mix(in srgb, var(--accent) 30%, #ffd166);
+  opacity: 0.3;
+  animation: free-drift-3 22s ease-in-out infinite alternate;
+}
+
+.free-day-star {
+  position: absolute;
+  width: var(--s, 4px);
+  height: var(--s, 4px);
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  animation: free-twinkle 3.2s ease-in-out var(--d, 0ms) infinite;
+}
+
+@keyframes free-sky-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes free-drift-1 {
+  to { transform: translate(46px, 30px) scale(1.15); }
+}
+
+@keyframes free-drift-2 {
+  to { transform: translate(-54px, 40px) scale(0.9); }
+}
+
+@keyframes free-drift-3 {
+  to { transform: translate(30px, -44px) scale(1.12); }
+}
+
+@keyframes free-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.4); }
+  50% { opacity: 0.55; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .free-day-sky,
+  .free-day-blob,
+  .free-day-star {
+    animation: none;
+  }
+
+  .free-day-star {
+    opacity: 0.35;
+  }
+}
