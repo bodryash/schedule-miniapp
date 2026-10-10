@@ -57,10 +57,12 @@ def main():
         if not line or line.startswith("#"):
             continue
         parts = [p.strip() for p in line.split("|")]
-        if len(parts) != 7:
-            problems.append(f"строка {number}: столбцов {len(parts)}, нужно 7")
+        if len(parts) not in (7, 8):
+            problems.append(f"строка {number}: столбцов {len(parts)}, нужно 7 или 8")
             continue
-        who, day_name, slot, subject, teacher, room, spec = parts
+        # Восьмой столбец необязателен: вид занятия («лекция», «семинар»).
+        who, day_name, slot, subject, teacher, room, spec = parts[:7]
+        kind = parts[7] if len(parts) == 8 else ""
         day, slot = DAYS.get(day_name), int(slot)
         dates = []
         for piece in [p.strip() for p in spec.split(",") if p.strip()]:
@@ -90,7 +92,7 @@ def main():
                 continue
             lessons.append({
                 "group": names[key], "day": day, "slot": slot, "subgroup": None, "elective": None, "week": "all",
-                "note": "поток" if who == "*" else "", "link": "", "start": "", "end": "", "type": "",
+                "note": "поток" if who == "*" else "", "link": "", "start": "", "end": "", "type": kind,
                 "subject": subject, "room": room, "teacher": teacher, "dates": sorted({d.isoformat() for d in dates}),
             })
     if problems:

@@ -140,5 +140,24 @@
       "base": "https://ruz.mgimo.ru",
       "faculty": 28
     }
+  },
+  {
+    "id": "mgimo-mb",
+    "university": "МГИМО",
+    "faculty": "Факультет международного бизнеса",
+    "path": "mgimo-mb",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 29
+    }
+  },
+  {
+    "id": "vmeda-ld",
+    "university": "ВМедА им. С.М. Кирова",
+    "faculty": "ЛД, 1 курс",
+    "path": "vmeda-ld",
+    "features": []
   }
 ]
