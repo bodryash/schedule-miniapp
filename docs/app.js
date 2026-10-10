@@ -3762,6 +3762,49 @@ function dataFile(name) {
 }
 
 /**
+ * Смена факультета — это перезапуск приложения с другим расписанием. Голая
+ * перезагрузка выглядела как зависание: экран замирал, потом мигал. Теперь
+ * поверх выезжает плашка «куда переключаемся», за ней подгружается новое
+ * расписание, и только потом страница перезапускается — уже на заставку
+ * того же цвета, без белой вспышки.
+ */
+async function switchTenant(next) {
+  if (!next) return;
+  // Сменили факультет руками — это уже не тот профиль, что был выбран:
+  // отвязываемся, чтобы не переписать его чужим факультетом.
+  const store = readProfiles();
+  if (store.active) writeProfiles({ ...store, active: null });
+  await restartWith(next.faculty, next.university, next, () => savePrefs({ tenant: next.id }));
+}
+
+async function restartWith(title, sub, next, apply) {
+  haptic("select");
+  const cover = el("div", "switch");
+  const box = el("div", "switch-box");
+  const ring = el("span", "switch-ring");
+  box.append(
+    ring,
+    el("div", "switch-note", t("Переключаем расписание")),
+    el("div", "switch-name", title),
+    el("div", "switch-uni", sub)
+  );
+  cover.append(box);
+  document.body.append(cover);
+  requestAnimationFrame(() => cover.classList.add("switch--on"));
+
+  apply();
+  // Расписание нового факультета успеет лечь в кэш, пока видна плашка:
+  // после перезапуска оно откроется сразу. Сеть молчит — не ждём дольше 3 с.
+  const warm = fetch(`data/${next.path ? `${next.path}/` : ""}schedule.json`, { cache: "no-cache" }).catch(() => null);
+  const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  await Promise.all([pause(650), Promise.race([warm, pause(3000)])]);
+  haptic("success");
+  cover.classList.add("switch--done");
+  await pause(260);
+  location.reload();
+}
+
+/**
  * Список вузов: сначала тот, что запомнили с прошлого раза, — чтобы не
  * ждать сеть перед расписанием; свежий подтягиваем следом.
  */
@@ -3838,8 +3881,7 @@ function fillTenants() {
       if (select.value === tenant().id) return;
       // Другой факультет — другое расписание целиком: проще начать с
       // чистого листа, чем менять данные под работающим приложением.
-      savePrefs({ tenant: select.value });
-      location.reload();
+      switchTenant(TENANTS.find((item) => item.id === select.value));
     });
     row.append(el("span", "", t("Вуз и факультет")), select);
     const anchor = document.getElementById("student-fields") || els.course.closest("label");
@@ -3904,6 +3946,147 @@ function savePrefs(value) {
   } catch {
     // Приватный режим — настройки просто не переживут перезапуск.
   }
+  // Выбранный профиль живёт вместе с настройками: поменяли язык или
+  // подгруппу — в профиле то же самое.
+  const store = readProfiles();
+  const current = store.list.find((profile) => profile.id === store.active);
+  if (current) {
+    current.prefs = value;
+    writeProfiles(store);
+  }
+}
+
+/* ---------- Профили расписания ---------- */
+
+/**
+ * Профиль — это настройки под своим именем: «Моя группа», «Группа друга»,
+ * «Второй вуз». Переключение между ними — одно касание вместо того, чтобы
+ * каждый раз заново выбирать вуз, курс, группу и языки.
+ */
+const PROFILES_KEY = "schedule.profiles";
+const PROFILES_MAX = 8;
+
+function readProfiles() {
+  try {
+    const store = JSON.parse(localStorage.getItem(PROFILES_KEY));
+    if (store && Array.isArray(store.list)) return store;
+  } catch {
+    // Испорченная запись — начинаем с пустого списка.
+  }
+  return { list: [], active: null };
+}
+
+function writeProfiles(store) {
+  try {
+    localStorage.setItem(PROFILES_KEY, JSON.stringify(store));
+  } catch {
+    // Приватный режим — профили не сохранятся.
+  }
+}
+
+function switchProfile(profile) {
+  const next = TENANTS.find((item) => item.id === profile.prefs?.tenant) || TENANTS[0];
+  restartWith(profile.name, [next.university, next.faculty].filter(Boolean).join(" · "), next, () => {
+    writeProfiles({ ...readProfiles(), active: profile.id });
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(profile.prefs || {}));
+    } catch {
+      // Не записалось — после перезапуска останется прежнее расписание.
+    }
+  });
+}
+
+/** Блок профилей вверху настроек. edit: { id } — открыто поле названия. */
+function fillProfiles(edit = null) {
+  if (!els.picker) return;
+  let box = document.getElementById("profiles");
+  if (!box) {
+    box = el("div", "profiles");
+    box.id = "profiles";
+    els.picker.querySelector(".bar").after(box);
+  }
+  const store = readProfiles();
+  const configured = Boolean(activeGroup());
+  // Пока нечего ни сохранять, ни переключать — блок не нужен.
+  box.hidden = !configured && !store.list.length;
+  if (box.hidden) return;
+
+  const nodes = [el("div", "profiles-title", t("Профили"))];
+  const row = el("div", "profiles-row");
+  for (const profile of store.list) {
+    const on = profile.id === store.active;
+    const chip = el("button", on ? "chip chip--on" : "chip", profile.name);
+    chip.type = "button";
+    chip.addEventListener("click", () => {
+      haptic("light");
+      // Свой профиль — правим название, чужой — переключаемся на него.
+      if (on) fillProfiles(edit?.id === profile.id ? null : { id: profile.id });
+      else switchProfile(profile);
+    });
+    row.append(chip);
+  }
+  if (configured && store.list.length < PROFILES_MAX) {
+    const add = el("button", "chip chip--add", t(store.list.length ? "＋ Новый профиль" : "＋ Сохранить как профиль"));
+    add.type = "button";
+    add.addEventListener("click", () => {
+      haptic("light");
+      fillProfiles(edit && !edit.id ? null : { id: null });
+    });
+    row.append(add);
+  }
+  nodes.push(row);
+
+  if (edit) {
+    const current = store.list.find((profile) => profile.id === edit.id);
+    const form = el("div", "profiles-form");
+    const input = el("input", "profiles-name");
+    input.type = "text";
+    input.maxLength = 24;
+    input.placeholder = t("Название профиля");
+    input.value = current ? current.name : store.list.length ? "" : activeGroup()?.title || "";
+    const save = el("button", "profiles-save", t("Сохранить"));
+    save.type = "button";
+    const commit = () => {
+      const name = input.value.trim().slice(0, 24);
+      if (!name) return input.focus();
+      const fresh = readProfiles();
+      if (current) {
+        const target = fresh.list.find((profile) => profile.id === current.id);
+        if (target) target.name = name;
+      } else {
+        const id = Date.now().toString(36);
+        fresh.list.push({ id, name, prefs: readPrefs() });
+        fresh.active = id;
+      }
+      writeProfiles(fresh);
+      haptic("success");
+      fillProfiles();
+    };
+    save.addEventListener("click", commit);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") commit();
+    });
+    form.append(input, save);
+    if (current) {
+      const remove = el("button", "profiles-remove", t("Удалить"));
+      remove.type = "button";
+      remove.addEventListener("click", () => {
+        const fresh = readProfiles();
+        // Удаляется только имя: само расписание остаётся на экране как было.
+        writeProfiles({ list: fresh.list.filter((profile) => profile.id !== current.id), active: null });
+        haptic("light");
+        fillProfiles();
+      });
+      form.append(remove);
+    }
+    nodes.push(form);
+    requestAnimationFrame(() => input.focus());
+  } else if (!store.list.length) {
+    nodes.push(el("p", "hint", t("Сохраните эти настройки под именем — и переключайтесь между своей группой, группой друга или другим вузом в одно касание.")));
+  } else if (store.active) {
+    nodes.push(el("p", "hint", t("Нажмите на выбранный профиль, чтобы переименовать или удалить. Новый профиль — копия текущих настроек: назовите его и смените вуз или группу ниже.")));
+  }
+  box.replaceChildren(...nodes);
 }
 
 function groupById(id) {
@@ -4151,6 +4334,7 @@ function showPicker() {
   els.picker.hidden = false;
   // Возвращаться некуда, пока группа не выбрана хотя бы раз.
   els.close.hidden = !activeGroup();
+  fillProfiles();
   fillTenants();
   // Межфакультетские курсы — только там, где они есть.
   if (els.mfkRow) els.mfkRow.style.display = tenantHas("mfk") ? "" : "none";
