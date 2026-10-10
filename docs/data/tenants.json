@@ -37,5 +37,17 @@
     "faculty": "Стоматологический факультет",
     "path": "tgmu-vl-stom",
     "features": []
+  },
+  {
+    "id": "mgimo-mo-dip",
+    "university": "МГИМО",
+    "faculty": "Факультет Международные отношения (Дип)",
+    "path": "mgimo-mo-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 55
+    }
   }
 ]

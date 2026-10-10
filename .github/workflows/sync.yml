@@ -1,0 +1,59 @@
+name: Обновление расписаний из РУЗ
+
+# Факультеты, подключённые к системе «РУЗ» (МГИМО и другие), обновляются
+# сами: расписание там составлено по датам и меняется каждую неделю.
+# Какие факультеты забирать, записано в docs/data/tenants.json (source).
+on:
+  schedule:
+    - cron: "17 2 * * *" # каждую ночь в 05:17 по Москве
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: sync-ruz
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Забрать расписания
+        run: |
+          python - <<'PY'
+          import json, subprocess, sys
+          from datetime import date
+          today = date.today()
+          # Осенний семестр — до конца года, весенний — до конца июня.
+          start, end = (f"{today.year}-09-01", f"{today.year}-12-31") if today.month >= 8 else (f"{today.year}-01-09", f"{today.year}-06-30")
+          failed = 0
+          for tenant in json.load(open("docs/data/tenants.json", encoding="utf-8")):
+              source = tenant.get("source") or {}
+              if source.get("kind") != "ruz":
+                  continue
+              done = subprocess.run([sys.executable, "tools/sync_ruz.py", "--base", source["base"], "--faculty", str(source["faculty"]),
+                                     "--id", tenant["id"], "--university", tenant["university"], "--name", tenant["faculty"],
+                                     "--from", start, "--to", end])
+              failed += done.returncode != 0
+          # Сбой одного вуза не должен мешать опубликовать остальные.
+          print(f"не обновилось факультетов: {failed}")
+          PY
+
+      - name: Опубликовать изменения
+        run: |
+          git config user.name "schedule-bot"
+          git config user.email "schedule-bot@users.noreply.github.com"
+          git add docs/data
+          # Дата обновления меняется каждый день — её одной для публикации мало.
+          if git diff --cached --quiet -- . ':(exclude)docs/data/tenants.json' || [ -z "$(git diff --cached -G'"lessons"|"dates"' --name-only)" ]; then
+            echo "Расписания не изменились."
+            git reset -q
+          else
+            git commit -q -m "Расписания из РУЗ обновлены"
+            git push -q
+          fi

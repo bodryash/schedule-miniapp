@@ -1886,7 +1886,7 @@ function subjectDates(subject) {
         l.subject === subject &&
         (l.type === "семинар" || l.type === "практика") &&
         l.day === weekday &&
-        (l.week === "all" || parity === null || l.week === parity) &&
+        onDate(l, parity, isoDate(date)) &&
         matchesPrefs(l)
     );
     if (!has) continue;
@@ -2471,12 +2471,12 @@ function semesterLessons() {
     if (weekday === 0) continue;
     const parity = parityOfDate(cursor);
     const list = group.teacher
-      ? teacherLessons(group.teacher, parity, weekday)
+      ? teacherLessons(group.teacher, parity, weekday, isoDate(cursor))
       : data.lessons.filter(
           (l) =>
             l.group === group.id &&
             l.day === weekday &&
-            (l.week === "all" || parity === null || l.week === parity) &&
+            onDate(l, parity, isoDate(cursor)) &&
             matchesPrefs(l)
         );
     // Параллельные записи одной пары (подгруппы) — одна пара.
@@ -2791,7 +2791,7 @@ function semesterSeminars(subject) {
               l.subject === subject &&
               isAbsTracked(l.type) &&
               l.day === weekday &&
-              (l.week === "all" || parity === null || l.week === parity) &&
+              onDate(l, parity, isoDate(cursor)) &&
               matchesPrefs(l)
           )
           .map((l) => l.slot)
@@ -2831,7 +2831,7 @@ function seminarCount(subject) {
             l.subject === subject &&
             isAbsTracked(l.type) &&
             l.day === weekday &&
-            (l.week === "all" || parity === null || l.week === parity) &&
+            onDate(l, parity, isoDate(cursor)) &&
             matchesPrefs(l)
         )
         .map((l) => l.slot)
@@ -3870,6 +3870,17 @@ function renderConsent() {
   els.save.after(note);
 }
 
+/**
+ * Идёт ли пара в этот день. Обычная пара повторяется по неделям: каждую,
+ * по чётным или по нечётным. Но во многих вузах расписание составлено по
+ * датам — «28.09–19.10», «09.11, 23.11» — и каждую неделю пары разные.
+ * У такой пары есть список дат (dates), и решает только он.
+ */
+function onDate(lesson, parity, iso) {
+  if (lesson.dates) return lesson.dates.includes(iso);
+  return lesson.week === "all" || parity === null || lesson.week === parity;
+}
+
 function readPrefs() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
@@ -4212,12 +4223,12 @@ function openTab(name) {
 function lessonsForDay(group, day, week) {
   const parity = weekParity(data.weeks, week);
   const list = group.teacher
-    ? teacherLessons(group.teacher, parity, day)
+    ? teacherLessons(group.teacher, parity, day, isoDate(dateOfDay(day, week)))
     : data.lessons.filter(
         (l) =>
           l.group === group.id &&
           l.day === day &&
-          (l.week === "all" || parity === null || l.week === parity) &&
+          onDate(l, parity, isoDate(dateOfDay(day, week))) &&
           matchesPrefs(l)
       );
   return list.map((l) => withChange(l, dateOfDay(day, week))).sort((a, b) => a.slot - b.slot);
@@ -4611,10 +4622,10 @@ function renderFreeDay() {
  * Пары преподавателя в показанный день. Одну лекцию он читает сразу
  * нескольким группам — это одна пара, группы перечисляем в пометке.
  */
-function teacherLessons(key, parity, day = selectedDay) {
+function teacherLessons(key, parity, day = selectedDay, iso = isoDate(dateOfDay(day))) {
   const merged = new Map();
   for (const l of data.lessons) {
-    if (l.day !== day || !(l.week === "all" || parity === null || l.week === parity)) continue;
+    if (l.day !== day || !onDate(l, parity, iso)) continue;
     if (!teachersOf(l.teacher).some((p) => p.key === key)) continue;
     const id = [l.slot, l.subject, l.type, l.room, l.week, l.start, l.end].join("|");
     if (!merged.has(id)) merged.set(id, { ...l, subgroup: null, groups: [] });
@@ -4634,7 +4645,7 @@ function renderLessons(group, parity) {
       (l) =>
         l.group === group.id &&
         l.day === selectedDay &&
-        (l.week === "all" || parity === null || l.week === parity) &&
+        onDate(l, parity, isoDate(dateOfDay(selectedDay))) &&
         matchesPrefs(l)
     ))
     .map((lesson) => withChange(lesson))
@@ -4981,7 +4992,7 @@ function teacherNow(key) {
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + shift);
     const weekday = date.getDay();
     if (weekday === 0) continue;
-    const lessons = teacherLessons(key, parityOfDate(date), weekday)
+    const lessons = teacherLessons(key, parityOfDate(date), weekday, isoDate(date))
       .map((lesson) => ({ lesson, time: timesOf(lesson, bells) }))
       .filter((item) => item.time)
       .sort((a, b) => minutes(a.time.start) - minutes(b.time.start));
@@ -5258,7 +5269,7 @@ function meetDay(group, friend, day, week) {
   const parity = weekParity(data.weeks, week);
   const mine = meetBusy(lessonsForDay(group, day, week).filter((l) => !lessonCancelOn(l, isoDate(dateOfDay(day, week)))));
   const theirs = meetBusy(
-    data.lessons.filter((l) => l.group === friend.id && l.day === day && (l.week === "all" || parity === null || l.week === parity))
+    data.lessons.filter((l) => l.group === friend.id && l.day === day && onDate(l, parity, isoDate(dateOfDay(day, week))))
   );
   return { mine, theirs };
 }
@@ -5620,7 +5631,7 @@ function busyIntervals(day, parity) {
   const busy = new Map();
   for (const lesson of data.lessons) {
     if (lesson.day !== day) continue;
-    if (!(lesson.week === "all" || parity === null || lesson.week === parity)) continue;
+    if (!onDate(lesson, parity, isoDate(dateOfDay(day)))) continue;
     const room = lesson.room.trim();
     if (!OWN_ROOM.test(room)) continue;
     const time = timesOf(lesson, bells);
