@@ -56,5 +56,12 @@
     "faculty": "Правовое обеспечение национальной безопасности",
     "path": "msal-orenburg-nb",
     "features": []
+  },
+  {
+    "id": "msu-chem",
+    "university": "МГУ",
+    "faculty": "Химический факультет",
+    "path": "msu-chem",
+    "features": []
   }
 ]
