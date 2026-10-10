@@ -7210,7 +7210,9 @@ function flyEmoji(from, to, scene) {
 const STALE_KEY = "schedule.staleReload";
 
 function htmlIsStale() {
-  return !document.getElementById("queues") || !document.getElementById("tabs");
+  // data-shell — номер редакции разметки: у старой страницы из кэша Telegram
+  // заставка ещё прежняя, и её не стоит показывать вместе с новым кодом.
+  return !document.getElementById("queues") || !document.getElementById("tabs") || document.body.dataset.shell !== "2";
 }
 
 function reloadFreshPage() {

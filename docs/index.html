@@ -16,6 +16,7 @@
        вспоминает о нём, только встретив заголовок, и текст перескакивает. -->
   <link rel="preload" href="fonts/unbounded.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/oswald-cyr.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/oswald-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Расписание">
@@ -26,22 +27,63 @@
   <!-- Заставка должна появиться с первого кадра, ещё до основных стилей:
        иначе, пока качается style.css, на экране секунды темноты. Здесь —
        только то, что нужно, чтобы её было видно. -->
+  <!-- Здесь заставка описана целиком такой, какой её дорисует style.css:
+       тот же фон, тот же шрифт даты, та же полоса. Иначе первые секунды
+       видна «черновая» заставка, а потом она на глазах меняет вид. -->
   <style>
+    @font-face {
+      font-family: "Oswald"; src: url("fonts/oswald-cyr.woff2") format("woff2");
+      font-weight: 400 700; font-display: block;
+      unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+    }
+    @font-face {
+      font-family: "Oswald"; src: url("fonts/oswald-latin.woff2") format("woff2");
+      font-weight: 400 700; font-display: block;
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212, U+2215;
+    }
+    @font-face {
+      font-family: "Pixelify Sans"; src: url("fonts/pixelify-cyr.woff2") format("woff2");
+      font-weight: 400 700; font-display: block;
+      unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+    }
+    @font-face {
+      font-family: "Pixelify Sans"; src: url("fonts/pixelify.woff2") format("woff2");
+      font-weight: 400 700; font-display: block;
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212, U+2215;
+    }
     .splash {
-      position: fixed; inset: 0; z-index: 80;
+      position: fixed; inset: 0; z-index: 80; overflow: hidden;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 22px; padding: 0 40px;
-      background: var(--tg-theme-bg-color, #fff);
+      gap: 26px; padding: 0 40px;
+      background:
+      radial-gradient(120% 50% at -10% -6%, rgba(255, 150, 70, 0.2), transparent 62%),
+      radial-gradient(100% 44% at 112% 2%, rgba(143, 123, 255, 0.18), transparent 64%),
+      radial-gradient(120% 46% at 50% 112%, rgba(90, 160, 255, 0.12), transparent 70%),
+      var(--tg-theme-bg-color, #fff);
       color: var(--tg-theme-text-color, #0f0f0f);
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     }
-    .splash-day { min-height: 22px; font-size: 17px; font-weight: 700; }
+    .splash-day {
+      min-height: 22px; font-size: 24px; font-weight: 800; text-align: center;
+      animation: splash-title 700ms cubic-bezier(0.32, 0.72, 0.28, 1) both;
+    }
+    body[data-head="tall"] .splash-day {
+      font-family: "Oswald", "Bahnschrift Condensed", system-ui, sans-serif;
+      font-size: 34px; font-weight: 600; line-height: 1.05; text-transform: uppercase;
+    }
+    body[data-head="pixel"] .splash-day {
+      font-family: "Pixelify Sans", ui-monospace, monospace; font-size: 27px; font-weight: 600;
+    }
+    @keyframes splash-title {
+      from { opacity: 0; letter-spacing: 0.22em; transform: translateY(8px); }
+      to { opacity: 1; letter-spacing: 0.015em; transform: none; }
+    }
     .splash-hello { max-width: 320px; text-align: center; font-size: 21px; font-weight: 700; line-height: 1.25; }
     .splash-hello-wish { margin-top: 6px; font-size: 14px; font-weight: 400; opacity: 0.6; }
-    .splash-track { position: relative; width: min(280px, 100%); height: 14px; }
+    .splash-track { position: relative; width: min(300px, 100%); height: 18px; }
     .splash-line {
-      position: absolute; left: 0; right: 0; top: 6px; height: 2px; border-radius: 2px;
-      background: var(--tg-theme-hint-color, #999); opacity: 0.35;
+      position: absolute; left: 0; right: 0; top: 7px; height: 4px; border-radius: 4px;
+      background: var(--tg-theme-text-color, #0f0f0f); opacity: 0.1;
     }
   </style>
   <!-- Метка версии у стилей и кода. Раньше она менялась при каждом
@@ -87,7 +129,16 @@
   </script>
   <noscript><link rel="stylesheet" href="style.css"></noscript>
 </head>
-<body>
+<body data-shell="2">
+  <!-- Какой шрифт выбран для шапки, заставке надо знать до первого кадра. -->
+  <script>
+    try {
+      document.body.dataset.digits = localStorage.getItem("schedule.digits") || "tall";
+      document.body.dataset.head = localStorage.getItem("schedule.head") || "tall";
+    } catch (e) {
+      document.body.dataset.digits = document.body.dataset.head = "tall";
+    }
+  </script>
 
   <!-- Заставка: держит экран, пока грузится расписание -->
   <div id="splash" class="splash">

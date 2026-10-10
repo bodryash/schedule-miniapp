@@ -5591,10 +5591,12 @@ body[data-head="tall"] .bar--schedule .date {
   overflow: hidden;
   gap: 26px;
   clip-path: none;
+  /* Цвета фона — постоянные, те же, что во встроенных стилях страницы:
+     от недели они не зависят, иначе фон менялся бы на глазах. */
   background:
-    radial-gradient(120% 50% at -10% -6%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 62%),
-    radial-gradient(100% 44% at 112% 2%, color-mix(in srgb, #8f7bff 18%, transparent), transparent 64%),
-    radial-gradient(120% 46% at 50% 112%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%),
+    radial-gradient(120% 50% at -10% -6%, rgba(255, 150, 70, 0.2), transparent 62%),
+    radial-gradient(100% 44% at 112% 2%, rgba(143, 123, 255, 0.18), transparent 64%),
+    radial-gradient(120% 46% at 50% 112%, rgba(90, 160, 255, 0.12), transparent 70%),
     var(--bg);
   will-change: transform;
 }
@@ -5635,7 +5637,8 @@ body[data-head="tall"] .splash-day {
 }
 
 .splash-line {
-  background: color-mix(in srgb, var(--text) 10%, transparent);
+  background: var(--text);
+  opacity: 0.1;
 }
 
 .splash-fill {
