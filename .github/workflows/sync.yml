@@ -1,4 +1,4 @@
-name: Обновление расписаний из РУЗ
+name: Обновление расписаний с сайтов вузов
 
 # Факультеты, подключённые к системе «РУЗ» (МГИМО и другие), обновляются
 # сами: расписание там составлено по датам и меняется каждую неделю.
@@ -34,9 +34,11 @@ jobs:
           failed = 0
           for tenant in json.load(open("docs/data/tenants.json", encoding="utf-8")):
               source = tenant.get("source") or {}
-              if source.get("kind") != "ruz":
+              # «ruz» — система РУЗ (МГИМО), «tt» — сайт вида tt.audit.msu.ru (ВШГА МГУ).
+              tool = {"ruz": "tools/sync_ruz.py", "tt": "tools/sync_tt.py"}.get(source.get("kind"))
+              if not tool:
                   continue
-              done = subprocess.run([sys.executable, "tools/sync_ruz.py", "--base", source["base"], "--faculty", str(source["faculty"]),
+              done = subprocess.run([sys.executable, tool, "--base", source["base"], "--faculty", str(source["faculty"]),
                                      "--id", tenant["id"], "--university", tenant["university"], "--name", tenant["faculty"],
                                      "--from", start, "--to", end])
               failed += done.returncode != 0
@@ -52,6 +54,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "Расписания не изменились."
           else
-            git commit -q -m "Расписания из РУЗ обновлены"
+            git commit -q -m "Расписания с сайтов вузов обновлены"
             git push -q
           fi
