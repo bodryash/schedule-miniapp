@@ -159,5 +159,29 @@
     "faculty": "ЛД, 1 курс",
     "path": "vmeda-ld",
     "features": []
+  },
+  {
+    "id": "mgimo-up",
+    "university": "МГИМО",
+    "faculty": "Факультет управления и политики",
+    "path": "mgimo-up",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 30
+    }
+  },
+  {
+    "id": "mgimo-miep",
+    "university": "МГИМО",
+    "faculty": "Международный институт энергетической политики и дипломатии",
+    "path": "mgimo-miep",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 31
+    }
   }
 ]

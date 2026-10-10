@@ -4416,9 +4416,15 @@ function renderDayEnd() {
       .filter(Boolean)
       .sort((a, b) => minutes(a.start) - minutes(b.start))[0];
     const date = dateOfDay(day, week);
-    const card = el("div", "dayend");
-    card.append(el("div", "dayend-title", t("На сегодня всё")));
-    card.append(
+    // Карточка — кнопка: касание уводит на тот самый следующий учебный день.
+    const card = el("button", "dayend");
+    card.type = "button";
+    const mark = el("span", "dayend-mark");
+    mark.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+    const text = el("span", "dayend-text");
+    text.append(el("div", "dayend-title", t("На сегодня всё")));
+    text.append(
       el(
         "div",
         "dayend-next",
@@ -4429,7 +4435,20 @@ function renderDayEnd() {
         })
       )
     );
-      return card;
+    const go = el("span", "dayend-go");
+    go.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
+    card.append(mark, text, go);
+    card.addEventListener("click", () => {
+      haptic("select");
+      selectedDay = day;
+      selectedWeek = week;
+      enterFrom = 1;
+      pendingLabel = 1;
+      showSchedule();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    return card;
   }
   return null;
 }
