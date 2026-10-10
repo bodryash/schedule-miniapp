@@ -6818,6 +6818,8 @@ function assembleSplash(plan) {
   if (!plan) {
     // Группа ещё не выбрана — показывать нечего, сразу к настройкам.
     els.splashDay.textContent = activeGroup() ? t("Пар нет 🎉") : "";
+    // Пар нет — нет и полосы дня: схлопываться не к чему, уходим иначе.
+    els.splash.classList.add("splash--free");
     return activeGroup() ? 500 : 0;
   }
 
@@ -6912,11 +6914,16 @@ function dropSplash() {
   if (!splash || splash.classList.contains("splash--gone")) return;
   // Схлопываемся к полосе, а не к центру экрана: кажется, что день
   // сворачивается в линию, из которой потом разворачивается расписание.
+  const free = splash.classList.contains("splash--free");
   const track = els.splashTrack?.getBoundingClientRect();
-  if (track && track.height) {
+  if (!free && track && track.height) {
     const y = ((track.top + track.height / 2) / window.innerHeight) * 100;
     splash.style.setProperty("--fold-y", `${y}%`);
   }
+  // Свободный день: заставка не складывается в пустую линию, а тает, и
+  // в этот же момент на экране заново собирается сцена «пар нет» — раньше
+  // она успевала отыграть под заставкой, и открывалась уже застывшей.
+  if (free && els.lessons?.querySelector(".free-day")) els.lessons.replaceChildren(renderFreeDay());
   splash.classList.add("splash--gone");
   setTimeout(() => splash.remove(), 700);
   // Расписание развернулось — теперь можно и салют в честь праздника.

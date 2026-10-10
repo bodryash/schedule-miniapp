@@ -5241,3 +5241,24 @@ body {
     display: none;
   }
 }
+
+/* --- Заставка в свободный день: без полосы и без схлопывания --- */
+.splash--free .splash-track,
+.splash--free .splash-times {
+  display: none;
+}
+
+.splash--free.splash--gone {
+  clip-path: none;
+  animation: splash-melt 460ms var(--ease-soft) forwards;
+}
+
+.splash--free.splash--gone .splash-day {
+  transition: transform 460ms var(--ease-soft), opacity 300ms var(--ease-soft);
+  transform: translateY(-18px) scale(1.06);
+  opacity: 0;
+}
+
+@keyframes splash-melt {
+  to { opacity: 0; }
+}
