@@ -61,6 +61,8 @@ def main():
     groups, lessons, bells = [], [], defaultdict(Counter)
     for group in sorted(study, key=lambda g: g["number"]):
         name = clean(group["number"])
+        if any(g["id"] == name for g in groups):  # в справочнике бывают двойники
+            continue
         url = f"{args.base}/api/schedule/group/{group['groupOid']}?start={start:%Y.%m.%d}&finish={end:%Y.%m.%d}&lng=1"
         try:
             rows = get(url)
