@@ -176,7 +176,6 @@ async function loadNotices(group) {
     applyTheme(body.theme || "");
     notices.important = body.important || [];
     saveHello(body.hello || "");
-    applyCrown(body.crown || null);
     notices.homework = body.homework || [];
     notices.canEdit = Boolean(body.canEdit);
     notices.canComment = Boolean(body.canComment);
@@ -3736,7 +3735,7 @@ function el(tag, className, text) {
 // приложение, и бот различают группы, не зная друг о друге ничего нового.
 const DEFAULT_TENANT = "msu-fgp";
 const TENANTS_KEY = "schedule.tenants";
-let TENANTS = [{ id: DEFAULT_TENANT, university: "МГУ", faculty: "Факультет глобальных процессов", path: "", features: ["mfk", "word", "emails"] }];
+let TENANTS = [{ id: DEFAULT_TENANT, university: "МГУ", faculty: "Факультет глобальных процессов", path: "", features: ["mfk", "emails"] }];
 
 function tenantId() {
   try {
@@ -4833,13 +4832,24 @@ const FREE_DAYS = [
 
 function renderFreeDay() {
   const node = el("div", "empty free-day");
-  if (LANG !== "ru") {
-    node.textContent = t("Пар нет 🎉");
-    return node;
-  }
   const date = dateOfDay(selectedDay);
-  const [emoji, title, line] = FREE_DAYS[(date.getDate() * 7 + date.getMonth()) % FREE_DAYS.length];
-  node.append(el("div", "free-day-emoji", emoji), el("div", "free-day-title", title), el("div", "free-day-line", line));
+  const [emoji, title, line] =
+    LANG === "ru"
+      ? FREE_DAYS[(date.getDate() * 7 + date.getMonth()) % FREE_DAYS.length]
+      : ["🎉", t("Пар нет 🎉").replace("🎉", "").trim(), ""];
+  // Сцена: значок падает сверху и пружинит, под ним расходится круг, вокруг
+  // всплывают искры. Подписи поднимаются следом — день «собирается» за секунду.
+  const stage = el("div", "free-day-stage");
+  stage.append(el("span", "free-day-halo"), el("span", "free-day-ring"));
+  for (let i = 0; i < 6; i++) {
+    const spark = el("span", "free-day-spark");
+    spark.style.setProperty("--a", `${i * 60 + 20}deg`);
+    spark.style.setProperty("--d", `${i * 90}ms`);
+    stage.append(spark);
+  }
+  stage.append(el("div", "free-day-emoji", emoji));
+  node.append(stage, el("div", "free-day-title", title));
+  if (line) node.append(el("div", "free-day-line", line));
   return node;
 }
 
@@ -5235,247 +5245,6 @@ function teacherNow(key) {
     }
   }
   return null;
-}
-
-/* ---------- Слово недели ---------- */
-
-// Раз в неделю — одно трудное слово из глобалистики на весь факультет.
-// Буквы подсвечиваются: зелёная — на месте, жёлтая — есть в слове, серая —
-// нет. Три попытки в день. Первый угадавший забирает корону себе и своей
-// группе на неделю. Слово знает только бот: сюда приходит одна раскраска.
-const WORD_URL = `${API_URL}/word`;
-const WORD_KEYS = ["ЙЦУКЕНГШЩЗХЪ", "ФЫВАПРОЛДЖЭ", "ЯЧСМИТЬБЮ"];
-const CROWN_TOLD = "schedule.crownTold";
-const word = { state: null, typed: "", busy: false, fresh: -1 };
-let wordSheet = null;
-
-/** Корона у названия группы: её носит вся группа угадавшего. */
-function applyCrown(crown) {
-  document.body.classList.toggle("word-crown", Boolean(crown));
-  if (!crown) return;
-  const stamp = `${crown.group}|${crown.name}`;
-  try {
-    if (localStorage.getItem(CROWN_TOLD) === stamp) return;
-    localStorage.setItem(CROWN_TOLD, stamp);
-  } catch {
-    return;
-  }
-  afterSplash(() =>
-    toast(
-      crown.me
-        ? t("👑 Корона ваша: вы первыми угадали слово недели. Она у вас и у всей группы на неделю.")
-        : t("👑 Корона у вашей группы: слово недели первым угадал(а) {name} 🎉", { name: crown.name })
-    )
-  );
-}
-
-async function wordCall(guess = "") {
-  const group = activeGroup();
-  if (!tg?.initData || !group) return null;
-  const res = await fetch(WORD_URL, {
-    method: "POST",
-    body: JSON.stringify({ initData: tg.initData, group: group.id, guess }),
-  });
-  const body = await res.json();
-  return body.ok ? body : null;
-}
-
-function openWord() {
-  if (!wordSheet) {
-    wordSheet = el("div", "sheet-backdrop");
-    wordSheet.hidden = true;
-    const sheet = el("div", "sheet sheet--abs sheet--word");
-    sheet.setAttribute("role", "dialog");
-    sheet.setAttribute("aria-modal", "true");
-    const top = el("div", "sheet-top");
-    const head = el("div");
-    head.append(el("h2", "", t("Слово недели")), el("div", "word-note"));
-    const close = el("button", "icon", "×");
-    close.type = "button";
-    close.setAttribute("aria-label", t("Закрыть"));
-    close.addEventListener("click", closeWord);
-    top.append(head, close);
-    sheet.append(top, el("div", "word-body"));
-    wordSheet.append(sheet);
-    wordSheet.addEventListener("click", (event) => {
-      if (event.target === wordSheet) closeWord();
-    });
-    document.body.append(wordSheet);
-  }
-  word.typed = "";
-  word.fresh = -1;
-  renderWord();
-  wordSheet.classList.remove("sheet-backdrop--out");
-  wordSheet.hidden = false;
-  haptic("light");
-  wordCall()
-    .then((state) => {
-      word.state = state || { offline: true };
-      renderWord();
-    })
-    .catch(() => {
-      word.state = { offline: true };
-      renderWord();
-    });
-}
-
-function closeWord() {
-  const sheet = wordSheet;
-  if (!sheet || sheet.hidden || sheet.classList.contains("sheet-backdrop--out")) return;
-  haptic("light");
-  sheet.classList.add("sheet-backdrop--out");
-  setTimeout(() => {
-    sheet.hidden = true;
-    sheet.classList.remove("sheet-backdrop--out");
-  }, 260);
-}
-
-function wordRow(letters, marks, length, fresh) {
-  const row = el("div", "word-row");
-  row.style.setProperty("--n", length);
-  for (let i = 0; i < length; i++) {
-    const tile = el("span", "word-tile", letters[i] || "");
-    if (marks) tile.classList.add(`word-tile--${marks[i]}`);
-    else if (letters[i]) tile.classList.add("word-tile--typed");
-    if (fresh) {
-      tile.classList.add("word-tile--flip");
-      tile.style.setProperty("--i", i);
-    }
-    row.append(tile);
-  }
-  return row;
-}
-
-function wordType(letter) {
-  const state = word.state;
-  if (!state || word.busy || state.winner || !state.left) return;
-  if (letter === "⌫") word.typed = word.typed.slice(0, -1);
-  else if (word.typed.length < state.length) word.typed += letter;
-  else return;
-  haptic("light");
-  renderWord();
-}
-
-async function wordSubmit() {
-  const state = word.state;
-  if (!state || word.busy || word.typed.length !== state.length) return;
-  word.busy = true;
-  renderWord();
-  try {
-    const next = await wordCall(word.typed);
-    if (next) {
-      const errors = {
-        limit: t("На сегодня попытки кончились — приходите завтра"),
-        repeat: t("Это слово вы уже пробовали"),
-        solved: t("Слово уже угадали — вас опередили"),
-        length: t("Не та длина слова"),
-      };
-      if (next.error) toast(errors[next.error] || t("Не получилось, попробуйте ещё раз"));
-      else {
-        word.fresh = next.guesses.length - 1;
-        word.typed = "";
-        haptic(next.winner?.me ? "success" : "light");
-        if (next.winner?.me) setTimeout(showConfetti, 900);
-      }
-      word.state = next;
-    } else toast(t("Не получилось, попробуйте ещё раз"));
-  } catch {
-    toast(t("Нет связи — попытка не засчитана"));
-  }
-  word.busy = false;
-  renderWord();
-  word.fresh = -1;
-}
-
-function renderWord() {
-  if (!wordSheet) return;
-  const note = wordSheet.querySelector(".word-note");
-  const body = wordSheet.querySelector(".word-body");
-  const state = word.state;
-  note.textContent = t("Первый угадавший забирает корону себе и группе");
-  if (!tg?.initData) return body.replaceChildren(el("p", "empty", t("Игра работает только в Telegram")));
-  if (!state) return body.replaceChildren(el("p", "empty", t("Загружаем…")));
-  if (state.offline) return body.replaceChildren(el("p", "empty", t("Не удалось загрузить игру — проверьте связь")));
-  if (state.empty) return body.replaceChildren(el("p", "empty", t("Слово на эту неделю ещё не загадано")));
-
-  const nodes = [];
-  const info = el("div", "word-info");
-  info.append(
-    el("span", "word-chip", t("{n} букв", { n: state.length })),
-    ...(state.hint ? [el("span", "word-chip word-chip--hint", state.hint)] : []),
-    el("span", "word-chip", t("играют: {n}", { n: state.people }))
-  );
-  nodes.push(info);
-
-  if (state.winner) {
-    const done = el("div", "word-done");
-    done.append(
-      el("div", "word-done-crown", "👑"),
-      el("div", "word-done-word", state.winner.word),
-      el(
-        "div",
-        "word-done-who",
-        state.winner.me
-          ? t("Вы угадали первыми! Корона у вас и вашей группы на неделю.")
-          : t("Первым угадал(а) {name}, {group}. Корона у этой группы на неделю.", { name: state.winner.name, group: state.winner.group })
-      ),
-      el("div", "word-done-next", t("Новое слово — в понедельник в 12:00"))
-    );
-    nodes.push(done);
-  }
-
-  const board = el("div", "word-board");
-  state.guesses.forEach((g, i) => board.append(wordRow(g.guess, g.marks, state.length, i === word.fresh)));
-  if (!state.winner && state.left) board.append(wordRow(word.typed, null, state.length, false));
-  nodes.push(board);
-
-  if (!state.winner) {
-    nodes.push(
-      el(
-        "p",
-        "word-left",
-        state.left
-          ? t("Сегодня осталось попыток: {n} из {max}", { n: state.left, max: state.perDay })
-          : t("На сегодня попытки кончились — приходите завтра")
-      )
-    );
-    if (state.left) {
-      // Цвет клавиши — лучшее, что про букву уже известно.
-      const known = {};
-      const rank = { g: 3, y: 2, x: 1 };
-      for (const g of state.guesses) {
-        [...g.guess].forEach((letter, i) => {
-          if ((rank[g.marks[i]] || 0) > (rank[known[letter]] || 0)) known[letter] = g.marks[i];
-        });
-      }
-      const keys = el("div", "word-keys");
-      WORD_KEYS.forEach((line, n) => {
-        const row = el("div", "word-keyrow");
-        for (const letter of line) {
-          const key = el("button", known[letter] ? `word-key word-key--${known[letter]}` : "word-key", letter);
-          key.type = "button";
-          key.addEventListener("click", () => wordType(letter));
-          row.append(key);
-        }
-        if (n === 2) {
-          const back = el("button", "word-key word-key--wide", "⌫");
-          back.type = "button";
-          back.addEventListener("click", () => wordType("⌫"));
-          row.append(back);
-        }
-        keys.append(row);
-      });
-      const send = el("button", "primary word-send", word.busy ? t("Проверяем…") : t("Проверить"));
-      send.type = "button";
-      send.disabled = word.busy || word.typed.length !== state.length;
-      send.addEventListener("click", wordSubmit);
-      nodes.push(keys, send);
-    }
-  }
-  nodes.push(el("p", "word-fine", t("🟩 буква на месте · 🟨 есть в слове, но не здесь · ⬜ такой буквы нет. Три попытки в день, Ё = Е.")));
-  body.replaceChildren(...nodes);
-  // Свежая строка и поле ввода — в поле зрения.
-  board.lastElementChild?.scrollIntoView({ block: "nearest" });
 }
 
 /* ---------- Когда пересечься ---------- */
@@ -6039,18 +5808,6 @@ function initMenu() {
     if (item.dataset.menu === "absences") openAbsences();
     if (item.dataset.menu === "semester") openSemester();
     if (item.dataset.menu === "meet") openMeet();
-    if (item.dataset.menu === "word") openWord();
-  });
-  if (tenantHas("word") && !pop.querySelector('[data-menu="word"]')) {
-    const item = el("button");
-    item.type = "button";
-    item.dataset.menu = "word";
-    item.append(el("span", "", "🔤"), el("span", "", t("Слово недели")));
-    pop.prepend(item);
-  }
-  // Корона у названия группы — тоже вход в игру.
-  els.currentGroup?.addEventListener("click", () => {
-    if (document.body.classList.contains("word-crown")) openWord();
   });
   if (!pop.querySelector('[data-menu="meet"]')) {
     const item = el("button");

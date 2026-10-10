@@ -6,7 +6,6 @@
     "path": "",
     "features": [
       "mfk",
-      "word",
       "emails"
     ]
   },
