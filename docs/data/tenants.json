@@ -7,14 +7,16 @@
     "features": [
       "mfk",
       "emails"
-    ]
+    ],
+    "short": "ФГП"
   },
   {
     "id": "msu-ffm",
     "university": "МГУ",
     "faculty": "Факультет фундаментальной медицины",
     "path": "msu-ffm",
-    "features": []
+    "features": [],
+    "short": "ФФМ"
   },
   {
     "id": "rgu-kosygina-kult",
@@ -28,7 +30,8 @@
     "university": "МГУ",
     "faculty": "Механико-математический факультет",
     "path": "msu-mm",
-    "features": []
+    "features": [],
+    "short": "Мехмат"
   },
   {
     "id": "tgmu-vl-stom",
@@ -48,7 +51,8 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 55
-    }
+    },
+    "short": "МО (Дип)"
   },
   {
     "id": "msal-orenburg-nb",
@@ -63,7 +67,8 @@
     "university": "МГУ",
     "faculty": "Химический факультет",
     "path": "msu-chem",
-    "features": []
+    "features": [],
+    "short": "Химфак"
   },
   {
     "id": "msal-orenburg-jur",
@@ -83,7 +88,8 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 24
-    }
+    },
+    "short": "МО"
   },
   {
     "id": "mgimo-meo",
@@ -95,7 +101,8 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 25
-    }
+    },
+    "short": "МЭО"
   },
   {
     "id": "mgimo-mj",
@@ -107,7 +114,8 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 26
-    }
+    },
+    "short": "МЖ"
   },
   {
     "id": "mgimo-mp",
@@ -119,7 +127,8 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 27
-    }
+    },
+    "short": "МП"
   },
   {
     "id": "skfu-pyatigorsk-college",
@@ -138,7 +147,8 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 28
-    }
+    },
+    "short": "ИМТУР"
   },
   {
     "id": "mgimo-mb",
@@ -150,7 +160,8 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 29
-    }
+    },
+    "short": "МБ"
   },
   {
     "id": "vmeda-ld",
@@ -169,7 +180,8 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 30
-    }
+    },
+    "short": "УП"
   },
   {
     "id": "mgimo-miep",
@@ -181,7 +193,8 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 31
-    }
+    },
+    "short": "МИЭП"
   },
   {
     "id": "mgimo-mag",
@@ -205,7 +218,8 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 41
-    }
+    },
+    "short": "МО (англ)"
   },
   {
     "id": "mgimo-meo-dip",
@@ -217,7 +231,8 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 53
-    }
+    },
+    "short": "МЭО (Дип)"
   },
   {
     "id": "mgimo-mp-dip",
@@ -229,7 +244,8 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 57
-    }
+    },
+    "short": "МП (Дип)"
   },
   {
     "id": "mgimo-up-dip",
@@ -241,7 +257,8 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 63
-    }
+    },
+    "short": "УП (Дип)"
   },
   {
     "id": "mgimo-imar",
@@ -253,7 +270,8 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 52
-    }
+    },
+    "short": "ИМАР"
   },
   {
     "id": "mgimo-imip",
@@ -265,7 +283,8 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 49
-    }
+    },
+    "short": "ИМиП"
   },
   {
     "id": "mgimo-eui",
@@ -277,6 +296,7 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 34
-    }
+    },
+    "short": "ЕУИ"
   }
 ]

@@ -3753,7 +3753,7 @@ function el(tag, className, text) {
 // приложение, и бот различают группы, не зная друг о друге ничего нового.
 const DEFAULT_TENANT = "msu-fgp";
 const TENANTS_KEY = "schedule.tenants";
-let TENANTS = [{ id: DEFAULT_TENANT, university: "МГУ", faculty: "Факультет глобальных процессов", path: "", features: ["mfk", "emails"] }];
+let TENANTS = [{ id: DEFAULT_TENANT, university: "МГУ", faculty: "Факультет глобальных процессов", path: "", features: ["mfk", "emails"], short: "ФГП" }];
 
 function tenantId() {
   try {
@@ -3931,7 +3931,8 @@ function fillTenants() {
     ...[...byUniversity].map(([university, list]) => {
       const box = document.createElement("optgroup");
       box.label = university;
-      box.append(...list.map((item) => new Option(item.faculty, item.id)));
+      // Сначала сокращение — по нему факультет и ищут глазами: «МЭО», «ФГП».
+      box.append(...list.map((item) => new Option(item.short ? `${item.short} — ${item.faculty}` : item.faculty, item.id)));
       return box;
     })
   );
