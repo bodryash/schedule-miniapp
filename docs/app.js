@@ -62,6 +62,20 @@ function translatePage() {
   }
 }
 const STORAGE_KEY = "schedule.prefs";
+
+// Шрифт цифр — дело вкуса и к расписанию не относится: хранится отдельно
+// от настроек группы и не сбрасывается при смене факультета.
+const DIGITS_KEY = "schedule.digits";
+const DIGITS = { tall: "Вытянутый", pixel: "Пиксельный", plain: "Обычный" };
+function digitsStyle() {
+  try {
+    const saved = localStorage.getItem(DIGITS_KEY);
+    return DIGITS[saved] ? saved : "tall";
+  } catch {
+    return "tall";
+  }
+}
+document.body.dataset.digits = digitsStyle();
 // Где живёт бот: свой сервер в России. Прежний адрес в Cloudflare остался
 // переходником для версий приложения, которые ещё лежат в кэше.
 const API_URL = "https://api.bodryash.ru";
@@ -3995,6 +4009,36 @@ function switchProfile(profile) {
   });
 }
 
+/** Выбор шрифта цифр: три плитки с живым примером времени. */
+function fillDigits() {
+  if (!els.picker) return;
+  let box = document.getElementById("digits");
+  if (!box) {
+    box = el("div", "profiles digits");
+    box.id = "digits";
+    (document.getElementById("profiles") || els.picker.querySelector(".bar")).after(box);
+  }
+  const row = el("div", "profiles-row");
+  for (const [id, title] of Object.entries(DIGITS)) {
+    const chip = el("button", id === digitsStyle() ? "chip chip--on digits-chip" : "chip digits-chip");
+    chip.type = "button";
+    chip.dataset.digits = id;
+    chip.append(el("span", "digits-sample", "09:00"), el("span", "digits-title", t(title)));
+    chip.addEventListener("click", () => {
+      haptic("light");
+      try {
+        localStorage.setItem(DIGITS_KEY, id);
+      } catch {
+        // Не сохранилось — выбор проживёт до закрытия.
+      }
+      document.body.dataset.digits = id;
+      fillDigits();
+    });
+    row.append(chip);
+  }
+  box.replaceChildren(el("div", "profiles-title", t("Шрифт цифр")), row);
+}
+
 /** Блок профилей вверху настроек. edit: { id } — открыто поле названия. */
 function fillProfiles(edit = null) {
   if (!els.picker) return;
@@ -4334,6 +4378,7 @@ function showPicker() {
   // Возвращаться некуда, пока группа не выбрана хотя бы раз.
   els.close.hidden = !activeGroup();
   fillProfiles();
+  fillDigits();
   fillTenants();
   // Межфакультетские курсы — только там, где они есть.
   if (els.mfkRow) els.mfkRow.style.display = tenantHas("mfk") ? "" : "none";

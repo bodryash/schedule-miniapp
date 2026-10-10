@@ -5467,3 +5467,76 @@ body::before {
   padding-bottom: 16px;
   margin-bottom: -8px;
 }
+
+/* --- Шрифты цифр: вытянутый и пиксельный, выбираются в настройках --- */
+@font-face {
+  font-family: "Bebas Neue";
+  src: url("fonts/bebas-neue.woff2") format("woff2");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Pixelify Sans";
+  src: url("fonts/pixelify.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+body[data-digits="tall"],
+.digits-chip[data-digits="tall"] {
+  --digits: "Bebas Neue", "Bahnschrift Condensed", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif;
+}
+
+body[data-digits="pixel"],
+.digits-chip[data-digits="pixel"] {
+  --digits: "Pixelify Sans", ui-monospace, monospace;
+}
+
+body[data-digits="plain"],
+.digits-chip[data-digits="plain"] {
+  --digits: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* У каждого шрифта свой рост: подгоняем, чтобы строка не прыгала. */
+body[data-digits="tall"] .day-num { font-size: 28px; font-weight: 400; letter-spacing: 0.02em; }
+body[data-digits="tall"] .card-start,
+body[data-digits="tall"] .card-end { font-size: 23px; font-weight: 400; letter-spacing: 0.03em; }
+body[data-digits="tall"] .week-time,
+body[data-digits="tall"] .week-slot { font-size: 1.15em; font-weight: 400; letter-spacing: 0.03em; }
+
+body[data-digits="pixel"] .day-num { font-size: 23px; font-weight: 600; }
+body[data-digits="pixel"] .card-start,
+body[data-digits="pixel"] .card-end { font-size: 18px; font-weight: 600; }
+
+body[data-digits="plain"] .day-num { font-size: 19px; }
+body[data-digits="plain"] .card-start,
+body[data-digits="plain"] .card-end { font-size: 16px; }
+
+.digits .profiles-row {
+  flex-wrap: nowrap;
+}
+
+.profiles .digits-chip {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 6px 8px;
+  border-radius: 14px;
+}
+
+.digits-sample {
+  font-family: var(--digits);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.digits-chip[data-digits="tall"] .digits-sample { font-size: 26px; letter-spacing: 0.03em; }
+.digits-chip[data-digits="plain"] .digits-sample { font-size: 19px; font-weight: 700; line-height: 26px; }
+.digits-chip[data-digits="pixel"] .digits-sample { font-weight: 600; line-height: 26px; }
+
+.digits-title {
+  font-size: 11px;
+  opacity: 0.75;
+}
