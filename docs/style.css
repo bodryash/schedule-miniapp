@@ -5853,3 +5853,35 @@ body[data-head="pixel"] .splash-day {
 .profiles-title--next {
   margin-top: 14px;
 }
+
+/* --- Значок перелетает с заставки на экран свободного дня --- */
+.free-fly {
+  position: fixed;
+  z-index: 95;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* Пока значок в полёте, его место на экране пусто, а круг и искры ждут посадки. */
+.free-day--await .free-day-emoji {
+  visibility: hidden;
+  animation: none;
+}
+
+.free-day--await .free-day-ring,
+.free-day--await .free-day-spark {
+  animation-play-state: paused;
+}
+
+.free-day--landed .free-day-emoji {
+  animation: free-bob 3.6s ease-in-out infinite;
+}
+
+/* Заставка свободного дня теперь просто тает: значок улетает сам. */
+.splash--free.splash--gone {
+  clip-path: none;
+  animation: splash-melt 460ms var(--ease-soft) forwards;
+}

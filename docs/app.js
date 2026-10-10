@@ -3812,13 +3812,28 @@ async function restartWith(title, sub, next, apply) {
   apply();
   // Расписание нового факультета успеет лечь в кэш, пока видна плашка:
   // после перезапуска оно откроется сразу. Сеть молчит — не ждём дольше 3 с.
-  const warm = fetch(`data/${next.path ? `${next.path}/` : ""}schedule.json`, { cache: "no-cache" }).catch(() => null);
+  //
+  // Самое долгое при перезапуске — не расписание, а сама страница: пока она
+  // и скрипт Telegram не придут из сети, экран пустой и чёрный. Поэтому всё
+  // это забираем заранее, под плашкой, и переходим по тому же адресу, что
+  // только что скачали: страница встаёт из кэша, а не из сети. Обычная
+  // перезагрузка так не умеет — она перепроверяет каждый файл заново.
+  const url = new URL(location.href);
+  url.searchParams.set("s", Date.now().toString(36));
+  const quiet = (request) => request.catch(() => null);
+  const folder = `data/${next.path ? `${next.path}/` : ""}`;
+  const warm = Promise.all([
+    quiet(fetch(url.href)),
+    quiet(fetch("https://telegram.org/js/telegram-web-app.js", { mode: "no-cors" })),
+    quiet(fetch(`${folder}schedule.json`, { cache: "no-cache" })),
+    quiet(fetch("data/tenants.json", { cache: "no-cache" })),
+  ]);
   const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  await Promise.all([pause(650), Promise.race([warm, pause(3000)])]);
+  await Promise.all([pause(900), Promise.race([warm, pause(6000)])]);
   haptic("success");
   cover.classList.add("switch--done");
   await pause(260);
-  location.reload();
+  location.replace(url.href);
 }
 
 /**
@@ -7039,17 +7054,16 @@ function dropSplash() {
   // Свободный день: заставка не складывается в пустую линию, а тает, и
   // в этот же момент на экране заново собирается сцена «пар нет» — раньше
   // она успевала отыграть под заставкой, и открывалась уже застывшей.
-  if (free) {
-    // Заставка стягивается в точку — туда, где стоял значок. Под ней в это
-    // время заново собирается экран «пар нет».
-    const emoji = splash.querySelector(".splash-free-emoji")?.getBoundingClientRect();
-    if (emoji) {
-      splash.style.setProperty("--iris-x", `${emoji.left + emoji.width / 2}px`);
-      splash.style.setProperty("--iris-y", `${emoji.top + emoji.height / 2}px`);
-    }
-    setTimeout(() => {
-      if (els.lessons?.querySelector(".free-day")) els.lessons.replaceChildren(renderFreeDay());
-    }, 240);
+  if (free && els.lessons?.querySelector(".free-day")) {
+    // Значок не исчезает вместе с заставкой, а переезжает на своё место на
+    // экране «пар нет»: заставка тает, он летит, сцена собирается вокруг.
+    const scene = renderFreeDay();
+    scene.classList.add("free-day--await");
+    els.lessons.replaceChildren(scene);
+    const from = splash.querySelector(".splash-free-emoji");
+    const to = scene.querySelector(".free-day-emoji");
+    if (from && to) flyEmoji(from, to, scene);
+    else scene.classList.remove("free-day--await");
   }
   splash.classList.add("splash--gone");
   setTimeout(() => splash.remove(), 700);
@@ -7058,6 +7072,47 @@ function dropSplash() {
     celebrateEvent();
     afterSplashQueue.splice(0).forEach((fn) => fn());
   }, 450);
+}
+
+/** Перелёт значка с заставки на экран: один и тот же предмет, а не два. */
+function flyEmoji(from, to, scene) {
+  const a = from.getBoundingClientRect();
+  const b = to.getBoundingClientRect();
+  const fly = el("span", "free-fly", from.textContent);
+  fly.style.left = `${a.left}px`;
+  fly.style.top = `${a.top}px`;
+  fly.style.width = `${a.width}px`;
+  fly.style.height = `${a.height}px`;
+  fly.style.fontSize = getComputedStyle(from).fontSize;
+  document.body.append(fly);
+  from.style.visibility = "hidden";
+  const dx = b.left + b.width / 2 - (a.left + a.width / 2);
+  const dy = b.top + b.height / 2 - (a.top + a.height / 2);
+  const scale = b.height / a.height || 1;
+  let landed = false;
+  const land = () => {
+    if (landed) return;
+    landed = true;
+    fly.remove();
+    scene.classList.remove("free-day--await");
+    scene.classList.add("free-day--landed");
+    haptic("light");
+  };
+  if (!fly.animate) return land();
+  // Страховка: если экран в этот момент не рисуется, анимация стоит — и
+  // значок иначе завис бы посреди экрана.
+  setTimeout(land, 900);
+  // Летит по дуге: сначала чуть приподнимается и растёт, потом садится.
+  fly
+    .animate(
+      [
+        { transform: "none" },
+        { transform: `translate(${dx * 0.45}px, ${dy * 0.3 - 26}px) scale(${scale * 1.18}) rotate(-8deg)`, offset: 0.45 },
+        { transform: `translate(${dx}px, ${dy}px) scale(${scale})` },
+      ],
+      { duration: 680, easing: "cubic-bezier(0.45, 0, 0.2, 1)", fill: "forwards" }
+    )
+    .finished.then(land, land);
 }
 
 /* ---------- Запуск ---------- */
