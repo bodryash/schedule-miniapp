@@ -289,7 +289,10 @@ function lessonsOn(file, date, cancels = []) {
   const parity = parityOf(file.weeks, date);
   const changes = cancels.changes || [];
   const list = file.lessons
-    .filter((l) => l.day === day && (l.week === "all" || parity === null || l.week === parity))
+    // Пара по датам идёт только в свои числа; обычная — по чётности недели.
+    .filter((l) =>
+      l.dates ? l.dates.includes(iso(date)) : l.day === day && (l.week === "all" || parity === null || l.week === parity)
+    )
     .map((l) => withChange(file, changes, iso(date), l))
     .sort((a, b) => a.slot - b.slot);
 
@@ -533,7 +536,42 @@ export async function shiftOf(groupId) {
   const tenant = tenants.find((t) => t.id === id.slice(0, slash));
   return Number.isFinite(tenant?.tz) ? tenant.tz - 3 : 0;
 }
-const loadGroup = (id) => loadJson(`groups/${encodeURIComponent(id)}.json`);
+// Расписания других факультетов весят до пары мегабайт: держим их в памяти
+// несколько минут, чтобы не качать заново на каждую букву запроса.
+const tenantFiles = new Map();
+const TENANT_TTL = 5 * 60 * 1000;
+
+function loadTenantSchedule(path) {
+  const kept = tenantFiles.get(path);
+  if (kept && Date.now() - kept.at < TENANT_TTL) return kept.file;
+  const file = loadJson(`${path}/schedule.json`);
+  tenantFiles.set(path, { at: Date.now(), file });
+  // Не загрузилось — не запоминаем неудачу.
+  file.catch(() => tenantFiles.delete(path));
+  return file;
+}
+
+/**
+ * Расписание одной группы. У ФГП оно лежит готовым файлом. У остальных
+ * факультетов отдельных файлов нет — вырезаем группу из общего расписания
+ * факультета: без этого карточки для них не собирались вовсе.
+ */
+async function loadGroup(id) {
+  const slash = String(id).indexOf("/");
+  if (slash < 0) return loadJson(`groups/${encodeURIComponent(id)}.json`);
+  const path = id.slice(0, slash);
+  const name = id.slice(slash + 1);
+  const all = await loadTenantSchedule(path);
+  const group = (all.groups || []).find((g) => g.id === name);
+  if (!group) throw new Error(`${id}: нет такой группы`);
+  return {
+    meta: all.meta,
+    weeks: all.weeks,
+    bells: all.bells,
+    group: { ...group, id, title: group.title || name },
+    lessons: all.lessons.filter((l) => l.group === name),
+  };
+}
 // Не загрузились переводы — карточка уйдёт с русскими названиями, но уйдёт.
 const loadSubjects = () => loadJson("subjects.json").catch(() => ({}));
 
