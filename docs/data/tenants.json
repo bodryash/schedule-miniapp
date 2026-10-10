@@ -49,5 +49,12 @@
       "base": "https://ruz.mgimo.ru",
       "faculty": 55
     }
+  },
+  {
+    "id": "msal-orenburg-nb",
+    "university": "МГЮА, Оренбургский институт",
+    "faculty": "Правовое обеспечение национальной безопасности",
+    "path": "msal-orenburg-nb",
+    "features": []
   }
 ]
