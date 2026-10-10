@@ -1351,6 +1351,56 @@ const THEME_HELP = [
   "/themes — кому что выдано",
 ].join("\n");
 
+/* ---------- Поделиться расписанием ---------- */
+
+// Настройки (вуз, группа, языки, МФК) не влезают в ссылку Telegram: там
+// 64 знака. Поэтому храним их у себя под коротким кодом, а в ссылке — код.
+const SHARE_PER_USER = 20;
+const SHARE_PREFS_MAX = 3000;
+
+function shareCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return [...bytes].map((b) => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
+}
+
+async function shareSave(env, body) {
+  const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+  if (!user?.id) return { ok: false, error: "no user" };
+  if (!body.prefs || typeof body.prefs !== "object" || Array.isArray(body.prefs)) return { ok: false, error: "no prefs" };
+  const prefs = JSON.stringify(body.prefs);
+  if (prefs.length > SHARE_PREFS_MAX) return { ok: false, error: "too big" };
+  const name = String(body.name || "").replace(/\s+/g, " ").trim().slice(0, 24);
+  const code = shareCode();
+  await env.STATS.batch([
+    env.STATS.prepare("INSERT INTO shares (code, owner, name, prefs, created) VALUES (?, ?, ?, ?, ?)").bind(
+      code,
+      user.id,
+      name,
+      prefs,
+      new Date().toISOString()
+    ),
+    // У человека остаются последние ссылки: старые перестают работать.
+    env.STATS.prepare(
+      `DELETE FROM shares WHERE owner = ?1 AND code NOT IN
+         (SELECT code FROM shares WHERE owner = ?1 ORDER BY created DESC LIMIT ?2)`
+    ).bind(user.id, SHARE_PER_USER),
+  ]);
+  return { ok: true, code };
+}
+
+async function shareLoad(env, code) {
+  if (!/^[a-z0-9]{8}$/.test(code || "")) return { ok: false, error: "bad code" };
+  const row = await env.STATS.prepare("SELECT name, prefs FROM shares WHERE code = ?").bind(code).first();
+  if (!row) return { ok: false, error: "not found" };
+  let prefs = null;
+  try {
+    prefs = JSON.parse(row.prefs);
+  } catch {
+    return { ok: false, error: "broken" };
+  }
+  return { ok: true, name: row.name, prefs };
+}
+
 /* ---------- Удаление своих данных ---------- */
 
 const FORGET_HELP = [
@@ -1382,6 +1432,7 @@ async function forgetUser(env, userId) {
     run("DELETE FROM comments WHERE tg_id = ?", id),
     run("DELETE FROM comment_reports WHERE tg_id = ?", id),
     run("DELETE FROM clicker WHERE user_id = ?", id),
+    run("DELETE FROM shares WHERE owner = ?", id),
     run("DELETE FROM word_guesses WHERE user_id = ?", id),
     run("UPDATE word_wins SET name = '', user_id = 0 WHERE user_id = ?", id),
     run("DELETE FROM starostas WHERE tg_id = ?", id),
@@ -2668,6 +2719,26 @@ export default {
       });
     }
 
+    if (url.pathname === "/share" && (request.method === "POST" || request.method === "GET")) {
+      let result;
+      try {
+        result =
+          request.method === "POST"
+            ? await shareSave(env, JSON.parse(await request.text()))
+            : await shareLoad(env, url.searchParams.get("code"));
+      } catch {
+        result = { ok: false, error: "bad request" };
+      }
+      return new Response(JSON.stringify(result), {
+        status: result.ok ? 200 : 400,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "no-store",
+        },
+      });
+    }
+
     if (url.pathname === "/reminders" && request.method === "POST") {
       let result;
       try {
@@ -2961,7 +3032,24 @@ export default {
       });
     }
 
-    if (message && text.startsWith("/start")) {
+    // Пришли по ссылке «поделиться расписанием»: открываем приложение сразу
+    // с кодом — там предложат добавить чужое расписание отдельным профилем.
+    const shared = message && text.match(/^\/start(?:@\w+)?\s+p_([a-z0-9]{8})$/);
+    if (shared) {
+      const found = await shareLoad(env, shared[1]).catch(() => ({ ok: false }));
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: found.ok
+          ? `С вами поделились расписанием${found.name ? ` «${escape(found.name)}»` : ""}.\n\nОткройте — и оно добавится отдельным профилем, ваше останется на месте.`
+          : "Эта ссылка больше не работает — попросите прислать новую.",
+        parse_mode: "HTML",
+        reply_markup: found.ok
+          ? { inline_keyboard: [[{ text: "📅 Добавить расписание", web_app: { url: `${WEB_APP_URL}?cfg=${shared[1]}` } }]] }
+          : undefined,
+      });
+    }
+
+    if (message && text.startsWith("/start") && !shared) {
       // Китайский и корейский — сами по языку Telegram. Английский только
       // подсказкой: многие русские студенты держат Telegram на английском.
       const code = String(message.from?.language_code || "").toLowerCase();

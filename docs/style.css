@@ -5885,3 +5885,10 @@ body[data-head="pixel"] .splash-day {
   clip-path: none;
   animation: splash-melt 460ms var(--ease-soft) forwards;
 }
+
+.profiles .chip--share {
+  border-color: transparent;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}

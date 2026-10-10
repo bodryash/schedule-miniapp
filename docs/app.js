@@ -3820,6 +3820,8 @@ async function restartWith(title, sub, next, apply) {
   // перезагрузка так не умеет — она перепроверяет каждый файл заново.
   const url = new URL(location.href);
   url.searchParams.set("s", Date.now().toString(36));
+  // Код «поделились расписанием» уже сработал — второй раз не предлагаем.
+  url.searchParams.delete("cfg");
   const quiet = (request) => request.catch(() => null);
   const folder = `data/${next.path ? `${next.path}/` : ""}`;
   const warm = Promise.all([
@@ -4028,6 +4030,80 @@ function switchProfile(profile) {
   });
 }
 
+const SHARE_URL = `${API_URL}/share`;
+const BOT_LINK = "https://t.me/FGPshedulebot";
+
+/** Настройки без личного: напоминания у каждого свои. */
+function shareablePrefs(value) {
+  const { remindMorning, remindBefore, remindAsked, ...rest } = value || {};
+  return rest;
+}
+
+/**
+ * Поделиться расписанием: настройки уходят боту, тот даёт короткий код, и в
+ * Telegram открывается обычное «переслать» со ссылкой. Друг нажимает — и
+ * получает это расписание отдельным профилем.
+ */
+async function shareSchedule(button) {
+  if (button.disabled) return;
+  button.disabled = true;
+  haptic("light");
+  const store = readProfiles();
+  const current = store.list.find((profile) => profile.id === store.active);
+  const name = current?.name || activeGroup()?.title || "";
+  try {
+    const res = await fetch(SHARE_URL, {
+      method: "POST",
+      body: JSON.stringify({ initData: tg.initData, name, prefs: shareablePrefs(readPrefs()) }),
+    });
+    const body = await res.json();
+    if (!body.ok) throw new Error(body.error);
+    const link = `${BOT_LINK}?start=p_${body.code}`;
+    const text = t("Моё расписание — открой, и оно добавится к твоему");
+    const share = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+    if (tg?.openTelegramLink) tg.openTelegramLink(share);
+    else window.open(share, "_blank", "noopener");
+    haptic("success");
+  } catch {
+    haptic("error");
+    tg?.showAlert?.(t("Не получилось создать ссылку. Попробуйте ещё раз."));
+  }
+  button.disabled = false;
+}
+
+/** Открыли по ссылке друга: предлагаем добавить его расписание профилем. */
+async function acceptShared() {
+  const code = new URLSearchParams(location.search).get("cfg");
+  if (!/^[a-z0-9]{8}$/.test(code || "")) return;
+  let body = null;
+  try {
+    body = await (await fetch(`${SHARE_URL}?code=${code}`)).json();
+  } catch {
+    return;
+  }
+  if (!body?.ok || !body.prefs) return;
+  const store = readProfiles();
+  if (store.list.length >= PROFILES_MAX) {
+    tg?.showAlert?.(t("Профилей уже максимум — удалите один в настройках и откройте ссылку снова."));
+    return;
+  }
+  const name = String(body.name || "").slice(0, 24) || t("Расписание друга");
+  const add = () => {
+    const fresh = readProfiles();
+    // Своё расписание не должно пропасть: если оно ещё не профиль — делаем.
+    if (!fresh.active && activeGroup() && fresh.list.length < PROFILES_MAX - 1) {
+      fresh.list.push({ id: `${Date.now().toString(36)}m`, name: t("Моё расписание"), prefs: readPrefs() });
+    }
+    const profile = { id: Date.now().toString(36), name, prefs: body.prefs };
+    fresh.list.push(profile);
+    writeProfiles(fresh);
+    switchProfile(profile);
+  };
+  const question = t("Добавить расписание «{name}» отдельным профилем?", { name });
+  if (tg?.showConfirm) tg.showConfirm(question, (yes) => yes && add());
+  else if (window.confirm(question)) add();
+}
+
 /** Выбор шрифта цифр: три плитки с живым примером времени. */
 function fillDigits() {
   if (!els.picker) return;
@@ -4102,6 +4178,12 @@ function fillProfiles(edit = null) {
       fillProfiles(edit && !edit.id ? null : { id: null });
     });
     row.append(add);
+  }
+  if (configured && tg?.initData) {
+    const share = el("button", "chip chip--share", t("↗ Поделиться"));
+    share.type = "button";
+    share.addEventListener("click", () => shareSchedule(share));
+    row.append(share);
   }
   nodes.push(row);
 
@@ -7344,6 +7426,8 @@ async function init() {
   }
   // Расписание уже нарисовано под заставкой — теперь она может собраться и уйти.
   finishSplash();
+  // Пришли по ссылке «поделиться» — спросим, когда заставка уйдёт.
+  setTimeout(acceptShared, SPLASH_MIN + 600);
 }
 
 init();
