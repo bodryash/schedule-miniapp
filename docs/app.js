@@ -1223,7 +1223,7 @@ function reminderPlan() {
       const date = dateOfDay(day, week);
       const iso = isoDate(date);
       if (iso < isoDate(new Date())) continue;
-      for (const lesson of lessonsForDay(group, day, week)) {
+      for (const lesson of ownLessonsForDay(group, day, week)) {
         if (lessonCancelOn(lesson, iso)) continue;
         const time = timesOf(lesson, bells);
         if (!time) continue;
@@ -1258,8 +1258,10 @@ function reminderPlan() {
   return blocks;
 }
 
-function sendReminderSettings() {
+async function sendReminderSettings() {
   if (!tg?.initData) return;
+  // Без списка МФК в план ушла бы безымянная строка вместо своих курсов.
+  await loadMfk();
   const group = activeGroup();
   if (!group || group.teacher) return;
   const body = {
@@ -1559,6 +1561,8 @@ function renderMfkPicker() {
       prefs = { ...prefs, mfk: [...next] };
       savePrefs(prefs);
       renderMfkPicker();
+      // Бот напоминает по присланному плану — выбор курса должен в него попасть.
+      sendReminderSettings();
     });
     return chip;
   });
@@ -2074,7 +2078,7 @@ function showWeek() {
   const nodes = [];
   for (let day = 1; day <= 6; day++) {
     const date = dateOfDay(day, selectedWeek);
-    const lessons = lessonsForDay(group, day, selectedWeek);
+    const lessons = ownLessonsForDay(group, day, selectedWeek);
     const column = el("div", isoDate(date) === todayIso ? "week-day week-day--today" : "week-day");
     const head = el("div", "week-head");
     head.append(el("span", "week-name", DAYS[day - 1]), el("span", "week-date", SHORT_DATE.format(date)));
@@ -2089,12 +2093,17 @@ function showWeek() {
     // В неделе важен объём дня, а не подробности: одна строка на пару.
     // Языки идут девятью потоками в одной паре — их сводим в «+8».
     const bySlot = new Map();
+    let own = 0;
     for (const lesson of lessons) {
-      if (!bySlot.has(lesson.slot)) bySlot.set(lesson.slot, []);
-      const subjects = bySlot.get(lesson.slot);
+      // Свой МФК — отдельной строкой сразу после пары, на время которой он
+      // приходится: в «+1» к чужому предмету его было не разглядеть.
+      const key = lesson.type === "МФК" ? lesson.slot + 0.5 + own++ / 100 : lesson.slot;
+      if (!bySlot.has(key)) bySlot.set(key, []);
+      const subjects = bySlot.get(key);
       if (!subjects.some((l) => l.subject === lesson.subject)) subjects.push(lesson);
     }
-    for (const [slot, entries] of [...bySlot].sort((a, b) => a[0] - b[0])) {
+    for (const [key, entries] of [...bySlot].sort((a, b) => a[0] - b[0])) {
+      const slot = Math.floor(key);
       const lesson = entries[0];
       const extra = entries.length - 1;
       const time = timesOf(lesson, bells);
@@ -4234,6 +4243,19 @@ function lessonsForDay(group, day, week) {
   return list.map((l) => withChange(l, dateOfDay(day, week))).sort((a, b) => a.slot - b.slot);
 }
 
+/**
+ * Пары дня так, как их видит сам человек: вместо безымянной строки
+ * «Межфакультетские учебные курсы МГУ» — его собственные курсы со своим
+ * временем. Раньше подстановка жила только на экране дня, и неделя,
+ * напоминания и «Когда пересечься» про выбранные МФК не знали.
+ */
+function ownLessonsForDay(group, day, week) {
+  const list = lessonsForDay(group, day, week);
+  const mine = group.teacher ? [] : mfkLessons(day);
+  if (!mine.length) return list;
+  return [...list.filter((lesson) => lesson.subject !== MFK), ...mine].sort((a, b) => a.slot - b.slot);
+}
+
 /* ---------- Экран расписания ---------- */
 
 // Куда перелистнули: дата в шапке уезжает в ту же сторону, что и страница.
@@ -4406,7 +4428,7 @@ function renderDayEnd() {
     if (index >= DAY_COUNT) break;
     const week = Math.floor(index / DAYS.length);
     const day = (index % DAYS.length) + 1;
-    const lessons = lessonsForDay(group, day, week).filter(
+    const lessons = ownLessonsForDay(group, day, week).filter(
       (lesson) => !lessonCancelOn(lesson, isoDate(dateOfDay(day, week)))
     );
     if (!lessons.length) continue;
@@ -5286,7 +5308,7 @@ function meetBusy(lessons) {
 
 function meetDay(group, friend, day, week) {
   const parity = weekParity(data.weeks, week);
-  const mine = meetBusy(lessonsForDay(group, day, week).filter((l) => !lessonCancelOn(l, isoDate(dateOfDay(day, week)))));
+  const mine = meetBusy(ownLessonsForDay(group, day, week).filter((l) => !lessonCancelOn(l, isoDate(dateOfDay(day, week)))));
   const theirs = meetBusy(
     data.lessons.filter((l) => l.group === friend.id && l.day === day && onDate(l, parity, isoDate(dateOfDay(day, week))))
   );
@@ -6785,9 +6807,7 @@ const splashStarted = performance.now();
 function dayBlocks(group, day, week) {
   const date = dateOfDay(day, week);
   const bells = new Map(data.bells.map((b) => [b.n, b]));
-  let list = lessonsForDay(group, day, week);
-  const mine = group.teacher ? [] : mfkLessons(day);
-  if (mine.length) list = [...list.filter((lesson) => lesson.subject !== MFK), ...mine];
+  let list = ownLessonsForDay(group, day, week);
   list = list.filter((lesson) => !lessonCancelOn(lesson, isoDate(date))).sort((a, b) => a.slot - b.slot);
 
   const bySlot = new Map();

@@ -1033,7 +1033,7 @@ async function saveReminders(env, body) {
     .bind(user.id, String(body.group || ""), morning, before, new Date().toISOString(), shift)
     .run();
 
-  const plan = Array.isArray(body.plan) ? body.plan.slice(0, 120) : [];
+  const plan = Array.isArray(body.plan) ? body.plan.slice(0, 240) : [];
   const from = iso(today());
   const writes = [
     env.STATS.prepare("DELETE FROM reminder_plan WHERE tg_id = ? OR day < ?").bind(user.id, from),
