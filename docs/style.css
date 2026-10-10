@@ -5540,3 +5540,35 @@ body[data-digits="plain"] .card-end { font-size: 16px; }
   font-size: 11px;
   opacity: 0.75;
 }
+
+/* --- Вытянутый шрифт и в шапке: день и дата --- */
+@font-face {
+  font-family: "Oswald";
+  src: url("fonts/oswald-cyr.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: "Oswald";
+  src: url("fonts/oswald-latin.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212, U+2215;
+}
+
+/* У Bebas Neue нет кириллицы, поэтому слова набраны Oswald — того же
+   склада, узкий и высокий. Прописными он и выглядит как афишный Bebas. */
+body[data-digits="tall"] .bar--schedule .date {
+  font-family: "Oswald", "Bebas Neue", "Bahnschrift Condensed", "Roboto Condensed", system-ui, sans-serif;
+  font-size: 36px;
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  text-transform: uppercase;
+}
+
+body[data-digits="tall"] .bar--schedule .date {
+  height: 42px;
+  line-height: 42px;
+}

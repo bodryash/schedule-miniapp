@@ -4033,6 +4033,7 @@ function fillDigits() {
       }
       document.body.dataset.digits = id;
       fillDigits();
+      refitDate();
     });
     row.append(chip);
   }
@@ -4514,6 +4515,14 @@ function fitDateLabel(text) {
   const base = parseFloat(getComputedStyle(label).fontSize);
   label.style.fontSize = `${Math.max(17, Math.floor((base * room) / need))}px`;
 }
+
+/** Шрифт шапки сменился или догрузился — ширина даты уже другая. */
+function refitDate() {
+  const text = els.dateLabel?.dataset.target || els.dateLabel?.textContent;
+  if (text) fitDateLabel(text);
+}
+document.fonts?.ready.then(refitDate);
+document.fonts?.addEventListener?.("loadingdone", refitDate);
 
 function setDateLabel(text, direction) {
   const label = els.dateLabel;
