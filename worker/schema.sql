@@ -381,3 +381,15 @@ CREATE TABLE IF NOT EXISTS reminder_sent (
   key   TEXT NOT NULL,     -- 2026-09-23|morning или 2026-09-23|09:00
   PRIMARY KEY (tg_id, key)
 );
+
+-- Расписание, которым поделились: настройки под коротким кодом. Ссылка с
+-- кодом открывает бота, тот — приложение, и настройки встают профилем.
+CREATE TABLE IF NOT EXISTS shares (
+  code    TEXT PRIMARY KEY,
+  owner   INTEGER NOT NULL,
+  name    TEXT NOT NULL DEFAULT '',
+  prefs   TEXT NOT NULL,
+  created TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS shares_owner ON shares (owner, created);
