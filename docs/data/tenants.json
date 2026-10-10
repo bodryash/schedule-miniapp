@@ -320,5 +320,13 @@
     "features": [],
     "short": "ИКМ",
     "tz": 4
+  },
+  {
+    "id": "msal-orenburg-jur-oz",
+    "university": "МГЮА, Оренбургский институт",
+    "faculty": "Юриспруденция (бакалавриат, очно-заочная)",
+    "path": "msal-orenburg-jur-oz",
+    "features": [],
+    "tz": 5
   }
 ]
