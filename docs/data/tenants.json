@@ -63,5 +63,12 @@
     "faculty": "Химический факультет",
     "path": "msu-chem",
     "features": []
+  },
+  {
+    "id": "msal-orenburg-jur",
+    "university": "МГЮА, Оренбургский институт",
+    "faculty": "Юриспруденция (бакалавриат)",
+    "path": "msal-orenburg-jur",
+    "features": []
   }
 ]
