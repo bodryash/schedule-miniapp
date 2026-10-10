@@ -311,5 +311,14 @@
       "faculty": "3"
     },
     "short": "ВШГА"
+  },
+  {
+    "id": "samgmu-ikm-lech",
+    "university": "СамГМУ",
+    "faculty": "Институт клинической медицины — Лечебное дело",
+    "path": "samgmu-ikm-lech",
+    "features": [],
+    "short": "ИКМ",
+    "tz": 4
   }
 ]
