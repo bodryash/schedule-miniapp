@@ -36,6 +36,8 @@ def main():
     parser.add_argument("--to", dest="end", required=True)
     parser.add_argument("--bells", required=True)
     parser.add_argument("--skip", default="", help="праздничные дни через запятую: в диапазонах их пропускаем")
+    parser.add_argument("--infer-types", action="store_true",
+                        help="вид занятия не указан: общее для нескольких групп — лекция, своё — семинар")
     args = parser.parse_args()
 
     start, end = date.fromisoformat(args.start), date.fromisoformat(args.end)
@@ -98,6 +100,27 @@ def main():
     if problems:
         print("\n".join(problems), file=sys.stderr)
         sys.exit(f"Ошибок: {len(problems)} — расписание не записано.")
+
+    if args.infer_types:
+        # В таких расписаниях лекцию читают потоку в одной аудитории, а семинар
+        # у каждой группы свой. Правило сверено с расписанием группы по датам,
+        # где вид занятия указан: совпали все 174 занятия.
+        from collections import Counter, defaultdict
+        shared = Counter()
+        for lesson in lessons:
+            for day in lesson["dates"]:
+                shared[(day, lesson["slot"], lesson["subject"], lesson["teacher"], lesson["room"])] += 1
+        split = []
+        for lesson in lessons:
+            if lesson["type"]:
+                split.append(lesson)
+                continue
+            kinds = defaultdict(list)
+            for day in lesson["dates"]:
+                together = shared[(day, lesson["slot"], lesson["subject"], lesson["teacher"], lesson["room"])] > 1
+                kinds["лекция" if together else "семинар"].append(day)
+            split += [{**lesson, "type": kind, "dates": sorted(days)} for kind, days in kinds.items()]
+        lessons = split
 
     groups = [{"id": name, "title": name, "course": args.course, "level": args.level} for name in names.values()]
     weeks, cursor, parity = [], start, "odd"

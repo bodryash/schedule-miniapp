@@ -71,14 +71,6 @@
     "short": "Химфак"
   },
   {
-    "id": "msal-orenburg-jur",
-    "university": "МГЮА, Оренбургский институт",
-    "faculty": "Юриспруденция (бакалавриат)",
-    "path": "msal-orenburg-jur",
-    "features": [],
-    "tz": 5
-  },
-  {
     "id": "mgimo-mo",
     "university": "МГИМО",
     "faculty": "Факультет международных отношений",
@@ -348,5 +340,13 @@
     "faculty": "Факультет управления и политики",
     "path": "mgimo-odin-up",
     "features": []
+  },
+  {
+    "id": "msal-orenburg-jur",
+    "university": "МГЮА, Оренбургский институт",
+    "faculty": "Юриспруденция (бакалавриат)",
+    "path": "msal-orenburg-jur",
+    "features": [],
+    "tz": 5
   }
 ]
