@@ -3182,6 +3182,17 @@ ${invite}`,
       if (words || photo) {
         await Promise.resolve(globalThis.SCHEDULE_SAVE_NOTE(message.from, words, Boolean(photo || message.document))).catch(() => {});
       }
+      // Пишут «расписание», «пары на завтра» — ждут, что бот его покажет.
+      // Молчание выглядело как поломка: отвечаем кнопкой, которая его открывает.
+      const asksSchedule =
+        /^\s*(?:расписани[ея]|пары|какие\s+пары|что\s+(?:завтра|сегодня))(?:\s+(?:на\s+)?(?:завтра|сегодня|недел[юя]))?[\s?!.]*$/i;
+      if (!photo && !message.document && asksSchedule.test(words)) {
+        await callTelegram(env.BOT_TOKEN, "sendMessage", {
+          chat_id: message.chat.id,
+          text: "Расписание открывается кнопкой ниже 👇\n\nЧтобы получать пары на день сообщением, включите в приложении «Утром в 7:30» — в настройках, раздел напоминаний.",
+          reply_markup: { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] },
+        }).catch(() => {});
+      }
       if (photo) {
         await callTelegram(env.BOT_TOKEN, "sendMessage", {
           chat_id: message.chat.id,
