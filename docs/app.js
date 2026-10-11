@@ -3905,6 +3905,18 @@ function fillTenants() {
       el("p", "", t("Расписания вашего факультета пока нет. Пришлите его боту — файлом или ссылкой, с названием вуза и факультета. Добавим и сообщим.")),
       send
     );
+    // Сначала вуз, потом факультет: одним списком на сотню строк свой
+    // факультет приходилось выискивать пролистыванием.
+    const uni = el("select");
+    uni.id = "tenant-uni";
+    uni.addEventListener("change", () => {
+      haptic("light");
+      hint.hidden = uni.value !== "";
+      fillFaculties(uni.value);
+      const list = TENANTS.filter((item) => item.university === uni.value);
+      // В вузе один факультет — выбирать нечего, переключаемся сразу.
+      if (list.length === 1 && list[0].id !== tenant().id) switchTenant(list[0]);
+    });
     select.addEventListener("change", () => {
       if (select.value === "") {
         hint.hidden = false;
@@ -3917,30 +3929,48 @@ function fillTenants() {
       // чистого листа, чем менять данные под работающим приложением.
       switchTenant(TENANTS.find((item) => item.id === select.value));
     });
-    row.append(el("span", "", t("Вуз и факультет")), select);
+    const uniRow = el("label");
+    uniRow.id = "tenant-uni-row";
+    uniRow.append(el("span", "", t("Вуз")), uni);
+    row.append(el("span", "", t("Факультет")), select);
     const anchor = document.getElementById("student-fields") || els.course.closest("label");
-    anchor.before(row, hint);
+    anchor.before(uniRow, row, hint);
   }
-  const select = row.querySelector("select");
-  const byUniversity = new Map();
-  for (const item of TENANTS) {
-    if (!byUniversity.has(item.university)) byUniversity.set(item.university, []);
-    byUniversity.get(item.university).push(item);
-  }
-  select.replaceChildren(
-    ...[...byUniversity].map(([university, list]) => {
-      const box = document.createElement("optgroup");
-      box.label = university;
-      // Сначала сокращение — по нему факультет и ищут глазами: «МЭО», «ФГП».
-      box.append(...list.map((item) => new Option(item.short ? `${item.short} — ${item.faculty}` : item.faculty, item.id)));
-      return box;
-    })
+  const uni = document.getElementById("tenant-uni");
+  const names = [...new Set(TENANTS.map((item) => item.university))];
+  // Свой вуз — первым, остальные по алфавиту.
+  const own = tenant().university;
+  names.sort((x, y) => (y === own) - (x === own) || x.localeCompare(y, "ru"));
+  uni.replaceChildren(
+    ...names.map((name) => new Option(`${name} · ${TENANTS.filter((item) => item.university === name).length}`, name)),
+    new Option(t("Моего вуза нет в списке…"), "")
   );
-  // Место под новые факультеты — в списке всегда, даже пока он один.
-  select.append(new Option(t("Моего факультета нет в списке…"), ""));
-  select.value = tenant().id;
+  uni.value = tenant().university;
+  fillFaculties(tenant().university);
   document.getElementById("tenant-hint").hidden = true;
   renderConsent();
+}
+
+/** Факультеты выбранного вуза — во второй список. */
+function fillFaculties(university) {
+  const select = document.getElementById("tenant");
+  const row = document.getElementById("tenant-row");
+  if (!select || !row) return;
+  const list = TENANTS.filter((item) => item.university === university);
+  row.hidden = !list.length;
+  const options = list
+    .slice()
+    .sort((x, y) => (x.short || x.faculty).localeCompare(y.short || y.faculty, "ru"))
+    // Сначала сокращение — по нему факультет и ищут глазами: «МЭО», «ФГП».
+    .map((item) => new Option(item.short ? `${item.short} — ${item.faculty}` : item.faculty, item.id));
+  const current = list.some((item) => item.id === tenant().id);
+  if (!current && list.length > 1) {
+    const ask = new Option(t("— выберите факультет —"), "?");
+    ask.disabled = true;
+    options.unshift(ask);
+  }
+  select.replaceChildren(...options, new Option(t("Моего факультета нет в списке…"), ""));
+  select.value = current ? tenant().id : list.length > 1 ? "?" : list[0]?.id || "";
 }
 
 /** Согласие на обработку данных — под кнопкой «Сохранить», со ссылкой на политику. */
