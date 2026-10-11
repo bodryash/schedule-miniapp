@@ -829,6 +829,109 @@ async function handleStarosta(env, text) {
   return `Готово: ${escape(personLabel(person))} — староста ${escape(group.title)}. Кнопка «＋ ДЗ» появится у него при следующем открытии расписания.`;
 }
 
+/**
+ * Заявка в старосты. Раньше человек писал «я староста», владелец выяснял
+ * группу и набирал команду руками. Теперь группу бот берёт из того, что
+ * человек сам выбрал в расписании, а владельцу приходит сообщение с двумя
+ * кнопками. Права появляются только после его «Назначить».
+ */
+async function requestStarosta(env, from) {
+  const open = { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] };
+  const noGroup = {
+    text: "Заявка подаётся на ту группу, которая выбрана у вас в расписании.\n\nОткройте расписание, выберите в настройках свой вуз, факультет и группу — и напишите сюда «я староста» ещё раз.",
+    reply_markup: open,
+  };
+  const seen = await env.STATS.prepare(
+    "SELECT grp FROM people WHERE tg_id = ? AND grp IS NOT NULL AND grp != '' ORDER BY last DESC LIMIT 1"
+  )
+    .bind(from.id)
+    .first();
+  if (!seen?.grp || seen.grp.startsWith("преп:")) return noGroup;
+  const groups = await loadGroups().catch(() => []);
+  const group = groups.find((g) => g.id === seen.grp);
+  if (!group) return noGroup;
+
+  const already = await env.STATS.prepare("SELECT 1 AS yes FROM starostas WHERE grp = ? AND tg_id = ?")
+    .bind(group.id, from.id)
+    .first();
+  if (already) return { text: `Вы уже староста группы ${group.title}. Кнопка «＋ ДЗ» есть у пар в расписании.`, reply_markup: open };
+  const pending = await env.STATS.prepare(
+    "SELECT id FROM starosta_requests WHERE tg_id = ? AND grp = ? AND status = 'new'"
+  )
+    .bind(from.id, group.id)
+    .first();
+  if (pending) return { text: `Заявка на группу ${group.title} уже у владельца сервиса. Как только он ответит — напишу.` };
+
+  const name = [from.first_name, from.last_name].filter(Boolean).join(" ") || null;
+  await env.STATS.prepare(
+    "INSERT INTO starosta_requests (tg_id, grp, name, username, created) VALUES (?, ?, ?, ?, ?)"
+  )
+    .bind(from.id, group.id, name, from.username || null, new Date().toISOString())
+    .run();
+  const request = await env.STATS.prepare(
+    "SELECT id FROM starosta_requests WHERE tg_id = ? AND grp = ? AND status = 'new' ORDER BY id DESC LIMIT 1"
+  )
+    .bind(from.id, group.id)
+    .first();
+  const tenants = await loadTenants().catch(() => []);
+  const tenant = tenants.find((t) => t.id === group.tenant);
+  const where = tenant ? `${tenant.university} · ${tenant.short || tenant.faculty}` : "";
+  const others = await env.STATS.prepare("SELECT COUNT(*) AS n FROM starostas WHERE grp = ?").bind(group.id).first();
+  await callTelegram(env.BOT_TOKEN, "sendMessage", {
+    chat_id: env.OWNER_ID,
+    text: [
+      "<b>Заявка в старосты</b>",
+      "",
+      `${escape(personLabel({ username: from.username, name, tg_id: from.id }))}${name && from.username ? ` (${escape(name)})` : ""} · id <code>${from.id}</code>`,
+      `Группа: <b>${escape(group.title)}</b>${where ? ` — ${escape(where)}` : ""}`,
+      others?.n ? `В этой группе уже есть старост: ${others.n}.` : "В этой группе старост пока нет.",
+      "",
+      "Группа взята из того, что человек сам выбрал в расписании — подтверждений, что он староста, у бота нет.",
+    ].join("\n"),
+    parse_mode: "HTML",
+    reply_markup: {
+      inline_keyboard: [[
+        { text: "✅ Назначить", callback_data: `stok:${request.id}` },
+        { text: "❌ Отклонить", callback_data: `stno:${request.id}` },
+      ]],
+    },
+  });
+  return {
+    text: `Заявка отправлена: староста группы ${group.title}${where ? ` (${where})` : ""}.\n\nВладелец сервиса подтвердит — и у пар появится кнопка «＋ ДЗ». Если группа не та, смените её в настройках расписания и напишите «я староста» ещё раз.`,
+  };
+}
+
+/** Владелец нажал кнопку под заявкой. */
+async function decideStarosta(env, id, approve) {
+  const request = await env.STATS.prepare("SELECT * FROM starosta_requests WHERE id = ?").bind(id).first();
+  if (!request) return { note: "Заявка не найдена", line: "" };
+  if (request.status !== "new") return { note: "Уже обработано", line: "" };
+  const groups = await loadGroups().catch(() => []);
+  const title = groups.find((g) => g.id === request.grp)?.title || request.grp;
+  const who = personLabel(request);
+  if (approve) {
+    await env.STATS.batch([
+      env.STATS.prepare(
+        `INSERT INTO starostas (grp, tg_id, name, username, created) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(grp, tg_id) DO UPDATE SET name = excluded.name, username = excluded.username`
+      ).bind(request.grp, request.tg_id, request.name, request.username, new Date().toISOString()),
+      env.STATS.prepare("UPDATE starosta_requests SET status = 'ok' WHERE id = ?").bind(id),
+    ]);
+    await callTelegram(env.BOT_TOKEN, "sendMessage", {
+      chat_id: request.tg_id,
+      text: `Вас назначили старостой группы ${title} ✅\n\nОткройте расписание: у пар появилась кнопка «＋ ДЗ» — домашнее задание увидит вся группа.`,
+      reply_markup: { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] },
+    }).catch(() => null);
+    return { note: "Назначен", line: `✅ Назначен: ${escape(who)} — староста ${escape(title)}` };
+  }
+  await env.STATS.prepare("UPDATE starosta_requests SET status = 'no' WHERE id = ?").bind(id).run();
+  await callTelegram(env.BOT_TOKEN, "sendMessage", {
+    chat_id: request.tg_id,
+    text: `Заявку на старосту группы ${title} не подтвердили. Если это ошибка — напишите сюда, почему права нужны именно вам.`,
+  }).catch(() => null);
+  return { note: "Отклонено", line: `❌ Отклонено: ${escape(who)} — ${escape(title)}` };
+}
+
 async function handleUnstarosta(env, text) {
   const [, who, groupName] = text.trim().split(/\s+/);
   if (!who) return `Укажите человека.\n\n${STAROSTA_HELP}`;
@@ -1506,6 +1609,7 @@ async function forgetUser(env, userId) {
     run("DELETE FROM word_guesses WHERE user_id = ?", id),
     run("UPDATE word_wins SET name = '', user_id = 0 WHERE user_id = ?", id),
     run("DELETE FROM starostas WHERE tg_id = ?", id),
+    run("DELETE FROM starosta_requests WHERE tg_id = ?", id),
     run("DELETE FROM themes WHERE target = ?", `user:${id}`),
     run("DELETE FROM greetings WHERE target = ?", `user:${id}`),
     run("DELETE FROM notices WHERE grp = ?", `user:${id}`),
@@ -2956,6 +3060,32 @@ export default {
       return new Response("ok");
     }
 
+    // «Назначить» / «Отклонить» под заявкой в старосты.
+    const staff = update.callback_query?.data?.match(/^st(ok|no):(\d+)$/);
+    if (staff) {
+      const query = update.callback_query;
+      const owner = isOwner(env, query.from?.id);
+      const done = owner ? await decideStarosta(env, Number(staff[2]), staff[1] === "ok") : { note: "Недоступно", line: "" };
+      await callTelegram(env.BOT_TOKEN, "answerCallbackQuery", { callback_query_id: query.id, text: done.note });
+      if (owner && query.message) {
+        // Кнопки убираем, итог дописываем в то же сообщение: видно, что решено.
+        await callTelegram(env.BOT_TOKEN, "editMessageReplyMarkup", {
+          chat_id: query.message.chat.id,
+          message_id: query.message.message_id,
+          reply_markup: { inline_keyboard: [] },
+        }).catch(() => null);
+        if (done.line) {
+          await callTelegram(env.BOT_TOKEN, "sendMessage", {
+            chat_id: query.message.chat.id,
+            text: done.line,
+            parse_mode: "HTML",
+            reply_to_message_id: query.message.message_id,
+          }).catch(() => null);
+        }
+      }
+      return new Response("ok");
+    }
+
     const purge = update.callback_query?.data?.match(/^cmpurge:(\d+)$/);
     if (purge) {
       const query = update.callback_query;
@@ -3128,7 +3258,7 @@ export default {
       });
     }
 
-    if (message && text.startsWith("/start") && !shared) {
+    if (message && text.startsWith("/start") && !shared && !/^\/start(?:@\w+)?\s+starosta$/.test(text)) {
       // Китайский и корейский — сами по языку Telegram. Английский только
       // подсказкой: многие русские студенты держат Telegram на английском.
       const code = String(message.from?.language_code || "").toLowerCase();
@@ -3331,7 +3461,16 @@ ${invite}`,
     }
 
     // Назначать старост может только владелец.
-    if (message && (text.startsWith("/starosta") || text.startsWith("/unstarosta"))) {
+    // Студент просит права сам: командой, словами или по ссылке из приложения.
+    const wantsStarosta =
+      message &&
+      message.chat.type === "private" &&
+      !isOwner(env, message.chat.id) &&
+      (/^\/starosta(?:@\w+)?\s*$/.test(text) || /^\/start(?:@\w+)?\s+starosta$/.test(text) || /^\s*я\s+староста[\s.!)]*$/i.test(text));
+    if (wantsStarosta && message.from?.id) {
+      const answer = await requestStarosta(env, message.from).catch(() => ({ text: "Не получилось отправить заявку. Попробуйте ещё раз чуть позже." }));
+      await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, ...answer });
+    } else if (message && (text.startsWith("/starosta") || text.startsWith("/unstarosta"))) {
       let reply = "Команда недоступна.";
       if (isOwner(env, message.chat.id)) {
         reply = text.startsWith("/unstarosta")

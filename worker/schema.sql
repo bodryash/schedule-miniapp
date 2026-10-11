@@ -403,3 +403,16 @@ CREATE TABLE IF NOT EXISTS sources (
 );
 
 CREATE INDEX IF NOT EXISTS sources_label ON sources (label);
+
+-- Заявки в старосты: человек просит сам, владелец подтверждает кнопкой.
+CREATE TABLE IF NOT EXISTS starosta_requests (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  tg_id    INTEGER NOT NULL,
+  grp      TEXT NOT NULL,
+  name     TEXT,
+  username TEXT,
+  status   TEXT NOT NULL DEFAULT 'new',  -- new | ok | no
+  created  TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS starosta_requests_user ON starosta_requests (tg_id, grp, status);
