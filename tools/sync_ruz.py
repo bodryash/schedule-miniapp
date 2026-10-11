@@ -46,6 +46,7 @@ def main():
     parser.add_argument("--name", required=True)
     parser.add_argument("--from", dest="start", required=True)
     parser.add_argument("--to", dest="end", required=True)
+    parser.add_argument("--style", choices=["mgimo", "fa"], default="mgimo", help="как в этом вузе названы учебные группы")
     args = parser.parse_args()
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,30}", args.id) or args.id == "msu-fgp":
         sys.exit("--id: латиница, цифры и дефис; msu-fgp занят")
@@ -55,7 +56,12 @@ def main():
     # Кроме учебных групп в справочнике лежат «группы» под зачёты и потоки
     # по выбору — у них в названии семестр или вид контроля. Их не берём.
     # Учебная группа начинается с номера курса: «1МПКС (Дип)-03», «4МО(Дип)-01».
-    study = [g for g in listed if re.match(r"\s*\d", g["number"]) and not re.search(r"сем\.|\((?:Зач|Экз|Диф)", g["number"])]
+    if args.style == "fa":
+        # Финуниверситет: учебные группы помечены kind = 0 («ТД24-1», «БАиП23-2»),
+        # остальное — подгруппы под отдельные дисциплины и склейки «А; Б».
+        study = [g for g in listed if g.get("kind") == 0 and ";" not in g["number"] and not re.match(r"\s*\d", g["number"])]
+    else:
+        study = [g for g in listed if re.match(r"\s*\d", g["number"]) and not re.search(r"сем\.|\((?:Зач|Экз|Диф)", g["number"])]
     print(f"групп на факультете: {len(listed)}, учебных: {len(study)}")
 
     groups, lessons, bells = [], [], defaultdict(Counter)
@@ -93,6 +99,8 @@ def main():
             })
         # В справочнике РУЗ: 0 — бакалавриат, 1 — магистратура.
         level = "магистратура" if group.get("kindEducation") == 1 else "бакалавриат"
+        if args.style == "fa" and re.search(r"\dм$", name):
+            level = "магистратура"  # «БА25-1м» — в названии группы
         groups.append({"id": name, "title": name, "course": int(group.get("course") or 1), "level": level})
         print(f"  {name}: занятий {len(rows)}")
 
@@ -131,7 +139,7 @@ def main():
     tenants = json.loads(registry.read_text(encoding="utf-8"))
     keep = next((t for t in tenants if t["id"] == args.id), {})
     entry = {**keep, "id": args.id, "university": args.university, "faculty": args.name, "path": args.id, "features": keep.get("features", []),
-             "source": {"kind": "ruz", "base": args.base, "faculty": args.faculty}}
+             "source": {"kind": "ruz", "base": args.base, "faculty": args.faculty, **({"style": args.style} if args.style != "mgimo" else {})}}
     registry.write_text(json.dumps([t for t in tenants if t["id"] != args.id] + [entry], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Итого: групп {len(groups)}, пар {len(lessons)}, записано в docs/data/{args.id}/")
 

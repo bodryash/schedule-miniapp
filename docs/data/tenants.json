@@ -328,5 +328,18 @@
       "faculty": "3"
     },
     "short": "ВШГА"
+  },
+  {
+    "id": "fa-naba",
+    "university": "Финансовый университет",
+    "faculty": "Факультет налогов, аудита и бизнес-анализа",
+    "path": "fa-naba",
+    "features": [],
+    "source": {
+      "kind": "ruz-ru",
+      "base": "https://ruz.fa.ru",
+      "faculty": 7,
+      "style": "fa"
+    }
   }
 ]
