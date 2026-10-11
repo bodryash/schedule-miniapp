@@ -13,6 +13,7 @@ import {
   dateLabel,
   iso,
   loadGroups,
+  loadTenants,
   normalize,
   parityOf,
   parseDay,
@@ -1401,6 +1402,74 @@ async function shareLoad(env, code) {
   return { ok: true, name: row.name, prefs };
 }
 
+/* ---------- Реклама и рост ---------- */
+
+const ADS_HELP = [
+    "<b>Рекламные метки</b> — чтобы видеть, откуда приходят люди.",
+    "",
+    "Ссылка для размещения: <code>https://t.me/FGPshedulebot?start=ad_МЕТКА</code>",
+    "Метка — латиница, цифры, «_» и «-», до 40 знаков: <code>ad_mgimo_chat1</code>.",
+    "",
+    "/ads — сколько пришло по каждой метке",
+    "/faculties — сколько людей на каждом факультете",
+].join("\n");
+
+/** Сколько людей пришло по каждой метке и сколько из них открыли расписание. */
+async function adsReport(env) {
+  const { results = [] } = await env.STATS.prepare(
+    `SELECT s.label, COUNT(*) AS came,
+            SUM(CASE WHEN p.tg_id IS NOT NULL THEN 1 ELSE 0 END) AS opened,
+            SUM(CASE WHEN s.created >= ?1 THEN 1 ELSE 0 END) AS week,
+            MIN(s.created) AS first
+     FROM sources s LEFT JOIN (SELECT DISTINCT tg_id FROM people WHERE tg_id IS NOT NULL) p ON p.tg_id = s.tg_id
+     GROUP BY s.label ORDER BY came DESC LIMIT 60`
+  )
+    .bind(new Date(Date.now() - 7 * 86400000).toISOString())
+    .all();
+  if (!results.length) return [ADS_HELP, "", "По меткам пока никто не приходил."].join("\n");
+  const lines = results.map(
+    (r) =>
+      `<code>${escape(r.label)}</code> — пришло ${r.came}, открыли расписание ${r.opened}` +
+      (r.week ? `, за неделю +${r.week}` : "") +
+      ` · с ${String(r.first).slice(0, 10)}`
+  );
+  return ["<b>Рекламные метки</b>", "", ...lines, "", "«Пришло» — нажали «Запустить» по ссылке; «открыли» — после этого зашли в расписание."].join("\n");
+}
+
+/** Люди по факультетам: всего, новых и активных за неделю. */
+async function facultiesReport(env) {
+  const since = new Date(Date.now() - 7 * 86400000).toISOString();
+  const { results = [] } = await env.STATS.prepare(
+    `SELECT CASE WHEN grp LIKE 'преп:%' THEN '~teachers'
+                 WHEN instr(grp, '/') > 0 THEN substr(grp, 1, instr(grp, '/') - 1)
+                 ELSE 'msu-fgp' END AS tenant,
+            COUNT(*) AS total,
+            SUM(CASE WHEN first >= ?1 THEN 1 ELSE 0 END) AS fresh,
+            SUM(CASE WHEN last >= ?1 THEN 1 ELSE 0 END) AS active
+     FROM people WHERE grp IS NOT NULL AND grp != '' GROUP BY tenant ORDER BY total DESC`
+  )
+    .bind(since)
+    .all();
+  const tenants = await loadTenants().catch(() => []);
+  const title = (id) => {
+    if (id === "~teachers") return "Преподаватели (все вузы)";
+    const t = tenants.find((x) => x.id === id);
+    return t ? `${t.university} · ${t.short || t.faculty}` : id;
+  };
+  const sum = (key) => results.reduce((n, r) => n + (r[key] || 0), 0);
+  const seen = new Set(results.map((r) => r.tenant));
+  const empty = tenants.filter((t) => !seen.has(t.id)).map((t) => `${t.university} · ${t.short || t.faculty}`);
+  return [
+    "<b>Люди по факультетам</b>",
+    `Всего ${sum("total")} · новых за неделю ${sum("fresh")} · заходили за неделю ${sum("active")}`,
+    "",
+    ...results.map((r) => `${escape(title(r.tenant))} — ${r.total}` + (r.fresh ? ` (+${r.fresh})` : "") + ` · активных ${r.active}`),
+    ...(empty.length ? ["", `<i>Пока никого: ${escape(empty.join("; "))}</i>`] : []),
+    "",
+    "В скобках — новые за 7 дней. Считается по последней выбранной группе.",
+  ].join("\n");
+}
+
 /* ---------- Удаление своих данных ---------- */
 
 const FORGET_HELP = [
@@ -1433,6 +1502,7 @@ async function forgetUser(env, userId) {
     run("DELETE FROM comment_reports WHERE tg_id = ?", id),
     run("DELETE FROM clicker WHERE user_id = ?", id),
     run("DELETE FROM shares WHERE owner = ?", id),
+    run("DELETE FROM sources WHERE tg_id = ?", id),
     run("DELETE FROM word_guesses WHERE user_id = ?", id),
     run("UPDATE word_wins SET name = '', user_id = 0 WHERE user_id = ?", id),
     run("DELETE FROM starostas WHERE tg_id = ?", id),
@@ -3034,6 +3104,15 @@ export default {
 
     // Пришли по ссылке «поделиться расписанием»: открываем приложение сразу
     // с кодом — там предложат добавить чужое расписание отдельным профилем.
+    // Рекламная метка: запоминаем, откуда человек пришёл в первый раз.
+    const ad = message && text.match(/^\/start(?:@\w+)?\s+ad_([A-Za-z0-9_-]{1,40})$/);
+    if (ad && message.from?.id) {
+      await env.STATS.prepare("INSERT OR IGNORE INTO sources (tg_id, label, created) VALUES (?, ?, ?)")
+        .bind(message.from.id, ad[1].toLowerCase(), new Date().toISOString())
+        .run()
+        .catch(() => {});
+    }
+
     const shared = message && text.match(/^\/start(?:@\w+)?\s+p_([a-z0-9]{8})$/);
     if (shared) {
       const found = await shareLoad(env, shared[1]).catch(() => ({ ok: false }));
@@ -3366,6 +3445,15 @@ export default {
         text: reply,
         parse_mode: "HTML",
       });
+    }
+
+    // Метки рекламы и счётчик по факультетам — владельцу.
+    if (message && /^\/(ads|faculties)(?:@\w+)?(?:\s|$)/.test(text)) {
+      let reply = "Команда недоступна.";
+      if (isOwner(env, message.chat.id)) {
+        reply = text.startsWith("/ads") ? await adsReport(env) : await facultiesReport(env);
+      }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: reply.slice(0, 4000), parse_mode: "HTML" });
     }
 
     // Сводка и список — только владельцу: данные чужие.

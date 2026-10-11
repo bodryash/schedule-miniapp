@@ -393,3 +393,13 @@ CREATE TABLE IF NOT EXISTS shares (
 );
 
 CREATE INDEX IF NOT EXISTS shares_owner ON shares (owner, created);
+
+-- Откуда человек пришёл: метка из рекламной ссылки t.me/бот?start=ad_метка.
+-- Запоминается только первая — по ней видно, какое размещение сработало.
+CREATE TABLE IF NOT EXISTS sources (
+  tg_id   INTEGER PRIMARY KEY,
+  label   TEXT NOT NULL,
+  created TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS sources_label ON sources (label);

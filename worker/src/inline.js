@@ -528,6 +528,9 @@ export async function loadGroups() {
  * На сколько часов факультет впереди Москвы. Пояс записан в tenants.json
  * («tz»: 5 — это UTC+5); не записан — значит, московский.
  */
+/** Список факультетов — для сводок владельцу. */
+export const loadTenants = () => loadJson("tenants.json");
+
 export async function shiftOf(groupId) {
   const id = String(groupId || "");
   const slash = id.indexOf("/");
