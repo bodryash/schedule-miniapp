@@ -3912,10 +3912,9 @@ function fillTenants() {
     uni.addEventListener("change", () => {
       haptic("light");
       hint.hidden = uni.value !== "";
+      // Сам вуз ничего не переключает: расписание грузится, только когда
+      // человек нажал на факультет — даже если он в вузе один.
       fillFaculties(uni.value);
-      const list = TENANTS.filter((item) => item.university === uni.value);
-      // В вузе один факультет — выбирать нечего, переключаемся сразу.
-      if (list.length === 1 && list[0].id !== tenant().id) switchTenant(list[0]);
     });
     select.addEventListener("change", () => {
       if (select.value === "") {
@@ -3964,13 +3963,13 @@ function fillFaculties(university) {
     // Сначала сокращение — по нему факультет и ищут глазами: «МЭО», «ФГП».
     .map((item) => new Option(item.short ? `${item.short} — ${item.faculty}` : item.faculty, item.id));
   const current = list.some((item) => item.id === tenant().id);
-  if (!current && list.length > 1) {
+  if (!current && list.length) {
     const ask = new Option(t("— выберите факультет —"), "?");
     ask.disabled = true;
     options.unshift(ask);
   }
   select.replaceChildren(...options, new Option(t("Моего факультета нет в списке…"), ""));
-  select.value = current ? tenant().id : list.length > 1 ? "?" : list[0]?.id || "";
+  select.value = current ? tenant().id : list.length ? "?" : "";
 }
 
 /** Согласие на обработку данных — под кнопкой «Сохранить», со ссылкой на политику. */
