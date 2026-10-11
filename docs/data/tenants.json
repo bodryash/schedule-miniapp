@@ -300,19 +300,6 @@
     "short": "ЕУИ"
   },
   {
-    "id": "msu-vshga",
-    "university": "МГУ",
-    "faculty": "Высшая школа государственного аудита",
-    "path": "msu-vshga",
-    "features": [],
-    "source": {
-      "kind": "tt",
-      "base": "https://tt.audit.msu.ru",
-      "faculty": "3"
-    },
-    "short": "ВШГА"
-  },
-  {
     "id": "samgmu-ikm-lech",
     "university": "СамГМУ",
     "faculty": "Институт клинической медицины — Лечебное дело",
@@ -328,5 +315,18 @@
     "path": "msal-orenburg-jur-oz",
     "features": [],
     "tz": 5
+  },
+  {
+    "id": "msu-vshga",
+    "university": "МГУ",
+    "faculty": "Высшая школа государственного аудита",
+    "path": "msu-vshga",
+    "features": [],
+    "source": {
+      "kind": "tt",
+      "base": "https://tt.audit.msu.ru",
+      "faculty": "3"
+    },
+    "short": "ВШГА"
   }
 ]
