@@ -5895,3 +5895,107 @@ body[data-head="pixel"] .splash-day {
   color: var(--accent);
   font-weight: 600;
 }
+
+/* --- Предложение напоминаний: цветная плашка вместо серой ---
+   Это единственное место, где приложение о чём-то просит, поэтому оно
+   должно быть заметным: градиент от цвета недели в сиреневый и розовый,
+   светлый текст, стеклянные чипсы и светлая кнопка. */
+.ask {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: linear-gradient(
+    125deg,
+    var(--accent) 0%,
+    color-mix(in srgb, var(--accent) 50%, #8f7bff) 55%,
+    color-mix(in srgb, var(--accent) 30%, #ff7ac6) 100%
+  );
+  box-shadow:
+    0 14px 28px -14px color-mix(in srgb, var(--accent) 85%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+/* Блик в правом верхнем углу и мягкое пятно снизу — градиент не плоский. */
+.ask::before,
+.ask::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.ask::before {
+  top: -60px;
+  right: -40px;
+  width: 190px;
+  height: 190px;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.34), transparent);
+  animation: ask-glow 6s ease-in-out infinite alternate;
+}
+
+.ask::after {
+  bottom: -80px;
+  left: -30px;
+  width: 220px;
+  height: 160px;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.16), transparent);
+}
+
+@keyframes ask-glow {
+  to { transform: translate(-26px, 18px) scale(1.15); }
+}
+
+.ask-title {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--accent-text);
+}
+
+.ask-line {
+  color: color-mix(in srgb, var(--accent-text) 84%, transparent);
+}
+
+.ask-chips .chip {
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent-text) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent-text) 42%, transparent);
+  box-shadow: none;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.ask-chips .chip::before {
+  border-color: var(--accent-text);
+  opacity: 0.85;
+}
+
+.ask-chips .chip--on {
+  color: var(--accent);
+  background: var(--accent-text);
+  border-color: transparent;
+  box-shadow: 0 6px 14px -8px rgba(0, 0, 0, 0.45);
+}
+
+.ask-chips .chip--on::before {
+  border-color: var(--accent);
+  background: radial-gradient(circle, var(--accent) 0 3px, transparent 3.5px);
+}
+
+.ask .ask-yes {
+  padding: 10px 18px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-text);
+  box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask::before {
+    animation: none;
+  }
+}
