@@ -341,5 +341,12 @@
       "faculty": 7,
       "style": "fa"
     }
+  },
+  {
+    "id": "mgimo-odin-up",
+    "university": "МГИМО, Одинцовский филиал",
+    "faculty": "Факультет управления и политики",
+    "path": "mgimo-odin-up",
+    "features": []
   }
 ]
