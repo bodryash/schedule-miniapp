@@ -348,5 +348,13 @@
       "faculty": 41
     },
     "short": "МО (англ)"
+  },
+  {
+    "id": "msu-philol",
+    "university": "МГУ",
+    "faculty": "Филологический факультет",
+    "path": "msu-philol",
+    "features": [],
+    "short": "Филфак"
   }
 ]
