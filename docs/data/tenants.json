@@ -356,5 +356,13 @@
     "path": "msu-philol",
     "features": [],
     "short": "Филфак"
+  },
+  {
+    "id": "msu-law",
+    "university": "МГУ",
+    "faculty": "Юридический факультет",
+    "path": "msu-law",
+    "features": [],
+    "short": "Юрфак"
   }
 ]
