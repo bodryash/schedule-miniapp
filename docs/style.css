@@ -6627,3 +6627,165 @@ body.volunteer .tab[aria-selected="true"] {
     display: none;
   }
 }
+
+/* --- Свои дела: тренировка, работа, кружок среди пар ---
+   Карточка похожа на пару, но штриховая рамка и метка «своё» сразу
+   показывают: это не из расписания факультета. */
+.own-card {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  margin: 0 0 10px;
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface, var(--card)));
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 140ms var(--ease-out);
+}
+
+.own-card:active {
+  transform: scale(0.985);
+}
+
+.own-card .card-line {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.own-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.own-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.own-tag {
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.own-repeat {
+  color: var(--muted);
+}
+
+.own-place {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* Кнопка «＋ Своё дело» под списком дня — тихая, чтобы не спорить с парами. */
+.own-add {
+  display: block;
+  width: 100%;
+  margin: 2px 0 14px;
+  padding: 12px;
+  border: 1.5px dashed color-mix(in srgb, var(--muted) 40%, transparent);
+  border-radius: 18px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.own-add:active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.week-row--own .week-slot {
+  color: var(--accent);
+}
+
+.week-row--own .week-subject {
+  font-style: italic;
+}
+
+/* Окно своего дела. */
+.sheet--own input[type="text"],
+.sheet--own input[type="time"] {
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.sheet--own .own-title {
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.own-times {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.own-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sheet--own .own-weekly {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 4px;
+  font-size: 15px;
+}
+
+.sheet--own .own-save {
+  margin-top: 10px;
+}
+
+/* Окно своего дела плотнее: всё до кнопок помещается над клавиатурой. */
+.sheet--own {
+  overflow-y: auto;
+}
+
+.sheet--own input[type="text"],
+.sheet--own input[type="time"] {
+  padding: 10px 14px;
+}
+
+.own-times {
+  margin: 8px 0;
+}
+
+.sheet--own .own-weekly {
+  margin: 8px 0 0;
+}
+
+.sheet--own .own-save {
+  flex: 0 0 auto;
+  margin-top: 8px;
+}
+
+.sheet--own .note-private {
+  margin: 8px 0 0;
+  font-size: 12px;
+}

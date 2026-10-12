@@ -2213,6 +2213,7 @@ function showWeek() {
 
     if (!lessons.length) {
       column.append(el("div", "week-empty", t("Пар нет")));
+      appendOwnRows(column, date, day);
       nodes.push(column);
       continue;
     }
@@ -2248,6 +2249,7 @@ function showWeek() {
       });
       column.append(row);
     }
+    appendOwnRows(column, date, day);
     nodes.push(column);
   }
   nodes.forEach((node, i) => node.style.setProperty("--i", i));
@@ -2584,6 +2586,208 @@ function closeNote() {
   if (noteSheet) noteSheet.hidden = true;
   noting = null;
   document.activeElement?.blur?.();
+}
+
+/* ---------- Свои дела ---------- */
+
+// Тренировка, работа, кружок — то, чего нет в расписании факультета, но что
+// занимает время в том же дне. Человек добавляет сам; карточка встаёт среди
+// пар по своему времени. Хранится на этом устройстве и никуда не уходит,
+// поэтому бот о своих делах не знает и не напоминает.
+const OWN_KEY = "schedule.own";
+const OWN_MAX = 40;
+
+function ownEvents() {
+  try {
+    const list = JSON.parse(localStorage.getItem(OWN_KEY) || "[]");
+    return Array.isArray(list) ? list.filter((e) => e && e.title && e.start && e.end) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveOwnEvents(list) {
+  try {
+    localStorage.setItem(OWN_KEY, JSON.stringify(list));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Свои дела на дату: разовые — по числу, еженедельные — по дню недели. */
+function ownEventsOn(date) {
+  const iso = isoDate(date);
+  const day = date.getDay() || 7;
+  return ownEvents()
+    .filter((e) => (e.date ? e.date === iso : e.day === day))
+    .sort((a, b) => minutes(a.start) - minutes(b.start));
+}
+
+function renderOwnCard(event) {
+  const card = el("button", "own-card");
+  card.type = "button";
+  card.dataset.start = event.start;
+  card.dataset.end = event.end;
+  const when = el("div", "card-when");
+  when.append(el("span", "card-start", event.start), el("span", "card-line"), el("span", "card-end", event.end));
+  const body = el("div", "own-body");
+  const head = el("div", "own-head");
+  head.append(el("span", "own-tag", t("своё")));
+  if (!event.date) head.append(el("span", "own-repeat", t("каждую неделю")));
+  body.append(head, el("div", "subject", event.title));
+  if (event.place) body.append(el("div", "own-place", event.place));
+  card.append(when, body);
+  card.addEventListener("click", () => openOwn(event));
+  return card;
+}
+
+function renderOwnAdd() {
+  const button = el("button", "own-add", t("＋ Своё дело"));
+  button.type = "button";
+  button.addEventListener("click", () => openOwn(null));
+  return button;
+}
+
+/** Ставит свои дела между карточками пар — по времени начала. */
+function placeOwn(nodes, date) {
+  for (const event of ownEventsOn(date)) {
+    const card = renderOwnCard(event);
+    const at = nodes.findIndex(
+      (node) => node.dataset?.start && minutes(node.dataset.start) > minutes(event.start)
+    );
+    if (at < 0) nodes.push(card);
+    else nodes.splice(at, 0, card);
+  }
+}
+
+/** Свои дела в неделе: строка с точкой вместо номера пары. */
+function appendOwnRows(column, date, day) {
+  for (const event of ownEventsOn(date)) {
+    const row = el("button", "week-row week-row--own");
+    row.type = "button";
+    row.append(el("span", "week-slot", "•"), el("span", "week-subject", event.title), el("span", "week-time", event.start));
+    row.addEventListener("click", () => {
+      selectedDay = day;
+      openTab("schedule");
+    });
+    column.append(row);
+  }
+}
+
+let ownSheet = null;
+let owning = null;
+
+function openOwn(event) {
+  if (!ownSheet) {
+    ownSheet = el("div", "sheet-backdrop sheet-backdrop--input");
+    ownSheet.hidden = true;
+    const sheet = el("div", "sheet sheet--own");
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    const title = el("input", "own-title");
+    title.type = "text";
+    title.maxLength = 60;
+    title.placeholder = t("Тренировка, работа, кружок…");
+    const start = el("input", "own-start");
+    const end = el("input", "own-end");
+    start.type = end.type = "time";
+    const times = el("div", "own-times");
+    const from = el("label", "own-field");
+    from.append(el("span", "", t("Начало")), start);
+    const to = el("label", "own-field");
+    to.append(el("span", "", t("Конец")), end);
+    times.append(from, to);
+    const place = el("input", "own-where");
+    place.type = "text";
+    place.maxLength = 60;
+    place.placeholder = t("Где (необязательно)");
+    const weekly = el("label", "check own-weekly");
+    const box = el("input", "own-weekly-box");
+    box.type = "checkbox";
+    weekly.append(box, el("span", "", t("Каждую неделю в этот день")));
+    const save = el("button", "primary own-save", t("Сохранить"));
+    save.type = "button";
+    const actions = el("div", "sheet-actions");
+    const remove = el("button", "ghost own-delete", t("Удалить"));
+    const cancel = el("button", "ghost", t("Отмена"));
+    remove.type = cancel.type = "button";
+    actions.append(remove, cancel);
+    sheet.append(
+      el("div", "group-name own-when"),
+      el("h2", "own-heading"),
+      title,
+      times,
+      place,
+      weekly,
+      el("p", "error own-error"),
+      save,
+      actions,
+      // Пояснение — в самом низу: кнопки должны быть видны без прокрутки.
+      el("p", "note-private", t("🔒 Своё дело видите только вы: оно хранится на этом устройстве. Бот о нём не напоминает."))
+    );
+    ownSheet.append(sheet);
+    const fail = (text) => {
+      const error = ownSheet.querySelector(".own-error");
+      error.textContent = text;
+      error.hidden = false;
+    };
+    save.addEventListener("click", () => {
+      if (!owning) return;
+      const name = title.value.trim();
+      if (!name) return fail(t("Напишите, что это за дело."));
+      if (!start.value || !end.value || minutes(end.value) <= minutes(start.value)) {
+        return fail(t("Конец должен быть позже начала."));
+      }
+      const list = ownEvents().filter((e) => e.id !== owning.id);
+      if (list.length >= OWN_MAX) return fail(t("Своих дел уже слишком много — удалите ненужные."));
+      const entry = { id: owning.id, title: name, start: start.value, end: end.value, place: place.value.trim() };
+      if (box.checked) entry.day = owning.date.getDay() || 7;
+      else entry.date = isoDate(owning.date);
+      if (!saveOwnEvents([...list, entry])) return fail(t("Не получилось сохранить: в телефоне нет места для данных."));
+      haptic("success");
+      closeOwn();
+      refreshOwn();
+    });
+    remove.addEventListener("click", () => {
+      if (!owning) return;
+      saveOwnEvents(ownEvents().filter((e) => e.id !== owning.id));
+      haptic("light");
+      closeOwn();
+      refreshOwn();
+    });
+    cancel.addEventListener("click", closeOwn);
+    ownSheet.addEventListener("click", (click) => {
+      if (click.target === ownSheet) closeOwn();
+    });
+    document.body.append(ownSheet);
+  }
+  const date = dateOfDay(selectedDay);
+  owning = { id: event?.id || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, date };
+  const label = FULL_DATE.format(date);
+  ownSheet.querySelector(".own-when").textContent = label[0].toUpperCase() + label.slice(1);
+  ownSheet.querySelector(".own-heading").textContent = event ? t("Своё дело") : t("Новое своё дело");
+  ownSheet.querySelector(".own-title").value = event?.title || "";
+  ownSheet.querySelector(".own-start").value = event?.start || "19:00";
+  ownSheet.querySelector(".own-end").value = event?.end || "20:30";
+  ownSheet.querySelector(".own-where").value = event?.place || "";
+  ownSheet.querySelector(".own-weekly-box").checked = event ? !event.date : true;
+  ownSheet.querySelector(".own-delete").hidden = !event;
+  ownSheet.querySelector(".own-error").hidden = true;
+  ownSheet.hidden = false;
+  haptic("light");
+  if (!event) ownSheet.querySelector(".own-title").focus();
+}
+
+function closeOwn() {
+  if (ownSheet) ownSheet.hidden = true;
+  owning = null;
+  document.activeElement?.blur?.();
+}
+
+function refreshOwn() {
+  if (tab === "week") showWeek();
+  else showSchedule();
 }
 
 /* ---------- Мой семестр ---------- */
@@ -5258,7 +5462,10 @@ function renderLessons(group, parity) {
   visible = list;
 
   if (list.length === 0) {
-    els.lessons.replaceChildren(renderFreeDay());
+    // Пар нет, но свои дела в этот день могут быть — они под картинкой дня.
+    const own = [];
+    placeOwn(own, dateOfDay(selectedDay));
+    els.lessons.replaceChildren(renderFreeDay(), ...own, renderOwnAdd());
     refreshNext();
     return;
   }
@@ -5315,6 +5522,8 @@ function renderLessons(group, parity) {
     }
   }
 
+  placeOwn(nodes, dateOfDay(selectedDay));
+
   // Пришли листанием — новый день въезжает с той стороны, откуда его тянули.
   const from = enterFrom * 28;
   enterFrom = 0;
@@ -5334,6 +5543,7 @@ function renderLessons(group, parity) {
     const card = renderDayEnd();
     if (card) nodes.push(card);
   }
+  nodes.push(renderOwnAdd());
 
   els.lessons.replaceChildren(...nodes);
   applyCancels();
