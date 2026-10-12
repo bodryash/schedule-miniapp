@@ -2625,8 +2625,10 @@ function ownEventsOn(date) {
 }
 
 function renderOwnCard(event) {
-  const card = el("button", "own-card");
-  card.type = "button";
+  // Не кнопка, а блок с ролью кнопки: внутри своя кнопка — корзина.
+  const card = el("div", "own-card");
+  card.setAttribute("role", "button");
+  card.tabIndex = 0;
   card.dataset.start = event.start;
   card.dataset.end = event.end;
   const when = el("div", "card-when");
@@ -2637,8 +2639,38 @@ function renderOwnCard(event) {
   if (!event.date) head.append(el("span", "own-repeat", t("каждую неделю")));
   body.append(head, el("div", "subject", event.title));
   if (event.place) body.append(el("div", "own-place", event.place));
-  card.append(when, body);
+  // Корзина в углу. Первое нажатие только спрашивает: дело может быть
+  // еженедельным, и случайный тап стёр бы его со всех недель разом.
+  const bin = el("button", "own-bin");
+  bin.type = "button";
+  bin.setAttribute("aria-label", t("Удалить"));
+  bin.innerHTML =
+    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+  const ask = el("span", "own-bin-ask", t("Удалить?"));
+  bin.append(ask);
+  let armed = 0;
+  bin.addEventListener("click", (click) => {
+    click.stopPropagation();
+    if (!bin.classList.contains("own-bin--ask")) {
+      bin.classList.add("own-bin--ask");
+      haptic("light");
+      clearTimeout(armed);
+      armed = setTimeout(() => bin.classList.remove("own-bin--ask"), 3000);
+      return;
+    }
+    clearTimeout(armed);
+    saveOwnEvents(ownEvents().filter((e) => e.id !== event.id));
+    haptic("success");
+    refreshOwn();
+  });
+  card.append(when, body, bin);
   card.addEventListener("click", () => openOwn(event));
+  card.addEventListener("keydown", (key) => {
+    if (key.target === card && (key.key === "Enter" || key.key === " ")) {
+      key.preventDefault();
+      openOwn(event);
+    }
+  });
   return card;
 }
 

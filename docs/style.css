@@ -7081,3 +7081,52 @@ body.volunteer .tab[aria-selected="true"] {
   outline: 2px solid color-mix(in srgb, var(--own) 70%, transparent);
   outline-offset: 0;
 }
+
+/* Корзина в правом верхнем углу своего дела. Первое нажатие раскрывает
+   «Удалить?», второе — удаляет; через три секунды вопрос сам сворачивается. */
+.own-card {
+  box-sizing: border-box;
+}
+
+.own-head {
+  padding-right: 40px;
+}
+
+.own-bin {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.own-bin:active {
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
+}
+
+.own-bin-ask {
+  display: none;
+}
+
+.own-bin--ask {
+  background: var(--tg-theme-destructive-text-color, #e53935);
+  color: #fff;
+}
+
+.own-bin--ask .own-bin-ask {
+  display: inline;
+}
