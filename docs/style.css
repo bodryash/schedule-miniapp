@@ -6501,20 +6501,19 @@ body.volunteer::before {
     radial-gradient(120% 40% at 50% 112%, color-mix(in srgb, #12a594 12%, transparent), transparent 70%);
 }
 
-/* Дата — перелив от травяного к бирюзовому, медленно дышит. */
-body.volunteer .date {
-  background: linear-gradient(100deg, #17a34a 0%, #3ed07c 35%, #12a594 70%, #17a34a 100%);
-  background-size: 220% 100%;
+/* Дата — перелив от травяного к бирюзовому. Тот же перелив у надписей,
+   которые меняются при листании дней: они едут отдельными слоями, и заливка
+   строки целиком на них не попадает — текст на время перехода пропадал.
+   Ширина перелива задана в пикселях, чтобы у строки и у едущих надписей
+   цвета стояли в одних и тех же местах и при смене ничего не мигало. */
+body.volunteer .date,
+body.volunteer .date-old,
+body.volunteer .date-new {
+  background: linear-gradient(100deg, #17a34a 0%, #3ed07c 35%, #12a594 70%, #17a34a 100%) 0 0 / 340px 100% repeat-x;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  animation: volunteer-flow 9s ease-in-out infinite;
-}
-
-@keyframes volunteer-flow {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
 }
 
 /* Лента под датой: зелень с бегущим бликом, листок покачивается. */
@@ -6619,7 +6618,6 @@ body.volunteer .tab[aria-selected="true"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body.volunteer .date,
   .volunteer-ribbon,
   .volunteer-leaf,
   body.volunteer .card--now {
