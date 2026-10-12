@@ -364,5 +364,13 @@
     "path": "msu-law",
     "features": [],
     "short": "Юрфак"
+  },
+  {
+    "id": "msu-hist",
+    "university": "МГУ",
+    "faculty": "Исторический факультет",
+    "path": "msu-hist",
+    "features": [],
+    "short": "Истфак"
   }
 ]
