@@ -51,7 +51,10 @@ CREATE TABLE IF NOT EXISTS broadcasts (
   failed  INTEGER NOT NULL DEFAULT 0,
   -- 1 — под сообщением кнопка «Открыть расписание». В уже созданную базу
   -- столбец добавляет migrations/0002_broadcast_button.sql.
-  button  INTEGER NOT NULL DEFAULT 0
+  button  INTEGER NOT NULL DEFAULT 0,
+  -- Кому: пусто — всем, иначе id факультета (msu-fgp). В готовую базу
+  -- столбец добавляет server/index.mjs.
+  audience TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS outbox (

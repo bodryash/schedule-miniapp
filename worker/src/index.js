@@ -204,22 +204,41 @@ const OWN_SERVER = Boolean(globalThis.SCHEDULE_OWN_SERVER);
 const BATCH = OWN_SERVER ? 600 : 40;
 const SEND_BUDGET = OWN_SERVER ? 700 : 44;
 
+/**
+ * Получатели рассылки одному факультету — те, кто выбрал у него группу.
+ * Группа ФГП записана без приставки («311гэу»), у остальных — «вуз/группа».
+ * Кто группу ещё не выбирал, тот ничей: ему уходит только общая рассылка.
+ */
+const AUDIENCE_SQL = `SELECT DISTINCT u.id FROM users u JOIN people p ON p.tg_id = u.id
+  WHERE p.grp IS NOT NULL AND p.grp != '' AND p.grp NOT LIKE 'преп:%'
+    AND CASE WHEN instr(p.grp, '/') > 0 THEN substr(p.grp, 1, instr(p.grp, '/') - 1) ELSE 'msu-fgp' END = ?`;
+
+/** «#фгп», «#msu-fgp», «#Филфак» → факультет. Регистр и пробелы не важны. */
+async function findAudience(word) {
+  const want = normalize(word);
+  const tenants = await loadTenants().catch(() => []);
+  return tenants.find((t) => normalize(t.id) === want || normalize(t.short || "") === want) || null;
+}
+
 /** Готовит черновик рассылки и показывает его с кнопками подтверждения. */
-async function draftBroadcast(env, chatId, text, { button = false } = {}) {
-  const { count } = await env.STATS.prepare(
-    "SELECT COUNT(*) AS count FROM users"
-  ).first();
+async function draftBroadcast(env, chatId, text, { button = false, audience = null } = {}) {
+  const { count } = audience
+    ? await env.STATS.prepare(`SELECT COUNT(*) AS count FROM (${AUDIENCE_SQL})`).bind(audience.id).first()
+    : await env.STATS.prepare("SELECT COUNT(*) AS count FROM users").first();
 
   const draft = await env.STATS.prepare(
-    "INSERT INTO broadcasts (text, created, button) VALUES (?, ?, ?) RETURNING id"
+    "INSERT INTO broadcasts (text, created, button, audience) VALUES (?, ?, ?, ?) RETURNING id"
   )
-    .bind(text, new Date().toISOString(), button ? 1 : 0)
+    .bind(text, new Date().toISOString(), button ? 1 : 0, audience?.id || "")
     .first();
 
   const extra = button ? "\n(с кнопкой «📅 Открыть расписание»)" : "";
+  const whom = audience
+    ? `Только ${audience.university} · ${audience.short || audience.faculty}: ${count} получателям — тем, кто выбрал там группу.`
+    : `Разослать это ВСЕМ — ${count} получателям?`;
   await callTelegram(env.BOT_TOKEN, "sendMessage", {
     chat_id: chatId,
-    text: `Разослать это ${count} получателям?${extra}\n\n———\n${text}\n———`,
+    text: `${whom}${extra}\n\n———\n${text}\n———`,
     reply_markup: {
       inline_keyboard: [
         [
@@ -267,10 +286,15 @@ async function handleButton(env, query) {
       notice = "Отменено";
     } else if (action === "send") {
       // Очередь наполняем разом, а разбираем порциями по расписанию.
+      const draft = await env.STATS.prepare("SELECT audience FROM broadcasts WHERE id = ?").bind(id).first();
       await env.STATS.batch([
-        env.STATS.prepare(
-          "INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM users"
-        ).bind(id),
+        draft?.audience
+          ? env.STATS.prepare(
+              `INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM (${AUDIENCE_SQL})`
+            ).bind(id, draft.audience)
+          : env.STATS.prepare(
+              "INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM users"
+            ).bind(id),
         env.STATS.prepare(
           "UPDATE broadcasts SET status = 'sending' WHERE id = ? AND status = 'draft'"
         ).bind(id),
@@ -3426,10 +3450,25 @@ ${invite}`,
       } else if (!body) {
         await callTelegram(env.BOT_TOKEN, "sendMessage", {
           chat_id: message.chat.id,
-          text: "Напишите текст следом: /broadcast Завтра занятий нет.",
+          text: [
+            "Напишите текст следом: /broadcast Завтра занятий нет.",
+            "",
+            "Одному факультету — с решёткой впереди: /broadcast #фгп Завтра занятий нет.",
+            "После решётки — короткое название или id факультета из /faculties.",
+          ].join("\n"),
         });
       } else {
-        await draftBroadcast(env, message.chat.id, body);
+        // «#фгп Текст» — только одному факультету.
+        const tag = body.match(/^#(\S+)\s+([\s\S]+)$/);
+        const audience = tag ? await findAudience(tag[1]) : null;
+        if (tag && !audience) {
+          await callTelegram(env.BOT_TOKEN, "sendMessage", {
+            chat_id: message.chat.id,
+            text: `Не знаю факультета «${tag[1]}». Названия — в /faculties. Ничего не отправлено.`,
+          });
+        } else {
+          await draftBroadcast(env, message.chat.id, audience ? tag[2].trim() : body, { audience });
+        }
       }
     }
 
@@ -3442,8 +3481,10 @@ ${invite}`,
           text: "Команда недоступна.",
         });
       } else {
+        // Обновляется по версии деканата только ФГП — ему и пишем, остальных не будим.
         const extra = text.replace(/^\/updated(@\w+)?/, "").trim();
-        await draftBroadcast(env, message.chat.id, await updatedText(extra), { button: true });
+        const audience = await findAudience("msu-fgp");
+        await draftBroadcast(env, message.chat.id, await updatedText(extra), { button: true, audience });
       }
     }
 

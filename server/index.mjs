@@ -39,6 +39,7 @@ STATS.raw.exec(readFileSync(join(here, "..", "worker", "schema.sql"), "utf8"));
 for (const change of [
   "ALTER TABLE reminders ADD COLUMN shift INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE reminders ADD COLUMN wake INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE broadcasts ADD COLUMN audience TEXT NOT NULL DEFAULT ''",
 ]) {
   try {
     STATS.raw.exec(change);
