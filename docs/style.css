@@ -6062,7 +6062,6 @@ body[data-head="pixel"] .splash-day {
 
 .sheet-backdrop--out {
   animation: sheet-undim 300ms var(--ease-soft) forwards;
-  pointer-events: none;
 }
 
 .sheet-backdrop--out .sheet {
@@ -6281,4 +6280,19 @@ body[data-head="pixel"] .splash-day {
   font-size: 26px;
   font-weight: 800;
   letter-spacing: -0.02em;
+}
+
+/* Под открытым окном ничего не движется: ни прокрутка, ни листание дней.
+   Само затемнение жесты не пропускает, прокручивается только окно. */
+body.sheet-open {
+  overflow: hidden;
+}
+
+.sheet-backdrop {
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.sheet-backdrop .sheet {
+  touch-action: pan-y;
 }

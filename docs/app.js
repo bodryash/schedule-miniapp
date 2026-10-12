@@ -6191,6 +6191,8 @@ function initSwipe() {
     // Полоса дней листается сама по себе, кнопки должны нажиматься.
     // Окно домашки лежит поверх расписания: печать в нём не должна листать дни.
     // Плашка праздника — кликер: тап у её края листал день, как в сторис.
+    // Открыто окно — листать дни под ним нельзя, куда бы ни попал палец.
+    if (document.body.classList.contains("sheet-open")) return;
     if (event.target.closest?.(".days, button, .sheet, .event")) return;
     if (sheetOpen()) return;
     pointer = event.pointerId;
@@ -7266,10 +7268,27 @@ function flyEmoji(from, to, scene) {
 const SHEET_OUT = 300;
 const sheetLeaving = new WeakMap();
 
+/**
+ * Пока открыто окно, всё, что под ним, выключено: не нажимается, не
+ * листается и не прокручивается. Иначе палец, промахнувшись мимо окна,
+ * переключал день или открывал пару под размытым фоном.
+ */
+function lockBehindSheets() {
+  const open = Boolean(document.querySelector(".sheet-backdrop:not([hidden])"));
+  if (document.body.classList.contains("sheet-open") === open) return;
+  document.body.classList.toggle("sheet-open", open);
+  for (const node of document.body.children) {
+    if (node.classList.contains("sheet-backdrop") || node.tagName === "SCRIPT") continue;
+    node.inert = open;
+  }
+}
+
 function watchSheets() {
   if (!("MutationObserver" in window)) return;
   const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const observer = new MutationObserver((changes) => {
+    // Сверяем замок после того, как разберём все изменения этого кадра.
+    queueMicrotask(lockBehindSheets);
     for (const change of changes) {
       const node = change.target;
       if (change.type === "childList") {
@@ -7292,6 +7311,7 @@ function watchSheets() {
       setTimeout(() => {
         node.hidden = true;
         node.classList.remove("sheet-backdrop--out");
+        lockBehindSheets();
       }, SHEET_OUT);
     }
   });
