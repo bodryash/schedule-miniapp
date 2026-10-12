@@ -1508,6 +1508,11 @@ const THEME_NAMES = {
   brutal: "brutal",
   чемпион: "champion",
   champion: "champion",
+  волонтёр: "volunteer",
+  волонтер: "volunteer",
+  зелёная: "volunteer",
+  зеленая: "volunteer",
+  volunteer: "volunteer",
 };
 
 const THEME_HELP = [
@@ -1516,6 +1521,7 @@ const THEME_HELP = [
   "/theme @ivanov гламур — розовые акценты",
   "/theme @ivanov брутал — чёрный с золотом",
   "/theme @ivanov чемпион — золото и корона, приз победителю кликера",
+  "/theme @ivanov волонтёр — зелёная, тем, кто распространяет расписание; её человек может сам выключить в настройках",
   "/theme @ivanov снять — вернуть обычный вид",
   "/theme 311гэу гламур — всей группе, можно и курс («3курс», «все»)",
   "/themes — кому что выдано",
