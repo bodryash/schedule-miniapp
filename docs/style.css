@@ -6296,3 +6296,41 @@ body.sheet-open {
 .sheet-backdrop .sheet {
   touch-action: pan-y;
 }
+
+/* --- Окно и клавиатура: одно движение вместо трёх ---
+   Затемнение занимает ровно видимую часть экрана (её высоту сообщает
+   телефон), поэтому окно стоит над клавиатурой, а не под ней. Смена высоты
+   идёт плавно и одним куском. */
+.sheet-backdrop {
+  top: var(--vv-top, 0px);
+  bottom: auto;
+  height: var(--vv-height, 100%);
+  transition: height 200ms cubic-bezier(0.2, 0.8, 0.2, 1), top 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.sheet {
+  max-height: min(86dvh, calc(var(--vv-height, 100dvh) - 20px));
+}
+
+/* Окно с полем ввода въезжает быстро и без пружины: клавиатура выезжает
+   в это же время, и два долгих движения сразу выглядели кашей. */
+.sheet-backdrop:focus-within .sheet {
+  animation-duration: 200ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Пока печатают, экран под окном не перестраивается: полоса разделов и так
+   не видна за затемнением, а её скрытие сдвигало всю страницу. */
+body.sheet-open.typing .tabs {
+  display: flex;
+}
+
+body.sheet-open.typing {
+  padding-bottom: 96px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-backdrop {
+    transition: none;
+  }
+}

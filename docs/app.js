@@ -505,6 +505,10 @@ function keepFieldVisible() {
   let timer = null;
   const settle = (node) => {
     clearTimeout(timer);
+    // В окне снизу поле уже на месте: окно само держится над клавиатурой.
+    // Лишняя прокрутка здесь и давала «кашу» — окно ехало вверх, клавиатура
+    // выезжала, а следом ещё и содержимое подпрыгивало к середине.
+    if (node.closest?.(".sheet")) return;
     timer = setTimeout(() => {
       if (document.activeElement !== node) return;
       node.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -7273,6 +7277,30 @@ const sheetLeaving = new WeakMap();
  * листается и не прокручивается. Иначе палец, промахнувшись мимо окна,
  * переключал день или открывал пару под размытым фоном.
  */
+/**
+ * Окно снизу привязано к видимой части экрана, а не к странице. Когда
+ * выезжает клавиатура, телефон сообщает новую видимую высоту — окно встаёт
+ * ровно над клавиатурой одним движением, а не догоняет её рывками.
+ */
+function pinSheetsToViewport() {
+  const viewport = window.visualViewport;
+  if (!viewport) return;
+  let frame = 0;
+  const apply = () => {
+    frame = 0;
+    const style = document.documentElement.style;
+    style.setProperty("--vv-top", `${Math.max(0, Math.round(viewport.offsetTop))}px`);
+    style.setProperty("--vv-height", `${Math.round(viewport.height)}px`);
+  };
+  const schedule = () => {
+    if (!frame) frame = requestAnimationFrame(apply);
+  };
+  viewport.addEventListener("resize", schedule);
+  viewport.addEventListener("scroll", schedule);
+  apply();
+}
+pinSheetsToViewport();
+
 function lockBehindSheets() {
   const open = Boolean(document.querySelector(".sheet-backdrop:not([hidden])"));
   if (document.body.classList.contains("sheet-open") === open) return;
