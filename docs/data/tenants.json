@@ -71,19 +71,6 @@
     "short": "Химфак"
   },
   {
-    "id": "mgimo-mo",
-    "university": "МГИМО",
-    "faculty": "Факультет международных отношений",
-    "path": "mgimo-mo",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 24
-    },
-    "short": "МО"
-  },
-  {
     "id": "mgimo-meo",
     "university": "МГИМО",
     "faculty": "Факультет международных экономических отношений",
@@ -163,19 +150,6 @@
     "features": []
   },
   {
-    "id": "mgimo-up",
-    "university": "МГИМО",
-    "faculty": "Факультет управления и политики",
-    "path": "mgimo-up",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 30
-    },
-    "short": "УП"
-  },
-  {
     "id": "mgimo-miep",
     "university": "МГИМО",
     "faculty": "Международный институт энергетической политики и дипломатии",
@@ -187,31 +161,6 @@
       "faculty": 31
     },
     "short": "МИЭП"
-  },
-  {
-    "id": "mgimo-mag",
-    "university": "МГИМО",
-    "faculty": "Магистратуры",
-    "path": "mgimo-mag",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 32
-    }
-  },
-  {
-    "id": "mgimo-mo-en",
-    "university": "МГИМО",
-    "faculty": "Факультет международных отношений (на английском языке)",
-    "path": "mgimo-mo-en",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 41
-    },
-    "short": "МО (англ)"
   },
   {
     "id": "mgimo-meo-dip",
@@ -348,5 +297,56 @@
     "path": "msal-orenburg-jur",
     "features": [],
     "tz": 5
+  },
+  {
+    "id": "mgimo-mo",
+    "university": "МГИМО",
+    "faculty": "Факультет международных отношений",
+    "path": "mgimo-mo",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 24
+    },
+    "short": "МО"
+  },
+  {
+    "id": "mgimo-up",
+    "university": "МГИМО",
+    "faculty": "Факультет управления и политики",
+    "path": "mgimo-up",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 30
+    },
+    "short": "УП"
+  },
+  {
+    "id": "mgimo-mag",
+    "university": "МГИМО",
+    "faculty": "Магистратуры",
+    "path": "mgimo-mag",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 32
+    }
+  },
+  {
+    "id": "mgimo-mo-en",
+    "university": "МГИМО",
+    "faculty": "Факультет международных отношений (на английском языке)",
+    "path": "mgimo-mo-en",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 41
+    },
+    "short": "МО (англ)"
   }
 ]
