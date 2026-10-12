@@ -3374,7 +3374,7 @@ export default {
           : "Эта ссылка больше не работает — попросите прислать новую.",
         parse_mode: "HTML",
         reply_markup: found.ok
-          ? { inline_keyboard: [[{ text: "📅 Добавить расписание", web_app: { url: `${isOwner(env, message.chat.id) ? BETA_URL : WEB_APP_URL}?cfg=${shared[1]}` } }]] }
+          ? { inline_keyboard: [[{ text: "📅 Добавить расписание", web_app: { url: `${WEB_APP_URL}?cfg=${shared[1]}` } }]] }
           : undefined,
       });
     }
