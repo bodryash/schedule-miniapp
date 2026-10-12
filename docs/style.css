@@ -6414,20 +6414,22 @@ body.sheet-open.typing {
   animation-fill-mode: forwards;
 }
 
-/* --- Нижняя полоса и клавиатура: стоит на месте, просто гаснет ---
-   Раньше на время набора полоса исчезала, а страница перестраивалась под
-   её отсутствие. Теперь она остаётся там, где была (её место запоминается
-   в момент касания поля), становится прозрачной и возвращается, когда
-   клавиатура убрана. */
+/* --- Нижняя полоса не двигается никогда ---
+   Её место на экране измерено один раз (pinTabs) и задано расстоянием от
+   верха. Клавиатура выезжает поверх неё; пока печатают, полоса просто
+   гаснет и возвращается, когда клавиатура убрана. */
 .tabs {
-  transition: opacity 180ms var(--ease-soft);
+  transition: opacity 200ms var(--ease-soft);
+}
+
+body.tabs-pinned .tabs {
+  top: var(--tabs-top);
+  bottom: auto;
 }
 
 body.typing .tabs,
 body.sheet-open.typing .tabs {
   display: flex;
-  top: var(--tabs-top, auto);
-  bottom: auto;
   opacity: 0;
   pointer-events: none;
 }

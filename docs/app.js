@@ -521,13 +521,8 @@ function keepFieldVisible() {
     // Телеграм умеет сам держать приложение развёрнутым — так экран не
     // складывается пополам, когда появляется клавиатура.
     tg?.expand?.();
-    // Полоса разделов на время набора гаснет, но с места не сходит:
-    // запоминаем, где она стоит, и держим там же, пока телефон меняет
-    // высоту экрана под клавиатуру. Иначе она подпрыгивала над клавиатурой.
-    const bar = els.tabs?.getBoundingClientRect();
-    if (bar && bar.height && !document.body.classList.contains("typing")) {
-      document.documentElement.style.setProperty("--tabs-top", `${Math.round(bar.top)}px`);
-    }
+    // Полоса разделов на время набора гаснет. С места она не сходит
+    // никогда — см. pinTabs().
     document.body.classList.add("typing");
     settle(node);
     // Окно меняет высоту несколько раз подряд; подводим поле после последнего.
@@ -4580,7 +4575,38 @@ const TAB_ORDER = ["schedule", "week", "queues", "search"];
  * месте: так глаз видит, куда ушёл выбор. Ширину берём у самой кнопки —
  * у подписей разная длина, и одинаковая капля смотрелась бы кривой.
  */
+/**
+ * Нижняя полоса прибита к своему месту на экране. Обычно такие полосы
+ * держатся за нижний край окна — и подпрыгивают, когда клавиатура этот край
+ * поднимает, а потом съезжают обратно. Мы один раз меряем, где полоса стоит
+ * при полном экране, и дальше держим её по расстоянию от верха: клавиатура
+ * выезжает поверх, полоса не двигается ни вверх, ни вниз.
+ * Перемеряем, только если экран по-настоящему изменился: повернули телефон
+ * или окно стало выше, чем было.
+ */
+const tabsPin = { width: 0, height: 0 };
+
+function pinTabs() {
+  const tabs = els.tabs;
+  if (!tabs || tabs.hidden || document.body.classList.contains("typing")) return;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  // Экран стал ниже при той же ширине — это клавиатура, а не новый экран.
+  if (width === tabsPin.width && height <= tabsPin.height) return;
+  tabsPin.width = width;
+  tabsPin.height = height;
+  document.body.classList.remove("tabs-pinned");
+  const top = Math.round(tabs.getBoundingClientRect().top);
+  document.documentElement.style.setProperty("--tabs-top", `${top}px`);
+  document.body.classList.add("tabs-pinned");
+}
+
+// Поворот экрана и раскрытие окна Telegram на всю высоту — повод перемерить.
+window.addEventListener("resize", pinTabs);
+window.addEventListener("orientationchange", () => setTimeout(pinTabs, 300));
+
 function moveDrop(name, animate = true) {
+  pinTabs();
   const drop = els.tabsDrop;
   const button = els.tabs?.querySelector(`.tab[data-tab="${name}"]`);
   if (!drop || !button || els.tabs.hidden) return;
@@ -4618,6 +4644,10 @@ function openTab(name) {
     const wasHidden = els.tabs.hidden;
     els.tabs.hidden = false;
     if (wasHidden) requestAnimationFrame(() => moveDrop(name, false));
+    // Место полосы меряем и без ожидания кадра: свёрнутое приложение кадров
+    // не рисует, и полоса осталась бы неприбитой до первого поворота экрана.
+    setTimeout(pinTabs, 0);
+    setTimeout(pinTabs, 400);
   }
   window.scrollTo(0, 0);
   const screen = { schedule: els.schedule, week: els.week, queues: els.queues, search: els.search }[name];
