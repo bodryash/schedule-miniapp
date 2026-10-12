@@ -371,6 +371,11 @@
     "faculty": "Исторический факультет",
     "path": "msu-hist",
     "features": [],
-    "short": "Истфак"
+    "short": "Истфак",
+    "source": {
+      "kind": "hist",
+      "base": "http://ccs2.hist.msu.ru",
+      "faculty": "all"
+    }
   }
 ]
