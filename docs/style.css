@@ -7006,3 +7006,78 @@ body.volunteer .tab[aria-selected="true"] {
 .sheet--own .sheet-actions {
   margin-top: 4px;
 }
+
+/* --- Свои дела — своя палитра ---
+   Жёлтая и не зависит ни от чётности недели, ни от выданной темы: своё дело
+   должно отличаться от пар с одного взгляда при любом оформлении.
+   --own — заливка, --own-ink — тот же цвет, затемнённый под текст. */
+.own-card,
+.own-add,
+.week-row--own,
+.sheet--own {
+  --own: #f5b400;
+  --own-deep: #e09600;
+  --own-ink: color-mix(in srgb, #a06a00 72%, var(--text));
+  --own-soft: color-mix(in srgb, var(--own) 20%, transparent);
+}
+
+.own-card {
+  border-color: color-mix(in srgb, var(--own) 70%, transparent);
+  background: color-mix(in srgb, var(--own) 9%, var(--surface, var(--card)));
+}
+
+.own-card .card-line {
+  background: color-mix(in srgb, var(--own) 60%, transparent);
+}
+
+.own-tag {
+  background: var(--own-soft);
+  color: var(--own-ink);
+}
+
+.own-add,
+.own-add:active {
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--own) 18%, transparent), transparent 70%),
+    var(--surface, var(--card));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--own) 38%, transparent);
+}
+
+.own-add:active {
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--own) 30%, transparent), transparent 70%),
+    var(--surface, var(--card));
+}
+
+.own-add-plus {
+  background: linear-gradient(165deg, #ffd84d, var(--own) 55%, var(--own-deep));
+  box-shadow: 0 8px 16px -8px color-mix(in srgb, var(--own-deep) 85%, transparent);
+  color: #3a2800;
+}
+
+.week-row--own .week-slot {
+  color: var(--own-deep);
+}
+
+/* Окно своего дела — в той же палитре. */
+.sheet--own .own-length {
+  background: var(--own-soft);
+  color: var(--own-ink);
+}
+
+/* Селектор усилен: выданные темы красят .primary по-своему, а эта кнопка
+   жёлтая при любой теме. */
+.sheet.sheet--own .own-save.primary {
+  background: linear-gradient(135deg, #ffd84d, var(--own) 55%, var(--own-deep));
+  box-shadow: 0 10px 20px -12px color-mix(in srgb, var(--own-deep) 85%, transparent);
+  color: #3a2800;
+}
+
+.sheet--own .own-weekly-box {
+  accent-color: var(--own-deep);
+}
+
+.sheet--own input[type="text"]:focus {
+  outline: 2px solid color-mix(in srgb, var(--own) 70%, transparent);
+  outline-offset: 0;
+}
