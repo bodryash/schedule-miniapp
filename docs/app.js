@@ -521,7 +521,13 @@ function keepFieldVisible() {
     // Телеграм умеет сам держать приложение развёрнутым — так экран не
     // складывается пополам, когда появляется клавиатура.
     tg?.expand?.();
-    // Полоса разделов внизу на клавиатуре только мешает — прячем её.
+    // Полоса разделов на время набора гаснет, но с места не сходит:
+    // запоминаем, где она стоит, и держим там же, пока телефон меняет
+    // высоту экрана под клавиатуру. Иначе она подпрыгивала над клавиатурой.
+    const bar = els.tabs?.getBoundingClientRect();
+    if (bar && bar.height && !document.body.classList.contains("typing")) {
+      document.documentElement.style.setProperty("--tabs-top", `${Math.round(bar.top)}px`);
+    }
     document.body.classList.add("typing");
     settle(node);
     // Окно меняет высоту несколько раз подряд; подводим поле после последнего.

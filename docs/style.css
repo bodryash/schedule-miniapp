@@ -6413,3 +6413,26 @@ body.sheet-open.typing {
 .sheet-backdrop--out .sheet {
   animation-fill-mode: forwards;
 }
+
+/* --- Нижняя полоса и клавиатура: стоит на месте, просто гаснет ---
+   Раньше на время набора полоса исчезала, а страница перестраивалась под
+   её отсутствие. Теперь она остаётся там, где была (её место запоминается
+   в момент касания поля), становится прозрачной и возвращается, когда
+   клавиатура убрана. */
+.tabs {
+  transition: opacity 180ms var(--ease-soft);
+}
+
+body.typing .tabs,
+body.sheet-open.typing .tabs {
+  display: flex;
+  top: var(--tabs-top, auto);
+  bottom: auto;
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.typing,
+body.sheet-open.typing {
+  padding-bottom: 96px;
+}
