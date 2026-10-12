@@ -1426,8 +1426,32 @@ function initReminders() {
 
 // Брутал выдаёт владелец командой /theme, гламур человек находит сам —
 // словом «гламур» в поиске по МФК. Тема с сервера сильнее найденной.
-const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion" };
+const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer" };
 const GLAM_KEY = "schedule.glam";
+// Зелёную тему волонтёра человек может выключить сам и вернуть обратно.
+// Остальные выданные темы так не умеют.
+const VOLUNTEER_OFF_KEY = "schedule.volunteerOff";
+
+function volunteerOff() {
+  try {
+    return localStorage.getItem(VOLUNTEER_OFF_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function initVolunteer() {
+  const box = document.getElementById("volunteer-theme");
+  box?.addEventListener("change", () => {
+    try {
+      localStorage.setItem(VOLUNTEER_OFF_KEY, box.checked ? "" : "1");
+    } catch {
+      // Без хранилища выбор доживёт до перезапуска.
+    }
+    haptic("light");
+    applyTheme();
+  });
+}
 
 let grantedTheme = "";
 
@@ -1451,11 +1475,70 @@ function setOwnGlam(on) {
 
 function applyTheme(granted = grantedTheme) {
   grantedTheme = granted || "";
-  const name = grantedTheme || (ownGlam() ? "glam" : "");
+  const volunteer = grantedTheme === "volunteer";
+  const row = document.getElementById("volunteer-row");
+  const box = document.getElementById("volunteer-theme");
+  if (row) row.hidden = !volunteer;
+  if (box) box.checked = volunteer && !volunteerOff();
+  const worn = volunteer && volunteerOff() ? "" : grantedTheme;
+  const name = worn || (ownGlam() ? "glam" : "");
   for (const cls of Object.values(THEMES)) {
     document.body.classList.toggle(cls, THEMES[name] === cls);
   }
   renderChampion(name === "champion");
+  renderVolunteer(name === "volunteer");
+}
+
+/* Тема «Волонтёр» — спасибо тем, кто разносит расписание по своим. Кроме
+   зелени — лента под датой и листопад: при первом открытии за день и по
+   нажатию на ленту. */
+const VOLUNTEER_KEY = "schedule.volunteerLeaves";
+
+function renderVolunteer(on) {
+  let ribbon = document.querySelector(".volunteer-ribbon");
+  if (!on) return ribbon?.remove();
+  if (!ribbon && els.freedom) {
+    ribbon = el("button", "volunteer-ribbon");
+    ribbon.type = "button";
+    ribbon.append(el("span", "volunteer-leaf", "🌿"), el("span", "", t("Волонтёр расписания")));
+    ribbon.addEventListener("click", () => {
+      haptic("success");
+      showLeaves();
+    });
+    els.freedom.after(ribbon);
+  }
+  const today = isoDate(new Date());
+  let last = "";
+  try {
+    last = localStorage.getItem(VOLUNTEER_KEY) || "";
+    if (last === today) return;
+    localStorage.setItem(VOLUNTEER_KEY, today);
+  } catch {
+    // Без хранилища листопад будет при каждом открытии — не беда.
+  }
+  afterSplash(() => {
+    showLeaves();
+    haptic("success");
+    if (!last) toast(t("🌿 Тема «Волонтёр» — спасибо, что рассказываешь о расписании!"));
+  });
+}
+
+/** Листопад: листья летят сверху, качаясь, каждый со своей скоростью. */
+function showLeaves() {
+  if (document.querySelector(".leaves")) return;
+  const box = el("div", "leaves");
+  const kinds = ["🍃", "🌿", "🍀", "🍃", "🌱"];
+  for (let i = 0; i < 26; i++) {
+    const leaf = el("i", "", kinds[i % kinds.length]);
+    leaf.style.left = `${Math.random() * 96}%`;
+    leaf.style.fontSize = `${16 + Math.random() * 16}px`;
+    leaf.style.animationDelay = `${Math.random() * 0.9}s`;
+    leaf.style.animationDuration = `${2.4 + Math.random() * 1.6}s`;
+    leaf.style.setProperty("--sway", `${(Math.random() < 0.5 ? -1 : 1) * (30 + Math.random() * 50)}px`);
+    box.append(leaf);
+  }
+  document.body.append(box);
+  setTimeout(() => box.remove(), 5200);
 }
 
 /* Тема «Чемпион» — приз победителю кликера. Кроме золота — лента под
@@ -7574,6 +7657,7 @@ async function init() {
   });
   initConfetti();
   initReminders();
+  initVolunteer();
   applyTheme();
   els.group.addEventListener("change", fillLanguages);
   els.main.addEventListener("change", fillMainSubgroups);
