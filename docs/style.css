@@ -6627,3 +6627,523 @@ body.volunteer .tab[aria-selected="true"] {
     display: none;
   }
 }
+
+/* --- Свои дела: тренировка, работа, кружок среди пар ---
+   Карточка похожа на пару, но штриховая рамка и метка «своё» сразу
+   показывают: это не из расписания факультета. */
+.own-card {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  margin: 0 0 10px;
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface, var(--card)));
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 140ms var(--ease-out);
+}
+
+.own-card:active {
+  transform: scale(0.985);
+}
+
+.own-card .card-line {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.own-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.own-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.own-tag {
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.own-repeat {
+  color: var(--muted);
+}
+
+.own-place {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* Кнопка «＋ Своё дело» под списком дня — тихая, чтобы не спорить с парами. */
+.own-add {
+  display: block;
+  width: 100%;
+  margin: 2px 0 14px;
+  padding: 12px;
+  border: 1.5px dashed color-mix(in srgb, var(--muted) 40%, transparent);
+  border-radius: 18px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.own-add:active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.week-row--own .week-slot {
+  color: var(--accent);
+}
+
+.week-row--own .week-subject {
+  font-style: italic;
+}
+
+/* Окно своего дела. */
+.sheet--own input[type="text"],
+.sheet--own input[type="time"] {
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.sheet--own .own-title {
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.own-times {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.own-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sheet--own .own-weekly {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 4px;
+  font-size: 15px;
+}
+
+.sheet--own .own-save {
+  margin-top: 10px;
+}
+
+/* Окно своего дела плотнее: всё до кнопок помещается над клавиатурой. */
+.sheet--own {
+  overflow-y: auto;
+}
+
+.sheet--own input[type="text"],
+.sheet--own input[type="time"] {
+  padding: 10px 14px;
+}
+
+.own-times {
+  margin: 8px 0;
+}
+
+.sheet--own .own-weekly {
+  margin: 8px 0 0;
+}
+
+.sheet--own .own-save {
+  flex: 0 0 auto;
+  margin-top: 8px;
+}
+
+.sheet--own .note-private {
+  margin: 8px 0 0;
+  font-size: 12px;
+}
+
+/* --- Свои дела, вторая подгонка ---
+   Кнопка добавления отодвинута от «На сегодня всё» и стала плашкой с плюсом;
+   начало и конец в окне — единый блок с крупными цифрами. */
+.own-add {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0 18px;
+  padding: 12px 16px 12px 12px;
+  border: 0;
+  border-radius: 20px;
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%),
+    var(--surface, var(--card));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--text);
+  text-align: left;
+  transition: transform 140ms var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.own-add:active {
+  transform: scale(0.98);
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--accent) 20%, transparent), transparent 70%),
+    var(--surface, var(--card));
+  color: var(--text);
+}
+
+.own-add-plus {
+  flex: 0 0 38px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 13px;
+  background: linear-gradient(165deg, color-mix(in srgb, var(--accent) 82%, #fff), var(--accent) 70%);
+  box-shadow: 0 8px 16px -8px color-mix(in srgb, var(--accent) 80%, transparent);
+  color: var(--accent-text, #fff);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.own-add-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.own-add-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.own-add-hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* Своё дело сразу после пар тоже держит дистанцию. */
+.card + .own-card,
+.gap + .own-card {
+  margin-top: 4px;
+}
+
+/* Начало — длительность — конец. */
+.own-times {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: stretch;
+  gap: 0;
+  margin: 10px 0;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  box-shadow: inset 0 0 0 1px var(--edge, transparent);
+  overflow: hidden;
+}
+
+.own-times--bad {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--tg-theme-destructive-text-color, #e53935) 60%, transparent);
+}
+
+.own-field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 8px 8px;
+  cursor: pointer;
+}
+
+.own-field-name {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.sheet--own .own-field input[type="time"] {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--digits);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Родной значок часов убираем, а его зону растягиваем на всю половину:
+   нажатие куда угодно открывает выбор времени. */
+.sheet--own .own-field input[type="time"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.sheet--own .own-field input[type="time"]::-webkit-date-and-time-value {
+  margin: 0;
+  text-align: center;
+}
+
+.sheet--own .own-field input[type="time"]::-webkit-datetime-edit {
+  display: inline-flex;
+  justify-content: center;
+  padding: 0;
+}
+
+.own-length {
+  align-self: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.own-times--bad .own-length {
+  background: transparent;
+  color: var(--tg-theme-destructive-text-color, #e53935);
+}
+
+/* Остальные поля окна — в одном ключе с блоком времени. */
+.sheet--own input[type="text"] {
+  border-radius: 16px;
+  padding: 12px 14px;
+}
+
+.sheet--own .own-weekly {
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--muted) 8%, transparent);
+}
+
+.sheet--own .own-save {
+  margin-top: 12px;
+}
+
+/* Окно — колонка, которая сжимает содержимое под клавиатуру: блок времени
+   и поля сжиматься не должны, прокручивается само окно. */
+.sheet--own > * {
+  flex: 0 0 auto;
+}
+
+/* Плотнее, чтобы «Удалить» и «Отмена» тоже помещались без прокрутки. */
+.sheet--own .own-title {
+  margin-top: 0;
+}
+
+.sheet--own input[type="text"] {
+  padding: 10px 14px;
+}
+
+.own-times {
+  margin: 8px 0;
+}
+
+.own-field {
+  padding: 8px 8px 6px;
+}
+
+.sheet--own .own-field input[type="time"] {
+  font-size: 28px;
+}
+
+.sheet--own .own-weekly {
+  margin-top: 8px;
+  padding: 8px 14px;
+}
+
+.sheet--own .own-save {
+  margin-top: 8px;
+}
+
+.sheet--own .sheet-actions {
+  margin-top: 4px;
+}
+
+/* --- Свои дела — своя палитра ---
+   Жёлтая и не зависит ни от чётности недели, ни от выданной темы: своё дело
+   должно отличаться от пар с одного взгляда при любом оформлении.
+   --own — заливка, --own-ink — тот же цвет, затемнённый под текст. */
+.own-card,
+.own-add,
+.week-row--own,
+.sheet--own {
+  --own: #f5b400;
+  --own-deep: #e09600;
+  --own-ink: color-mix(in srgb, #a06a00 72%, var(--text));
+  --own-soft: color-mix(in srgb, var(--own) 20%, transparent);
+}
+
+.own-card {
+  border-color: color-mix(in srgb, var(--own) 70%, transparent);
+  background: color-mix(in srgb, var(--own) 9%, var(--surface, var(--card)));
+}
+
+.own-card .card-line {
+  background: color-mix(in srgb, var(--own) 60%, transparent);
+}
+
+.own-tag {
+  background: var(--own-soft);
+  color: var(--own-ink);
+}
+
+.own-add,
+.own-add:active {
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--own) 18%, transparent), transparent 70%),
+    var(--surface, var(--card));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--own) 38%, transparent);
+}
+
+.own-add:active {
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--own) 30%, transparent), transparent 70%),
+    var(--surface, var(--card));
+}
+
+.own-add-plus {
+  background: linear-gradient(165deg, #ffd84d, var(--own) 55%, var(--own-deep));
+  box-shadow: 0 8px 16px -8px color-mix(in srgb, var(--own-deep) 85%, transparent);
+  color: #3a2800;
+}
+
+.week-row--own .week-slot {
+  color: var(--own-deep);
+}
+
+/* Окно своего дела — в той же палитре. */
+.sheet--own .own-length {
+  background: var(--own-soft);
+  color: var(--own-ink);
+}
+
+/* Селектор усилен: выданные темы красят .primary по-своему, а эта кнопка
+   жёлтая при любой теме. */
+.sheet.sheet--own .own-save.primary {
+  background: linear-gradient(135deg, #ffd84d, var(--own) 55%, var(--own-deep));
+  box-shadow: 0 10px 20px -12px color-mix(in srgb, var(--own-deep) 85%, transparent);
+  color: #3a2800;
+}
+
+.sheet--own .own-weekly-box {
+  accent-color: var(--own-deep);
+}
+
+.sheet--own input[type="text"]:focus {
+  outline: 2px solid color-mix(in srgb, var(--own) 70%, transparent);
+  outline-offset: 0;
+}
+
+/* Корзина в правом верхнем углу своего дела. Первое нажатие раскрывает
+   «Удалить?», второе — удаляет; через три секунды вопрос сам сворачивается. */
+.own-card {
+  box-sizing: border-box;
+}
+
+.own-head {
+  padding-right: 40px;
+}
+
+.own-bin {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.own-bin:active {
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
+}
+
+.own-bin-ask {
+  display: none;
+}
+
+.own-bin--ask {
+  background: var(--tg-theme-destructive-text-color, #e53935);
+  color: #fff;
+}
+
+.own-bin--ask .own-bin-ask {
+  display: inline;
+}
+
+/* Пары, свои дела, кнопка «Своё дело» и «На сегодня всё» стоят с одним и
+   тем же шагом — 10 пикселей, как между карточками пар. */
+.own-card,
+.own-add {
+  margin: 0 0 10px;
+}
+
+.card + .own-card,
+.gap + .own-card {
+  margin-top: 0;
+}
+
+.own-add + .dayend,
+.own-card + .dayend {
+  margin-top: 0;
+}
