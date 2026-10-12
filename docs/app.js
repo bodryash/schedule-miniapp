@@ -1286,7 +1286,9 @@ async function sendReminderSettings() {
     group: group.id,
     morning: Boolean(prefs?.remindMorning),
     before: prefs?.remindBefore ? 15 : 0,
-    plan: prefs?.remindMorning || prefs?.remindBefore ? reminderPlan() : [],
+    // «Будильник»: за сколько минут до первой пары дня написать.
+    wake: prefs?.remindWake ? wakeLead() : 0,
+    plan: prefs?.remindMorning || prefs?.remindBefore || prefs?.remindWake ? reminderPlan() : [],
   };
   fetch(REMIND_URL, { method: "POST", body: JSON.stringify(body) }).catch(() => {
     // Не дошло — отправим при следующем открытии.
@@ -1369,30 +1371,50 @@ function renderRemindAsk() {
   box.append(text, buttons);
 }
 
+/** За сколько минут до первой пары будить: по умолчанию за два часа. */
+function wakeLead() {
+  const lead = Number(prefs?.remindWakeLead);
+  return [30, 60, 90, 120, 150, 180].includes(lead) ? lead : 120;
+}
+
 function fillReminders() {
   if (!els.remindRow) return;
   // Без Telegram писать некому: настройку прячем целиком.
   els.remindRow.hidden = !tg?.initData;
   els.remindMorning.checked = Boolean(prefs?.remindMorning);
   els.remindBefore.checked = Boolean(prefs?.remindBefore);
+  if (els.remindWake) {
+    els.remindWake.checked = Boolean(prefs?.remindWake);
+    els.remindWakeLead.value = String(wakeLead());
+    els.remindWakeRow.hidden = els.remindWakeHint.hidden = !els.remindWake.checked;
+  }
 }
 
 function initReminders() {
   const save = () => {
     const morning = els.remindMorning.checked;
     const before = els.remindBefore.checked;
+    const wake = Boolean(els.remindWake?.checked);
     prefs = {
       ...prefs,
       remindMorning: morning,
       remindBefore: before,
-      // Выключили оба — значит, вопрос снова открыт: предложение вернётся.
-      remindAsked: morning || before ? true : false,
+      remindWake: wake,
+      remindWakeLead: Number(els.remindWakeLead?.value) || 120,
+      // Выключили всё — значит, вопрос снова открыт: предложение вернётся.
+      remindAsked: morning || before || wake ? true : false,
     };
     savePrefs(prefs);
+    if (els.remindWakeRow) els.remindWakeRow.hidden = els.remindWakeHint.hidden = !wake;
     sendReminderSettings();
   };
   els.remindMorning?.addEventListener("change", save);
   els.remindBefore?.addEventListener("change", save);
+  els.remindWake?.addEventListener("change", () => {
+    haptic("light");
+    save();
+  });
+  els.remindWakeLead?.addEventListener("change", save);
 }
 
 /* ---------- Особые темы оформления ---------- */
@@ -3613,6 +3635,10 @@ const els = {
   remindRow: document.getElementById("remind-row"),
   remindMorning: document.getElementById("remind-morning"),
   remindBefore: document.getElementById("remind-before"),
+  remindWake: document.getElementById("remind-wake"),
+  remindWakeRow: document.getElementById("remind-wake-row"),
+  remindWakeLead: document.getElementById("remind-wake-lead"),
+  remindWakeHint: document.getElementById("remind-wake-hint"),
   mfkRow: document.getElementById("mfk-row"),
   mfkFind: document.getElementById("mfk-find"),
   mfkList: document.getElementById("mfk-list"),
@@ -4065,7 +4091,7 @@ const BOT_LINK = "https://t.me/FGPshedulebot";
 
 /** Настройки без личного: напоминания у каждого свои. */
 function shareablePrefs(value) {
-  const { remindMorning, remindBefore, remindAsked, ...rest } = value || {};
+  const { remindMorning, remindBefore, remindAsked, remindWake, remindWakeLead, ...rest } = value || {};
   return rest;
 }
 
@@ -4481,6 +4507,8 @@ function collectPrefs() {
     mfk: prefs?.mfk || [],
     remindMorning: Boolean(prefs?.remindMorning),
     remindBefore: Boolean(prefs?.remindBefore),
+    remindWake: Boolean(prefs?.remindWake),
+    remindWakeLead: wakeLead(),
     remindAsked: Boolean(prefs?.remindAsked),
   };
 }
@@ -7226,6 +7254,54 @@ function flyEmoji(from, to, scene) {
     )
     .finished.then(land, land);
 }
+
+/* ---------- Окна снизу: плавный уход для всех ---------- */
+
+/**
+ * Окно снизу закрывают по-разному: у одних есть своя анимация ухода, другие
+ * просто ставят hidden и пропадают рывком. Чтобы не переписывать каждое,
+ * следим за всеми сразу: как только окну поставили hidden, на мгновение
+ * возвращаем его, даём уехать вниз и только потом прячем по-настоящему.
+ */
+const SHEET_OUT = 300;
+const sheetLeaving = new WeakMap();
+
+function watchSheets() {
+  if (!("MutationObserver" in window)) return;
+  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const observer = new MutationObserver((changes) => {
+    for (const change of changes) {
+      const node = change.target;
+      if (change.type === "childList") {
+        for (const added of change.addedNodes) {
+          if (added.classList?.contains("sheet-backdrop")) observer.observe(added, { attributes: true, attributeFilter: ["hidden", "class"] });
+        }
+        continue;
+      }
+      if (!node.classList?.contains("sheet-backdrop")) continue;
+      // У окна своя анимация ухода — запоминаем, чтобы не играть вторую.
+      if (change.attributeName === "class") {
+        if (node.classList.contains("sheet-backdrop--out")) sheetLeaving.set(node, performance.now());
+        continue;
+      }
+      if (!node.hidden || still) continue;
+      if (performance.now() - (sheetLeaving.get(node) || -1e9) < SHEET_OUT + 400) continue;
+      sheetLeaving.set(node, performance.now());
+      node.hidden = false;
+      node.classList.add("sheet-backdrop--out");
+      setTimeout(() => {
+        node.hidden = true;
+        node.classList.remove("sheet-backdrop--out");
+      }, SHEET_OUT);
+    }
+  });
+  for (const sheet of document.querySelectorAll(".sheet-backdrop")) {
+    observer.observe(sheet, { attributes: true, attributeFilter: ["hidden", "class"] });
+  }
+  // Часть окон создаётся при первом открытии — подхватываем и их.
+  observer.observe(document.body, { childList: true });
+}
+watchSheets();
 
 /* ---------- Запуск ---------- */
 

@@ -5999,3 +5999,286 @@ body[data-head="pixel"] .splash-day {
     animation: none;
   }
 }
+
+/* ===================================================================
+   Окна снизу, вторая редакция. Раньше окно было того же цвета, что и
+   экран под ним, и в тёмной теме сливалось в сплошное чёрное. Теперь у
+   него своя, более светлая поверхность, светлая кромка сверху, тень и
+   ручка; фон под ним темнеет и размывается. Въезд — снизу с пружиной,
+   уход — обратно вниз, у всех окон одинаково.
+   =================================================================== */
+.sheet-backdrop {
+  background: rgba(8, 10, 20, 0.5);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+  backdrop-filter: blur(6px) saturate(120%);
+  animation: sheet-dim 260ms var(--ease-soft) both;
+}
+
+.sheet {
+  position: relative;
+  padding-top: 26px;
+  border-radius: 28px 28px 0 0;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 140px),
+    color-mix(in srgb, var(--card) 58%, var(--bg));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text) 16%, transparent),
+    0 -1px 0 color-mix(in srgb, var(--text) 8%, transparent),
+    0 -24px 60px rgba(0, 0, 0, 0.42);
+  animation: sheet-rise 420ms cubic-bezier(0.22, 1.12, 0.36, 1) both;
+  will-change: transform;
+}
+
+/* Ручка: видно, что это окно и что оно сдвигается. */
+.sheet::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  width: 40px;
+  height: 5px;
+  margin-left: -20px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+}
+
+/* Поля внутри окна — на тон темнее поверхности, чтобы читались как поля. */
+.sheet textarea,
+.sheet input[type="text"],
+.sheet input[type="search"],
+.sheet select {
+  background: color-mix(in srgb, var(--bg) 70%, var(--card));
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+
+@keyframes sheet-dim {
+  from { background-color: rgba(8, 10, 20, 0); -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); }
+}
+
+@keyframes sheet-rise {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+
+.sheet-backdrop--out {
+  animation: sheet-undim 300ms var(--ease-soft) forwards;
+  pointer-events: none;
+}
+
+.sheet-backdrop--out .sheet {
+  animation: sheet-fall 300ms cubic-bezier(0.5, 0, 0.9, 0.4) forwards;
+}
+
+@keyframes sheet-undim {
+  to { background-color: rgba(8, 10, 20, 0); -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); }
+}
+
+@keyframes sheet-fall {
+  to { transform: translateY(104%); }
+}
+
+/* Меню «⋯» — тоже отдельная поверхность, а не кусок фона. */
+.menu-pop {
+  background: color-mix(in srgb, var(--card) 62%, var(--bg));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent),
+    0 18px 44px rgba(0, 0, 0, 0.36);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-backdrop,
+  .sheet,
+  .sheet-backdrop--out,
+  .sheet-backdrop--out .sheet {
+    animation: none;
+  }
+}
+
+/* ===================================================================
+   Настройки, вторая редакция. Были серые строки одна под другой. Теперь
+   каждая настройка — карточка с подписью сверху и значением крупнее, со
+   стрелкой выбора; галочки стали переключателями; группы настроек
+   собраны в блоки с заголовком; кнопка «Сохранить» — заметная.
+   =================================================================== */
+#picker label:not(.check) {
+  position: relative;
+  display: block;
+  margin-bottom: 10px;
+  padding: 11px 16px 4px;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge), var(--shadow-chip);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  transition: box-shadow 160ms var(--ease-out);
+}
+
+#picker label:not(.check):focus-within {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 60%, transparent), var(--shadow-chip);
+}
+
+#picker label:not(.check) select {
+  margin: 0;
+  padding: 5px 34px 11px 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text);
+  text-overflow: ellipsis;
+}
+
+/* Стрелка выбора справа — рисованная, в цвет темы. */
+#picker label:not(.check)::after {
+  content: "";
+  position: absolute;
+  right: 18px;
+  bottom: 20px;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  border-radius: 1px;
+  transform: rotate(45deg);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Блоки: напоминания, МФК, дисциплины по выбору. */
+#picker fieldset {
+  margin: 6px 0 12px;
+  padding: 14px 14px 12px;
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge), var(--shadow-chip);
+}
+
+#picker legend {
+  float: left;
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 0 2px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+#picker legend + * {
+  clear: both;
+}
+
+/* Строка с переключателем. */
+#picker .check {
+  align-items: center;
+  justify-content: space-between;
+  flex-direction: row-reverse;
+  gap: 12px;
+  padding: 12px 2px;
+  border-radius: 0;
+  background: none;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+#picker .check + .check,
+#picker .check + .check-extra {
+  margin-top: 0;
+  border-top: 1px solid var(--edge);
+}
+
+#picker .check span {
+  flex: 1;
+}
+
+#picker .check input {
+  flex: none;
+  position: relative;
+  width: 48px;
+  height: 28px;
+  margin: 0;
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  transition: background-color 200ms var(--ease-out);
+}
+
+#picker .check input::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.28);
+  transition: transform 240ms cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
+#picker .check input:checked {
+  background: var(--accent);
+}
+
+#picker .check input:checked::after {
+  transform: translateX(20px);
+}
+
+/* Дополнительная настройка под переключателем — вложенной строкой. */
+#picker label.check-extra {
+  margin: 0;
+  padding: 10px 2px 2px;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+#picker label.check-extra::after {
+  right: 6px;
+  bottom: 16px;
+}
+
+#picker fieldset .hint {
+  margin: 8px 2px 0;
+}
+
+#picker fieldset input[type="search"],
+#picker #mfk-find {
+  background: color-mix(in srgb, var(--bg) 60%, var(--card));
+  box-shadow: inset 0 0 0 1px var(--edge);
+  border-radius: 14px;
+}
+
+#picker .primary {
+  margin-top: 6px;
+  padding: 16px;
+  border-radius: 18px;
+  font-size: 17px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #8f7bff));
+  box-shadow: 0 14px 26px -14px color-mix(in srgb, var(--accent) 90%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+#picker .primary:active {
+  transform: scale(0.98);
+}
+
+#picker .secondary {
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+
+#picker > .bar h1 {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}

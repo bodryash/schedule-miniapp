@@ -259,6 +259,22 @@
         <input id="remind-before" type="checkbox">
         <span data-i18n>За 15 минут до пары</span>
       </label>
+      <label class="check">
+        <input id="remind-wake" type="checkbox">
+        <span data-i18n>Будильник перед первой парой</span>
+      </label>
+      <label class="check-extra" id="remind-wake-row" hidden>
+        <span data-i18n>За сколько до первой пары</span>
+        <select id="remind-wake-lead">
+          <option value="30" data-i18n>за 30 минут</option>
+          <option value="60" data-i18n>за 1 час</option>
+          <option value="90" data-i18n>за 1,5 часа</option>
+          <option value="120" data-i18n>за 2 часа</option>
+          <option value="150" data-i18n>за 2,5 часа</option>
+          <option value="180" data-i18n>за 3 часа</option>
+        </select>
+      </label>
+      <p class="hint" id="remind-wake-hint" hidden data-i18n>Бот пришлёт сообщение со звуком, когда пора вставать. Это не системный будильник: в беззвучном режиме телефон не зазвонит.</p>
       <p class="hint" data-i18n>Присылает бот в личные сообщения. Работает только в Telegram.</p>
     </fieldset>
 
