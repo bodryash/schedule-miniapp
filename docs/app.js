@@ -7335,14 +7335,76 @@ function pinSheetsToViewport() {
 }
 pinSheetsToViewport();
 
+let frozenAt = 0;
+
 function lockBehindSheets() {
   const open = Boolean(document.querySelector(".sheet-backdrop:not([hidden])"));
   if (document.body.classList.contains("sheet-open") === open) return;
+  // Страницу под окном прибиваем на месте. Одного «не прокручивать» мало:
+  // айфон всё равно двигает её, когда тянут само окно или выезжает клавиатура.
+  if (open) {
+    frozenAt = window.scrollY;
+    document.body.style.top = `${-frozenAt}px`;
+  }
   document.body.classList.toggle("sheet-open", open);
+  if (!open) {
+    document.body.style.top = "";
+    window.scrollTo(0, frozenAt);
+  }
   for (const node of document.body.children) {
     if (node.classList.contains("sheet-backdrop") || node.tagName === "SCRIPT") continue;
     node.inert = open;
   }
+}
+
+/**
+ * Ручка вверху окна: потянули за неё вниз — окно едет за пальцем и
+ * закрывается, если увели достаточно далеко или смахнули быстро.
+ */
+function addSheetGrab(backdrop) {
+  const sheet = backdrop.querySelector(".sheet");
+  if (!sheet || sheet.querySelector(".sheet-grab")) return;
+  const grab = el("div", "sheet-grab");
+  grab.setAttribute("aria-hidden", "true");
+  sheet.prepend(grab);
+  let start = null;
+  const reset = () => {
+    sheet.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
+    sheet.style.transform = "";
+    setTimeout(() => (sheet.style.transition = ""), 240);
+  };
+  grab.addEventListener("pointerdown", (event) => {
+    start = { y: event.clientY, at: performance.now(), last: 0 };
+    grab.setPointerCapture?.(event.pointerId);
+    sheet.style.transition = "none";
+    // Иначе доигранная анимация въезда держит окно на месте и не даёт его сдвинуть.
+    sheet.style.animation = "none";
+  });
+  grab.addEventListener("pointermove", (event) => {
+    if (!start) return;
+    start.last = Math.max(0, event.clientY - start.y);
+    sheet.style.transform = `translateY(${start.last}px)`;
+  });
+  const finish = (event) => {
+    if (!start) return;
+    const moved = start.last;
+    const speed = moved / Math.max(1, performance.now() - start.at);
+    start = null;
+    grab.releasePointerCapture?.(event.pointerId);
+    sheet.style.animation = "";
+    if (moved < 80 && !(moved > 30 && speed > 0.6)) return reset();
+    haptic("light");
+    sheet.style.transition = "";
+    // Закрываем так же, как нажатием мимо окна: у каждого окна свой порядок закрытия.
+    backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    setTimeout(() => {
+      if (!backdrop.hidden && !backdrop.classList.contains("sheet-backdrop--out")) backdrop.hidden = true;
+    }, 60);
+    // Сдвиг пальцем снимаем, когда окно уже ушло: иначе оно дёрнулось бы назад.
+    setTimeout(() => (sheet.style.transform = ""), SHEET_OUT + 80);
+  };
+  grab.addEventListener("pointerup", finish);
+  grab.addEventListener("pointercancel", finish);
 }
 
 function watchSheets() {
@@ -7355,7 +7417,9 @@ function watchSheets() {
       const node = change.target;
       if (change.type === "childList") {
         for (const added of change.addedNodes) {
-          if (added.classList?.contains("sheet-backdrop")) observer.observe(added, { attributes: true, attributeFilter: ["hidden", "class"] });
+          if (!added.classList?.contains("sheet-backdrop")) continue;
+          observer.observe(added, { attributes: true, attributeFilter: ["hidden", "class"] });
+          addSheetGrab(added);
         }
         continue;
       }
@@ -7379,6 +7443,7 @@ function watchSheets() {
   });
   for (const sheet of document.querySelectorAll(".sheet-backdrop")) {
     observer.observe(sheet, { attributes: true, attributeFilter: ["hidden", "class"] });
+    addSheetGrab(sheet);
   }
   // Часть окон создаётся при первом открытии — подхватываем и их.
   observer.observe(document.body, { childList: true });

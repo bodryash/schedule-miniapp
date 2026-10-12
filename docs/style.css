@@ -6285,6 +6285,9 @@ body[data-head="pixel"] .splash-day {
 /* Под открытым окном ничего не движется: ни прокрутка, ни листание дней.
    Само затемнение жесты не пропускает, прокручивается только окно. */
 body.sheet-open {
+  position: fixed;
+  left: 0;
+  right: 0;
   overflow: hidden;
 }
 
@@ -6387,4 +6390,26 @@ body.sheet-open.typing {
   .sheet-backdrop--input.sheet-backdrop--out .sheet {
     animation: none;
   }
+}
+
+/* Ручка окна: зона сверху, за которую его тянут вниз, чтобы закрыть.
+   Полоска нарисована у самого окна, а эта зона шире и выше — попасть легко. */
+.sheet-grab {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  height: 34px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.sheet-grab:active {
+  cursor: grabbing;
+}
+
+/* Уход после смахивания продолжается с того места, где отпустили палец. */
+.sheet-backdrop--out .sheet {
+  animation-fill-mode: forwards;
 }
