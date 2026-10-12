@@ -6438,3 +6438,53 @@ body.typing,
 body.sheet-open.typing {
   padding-bottom: 96px;
 }
+
+/* --- Волонтёр: зелёная тема тем, кто распространяет расписание ---
+   Выдаёт владелец командой /theme. В отличие от остальных выданных тем,
+   эту человек может сам выключить и включить в настройках. Фон остаётся
+   от Telegram — тема одинаково живёт на светлом и на тёмном. */
+body.volunteer {
+  --accent: #1faa59;
+  --accent-soft: rgba(31, 170, 89, 0.16);
+  --accent-text: #ffffff;
+  --line: rgba(31, 170, 89, 0.22);
+}
+
+body.volunteer[data-parity="even"] {
+  --accent: #12a594;
+  --accent-soft: rgba(18, 165, 148, 0.16);
+}
+
+body.volunteer[data-parity="none"] {
+  --accent: #3f9f5a;
+  --accent-soft: rgba(63, 159, 90, 0.15);
+}
+
+body.volunteer .date {
+  color: var(--accent);
+}
+
+body.volunteer #current-group::before {
+  content: "🌿 ";
+}
+
+body.volunteer .room-badge {
+  background: linear-gradient(135deg, #34c471, #0f8a5f);
+  color: #ffffff;
+}
+
+body.volunteer .days-drop {
+  background: linear-gradient(135deg, #43d17f 0%, #1faa59 55%, #0f8a5f 100%);
+  box-shadow: 0 4px 14px rgba(31, 170, 89, 0.35);
+}
+
+body.volunteer .card--now {
+  box-shadow:
+    0 0 0 1.5px rgba(31, 170, 89, 0.45),
+    0 8px 24px rgba(31, 170, 89, 0.18);
+}
+
+body.volunteer .primary {
+  background: linear-gradient(135deg, #34c471, #0f8a5f);
+  color: #ffffff;
+}

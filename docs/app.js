@@ -1426,8 +1426,32 @@ function initReminders() {
 
 // Брутал выдаёт владелец командой /theme, гламур человек находит сам —
 // словом «гламур» в поиске по МФК. Тема с сервера сильнее найденной.
-const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion" };
+const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer" };
 const GLAM_KEY = "schedule.glam";
+// Зелёную тему волонтёра человек может выключить сам и вернуть обратно.
+// Остальные выданные темы так не умеют.
+const VOLUNTEER_OFF_KEY = "schedule.volunteerOff";
+
+function volunteerOff() {
+  try {
+    return localStorage.getItem(VOLUNTEER_OFF_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function initVolunteer() {
+  const box = document.getElementById("volunteer-theme");
+  box?.addEventListener("change", () => {
+    try {
+      localStorage.setItem(VOLUNTEER_OFF_KEY, box.checked ? "" : "1");
+    } catch {
+      // Без хранилища выбор доживёт до перезапуска.
+    }
+    haptic("light");
+    applyTheme();
+  });
+}
 
 let grantedTheme = "";
 
@@ -1451,7 +1475,13 @@ function setOwnGlam(on) {
 
 function applyTheme(granted = grantedTheme) {
   grantedTheme = granted || "";
-  const name = grantedTheme || (ownGlam() ? "glam" : "");
+  const volunteer = grantedTheme === "volunteer";
+  const row = document.getElementById("volunteer-row");
+  const box = document.getElementById("volunteer-theme");
+  if (row) row.hidden = !volunteer;
+  if (box) box.checked = volunteer && !volunteerOff();
+  const worn = volunteer && volunteerOff() ? "" : grantedTheme;
+  const name = worn || (ownGlam() ? "glam" : "");
   for (const cls of Object.values(THEMES)) {
     document.body.classList.toggle(cls, THEMES[name] === cls);
   }
@@ -7574,6 +7604,7 @@ async function init() {
   });
   initConfetti();
   initReminders();
+  initVolunteer();
   applyTheme();
   els.group.addEventListener("change", fillLanguages);
   els.main.addEventListener("change", fillMainSubgroups);
