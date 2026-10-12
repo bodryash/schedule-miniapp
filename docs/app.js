@@ -2431,7 +2431,9 @@ let noting = null;
 
 function openNote(card) {
   if (!noteSheet) {
-    noteSheet = el("div", "sheet-backdrop");
+    // Окно с полем ввода встаёт сразу в верхней части экрана: под ним
+    // остаётся место для клавиатуры, и она ничего не двигает.
+    noteSheet = el("div", "sheet-backdrop sheet-backdrop--input");
     noteSheet.hidden = true;
     const sheet = el("div", "sheet sheet--note");
     sheet.setAttribute("role", "dialog");
@@ -7282,15 +7284,47 @@ const sheetLeaving = new WeakMap();
  * выезжает клавиатура, телефон сообщает новую видимую высоту — окно встаёт
  * ровно над клавиатурой одним движением, а не догоняет её рывками.
  */
+const KEYBOARD_KEY = "schedule.keyboard";
+
 function pinSheetsToViewport() {
+  const style = document.documentElement.style;
+  // Полная высота экрана — самая большая из виденных: когда выезжает
+  // клавиатура, часть телефонов сжимает само окно приложения.
+  let full = window.innerHeight;
+  let keyboard = 0;
+  try {
+    keyboard = Number(localStorage.getItem(KEYBOARD_KEY)) || 0;
+  } catch {
+    // Память недоступна — возьмём оценку.
+  }
+  const reserve = () => {
+    // Сколько места оставить клавиатуре: её настоящую высоту, если уже
+    // видели, иначе — чуть меньше половины экрана, с запасом.
+    const guess = keyboard > 150 && keyboard < full * 0.7 ? keyboard : Math.round(full * 0.46);
+    style.setProperty("--full-height", `${full}px`);
+    style.setProperty("--keyboard", `${guess}px`);
+  };
+  reserve();
   const viewport = window.visualViewport;
   if (!viewport) return;
   let frame = 0;
   const apply = () => {
     frame = 0;
-    const style = document.documentElement.style;
     style.setProperty("--vv-top", `${Math.max(0, Math.round(viewport.offsetTop))}px`);
     style.setProperty("--vv-height", `${Math.round(viewport.height)}px`);
+    if (window.innerHeight > full) full = window.innerHeight;
+    // Печатают — значит, разница между полной и видимой высотой и есть
+    // клавиатура. Запоминаем самую высокую: в следующий раз окно встанет точно.
+    const gap = Math.round(full - viewport.height);
+    if (document.body.classList.contains("typing") && gap > 150 && gap < full * 0.7 && gap > keyboard) {
+      keyboard = gap;
+      try {
+        localStorage.setItem(KEYBOARD_KEY, String(gap));
+      } catch {
+        // Не запомнилось — останется оценка.
+      }
+    }
+    reserve();
   };
   const schedule = () => {
     if (!frame) frame = requestAnimationFrame(apply);
