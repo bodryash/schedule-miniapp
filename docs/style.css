@@ -7130,3 +7130,20 @@ body.volunteer .tab[aria-selected="true"] {
 .own-bin--ask .own-bin-ask {
   display: inline;
 }
+
+/* Пары, свои дела, кнопка «Своё дело» и «На сегодня всё» стоят с одним и
+   тем же шагом — 10 пикселей, как между карточками пар. */
+.own-card,
+.own-add {
+  margin: 0 0 10px;
+}
+
+.card + .own-card,
+.gap + .own-card {
+  margin-top: 0;
+}
+
+.own-add + .dayend,
+.own-card + .dayend {
+  margin-top: 0;
+}

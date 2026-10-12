@@ -5593,6 +5593,9 @@ function renderLessons(group, parity) {
     node.style.setProperty("--from-x", `${from}px`);
   });
 
+  // Кнопка своего дела — сразу после пар, перед «на сегодня всё».
+  nodes.push(renderOwnAdd());
+
   // Сегодня и всё уже прошло — в конце списка карточка «на сегодня всё».
   const now = new Date();
   const overToday =
@@ -5603,7 +5606,6 @@ function renderLessons(group, parity) {
     const card = renderDayEnd();
     if (card) nodes.push(card);
   }
-  nodes.push(renderOwnAdd());
 
   els.lessons.replaceChildren(...nodes);
   applyCancels();
