@@ -69,7 +69,10 @@ globalThis.SCHEDULE_SAVE_FILE = async (document, from, caption) => {
   mkdirSync(INBOX, { recursive: true });
   // Имя файла — чужое: оставляем только безопасные знаки.
   const safe = String(document.file_name || "file").replace(/[^\p{L}\p{N}._ -]/gu, "_").slice(-80);
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  // Несколько фото одним сообщением приходят в одну и ту же секунду и все
+  // зовутся photo.jpg — без метки файла второе затирало первое.
+  const mark = String(document.file_unique_id || Math.random().toString(36).slice(2, 8)).replace(/[^A-Za-z0-9_-]/g, "").slice(-8);
+  const stamp = `${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}_${mark}`;
   writeFileSync(join(INBOX, `${stamp}_${safe}`), Buffer.from(await file.arrayBuffer()));
   writeFileSync(
     join(INBOX, `${stamp}_${safe}.json`),
