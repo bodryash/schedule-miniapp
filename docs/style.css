@@ -5999,3 +5999,442 @@ body[data-head="pixel"] .splash-day {
     animation: none;
   }
 }
+
+/* ===================================================================
+   Окна снизу, вторая редакция. Раньше окно было того же цвета, что и
+   экран под ним, и в тёмной теме сливалось в сплошное чёрное. Теперь у
+   него своя, более светлая поверхность, светлая кромка сверху, тень и
+   ручка; фон под ним темнеет и размывается. Въезд — снизу с пружиной,
+   уход — обратно вниз, у всех окон одинаково.
+   =================================================================== */
+.sheet-backdrop {
+  background: rgba(8, 10, 20, 0.5);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+  backdrop-filter: blur(6px) saturate(120%);
+  animation: sheet-dim 260ms var(--ease-soft) both;
+}
+
+.sheet {
+  position: relative;
+  padding-top: 26px;
+  border-radius: 28px 28px 0 0;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 140px),
+    color-mix(in srgb, var(--card) 58%, var(--bg));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text) 16%, transparent),
+    0 -1px 0 color-mix(in srgb, var(--text) 8%, transparent),
+    0 -24px 60px rgba(0, 0, 0, 0.42);
+  animation: sheet-rise 420ms cubic-bezier(0.22, 1.12, 0.36, 1) both;
+  will-change: transform;
+}
+
+/* Ручка: видно, что это окно и что оно сдвигается. */
+.sheet::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  width: 40px;
+  height: 5px;
+  margin-left: -20px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+}
+
+/* Поля внутри окна — на тон темнее поверхности, чтобы читались как поля. */
+.sheet textarea,
+.sheet input[type="text"],
+.sheet input[type="search"],
+.sheet select {
+  background: color-mix(in srgb, var(--bg) 70%, var(--card));
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+
+@keyframes sheet-dim {
+  from { background-color: rgba(8, 10, 20, 0); -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); }
+}
+
+@keyframes sheet-rise {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+
+.sheet-backdrop--out {
+  animation: sheet-undim 300ms var(--ease-soft) forwards;
+}
+
+.sheet-backdrop--out .sheet {
+  animation: sheet-fall 300ms cubic-bezier(0.5, 0, 0.9, 0.4) forwards;
+}
+
+@keyframes sheet-undim {
+  to { background-color: rgba(8, 10, 20, 0); -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); }
+}
+
+@keyframes sheet-fall {
+  to { transform: translateY(104%); }
+}
+
+/* Меню «⋯» — тоже отдельная поверхность, а не кусок фона. */
+.menu-pop {
+  background: color-mix(in srgb, var(--card) 62%, var(--bg));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent),
+    0 18px 44px rgba(0, 0, 0, 0.36);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-backdrop,
+  .sheet,
+  .sheet-backdrop--out,
+  .sheet-backdrop--out .sheet {
+    animation: none;
+  }
+}
+
+/* ===================================================================
+   Настройки, вторая редакция. Были серые строки одна под другой. Теперь
+   каждая настройка — карточка с подписью сверху и значением крупнее, со
+   стрелкой выбора; галочки стали переключателями; группы настроек
+   собраны в блоки с заголовком; кнопка «Сохранить» — заметная.
+   =================================================================== */
+#picker label:not(.check) {
+  position: relative;
+  display: block;
+  margin-bottom: 10px;
+  padding: 11px 16px 4px;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge), var(--shadow-chip);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  transition: box-shadow 160ms var(--ease-out);
+}
+
+#picker label:not(.check):focus-within {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 60%, transparent), var(--shadow-chip);
+}
+
+#picker label:not(.check) select {
+  margin: 0;
+  padding: 5px 34px 11px 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text);
+  text-overflow: ellipsis;
+}
+
+/* Стрелка выбора справа — рисованная, в цвет темы. */
+#picker label:not(.check)::after {
+  content: "";
+  position: absolute;
+  right: 18px;
+  bottom: 20px;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  border-radius: 1px;
+  transform: rotate(45deg);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Блоки: напоминания, МФК, дисциплины по выбору. */
+#picker fieldset {
+  margin: 6px 0 12px;
+  padding: 14px 14px 12px;
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge), var(--shadow-chip);
+}
+
+#picker legend {
+  float: left;
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 0 2px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+#picker legend + * {
+  clear: both;
+}
+
+/* Строка с переключателем. */
+#picker .check {
+  align-items: center;
+  justify-content: space-between;
+  flex-direction: row-reverse;
+  gap: 12px;
+  padding: 12px 2px;
+  border-radius: 0;
+  background: none;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+#picker .check + .check,
+#picker .check + .check-extra {
+  margin-top: 0;
+  border-top: 1px solid var(--edge);
+}
+
+#picker .check span {
+  flex: 1;
+}
+
+#picker .check input {
+  flex: none;
+  position: relative;
+  width: 48px;
+  height: 28px;
+  margin: 0;
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  transition: background-color 200ms var(--ease-out);
+}
+
+#picker .check input::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.28);
+  transition: transform 240ms cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
+#picker .check input:checked {
+  background: var(--accent);
+}
+
+#picker .check input:checked::after {
+  transform: translateX(20px);
+}
+
+/* Дополнительная настройка под переключателем — вложенной строкой. */
+#picker label.check-extra {
+  margin: 0;
+  padding: 10px 2px 2px;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+#picker label.check-extra::after {
+  right: 6px;
+  bottom: 16px;
+}
+
+#picker fieldset .hint {
+  margin: 8px 2px 0;
+}
+
+#picker fieldset input[type="search"],
+#picker #mfk-find {
+  background: color-mix(in srgb, var(--bg) 60%, var(--card));
+  box-shadow: inset 0 0 0 1px var(--edge);
+  border-radius: 14px;
+}
+
+#picker .primary {
+  margin-top: 6px;
+  padding: 16px;
+  border-radius: 18px;
+  font-size: 17px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #8f7bff));
+  box-shadow: 0 14px 26px -14px color-mix(in srgb, var(--accent) 90%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+#picker .primary:active {
+  transform: scale(0.98);
+}
+
+#picker .secondary {
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+
+#picker > .bar h1 {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Под открытым окном ничего не движется: ни прокрутка, ни листание дней.
+   Само затемнение жесты не пропускает, прокручивается только окно. */
+body.sheet-open {
+  position: fixed;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+}
+
+.sheet-backdrop {
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.sheet-backdrop .sheet {
+  touch-action: pan-y;
+}
+
+/* --- Окно и клавиатура: одно движение вместо трёх ---
+   Затемнение занимает ровно видимую часть экрана (её высоту сообщает
+   телефон), поэтому окно стоит над клавиатурой, а не под ней. Смена высоты
+   идёт плавно и одним куском. */
+.sheet-backdrop {
+  top: var(--vv-top, 0px);
+  bottom: auto;
+  height: var(--vv-height, 100%);
+  transition: height 200ms cubic-bezier(0.2, 0.8, 0.2, 1), top 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.sheet {
+  max-height: min(86dvh, calc(var(--vv-height, 100dvh) - 20px));
+}
+
+/* Окно с полем ввода въезжает быстро и без пружины: клавиатура выезжает
+   в это же время, и два долгих движения сразу выглядели кашей. */
+.sheet-backdrop:focus-within .sheet {
+  animation-duration: 200ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Пока печатают, экран под окном не перестраивается: полоса разделов и так
+   не видна за затемнением, а её скрытие сдвигало всю страницу. */
+body.sheet-open.typing .tabs {
+  display: flex;
+}
+
+body.sheet-open.typing {
+  padding-bottom: 96px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-backdrop {
+    transition: none;
+  }
+}
+
+/* --- Окно с полем ввода: сразу наверху, место под клавиатуру оставлено ---
+   Такое окно привязано к верху экрана, а не к низу. Клавиатура выезжает в
+   пустое место под ним, и ни она окно, ни окно её не двигают — как бы
+   телефон ни менял высоту экрана. */
+.sheet-backdrop--input {
+  top: 0;
+  height: 100%;
+  align-items: flex-start;
+  padding: calc(env(safe-area-inset-top) + 10px) 10px 0;
+  transition: none;
+}
+
+.sheet-backdrop--input .sheet {
+  border-radius: 26px;
+  padding-bottom: 16px;
+  max-height: calc(var(--full-height, 100vh) - var(--keyboard, 46vh) - env(safe-area-inset-top) - 22px);
+  animation: sheet-settle 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.sheet-backdrop--input:focus-within .sheet {
+  animation-duration: 240ms;
+}
+
+.sheet-backdrop--input.sheet-backdrop--out .sheet {
+  animation: sheet-unsettle 220ms cubic-bezier(0.5, 0, 0.9, 0.4) forwards;
+}
+
+@keyframes sheet-settle {
+  from { opacity: 0; transform: translateY(36px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes sheet-unsettle {
+  to { opacity: 0; transform: translateY(24px) scale(0.97); }
+}
+
+/* Поле растягивается на оставшуюся высоту, кнопки всегда видны. */
+.sheet-backdrop--input .sheet {
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet-backdrop--input .sheet textarea {
+  flex: 1 1 auto;
+  min-height: 72px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-backdrop--input .sheet,
+  .sheet-backdrop--input.sheet-backdrop--out .sheet {
+    animation: none;
+  }
+}
+
+/* Ручка окна: зона сверху, за которую его тянут вниз, чтобы закрыть.
+   Полоска нарисована у самого окна, а эта зона шире и выше — попасть легко. */
+.sheet-grab {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  height: 34px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.sheet-grab:active {
+  cursor: grabbing;
+}
+
+/* Уход после смахивания продолжается с того места, где отпустили палец. */
+.sheet-backdrop--out .sheet {
+  animation-fill-mode: forwards;
+}
+
+/* --- Нижняя полоса не двигается никогда ---
+   Её место на экране измерено один раз (pinTabs) и задано расстоянием от
+   верха. Клавиатура выезжает поверх неё; пока печатают, полоса просто
+   гаснет и возвращается, когда клавиатура убрана. */
+.tabs {
+  transition: opacity 200ms var(--ease-soft);
+}
+
+body.tabs-pinned .tabs {
+  top: var(--tabs-top);
+  bottom: auto;
+}
+
+body.typing .tabs,
+body.sheet-open.typing .tabs {
+  display: flex;
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.typing,
+body.sheet-open.typing {
+  padding-bottom: 96px;
+}

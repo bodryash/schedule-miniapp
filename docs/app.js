@@ -505,6 +505,10 @@ function keepFieldVisible() {
   let timer = null;
   const settle = (node) => {
     clearTimeout(timer);
+    // В окне снизу поле уже на месте: окно само держится над клавиатурой.
+    // Лишняя прокрутка здесь и давала «кашу» — окно ехало вверх, клавиатура
+    // выезжала, а следом ещё и содержимое подпрыгивало к середине.
+    if (node.closest?.(".sheet")) return;
     timer = setTimeout(() => {
       if (document.activeElement !== node) return;
       node.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -517,7 +521,8 @@ function keepFieldVisible() {
     // Телеграм умеет сам держать приложение развёрнутым — так экран не
     // складывается пополам, когда появляется клавиатура.
     tg?.expand?.();
-    // Полоса разделов внизу на клавиатуре только мешает — прячем её.
+    // Полоса разделов на время набора гаснет. С места она не сходит
+    // никогда — см. pinTabs().
     document.body.classList.add("typing");
     settle(node);
     // Окно меняет высоту несколько раз подряд; подводим поле после последнего.
@@ -1286,7 +1291,9 @@ async function sendReminderSettings() {
     group: group.id,
     morning: Boolean(prefs?.remindMorning),
     before: prefs?.remindBefore ? 15 : 0,
-    plan: prefs?.remindMorning || prefs?.remindBefore ? reminderPlan() : [],
+    // «Будильник»: за сколько минут до первой пары дня написать.
+    wake: prefs?.remindWake ? wakeLead() : 0,
+    plan: prefs?.remindMorning || prefs?.remindBefore || prefs?.remindWake ? reminderPlan() : [],
   };
   fetch(REMIND_URL, { method: "POST", body: JSON.stringify(body) }).catch(() => {
     // Не дошло — отправим при следующем открытии.
@@ -1369,30 +1376,50 @@ function renderRemindAsk() {
   box.append(text, buttons);
 }
 
+/** За сколько минут до первой пары будить: по умолчанию за два часа. */
+function wakeLead() {
+  const lead = Number(prefs?.remindWakeLead);
+  return [30, 60, 90, 120, 150, 180].includes(lead) ? lead : 120;
+}
+
 function fillReminders() {
   if (!els.remindRow) return;
   // Без Telegram писать некому: настройку прячем целиком.
   els.remindRow.hidden = !tg?.initData;
   els.remindMorning.checked = Boolean(prefs?.remindMorning);
   els.remindBefore.checked = Boolean(prefs?.remindBefore);
+  if (els.remindWake) {
+    els.remindWake.checked = Boolean(prefs?.remindWake);
+    els.remindWakeLead.value = String(wakeLead());
+    els.remindWakeRow.hidden = els.remindWakeHint.hidden = !els.remindWake.checked;
+  }
 }
 
 function initReminders() {
   const save = () => {
     const morning = els.remindMorning.checked;
     const before = els.remindBefore.checked;
+    const wake = Boolean(els.remindWake?.checked);
     prefs = {
       ...prefs,
       remindMorning: morning,
       remindBefore: before,
-      // Выключили оба — значит, вопрос снова открыт: предложение вернётся.
-      remindAsked: morning || before ? true : false,
+      remindWake: wake,
+      remindWakeLead: Number(els.remindWakeLead?.value) || 120,
+      // Выключили всё — значит, вопрос снова открыт: предложение вернётся.
+      remindAsked: morning || before || wake ? true : false,
     };
     savePrefs(prefs);
+    if (els.remindWakeRow) els.remindWakeRow.hidden = els.remindWakeHint.hidden = !wake;
     sendReminderSettings();
   };
   els.remindMorning?.addEventListener("change", save);
   els.remindBefore?.addEventListener("change", save);
+  els.remindWake?.addEventListener("change", () => {
+    haptic("light");
+    save();
+  });
+  els.remindWakeLead?.addEventListener("change", save);
 }
 
 /* ---------- Особые темы оформления ---------- */
@@ -2405,7 +2432,9 @@ let noting = null;
 
 function openNote(card) {
   if (!noteSheet) {
-    noteSheet = el("div", "sheet-backdrop");
+    // Окно с полем ввода встаёт сразу в верхней части экрана: под ним
+    // остаётся место для клавиатуры, и она ничего не двигает.
+    noteSheet = el("div", "sheet-backdrop sheet-backdrop--input");
     noteSheet.hidden = true;
     const sheet = el("div", "sheet sheet--note");
     sheet.setAttribute("role", "dialog");
@@ -3613,6 +3642,10 @@ const els = {
   remindRow: document.getElementById("remind-row"),
   remindMorning: document.getElementById("remind-morning"),
   remindBefore: document.getElementById("remind-before"),
+  remindWake: document.getElementById("remind-wake"),
+  remindWakeRow: document.getElementById("remind-wake-row"),
+  remindWakeLead: document.getElementById("remind-wake-lead"),
+  remindWakeHint: document.getElementById("remind-wake-hint"),
   mfkRow: document.getElementById("mfk-row"),
   mfkFind: document.getElementById("mfk-find"),
   mfkList: document.getElementById("mfk-list"),
@@ -4065,7 +4098,7 @@ const BOT_LINK = "https://t.me/FGPshedulebot";
 
 /** Настройки без личного: напоминания у каждого свои. */
 function shareablePrefs(value) {
-  const { remindMorning, remindBefore, remindAsked, ...rest } = value || {};
+  const { remindMorning, remindBefore, remindAsked, remindWake, remindWakeLead, ...rest } = value || {};
   return rest;
 }
 
@@ -4481,6 +4514,8 @@ function collectPrefs() {
     mfk: prefs?.mfk || [],
     remindMorning: Boolean(prefs?.remindMorning),
     remindBefore: Boolean(prefs?.remindBefore),
+    remindWake: Boolean(prefs?.remindWake),
+    remindWakeLead: wakeLead(),
     remindAsked: Boolean(prefs?.remindAsked),
   };
 }
@@ -4540,7 +4575,38 @@ const TAB_ORDER = ["schedule", "week", "queues", "search"];
  * месте: так глаз видит, куда ушёл выбор. Ширину берём у самой кнопки —
  * у подписей разная длина, и одинаковая капля смотрелась бы кривой.
  */
+/**
+ * Нижняя полоса прибита к своему месту на экране. Обычно такие полосы
+ * держатся за нижний край окна — и подпрыгивают, когда клавиатура этот край
+ * поднимает, а потом съезжают обратно. Мы один раз меряем, где полоса стоит
+ * при полном экране, и дальше держим её по расстоянию от верха: клавиатура
+ * выезжает поверх, полоса не двигается ни вверх, ни вниз.
+ * Перемеряем, только если экран по-настоящему изменился: повернули телефон
+ * или окно стало выше, чем было.
+ */
+const tabsPin = { width: 0, height: 0 };
+
+function pinTabs() {
+  const tabs = els.tabs;
+  if (!tabs || tabs.hidden || document.body.classList.contains("typing")) return;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  // Экран стал ниже при той же ширине — это клавиатура, а не новый экран.
+  if (width === tabsPin.width && height <= tabsPin.height) return;
+  tabsPin.width = width;
+  tabsPin.height = height;
+  document.body.classList.remove("tabs-pinned");
+  const top = Math.round(tabs.getBoundingClientRect().top);
+  document.documentElement.style.setProperty("--tabs-top", `${top}px`);
+  document.body.classList.add("tabs-pinned");
+}
+
+// Поворот экрана и раскрытие окна Telegram на всю высоту — повод перемерить.
+window.addEventListener("resize", pinTabs);
+window.addEventListener("orientationchange", () => setTimeout(pinTabs, 300));
+
 function moveDrop(name, animate = true) {
+  pinTabs();
   const drop = els.tabsDrop;
   const button = els.tabs?.querySelector(`.tab[data-tab="${name}"]`);
   if (!drop || !button || els.tabs.hidden) return;
@@ -4578,6 +4644,10 @@ function openTab(name) {
     const wasHidden = els.tabs.hidden;
     els.tabs.hidden = false;
     if (wasHidden) requestAnimationFrame(() => moveDrop(name, false));
+    // Место полосы меряем и без ожидания кадра: свёрнутое приложение кадров
+    // не рисует, и полоса осталась бы неприбитой до первого поворота экрана.
+    setTimeout(pinTabs, 0);
+    setTimeout(pinTabs, 400);
   }
   window.scrollTo(0, 0);
   const screen = { schedule: els.schedule, week: els.week, queues: els.queues, search: els.search }[name];
@@ -6163,6 +6233,8 @@ function initSwipe() {
     // Полоса дней листается сама по себе, кнопки должны нажиматься.
     // Окно домашки лежит поверх расписания: печать в нём не должна листать дни.
     // Плашка праздника — кликер: тап у её края листал день, как в сторис.
+    // Открыто окно — листать дни под ним нельзя, куда бы ни попал палец.
+    if (document.body.classList.contains("sheet-open")) return;
     if (event.target.closest?.(".days, button, .sheet, .event")) return;
     if (sheetOpen()) return;
     pointer = event.pointerId;
@@ -7226,6 +7298,193 @@ function flyEmoji(from, to, scene) {
     )
     .finished.then(land, land);
 }
+
+/* ---------- Окна снизу: плавный уход для всех ---------- */
+
+/**
+ * Окно снизу закрывают по-разному: у одних есть своя анимация ухода, другие
+ * просто ставят hidden и пропадают рывком. Чтобы не переписывать каждое,
+ * следим за всеми сразу: как только окну поставили hidden, на мгновение
+ * возвращаем его, даём уехать вниз и только потом прячем по-настоящему.
+ */
+const SHEET_OUT = 300;
+const sheetLeaving = new WeakMap();
+
+/**
+ * Пока открыто окно, всё, что под ним, выключено: не нажимается, не
+ * листается и не прокручивается. Иначе палец, промахнувшись мимо окна,
+ * переключал день или открывал пару под размытым фоном.
+ */
+/**
+ * Окно снизу привязано к видимой части экрана, а не к странице. Когда
+ * выезжает клавиатура, телефон сообщает новую видимую высоту — окно встаёт
+ * ровно над клавиатурой одним движением, а не догоняет её рывками.
+ */
+const KEYBOARD_KEY = "schedule.keyboard";
+
+function pinSheetsToViewport() {
+  const style = document.documentElement.style;
+  // Полная высота экрана — самая большая из виденных: когда выезжает
+  // клавиатура, часть телефонов сжимает само окно приложения.
+  let full = window.innerHeight;
+  let keyboard = 0;
+  try {
+    keyboard = Number(localStorage.getItem(KEYBOARD_KEY)) || 0;
+  } catch {
+    // Память недоступна — возьмём оценку.
+  }
+  const reserve = () => {
+    // Сколько места оставить клавиатуре: её настоящую высоту, если уже
+    // видели, иначе — чуть меньше половины экрана, с запасом.
+    const guess = keyboard > 150 && keyboard < full * 0.7 ? keyboard : Math.round(full * 0.46);
+    style.setProperty("--full-height", `${full}px`);
+    style.setProperty("--keyboard", `${guess}px`);
+  };
+  reserve();
+  const viewport = window.visualViewport;
+  if (!viewport) return;
+  let frame = 0;
+  const apply = () => {
+    frame = 0;
+    style.setProperty("--vv-top", `${Math.max(0, Math.round(viewport.offsetTop))}px`);
+    style.setProperty("--vv-height", `${Math.round(viewport.height)}px`);
+    if (window.innerHeight > full) full = window.innerHeight;
+    // Печатают — значит, разница между полной и видимой высотой и есть
+    // клавиатура. Запоминаем самую высокую: в следующий раз окно встанет точно.
+    const gap = Math.round(full - viewport.height);
+    if (document.body.classList.contains("typing") && gap > 150 && gap < full * 0.7 && gap > keyboard) {
+      keyboard = gap;
+      try {
+        localStorage.setItem(KEYBOARD_KEY, String(gap));
+      } catch {
+        // Не запомнилось — останется оценка.
+      }
+    }
+    reserve();
+  };
+  const schedule = () => {
+    if (!frame) frame = requestAnimationFrame(apply);
+  };
+  viewport.addEventListener("resize", schedule);
+  viewport.addEventListener("scroll", schedule);
+  apply();
+}
+pinSheetsToViewport();
+
+let frozenAt = 0;
+
+function lockBehindSheets() {
+  const open = Boolean(document.querySelector(".sheet-backdrop:not([hidden])"));
+  if (document.body.classList.contains("sheet-open") === open) return;
+  // Страницу под окном прибиваем на месте. Одного «не прокручивать» мало:
+  // айфон всё равно двигает её, когда тянут само окно или выезжает клавиатура.
+  if (open) {
+    frozenAt = window.scrollY;
+    document.body.style.top = `${-frozenAt}px`;
+  }
+  document.body.classList.toggle("sheet-open", open);
+  if (!open) {
+    document.body.style.top = "";
+    window.scrollTo(0, frozenAt);
+  }
+  for (const node of document.body.children) {
+    if (node.classList.contains("sheet-backdrop") || node.tagName === "SCRIPT") continue;
+    node.inert = open;
+  }
+}
+
+/**
+ * Ручка вверху окна: потянули за неё вниз — окно едет за пальцем и
+ * закрывается, если увели достаточно далеко или смахнули быстро.
+ */
+function addSheetGrab(backdrop) {
+  const sheet = backdrop.querySelector(".sheet");
+  if (!sheet || sheet.querySelector(".sheet-grab")) return;
+  const grab = el("div", "sheet-grab");
+  grab.setAttribute("aria-hidden", "true");
+  sheet.prepend(grab);
+  let start = null;
+  const reset = () => {
+    sheet.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
+    sheet.style.transform = "";
+    setTimeout(() => (sheet.style.transition = ""), 240);
+  };
+  grab.addEventListener("pointerdown", (event) => {
+    start = { y: event.clientY, at: performance.now(), last: 0 };
+    grab.setPointerCapture?.(event.pointerId);
+    sheet.style.transition = "none";
+    // Иначе доигранная анимация въезда держит окно на месте и не даёт его сдвинуть.
+    sheet.style.animation = "none";
+  });
+  grab.addEventListener("pointermove", (event) => {
+    if (!start) return;
+    start.last = Math.max(0, event.clientY - start.y);
+    sheet.style.transform = `translateY(${start.last}px)`;
+  });
+  const finish = (event) => {
+    if (!start) return;
+    const moved = start.last;
+    const speed = moved / Math.max(1, performance.now() - start.at);
+    start = null;
+    grab.releasePointerCapture?.(event.pointerId);
+    sheet.style.animation = "";
+    if (moved < 80 && !(moved > 30 && speed > 0.6)) return reset();
+    haptic("light");
+    sheet.style.transition = "";
+    // Закрываем так же, как нажатием мимо окна: у каждого окна свой порядок закрытия.
+    backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    setTimeout(() => {
+      if (!backdrop.hidden && !backdrop.classList.contains("sheet-backdrop--out")) backdrop.hidden = true;
+    }, 60);
+    // Сдвиг пальцем снимаем, когда окно уже ушло: иначе оно дёрнулось бы назад.
+    setTimeout(() => (sheet.style.transform = ""), SHEET_OUT + 80);
+  };
+  grab.addEventListener("pointerup", finish);
+  grab.addEventListener("pointercancel", finish);
+}
+
+function watchSheets() {
+  if (!("MutationObserver" in window)) return;
+  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const observer = new MutationObserver((changes) => {
+    // Сверяем замок после того, как разберём все изменения этого кадра.
+    queueMicrotask(lockBehindSheets);
+    for (const change of changes) {
+      const node = change.target;
+      if (change.type === "childList") {
+        for (const added of change.addedNodes) {
+          if (!added.classList?.contains("sheet-backdrop")) continue;
+          observer.observe(added, { attributes: true, attributeFilter: ["hidden", "class"] });
+          addSheetGrab(added);
+        }
+        continue;
+      }
+      if (!node.classList?.contains("sheet-backdrop")) continue;
+      // У окна своя анимация ухода — запоминаем, чтобы не играть вторую.
+      if (change.attributeName === "class") {
+        if (node.classList.contains("sheet-backdrop--out")) sheetLeaving.set(node, performance.now());
+        continue;
+      }
+      if (!node.hidden || still) continue;
+      if (performance.now() - (sheetLeaving.get(node) || -1e9) < SHEET_OUT + 400) continue;
+      sheetLeaving.set(node, performance.now());
+      node.hidden = false;
+      node.classList.add("sheet-backdrop--out");
+      setTimeout(() => {
+        node.hidden = true;
+        node.classList.remove("sheet-backdrop--out");
+        lockBehindSheets();
+      }, SHEET_OUT);
+    }
+  });
+  for (const sheet of document.querySelectorAll(".sheet-backdrop")) {
+    observer.observe(sheet, { attributes: true, attributeFilter: ["hidden", "class"] });
+    addSheetGrab(sheet);
+  }
+  // Часть окон создаётся при первом открытии — подхватываем и их.
+  observer.observe(document.body, { childList: true });
+}
+watchSheets();
 
 /* ---------- Запуск ---------- */
 
