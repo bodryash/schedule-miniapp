@@ -36,7 +36,10 @@ const STATS = openDatabase(DB_PATH);
 // там везде IF NOT EXISTS.
 STATS.raw.exec(readFileSync(join(here, "..", "worker", "schema.sql"), "utf8"));
 // Столбцы, появившиеся позже таблиц: в старой базе их надо добавить.
-for (const change of ["ALTER TABLE reminders ADD COLUMN shift INTEGER NOT NULL DEFAULT 0"]) {
+for (const change of [
+  "ALTER TABLE reminders ADD COLUMN shift INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE reminders ADD COLUMN wake INTEGER NOT NULL DEFAULT 0",
+]) {
   try {
     STATS.raw.exec(change);
   } catch {

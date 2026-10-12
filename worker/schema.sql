@@ -359,7 +359,8 @@ CREATE TABLE IF NOT EXISTS reminders (
   morning INTEGER NOT NULL DEFAULT 1,  -- 1 — присылать утренний список
   before  INTEGER NOT NULL DEFAULT 15, -- за сколько минут до пары; 0 — не надо
   updated TEXT NOT NULL,
-  shift   INTEGER NOT NULL DEFAULT 0   -- на сколько часов вуз впереди Москвы
+  shift   INTEGER NOT NULL DEFAULT 0,  -- на сколько часов вуз впереди Москвы
+  wake    INTEGER NOT NULL DEFAULT 0   -- «будильник»: за сколько минут до первой пары; 0 — не надо
 );
 
 CREATE TABLE IF NOT EXISTS reminder_plan (

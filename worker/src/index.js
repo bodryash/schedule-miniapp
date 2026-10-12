@@ -1129,12 +1129,14 @@ async function saveReminders(env, body) {
   // План приходит в местном времени вуза: запоминаем, на сколько часов он
   // впереди Москвы, чтобы напоминать по его часам, а не по московским.
   const shift = await shiftOf(body.group);
+  // «Будильник» перед первой парой: от получаса до четырёх часов, 0 — выключен.
+  const wake = Math.min(240, Math.max(0, Math.round(Number(body.wake) || 0)));
   await env.STATS.prepare(
-    `INSERT INTO reminders (tg_id, grp, morning, before, updated, shift) VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO reminders (tg_id, grp, morning, before, updated, shift, wake) VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(tg_id) DO UPDATE SET grp = excluded.grp, morning = excluded.morning,
-       before = excluded.before, updated = excluded.updated, shift = excluded.shift`
+       before = excluded.before, updated = excluded.updated, shift = excluded.shift, wake = excluded.wake`
   )
-    .bind(user.id, String(body.group || ""), morning, before, new Date().toISOString(), shift)
+    .bind(user.id, String(body.group || ""), morning, before, new Date().toISOString(), shift, wake)
     .run();
 
   const plan = Array.isArray(body.plan) ? body.plan.slice(0, 240) : [];
@@ -1280,6 +1282,46 @@ async function dueReminders(env, now, shift, limit) {
           .join("\n");
       })(),
     });
+  }
+
+  // «Будильник»: один раз в день, за выбранное время до первой пары. Пишем,
+  // пока пара не началась: если минута срока пропущена, сообщение не теряется.
+  const wakeRoom = limit - outgoing.length;
+  if (wakeRoom > 0) {
+    const { results: wakes = [] } = await env.STATS.prepare(
+      `SELECT r.tg_id, r.wake, f.start, f.at, f.pairs,
+              (SELECT group_concat(p2.subject, ' / ') FROM reminder_plan p2
+               WHERE p2.tg_id = r.tg_id AND p2.day = ?1 AND p2.start = f.start) AS subjects,
+              (SELECT max(p3.room) FROM reminder_plan p3
+               WHERE p3.tg_id = r.tg_id AND p3.day = ?1 AND p3.start = f.start) AS room
+       FROM reminders r
+       JOIN (SELECT p.tg_id, MIN(p.start) AS start, MIN(${START_MINUTES}) AS at, COUNT(DISTINCT p.start) AS pairs
+             FROM reminder_plan p WHERE p.day = ?1 GROUP BY p.tg_id) f ON f.tg_id = r.tg_id
+       WHERE r.wake > 0 AND r.shift = ?2
+         AND f.at - r.wake <= ?3 AND f.at > ?3
+         AND NOT EXISTS (SELECT 1 FROM reminder_sent s WHERE s.tg_id = r.tg_id AND s.key = ?4)
+       LIMIT ?5`
+    )
+      .bind(now.day, shift, now.minutes, `${now.day}|wake`, wakeRoom)
+      .all();
+    for (const row of wakes) {
+      const left = row.at - now.minutes;
+      const hours = Math.floor(left / 60);
+      const mins = left % 60;
+      const span = [hours ? `${hours} ч` : "", mins ? `${mins} мин` : ""].filter(Boolean).join(" ") || "меньше минуты";
+      outgoing.push({
+        tg_id: row.tg_id,
+        key: `${now.day}|wake`,
+        text: [
+          `⏰ Пора вставать: первая пара в ${row.start}, через ${span}`,
+          escape(row.subjects || ""),
+          row.room ? `📍 ${escape(row.room)}` : "",
+          row.pairs > 1 ? `Всего сегодня занятий: ${row.pairs}.` : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      });
+    }
   }
 
   // Утро: сколько осталось места в порции.
