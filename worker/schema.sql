@@ -54,7 +54,11 @@ CREATE TABLE IF NOT EXISTS broadcasts (
   button  INTEGER NOT NULL DEFAULT 0,
   -- Кому: пусто — всем, иначе id факультета (msu-fgp). В готовую базу
   -- столбец добавляет server/index.mjs.
-  audience TEXT NOT NULL DEFAULT ''
+  audience TEXT NOT NULL DEFAULT '',
+  -- Вложение: video | animation | photo | document и file_id из Telegram.
+  -- Пусто — рассылка одним текстом.
+  media_kind TEXT NOT NULL DEFAULT '',
+  media_id   TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS outbox (

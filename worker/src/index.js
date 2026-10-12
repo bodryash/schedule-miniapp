@@ -220,17 +220,65 @@ async function findAudience(word) {
   return tenants.find((t) => normalize(t.id) === want || normalize(t.short || "") === want) || null;
 }
 
+// Рассылка с вложением: чем отправлять и в каком поле лежит файл.
+const MEDIA_SEND = {
+  video: ["sendVideo", "video"],
+  animation: ["sendAnimation", "animation"],
+  photo: ["sendPhoto", "photo"],
+  document: ["sendDocument", "document"],
+};
+// Столько знаков Telegram разрешает в подписи к вложению.
+const CAPTION_MAX = 1024;
+
+/** Видео, гифка, фото или файл из сообщения владельца — для рассылки. */
+function mediaOf(message) {
+  if (message.video) return { kind: "video", id: message.video.file_id };
+  // У гифки Telegram дублирует файл в document — поэтому она раньше.
+  if (message.animation) return { kind: "animation", id: message.animation.file_id };
+  if (message.photo?.length) return { kind: "photo", id: message.photo.at(-1).file_id };
+  if (message.document) return { kind: "document", id: message.document.file_id };
+  return null;
+}
+
+/** Одно сообщение рассылки: текст или вложение с подписью. */
+function sendCast(env, chatId, job, markup) {
+  const send = MEDIA_SEND[job.media_kind];
+  if (!send || !job.media_id) {
+    return callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: chatId, text: job.text, reply_markup: markup });
+  }
+  return callTelegram(env.BOT_TOKEN, send[0], {
+    chat_id: chatId,
+    [send[1]]: job.media_id,
+    caption: job.text || undefined,
+    reply_markup: markup,
+  });
+}
+
 /** Готовит черновик рассылки и показывает его с кнопками подтверждения. */
-async function draftBroadcast(env, chatId, text, { button = false, audience = null } = {}) {
+async function draftBroadcast(env, chatId, text, { button = false, audience = null, media = null } = {}) {
   const { count } = audience
     ? await env.STATS.prepare(`SELECT COUNT(*) AS count FROM (${AUDIENCE_SQL})`).bind(audience.id).first()
     : await env.STATS.prepare("SELECT COUNT(*) AS count FROM users").first();
 
   const draft = await env.STATS.prepare(
-    "INSERT INTO broadcasts (text, created, button, audience) VALUES (?, ?, ?, ?) RETURNING id"
+    "INSERT INTO broadcasts (text, created, button, audience, media_kind, media_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING id"
   )
-    .bind(text, new Date().toISOString(), button ? 1 : 0, audience?.id || "")
+    .bind(text, new Date().toISOString(), button ? 1 : 0, audience?.id || "", media?.kind || "", media?.id || "")
     .first();
+
+  // С вложением черновик — само сообщение в том виде, в каком его получат,
+  // а вопрос с кнопками идёт следом отдельной строкой.
+  if (media) {
+    const shown = await sendCast(env, chatId, { text, media_kind: media.kind, media_id: media.id });
+    if (!shown.ok) {
+      await env.STATS.prepare("UPDATE broadcasts SET status = 'cancelled' WHERE id = ?").bind(draft.id).run();
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: chatId,
+        text: `Telegram не принял вложение: ${(await shown.json().catch(() => ({}))).description || "неизвестная ошибка"}. Ничего не отправлено.`,
+      });
+      return;
+    }
+  }
 
   const extra = button ? "\n(с кнопкой «📅 Открыть расписание»)" : "";
   const whom = audience
@@ -238,7 +286,7 @@ async function draftBroadcast(env, chatId, text, { button = false, audience = nu
     : `Разослать это ВСЕМ — ${count} получателям?`;
   await callTelegram(env.BOT_TOKEN, "sendMessage", {
     chat_id: chatId,
-    text: `${whom}${extra}\n\n———\n${text}\n———`,
+    text: media ? `${whom}${extra}\n\nСообщение — выше, ровно так его и получат.` : `${whom}${extra}\n\n———\n${text}\n———`,
     reply_markup: {
       inline_keyboard: [
         [
@@ -321,7 +369,7 @@ async function handleButton(env, query) {
 async function drainOutbox(env, limit = BATCH) {
   if (limit <= 0) return;
   const job = await env.STATS.prepare(
-    "SELECT id, text, button FROM broadcasts WHERE status = 'sending' ORDER BY id LIMIT 1"
+    "SELECT id, text, button, media_kind, media_id FROM broadcasts WHERE status = 'sending' ORDER BY id LIMIT 1"
   ).first();
   if (!job) return;
 
@@ -355,14 +403,15 @@ async function drainOutbox(env, limit = BATCH) {
   for (const row of results) {
     let state = "sent";
     try {
-      const response = await callTelegram(env.BOT_TOKEN, "sendMessage", {
-        chat_id: row.chat_id,
-        text: job.text,
+      const response = await sendCast(
+        env,
+        row.chat_id,
+        job,
         // Рассылка идёт в личные чаты — там кнопка web_app разрешена.
-        reply_markup: job.button
+        job.button
           ? { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] }
-          : undefined,
-      });
+          : undefined
+      );
       // Заблокировавшие бота и удалённые аккаунты — не ошибка рассылки.
       if (!response.ok) state = "failed";
     } catch {
@@ -3403,7 +3452,12 @@ ${invite}`,
       }
     }
 
-    const document = message?.document;
+    // Владелец прислал видео, гифку, фото или файл с подписью «/broadcast …» —
+    // это рассылка с вложением, а не расписание на обновление.
+    const castMedia =
+      message && isOwner(env, message.chat.id) && /^\/broadcast(?:\s|$)/.test(message.caption || "") ? mediaOf(message) : null;
+
+    const document = castMedia ? null : message?.document;
     if (document) {
       const owner = String(message.chat.id) === String(env.OWNER_ID);
       const pdf =
@@ -3445,15 +3499,15 @@ ${invite}`,
 
     // Рассылка: сперва черновик с кнопками, отправка — только по нажатию.
     // Отозвать её нельзя, поэтому подтверждение обязательно.
-    if (message && text.startsWith("/broadcast")) {
+    if (message && (text.startsWith("/broadcast") || castMedia)) {
       const owner = String(message.chat.id) === String(env.OWNER_ID);
-      const body = text.slice("/broadcast".length).trim();
+      const body = (castMedia ? message.caption : text).slice("/broadcast".length).trim();
       if (!owner) {
         await callTelegram(env.BOT_TOKEN, "sendMessage", {
           chat_id: message.chat.id,
           text: "Команда недоступна.",
         });
-      } else if (!body) {
+      } else if (!body && !castMedia) {
         await callTelegram(env.BOT_TOKEN, "sendMessage", {
           chat_id: message.chat.id,
           text: [
@@ -3461,19 +3515,28 @@ ${invite}`,
             "",
             "Одному факультету — с решёткой впереди: /broadcast #фгп Завтра занятий нет.",
             "После решётки — короткое название или id факультета из /faculties.",
+            "",
+            "С видео, гифкой или фото — пришлите его боту, а команду и текст впишите в подпись.",
           ].join("\n"),
         });
       } else {
-        // «#фгп Текст» — только одному факультету.
-        const tag = body.match(/^#(\S+)\s+([\s\S]+)$/);
+        // «#фгп Текст» — только одному факультету. С вложением текста после
+        // решётки может и не быть: «#фгп» и видео.
+        const tag = body.match(castMedia ? /^#(\S+)(?:\s+([\s\S]+))?$/ : /^#(\S+)\s+([\s\S]+)$/);
         const audience = tag ? await findAudience(tag[1]) : null;
+        const words = audience ? (tag[2] || "").trim() : body;
         if (tag && !audience) {
           await callTelegram(env.BOT_TOKEN, "sendMessage", {
             chat_id: message.chat.id,
             text: `Не знаю факультета «${tag[1]}». Названия — в /faculties. Ничего не отправлено.`,
           });
+        } else if (castMedia && words.length > CAPTION_MAX) {
+          await callTelegram(env.BOT_TOKEN, "sendMessage", {
+            chat_id: message.chat.id,
+            text: `Подпись к вложению — не длиннее ${CAPTION_MAX} знаков, а в этой ${words.length}. Сократите текст. Ничего не отправлено.`,
+          });
         } else {
-          await draftBroadcast(env, message.chat.id, audience ? tag[2].trim() : body, { audience });
+          await draftBroadcast(env, message.chat.id, words, { audience, media: castMedia });
         }
       }
     }
