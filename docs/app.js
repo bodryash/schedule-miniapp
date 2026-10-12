@@ -2643,8 +2643,11 @@ function renderOwnCard(event) {
 }
 
 function renderOwnAdd() {
-  const button = el("button", "own-add", t("＋ Своё дело"));
+  const button = el("button", "own-add");
   button.type = "button";
+  const text = el("span", "own-add-text");
+  text.append(el("span", "own-add-title", t("Своё дело")), el("span", "own-add-hint", t("Тренировка, работа, кружок…")));
+  button.append(el("span", "own-add-plus", "+"), text);
   button.addEventListener("click", () => openOwn(null));
   return button;
 }
@@ -2692,12 +2695,36 @@ function openOwn(event) {
     const start = el("input", "own-start");
     const end = el("input", "own-end");
     start.type = end.type = "time";
+    // Начало и конец — одной плашкой: два времени крупно, между ними
+    // сколько это длится. Нажатие в любую половину открывает выбор времени.
     const times = el("div", "own-times");
     const from = el("label", "own-field");
-    from.append(el("span", "", t("Начало")), start);
+    from.append(el("span", "own-field-name", t("Начало")), start);
     const to = el("label", "own-field");
-    to.append(el("span", "", t("Конец")), end);
-    times.append(from, to);
+    to.append(el("span", "own-field-name", t("Конец")), end);
+    const length = el("span", "own-length");
+    times.append(from, length, to);
+    const measure = () => {
+      const span = start.value && end.value ? minutes(end.value) - minutes(start.value) : 0;
+      times.classList.toggle("own-times--bad", span <= 0);
+      if (span <= 0) return (length.textContent = "→");
+      const hours = Math.floor(span / 60);
+      const rest = span % 60;
+      length.textContent = [hours ? t("{n} ч", { n: hours }) : "", rest ? t("{n} мин", { n: rest }) : ""].filter(Boolean).join(" ");
+    };
+    start.addEventListener("input", measure);
+    end.addEventListener("input", measure);
+    times.measure = measure;
+    for (const field of [start, end]) {
+      // На телефоне выбор времени открывается сам; на компьютере — по нажатию.
+      field.addEventListener("click", () => {
+        try {
+          field.showPicker?.();
+        } catch {
+          // Не умеет или уже открыт.
+        }
+      });
+    }
     const place = el("input", "own-where");
     place.type = "text";
     place.maxLength = 60;
@@ -2771,6 +2798,7 @@ function openOwn(event) {
   ownSheet.querySelector(".own-start").value = event?.start || "19:00";
   ownSheet.querySelector(".own-end").value = event?.end || "20:30";
   ownSheet.querySelector(".own-where").value = event?.place || "";
+  ownSheet.querySelector(".own-times").measure();
   ownSheet.querySelector(".own-weekly-box").checked = event ? !event.date : true;
   ownSheet.querySelector(".own-delete").hidden = !event;
   ownSheet.querySelector(".own-error").hidden = true;
