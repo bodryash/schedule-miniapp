@@ -1291,9 +1291,10 @@ async function sendReminderSettings() {
     group: group.id,
     morning: Boolean(prefs?.remindMorning),
     before: prefs?.remindBefore ? 15 : 0,
-    // «Будильник»: за сколько минут до первой пары дня написать.
-    wake: prefs?.remindWake ? wakeLead() : 0,
-    plan: prefs?.remindMorning || prefs?.remindBefore || prefs?.remindWake ? reminderPlan() : [],
+    // Будильника перед первой парой больше нет. Ноль шлём всегда: у тех, кто
+    // успел его включить, он так выключится и на сервере.
+    wake: 0,
+    plan: prefs?.remindMorning || prefs?.remindBefore ? reminderPlan() : [],
   };
   fetch(REMIND_URL, { method: "POST", body: JSON.stringify(body) }).catch(() => {
     // Не дошло — отправим при следующем открытии.
