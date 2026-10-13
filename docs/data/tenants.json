@@ -385,5 +385,13 @@
     "path": "msu-vshssn",
     "features": [],
     "short": "ВШССН"
+  },
+  {
+    "id": "msu-cmc",
+    "university": "МГУ",
+    "faculty": "Факультет вычислительной математики и кибернетики",
+    "path": "msu-cmc",
+    "features": [],
+    "short": "ВМК"
   }
 ]
