@@ -377,5 +377,13 @@
       "base": "http://ccs2.hist.msu.ru",
       "faculty": "all"
     }
+  },
+  {
+    "id": "msu-vshssn",
+    "university": "МГУ",
+    "faculty": "Высшая школа современных социальных наук",
+    "path": "msu-vshssn",
+    "features": [],
+    "short": "ВШССН"
   }
 ]
