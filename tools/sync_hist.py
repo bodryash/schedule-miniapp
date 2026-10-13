@@ -182,13 +182,23 @@ def main():
     schedule = {
         "meta": {"updated": date.today().isoformat(), "semester": "", "faculty": f"{args.name} {args.university}", "dated": True,
                  "period": {"from": start.strftime("%d.%m.%Y"), "to": end.strftime("%d.%m.%Y")}},
-        "weeks": weeks, "bells": bell_list, "groups": groups,
-        "lessons": sorted(lessons, key=lambda l: (l["group"], l["day"], l["slot"], l["dates"][0])),
+        "weeks": weeks, "bells": bell_list, "groups": groups, "lessons": lessons,
     }
     folder = DATA / args.id
     folder.mkdir(parents=True, exist_ok=True)
     dump = lambda value: json.dumps(value, ensure_ascii=False, separators=(",", ":"))
     target = folder / "schedule.json"
+    # Группы, у которых на сайте пусто, вписаны вручную (add_manual_groups.py) —
+    # их сохраняем как есть, сайт о них ничего не знает.
+    if target.exists() and not only:
+        before = json.loads(target.read_text(encoding="utf-8"))
+        fresh = {g["id"] for g in groups}
+        kept = [g for g in before.get("groups", []) if g.get("manual") and g["id"] not in fresh]
+        names_kept = {g["id"] for g in kept}
+        groups += kept
+        lessons += [l for l in before.get("lessons", []) if l["group"] in names_kept]
+    groups.sort(key=lambda g: g["id"])
+    lessons.sort(key=lambda l: (l["group"], l["day"], l["slot"], (l.get("dates") or [""])[0]))
     if only:
         print(json.dumps(schedule["lessons"][:400], ensure_ascii=False, indent=1))
         return
