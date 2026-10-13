@@ -17,6 +17,16 @@ CREATE TABLE IF NOT EXISTS opens (
 
 -- Кто заходил: и чтобы отличить 200 открытий одним человеком от 200 людей,
 -- и чтобы видеть поимённо.
+-- Журнал заходов: когда человек открывал расписание. Нужен владельцу, чтобы
+-- видеть, пользуется ли конкретный человек сервисом (/visits). Хранится
+-- 30 дней, старше — стирается при следующем заходе. Описан в политике.
+CREATE TABLE IF NOT EXISTS visits (
+  tg_id INTEGER NOT NULL,
+  at    TEXT NOT NULL,
+  grp   TEXT
+);
+CREATE INDEX IF NOT EXISTS visits_person ON visits (tg_id, at);
+
 CREATE TABLE IF NOT EXISTS people (
   uid      TEXT PRIMARY KEY,     -- хэш id, ключ остался прежним
   first    TEXT NOT NULL,
