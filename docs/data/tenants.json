@@ -281,7 +281,8 @@
       "base": "https://ruz.fa.ru",
       "faculty": 7,
       "style": "fa"
-    }
+    },
+    "short": "НАБ"
   },
   {
     "id": "mgimo-odin-up",
@@ -393,5 +394,117 @@
     "path": "msu-law",
     "features": [],
     "short": "Юрфак"
+  },
+  {
+    "id": "fa-law",
+    "university": "Финансовый университет",
+    "faculty": "Юридический факультет",
+    "path": "fa-law",
+    "features": [],
+    "source": {
+      "kind": "ruz-ru",
+      "base": "https://ruz.fa.ru",
+      "faculty": 5,
+      "style": "fa"
+    },
+    "short": "Юрфак"
+  },
+  {
+    "id": "fa-eb",
+    "university": "Финансовый университет",
+    "faculty": "Факультет экономики и бизнеса",
+    "path": "fa-eb",
+    "features": [],
+    "source": {
+      "kind": "ruz-ru",
+      "base": "https://ruz.fa.ru",
+      "faculty": 2,
+      "style": "fa"
+    },
+    "short": "ЭиБ"
+  },
+  {
+    "id": "fa-fin",
+    "university": "Финансовый университет",
+    "faculty": "Финансовый факультет",
+    "path": "fa-fin",
+    "features": [],
+    "source": {
+      "kind": "ruz-ru",
+      "base": "https://ruz.fa.ru",
+      "faculty": 3,
+      "style": "fa"
+    },
+    "short": "Финфак"
+  },
+  {
+    "id": "fa-meo",
+    "university": "Финансовый университет",
+    "faculty": "Факультет международных экономических отношений",
+    "path": "fa-meo",
+    "features": [],
+    "source": {
+      "kind": "ruz-ru",
+      "base": "https://ruz.fa.ru",
+      "faculty": 4,
+      "style": "fa"
+    },
+    "short": "МЭО"
+  },
+  {
+    "id": "fa-snmk",
+    "university": "Финансовый университет",
+    "faculty": "Факультет социальных наук и массовых коммуникаций",
+    "path": "fa-snmk",
+    "features": [],
+    "source": {
+      "kind": "ruz-ru",
+      "base": "https://ruz.fa.ru",
+      "faculty": 8,
+      "style": "fa"
+    },
+    "short": "СНиМК"
+  },
+  {
+    "id": "fa-ioo",
+    "university": "Финансовый университет",
+    "faculty": "Институт открытого образования",
+    "path": "fa-ioo",
+    "features": [],
+    "source": {
+      "kind": "ruz-ru",
+      "base": "https://ruz.fa.ru",
+      "faculty": 11,
+      "style": "fa"
+    },
+    "short": "ИОО"
+  },
+  {
+    "id": "fa-it",
+    "university": "Финансовый университет",
+    "faculty": "Факультет информационных технологий и анализа больших данных",
+    "path": "fa-it",
+    "features": [],
+    "source": {
+      "kind": "ruz-ru",
+      "base": "https://ruz.fa.ru",
+      "faculty": 6,
+      "style": "fa"
+    },
+    "short": "ИТиАБД"
+  },
+  {
+    "id": "fa-vshu",
+    "university": "Финансовый университет",
+    "faculty": "Факультет Высшая школа управления",
+    "path": "fa-vshu",
+    "features": [],
+    "source": {
+      "kind": "ruz-ru",
+      "base": "https://ruz.fa.ru",
+      "faculty": 1,
+      "style": "fa"
+    },
+    "short": "ВШУ"
   }
 ]
