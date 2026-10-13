@@ -506,5 +506,13 @@
       "style": "fa"
     },
     "short": "ВШУ"
+  },
+  {
+    "id": "msu-geo",
+    "university": "МГУ",
+    "faculty": "Географический факультет",
+    "path": "msu-geo",
+    "features": [],
+    "short": "Геофак"
   }
 ]
