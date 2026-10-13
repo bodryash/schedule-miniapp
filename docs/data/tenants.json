@@ -379,19 +379,19 @@
     "short": "ВШССН"
   },
   {
-    "id": "msu-cmc",
-    "university": "МГУ",
-    "faculty": "Факультет вычислительной математики и кибернетики",
-    "path": "msu-cmc",
-    "features": [],
-    "short": "ВМК"
-  },
-  {
     "id": "msu-law",
     "university": "МГУ",
     "faculty": "Юридический факультет",
     "path": "msu-law",
     "features": [],
     "short": "Юрфак"
+  },
+  {
+    "id": "msu-cmc",
+    "university": "МГУ",
+    "faculty": "Факультет вычислительной математики и кибернетики",
+    "path": "msu-cmc",
+    "features": [],
+    "short": "ВМК"
   }
 ]

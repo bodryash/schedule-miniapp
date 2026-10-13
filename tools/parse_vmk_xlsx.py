@@ -26,16 +26,20 @@ DATA = ROOT / "docs" / "data"
 DAYS = {"понедельник": 1, "вторник": 2, "среда": 3, "четверг": 4, "пятница": 5, "суббота": 6}
 TIME = re.compile(r"^\s*(\d{1,2})[.:](\d{2})\s*[-–—]+\s*(\d{1,2})[.:](\d{2})\s*$")
 SURNAME = r"[А-ЯЁ][а-яё]+(?:-[А-ЯЁ][а-яё]+)?"
-TITLE = r"(?:Чл\.-корр\.\s*РАН|профессор|прфессор|доцент|проф\.|доц\.)"
+TITLE = r"(?:[Чч]л(?:ен)?\.?-корр\.\s*РАН|академик(?:\s+РАН)?|профессор|прфессор|доцент|проф\.|доц\.)"
 # «Иванов И.И.» (бывает «А..Н..») или «доцент Иванов Иван Иванович».
 PERSON = re.compile(
     rf"(?:{TITLE}\s*)?{SURNAME}\s+[А-ЯЁ]\s*\.+\s*[А-ЯЁ]\s*\.+"
     rf"|{TITLE}\s+{SURNAME}\s+{SURNAME}\s+{SURNAME}"
-    rf"|{SURNAME}\s+{SURNAME}\s+[А-ЯЁ][а-яё]+(?:вич|вна|ична|ьич)"
+    rf"|{SURNAME}\s+{SURNAME}\s+[А-ЯЁ][а-яё]+(?:вич|вна|ична|ьич)(?![а-яё])"
+    # «Панфёрова И. 782», «Ямпольская АВ. 503», «Коновалова.О.Н.» — инициалы с огрехами,
+    # дальше аудитория или конец строки.
+    rf"|{SURNAME}\s*\.?\s*[А-ЯЁ]\s*\.?\s*[А-ЯЁ]?\s*\.+(?=\s*(?:\d|МЗ|П-|,|$))"
+    rf"|{SURNAME}\s+[А-ЯЁ]\s*\.\s*[А-ЯЁ](?=\s+(?:\d|МЗ|П-))"
 )
 # Число — аудитория, если это не кусок даты или времени («17.09», «12:15»).
 # Бывает приклеено к инициалам: «Фурсов А.С.607».
-ROOM = re.compile(r"П-\d+а?|МЗ-\d+|ИВМ РАН|ЦФА|(?<![\d:])(?<!\d\.)\d{2,3}(?:-б)?\b(?![.:]\d)")
+ROOM = re.compile(r"П-\d+а?|МЗ?-\d+|ИВМ РАН|ЦФА|(?<![\d:/])(?<!\d\.)\d{2,3}(?:-[а-я]\b)?\b(?![.:/]\d)")
 RENAME = {"ВП": "Военная подготовка", "Межфакультетские курсы": "Межфакультетские учебные курсы МГУ"}
 
 
@@ -45,6 +49,15 @@ def squash(text):
 
 def clock(h, m):
     return f"{int(h):02d}:{m}"
+
+
+def fix_end(start, end):
+    """Конец раньше начала — опечатка в таблице или своё позднее начало: считаем пару в 95 минут."""
+    minutes = lambda t: int(t[:2]) * 60 + int(t[3:])
+    if minutes(end) > minutes(start):
+        return end
+    total = minutes(start) + 95
+    return f"{total // 60:02d}:{total % 60:02d}"
 
 
 def slot_of(start):
@@ -69,15 +82,29 @@ def parse_lesson(subject_text, teacher_text):
     note, start, end = [], None, None
     text = subject_text
     # «с 21.09 …» — с какого числа; «с 13.30 …», «10.40 …», «10.30--13.25 …» — своё время.
-    found = re.match(r"^с\s+(\d{1,2})[. ](\d{2})\.?\s+(?=\D)", text)
-    if found and int(found[2]) <= 12 and int(found[1]) <= 31 and not (8 <= int(found[1]) <= 19 and found[2] in ("15", "30", "50", "40", "00")):
+    found = re.match(r"^с\s+(\d{1,2})\s+(января|февраля|марта|апреля|мая|июня|сентября|октября|ноября|декабря)\s+", text)
+    if found:
+        note.append(f"с {found[1]} {found[2]}")
+        text = text[found.end():]
+    # Минуты у звонков кратны пяти, поэтому «17.09» и «10.09» — числа месяца.
+    found = re.match(r"^(?:с\s+)?(\d{1,2})[. ](\d{2})\.?\s+(?=\D)", text)
+    if found and 1 <= int(found[2]) <= 12 and int(found[1]) <= 31 and not (8 <= int(found[1]) <= 19 and int(found[2]) % 5 == 0):
         note.append(f"с {int(found[1]):02d}.{found[2]}")
         text = text[found.end():]
-    found = re.match(r"^(?:с\s+)?(\d{1,2})[.: ](\d{2})\.?\s*(?:[-–—]+\s*(\d{1,2})[.:](\d{2}))?\.?\s+(?=\D)", text)
+    found = re.match(r"^(?:с\s+)?(\d{1,2})\s*[.: ]\s*(\d{2})\.?\s*(?:[-–—]+\s*(\d{1,2})[.:](\d{2}))?\.?\s*(?=[^\d\s])", text)
     if found and 8 <= int(found[1]) <= 19:
-        start = clock(found[1], found[2])
-        end = clock(found[3], found[4]) if found[3] else None
+        if note and not found[3]:
+            # «с 3 октября 9.00 …» — с этого числа начало другое, а до него как обычно.
+            note[-1] += f", начало в {int(found[1])}.{found[2]}"
+        else:
+            start = clock(found[1], found[2])
+            end = clock(found[3], found[4]) if found[3] else None
         text = text[found.end():]
+    # «Операционные системы 12.15 – 13.50» — своё время посреди названия.
+    found = re.search(r"(\d{1,2})[.:](\d{2})\s*[-–—]+\s*(\d{1,2})[.:](\d{2})", text)
+    if found:
+        start, end = clock(found[1], found[2]), clock(found[3], found[4])
+        text = text[: found.start()] + " " + text[found.end():]
     for flag, meaning in (("с/с", "с/с"), ("д/в", "по выбору"), ("согл", "по согласованию")):
         if re.search(rf"(?<![а-яё]){re.escape(flag)}(?![а-яё])", text):
             note.append(meaning)
@@ -87,9 +114,15 @@ def parse_lesson(subject_text, teacher_text):
     if found:
         note.append(f"группа по экономике {found[2]}")
         text = text[: found.start()] + found[1] + text[found.end():]
+    teacher_text = teacher_text or ""
+    # «220/2» — группа и её половина, а не аудитория.
+    for found in re.finditer(r"\b(\d{3})?/(\d)\b", text + " " + teacher_text):
+        note.append(f"подгруппа {found[2]}")
+    text = re.sub(r"\b(?:\d{3})?/\d\b", " ", text)
+    teacher_text = re.sub(r"\b(?:\d{3})?/\d\b", " ", teacher_text)
     text, room_a = split_rooms(text)
-    teacher, room_b = split_rooms(teacher_text or "")
-    subject = tidy(text)
+    teacher, room_b = split_rooms(teacher_text)
+    subject = re.sub(r"(?<=язык)\.$", "", tidy(text)).lstrip(". ")
     return {
         "subject": RENAME.get(subject, subject),
         "teacher": re.sub(r"\.{2,}", ".", tidy(teacher)).replace("прфессор", "профессор"),
@@ -176,7 +209,7 @@ def read_sheet(sheet):
                 note = item.pop("note") + (["через неделю"] if half else [])
                 lessons.append({
                     "group": group, "day": day, "slot": slot_of(bell[0]), "subgroup": None, "elective": None, "week": "all",
-                    "note": "; ".join(note), "link": "", "start": start, "end": end or bell[1], "type": "", **item,
+                    "note": "; ".join(note), "link": "", "start": start, "end": fix_end(start, end or bell[1]), "type": "", **item,
                 })
     return groups, lessons, odd
 
@@ -203,7 +236,11 @@ def main():
         names += [g for g in found[0] if g not in names]
         lessons += found[1]
         odd += found[2]
+    finish(args, names, lessons, odd)
 
+
+def finish(args, names, lessons, odd):
+    """Чистит разобранное, показывает или записывает в папку факультета."""
     # Одна и та же пара у соседних групп: аудиторию берём самую полную («64» и «647»).
     best = {}
     for lesson in lessons:
@@ -258,6 +295,7 @@ def main():
         mine = set(names)
         schedule["groups"] = [g for g in old.get("groups", []) if g["id"] not in mine] + groups
         schedule["lessons"] = [l for l in old.get("lessons", []) if l["group"] not in mine] + lessons
+    schedule["groups"].sort(key=lambda g: g["id"])
     schedule["lessons"].sort(key=lambda l: (l["group"], l["day"], l["start"], l["slot"]))
     dump = lambda value: json.dumps(value, ensure_ascii=False, separators=(",", ":"))
     target.write_text(dump(schedule), encoding="utf-8")
