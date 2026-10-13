@@ -13,3 +13,6 @@ node_modules/
 *.sqlite-wal
 *.sqlite-shm
 setup-key/
+
+# Исходники пасхалок: публикуется только зашифрованный файл
+/private/

@@ -7320,3 +7320,285 @@ body.cska .card--now {
     animation: none;
   }
 }
+
+/* --- Нокия: 8-битная тема, выдаёт владелец командой /theme ---
+   Экран старого телефона: зеленоватое стекло и тёмные точки, два цвета на
+   всё. Светлая и тёмная схемы на неё не влияют. */
+body.nokia {
+  --nokia-lcd: #c7f0d8;
+  --nokia-ink: #43523d;
+  --bg: var(--nokia-lcd);
+  --card: #b9e2ca;
+  --surface: #b9e2ca;
+  --text: var(--nokia-ink);
+  --muted: #5d7056;
+  --accent: var(--nokia-ink);
+  --accent-soft: rgba(67, 82, 61, 0.16);
+  --accent-text: var(--nokia-lcd);
+  --line: var(--nokia-ink);
+  --edge: var(--nokia-ink);
+  --shadow-card: 3px 3px 0 var(--nokia-ink);
+  --shadow-chip: 2px 2px 0 var(--nokia-ink);
+  --digits: "Pixelify Sans", ui-monospace, monospace;
+  --tg-theme-bg-color: #c7f0d8;
+  --tg-theme-secondary-bg-color: #b9e2ca;
+  --tg-theme-text-color: #43523d;
+  --tg-theme-hint-color: #5d7056;
+  --tg-theme-link-color: #43523d;
+  --tg-theme-button-color: #43523d;
+  --tg-theme-button-text-color: #c7f0d8;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+body.nokia[data-parity="even"],
+body.nokia[data-parity="none"] {
+  --accent: var(--nokia-ink);
+  --accent-soft: rgba(67, 82, 61, 0.16);
+}
+
+body.nokia,
+body.nokia *,
+body.nokia *::before,
+body.nokia *::after {
+  font-family: "Pixelify Sans", ui-monospace, monospace !important;
+  border-radius: 0 !important;
+  letter-spacing: 0 !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Сетка точек поверх фона — как у жидкокристаллического экрана. */
+body.nokia::before {
+  background:
+    linear-gradient(rgba(67, 82, 61, 0.07) 1px, transparent 1px) 0 0 / 3px 3px,
+    linear-gradient(90deg, rgba(67, 82, 61, 0.07) 1px, transparent 1px) 0 0 / 3px 3px;
+}
+
+body.nokia .card,
+body.nokia .sheet,
+body.nokia .chip,
+body.nokia .digits-chip,
+body.nokia input,
+body.nokia select,
+body.nokia textarea {
+  border: 2px solid var(--nokia-ink);
+  box-shadow: none;
+}
+
+body.nokia .card {
+  background: var(--nokia-lcd);
+  box-shadow: 3px 3px 0 var(--nokia-ink);
+}
+
+/* Идущая пара — «выделенный пункт меню»: всё наоборот. */
+body.nokia .card--now {
+  background: var(--nokia-ink);
+  color: var(--nokia-lcd);
+  --text: var(--nokia-lcd);
+  --muted: #a9d2ba;
+  --accent: var(--nokia-lcd);
+  --accent-text: var(--nokia-ink);
+  box-shadow: 3px 3px 0 #2c3728;
+}
+
+body.nokia .room-badge,
+body.nokia .primary,
+body.nokia .days-drop {
+  background: var(--nokia-ink);
+  color: var(--nokia-lcd);
+  box-shadow: none;
+}
+
+body.nokia .card--now .room-badge {
+  background: var(--nokia-lcd);
+  color: var(--nokia-ink);
+}
+
+body.nokia .date,
+body.nokia h1 {
+  text-transform: uppercase;
+}
+
+body.nokia #current-group::before {
+  content: "> ";
+}
+
+.nokia-ribbon {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 4px 8px;
+  border: 2px solid #43523d;
+  background: transparent;
+  color: #43523d;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 14px;
+  cursor: pointer;
+}
+
+.nokia-ribbon:active {
+  background: #43523d;
+  color: #c7f0d8;
+}
+
+.nokia-signal,
+.nokia-battery {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+
+.nokia-signal i,
+.nokia-battery i {
+  display: block;
+  width: 3px;
+  background: currentColor;
+}
+
+.nokia-signal i:nth-child(1) { height: 4px; }
+.nokia-signal i:nth-child(2) { height: 7px; }
+.nokia-signal i:nth-child(3) { height: 10px; }
+.nokia-signal i:nth-child(4) { height: 14px; }
+
+.nokia-battery {
+  align-items: stretch;
+  padding: 2px;
+  border: 2px solid currentColor;
+}
+
+.nokia-battery i {
+  width: 4px;
+}
+
+/* Нижняя панель без размытия просвечивала бы — делаем её сплошной. */
+body.nokia .tabs {
+  background: var(--nokia-lcd);
+  border: 2px solid var(--nokia-ink);
+  box-shadow: 3px 3px 0 var(--nokia-ink);
+}
+
+body.nokia .tabs-drop,
+body.nokia .tab--on {
+  background: var(--nokia-ink);
+  color: var(--nokia-lcd);
+  box-shadow: none;
+}
+
+/* Цветные метки и значки — в те же два цвета. */
+body.nokia .tag,
+body.nokia .slot {
+  background: transparent;
+  border: 2px solid currentColor;
+  color: inherit;
+}
+
+body.nokia .mine-star,
+body.nokia .note-pen {
+  filter: grayscale(1) contrast(1.2);
+}
+
+/* Корпус: пожелтевший пластик старой техники вокруг «стекла». Лежит поверх
+   всего и нажатий не ловит; содержимое отодвинуто внутрь отступами. */
+@font-face {
+  font-family: "Press Start 2P";
+  src: url("fonts/press-start-cyr.woff2") format("woff2");
+  font-display: swap;
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: "Press Start 2P";
+  src: url("fonts/press-start.woff2") format("woff2");
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212, U+2215;
+}
+
+body.nokia {
+  --nokia-case: #d9cfab;
+  padding: 46px 24px calc(96px + env(safe-area-inset-bottom));
+}
+
+.nokia-bezel {
+  position: fixed;
+  inset: 0;
+  z-index: 2147482000;
+  pointer-events: none;
+  border-style: solid;
+  border-color: #e3dabb #d9cfab #c9be97;
+  border-width: 30px 10px calc(16px + env(safe-area-inset-bottom));
+}
+
+/* Тёмная рамка вокруг стекла со скошенным углом, как у «геймбоя». Широкая
+   тень цвета пластика закрывает просветы в скруглённых углах. */
+body.nokia .nokia-bezel::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 4px solid #5a574c;
+  border-radius: 8px 8px 30px 8px !important;
+  box-shadow:
+    0 0 0 14px #d9cfab,
+    0 -1px 0 5px rgba(255, 255, 255, 0.35),
+    0 1px 0 5px rgba(0, 0, 0, 0.18),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.35),
+    inset 4px 4px 8px rgba(40, 52, 36, 0.38),
+    inset -2px -2px 6px rgba(40, 52, 36, 0.16);
+}
+
+/* Надпись на корпусе между двумя цветными полосками и лампочка питания. */
+body.nokia .nokia-bezel::before {
+  content: "DOT MATRIX 3310";
+  position: absolute;
+  z-index: 1;
+  top: -30px;
+  left: 0;
+  right: 0;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Press Start 2P", "Pixelify Sans", monospace !important;
+  font-size: 7px;
+  color: #6a6890;
+  background:
+    radial-gradient(circle at 9px 13px, #ff5a4a 0 2px, #b3261c 2.5px 3.5px, transparent 4px),
+    linear-gradient(#8d2a5b, #8d2a5b) 24px 10px / calc(50% - 92px) 2px no-repeat,
+    linear-gradient(#35397f, #35397f) 24px 15px / calc(50% - 92px) 2px no-repeat,
+    linear-gradient(#8d2a5b, #8d2a5b) right 10px top 10px / calc(50% - 78px) 2px no-repeat,
+    linear-gradient(#35397f, #35397f) right 10px top 15px / calc(50% - 78px) 2px no-repeat;
+}
+
+body.nokia .tabs {
+  left: 20px;
+  right: 20px;
+  bottom: calc(26px + env(safe-area-inset-bottom));
+}
+
+/* Дата — крупным «аркадным» шрифтом; он широкий, поэтому кегль меньше. */
+body.nokia .bar--schedule .date,
+body.nokia .bar--schedule .date * {
+  font-family: "Press Start 2P", "Pixelify Sans", monospace !important;
+  font-size: 15px !important;
+  line-height: 1.5 !important;
+  font-weight: 400 !important;
+}
+
+body.nokia .bar--schedule .date {
+  margin: 8px 0 6px;
+}
+
+body.nokia .nokia-ribbon > span:not([class]) {
+  font-family: "Press Start 2P", "Pixelify Sans", monospace !important;
+  font-size: 8px;
+}
+
+/* Панель закреплена по верхнему краю (см. pinTabs) — поднимаем её над корпусом. */
+body.nokia.tabs-pinned .tabs {
+  top: calc(var(--tabs-top) - 18px);
+}
