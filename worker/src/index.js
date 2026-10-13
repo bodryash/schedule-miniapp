@@ -111,6 +111,9 @@ async function verifyInitData(initData, token) {
   }
 }
 
+// Сколько дней хранится журнал заходов.
+const VISITS_KEEP_DAYS = 30;
+
 async function recordOpen(env, user, group) {
   if (!env.STATS || !user?.id) return;
 
@@ -144,6 +147,13 @@ async function recordOpen(env, user, group) {
     .run();
 
   if (now - lastSeen < HIT_COOLDOWN) return;
+
+  // Журнал заходов для /visits: один заход — одна строка, не чаще, чем
+  // счётчик открытий. Старше 30 дней стираем тут же.
+  await env.STATS.batch([
+    env.STATS.prepare("INSERT INTO visits (tg_id, at, grp) VALUES (?, ?, ?)").bind(user.id, stamp, group.id || null),
+    env.STATS.prepare("DELETE FROM visits WHERE at < ?").bind(new Date(Date.now() - VISITS_KEEP_DAYS * 86400000).toISOString()),
+  ]).catch(() => {});
 
   // «zh-hans» и «zh» — один язык.
   const lang = String(user.language_code || "—").toLowerCase().split("-")[0];
@@ -1758,7 +1768,24 @@ async function visitsReport(env, who) {
   if (theme?.theme) lines.push(`Тема: ${escape(theme.theme)}`);
   const starosta = await env.STATS.prepare("SELECT grp FROM starostas WHERE tg_id = ? LIMIT 1").bind(id).first().catch(() => null);
   if (starosta?.grp) lines.push(`Староста: ${escape(await groupLabel(starosta.grp))}`);
-  //VISITS-LOG
+  // Журнал за последние 30 дней: по дням, со временем каждого захода.
+  const { results: log = [] } = await env.STATS.prepare(
+    "SELECT at FROM visits WHERE tg_id = ? AND at >= ? ORDER BY at DESC LIMIT 200"
+  ).bind(id, new Date(Date.now() - VISITS_KEEP_DAYS * 86400000).toISOString()).all();
+  if (log.length) {
+    const days = new Map();
+    for (const row of log) {
+      const msk = new Date(new Date(row.at).getTime() + 3 * 3600000);
+      const two = (n) => String(n).padStart(2, "0");
+      const day = `${two(msk.getUTCDate())}.${two(msk.getUTCMonth() + 1)}`;
+      if (!days.has(day)) days.set(day, []);
+      days.get(day).push(`${two(msk.getUTCHours())}:${two(msk.getUTCMinutes())}`);
+    }
+    lines.push("", `<b>Заходы за ${VISITS_KEEP_DAYS} дней</b> — ${log.length}, дней с заходами — ${days.size}`);
+    for (const [day, times] of [...days].slice(0, 30)) lines.push(`${day}: ${times.reverse().join(", ")}`);
+  } else {
+    lines.push("", `Журнал заходов пуст: он ведётся с 13 октября 2026 года и хранит ${VISITS_KEEP_DAYS} дней.`);
+  }
   return lines.join("\n");
 }
 
@@ -1767,7 +1794,7 @@ async function visitsReport(env, who) {
 const FORGET_HELP = [
   "<b>Удаление данных</b>",
   "",
-  "Бот хранит о вас: имя и ник из Telegram, группу, время последнего захода, настройки напоминаний, места в очередях, комментарии, попытки в играх.",
+  "Бот хранит о вас: имя и ник из Telegram, группу, время заходов за последние 30 дней, настройки напоминаний, места в очередях, комментарии, попытки в играх.",
   "",
   "Чтобы стереть всё это, отправьте: <code>/forget да</code>",
   "Расписание после этого продолжит открываться — данные появятся снова, только если вы снова им воспользуетесь.",
@@ -1784,6 +1811,7 @@ async function forgetUser(env, userId) {
   const run = (sql, ...args) => env.STATS.prepare(sql).bind(...args);
   const results = await env.STATS.batch([
     run("DELETE FROM people WHERE tg_id = ? OR uid = ?", id, uid),
+    run("DELETE FROM visits WHERE tg_id = ?", id),
     run("DELETE FROM users WHERE id = ?", id),
     run("DELETE FROM outbox WHERE chat_id = ?", id),
     run("DELETE FROM reminders WHERE tg_id = ?", id),
