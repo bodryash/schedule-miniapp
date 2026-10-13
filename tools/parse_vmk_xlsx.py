@@ -105,10 +105,18 @@ def parse_lesson(subject_text, teacher_text):
     if found:
         start, end = clock(found[1], found[2]), clock(found[3], found[4])
         text = text[: found.start()] + " " + text[found.end():]
+    found = re.match(r"^до\s+(\d{1,2})[.:](\d{2})\s+(?=\D)", text)
+    if found and start:
+        end = clock(found[1], found[2])
+        text = text[found.end():]
     for flag, meaning in (("с/с", "с/с"), ("д/в", "по выбору"), ("согл", "по согласованию")):
         if re.search(rf"(?<![а-яё]){re.escape(flag)}(?![а-яё])", text):
             note.append(meaning)
             text = re.sub(rf"(?<![а-яё]){re.escape(flag)}(?![а-яё])", " ", text)
+    found = re.match(r"^\s*с\s+(\d{1,2})\.(\d{2})\.?\s+(?=\D)", text)
+    if found and 1 <= int(found[2]) <= 12 and int(found[1]) <= 31:
+        note.append(f"с {int(found[1]):02d}.{found[2]}")
+        text = text[found.end():]
     # «Экономика - 12» — номер группы по экономике, а не аудитория.
     found = re.search(r"(Экономика)\s*-\s*(\d+)", text)
     if found:
