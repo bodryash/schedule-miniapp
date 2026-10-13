@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "docs" / "data"
 
 DAYS = {"Пн": 1, "Вт": 2, "Ср": 3, "Чт": 4, "Пт": 5, "Сб": 6, "Вс": 7}
-KINDS = {"Лк": "лекция", "Сем": "семинар", "Лб": "практика", "Пз": "практика"}
+KINDS = {"Лк": "лекция", "Сем": "семинар", "Лб": "практика", "Пз": "практика", "Доп": ""}
 SLOT = re.compile(r"(\d)\s*пара\s+(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})")
 OWN = re.compile(r"^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$")
 HEAD = re.compile(r"^(.+?)\s*\[(\w+)\]$")
@@ -46,6 +46,17 @@ def read_pdf(path):
             for table in page.extract_tables():
                 rows += [[(cell or "").strip() for cell in row] for row in table]
     return title, rows
+
+
+def read_xls(path):
+    """То же расписание, выгруженное из кабинета в Excel: один лист, те же строки."""
+    import xlrd
+
+    # Кабинет отдаёт файл с огрехом в служебной части — читается только так.
+    sheet = xlrd.open_workbook(path, ignore_workbook_corruption=True).sheet_by_index(0)
+    rows = [[str(sheet.cell_value(r, c)).strip() for c in range(sheet.ncols)] for r in range(sheet.nrows)]
+    found = re.search(r"Расписание группы:\s*(\S+)", " ".join(rows[0])) if rows else None
+    return (found[1] if found else ""), rows
 
 
 def parse_cell(text, names, unknown):
@@ -91,7 +102,7 @@ def main():
     names = json.loads(args.names.read_text(encoding="utf-8")) if args.names else {}
     subgroups = json.loads(args.subgroups.read_text(encoding="utf-8")) if args.subgroups else {}
 
-    group, rows = read_pdf(args.pdf)
+    group, rows = read_xls(args.pdf) if args.pdf.suffix.lower() == ".xls" else read_pdf(args.pdf)
     if not group:
         sys.exit("В PDF нет строки «Расписание группы: …».")
 
@@ -106,19 +117,24 @@ def main():
     bells, unknown, unread = {}, set(), []
     seen = defaultdict(list)  # (день, пара, ячейка) → даты
     taught = defaultdict(set)  # день → даты, когда в этот день вообще были пары
-    day, dates = 0, []
+    day, dates, last = 0, [], None
     for row in rows:
         if row[0] in DAYS:
             day = DAYS[row[0]]
             dates = [date(int(c[6:10]), int(c[3:5]), int(c[0:2])).isoformat() if re.fullmatch(r"\d\d\.\d\d\.\d{4}", c) else None for c in row[1:]]
             continue
         slot = SLOT.search(row[0].replace("\n", " "))
+        # Вторая строка той же пары (подгруппы) идёт без подписи времени.
+        if not slot and not row[0] and day and last and any(row[1:]):
+            slot = last
         if not day or not slot:
             continue
+        last = slot
         n = int(slot[1])
         bells[n] = (f"{int(slot[2]):02d}:{slot[3]}", f"{int(slot[4]):02d}:{slot[5]}")
         for when, text in zip(dates, row[1:]):
-            if not when or not text:
+            # «Скрыто с 20.12.2026» — кабинет прячет конец семестра, пары там нет.
+            if not when or not text or text.startswith("Скрыто"):
                 continue
             cell = parse_cell(text, names, unknown)
             if not cell:
