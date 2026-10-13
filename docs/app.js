@@ -1528,7 +1528,13 @@ function applyTheme(granted = grantedTheme) {
    датой — строка состояния с антенной и батарейкой. */
 function renderNokia(on) {
   let ribbon = document.querySelector(".nokia-ribbon");
-  if (!on) return ribbon?.remove();
+  let bezel = document.querySelector(".nokia-bezel");
+  if (!on) {
+    bezel?.remove();
+    return ribbon?.remove();
+  }
+  // Корпус из пожелтевшего пластика вокруг экрана.
+  if (!bezel) document.body.append(el("div", "nokia-bezel"));
   if (ribbon || !els.freedom) return;
   ribbon = el("button", "nokia-ribbon");
   ribbon.type = "button";
