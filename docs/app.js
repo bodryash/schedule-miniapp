@@ -1459,7 +1459,7 @@ function initReminders() {
 
 // Брутал выдаёт владелец командой /theme, гламур человек находит сам —
 // словом «гламур» в поиске по МФК. Тема с сервера сильнее найденной.
-const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska" };
+const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia" };
 const GLAM_KEY = "schedule.glam";
 // Зелёную тему волонтёра человек может выключить сам и вернуть обратно.
 // Остальные выданные темы так не умеют.
@@ -1521,6 +1521,57 @@ function applyTheme(granted = grantedTheme) {
   renderChampion(name === "champion");
   renderVolunteer(name === "volunteer");
   renderCska(name === "cska");
+  renderNokia(name === "nokia");
+}
+
+/* Тема «Нокия» — экран старого телефона: два цвета, пиксели, рамки. Под
+   датой — строка состояния с антенной и батарейкой. */
+function renderNokia(on) {
+  let ribbon = document.querySelector(".nokia-ribbon");
+  if (!on) return ribbon?.remove();
+  if (ribbon || !els.freedom) return;
+  ribbon = el("button", "nokia-ribbon");
+  ribbon.type = "button";
+  const signal = el("span", "nokia-signal");
+  for (let bar = 0; bar < 4; bar += 1) signal.append(el("i"));
+  const battery = el("span", "nokia-battery");
+  for (let bar = 0; bar < 3; bar += 1) battery.append(el("i"));
+  ribbon.append(signal, el("span", "", "3310"), battery);
+  ribbon.addEventListener("click", () => haptic("heavy"));
+  els.freedom.after(ribbon);
+}
+
+/* Пасхалка: кодовая фраза в поиске. Ни фразы, ни того, что она открывает,
+   в коде нет — файл зашифрован самой фразой. */
+const EGG = { size: 12, mark: 211, busy: false };
+
+async function checkEgg(value) {
+  const word = String(value || "").toLowerCase().replace(/[^a-zа-яё0-9]/g, "");
+  if (word.length !== EGG.size || EGG.busy || !globalThis.crypto?.subtle) return;
+  EGG.busy = true;
+  try {
+    const text = new TextEncoder();
+    const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", text.encode(`${word.length}:${word}`)));
+    if (hash[0] !== EGG.mark) return;
+    const file = new Uint8Array(await (await fetch("icons/sprite.bin")).arrayBuffer());
+    const base = await crypto.subtle.importKey("raw", text.encode(word), "PBKDF2", false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey(
+      { name: "PBKDF2", hash: "SHA-256", salt: file.slice(0, 16), iterations: 200000 },
+      base,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["decrypt"],
+    );
+    const code = new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: file.slice(16, 28) }, key, file.slice(28)));
+    els.query.value = "";
+    els.query.blur();
+    runSearch();
+    new Function("api", code)({ haptic, tg });
+  } catch {
+    // Не та фраза — молчим.
+  } finally {
+    EGG.busy = false;
+  }
 }
 
 /* Тема «ЦСКА» — красно-синяя, выдаёт владелец. Лента под датой и салют в
@@ -8091,6 +8142,7 @@ async function init() {
   els.freeClose.addEventListener("click", closeFree);
   els.searchClose.addEventListener("click", closeSearch);
   els.query.addEventListener("input", runSearch);
+  els.query.addEventListener("input", () => checkEgg(els.query.value));
   for (const chip of els.searchTabs?.querySelectorAll(".chip") || []) {
     chip.addEventListener("click", () => {
       if (searchKind !== chip.dataset.kind) haptic("select");
