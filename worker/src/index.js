@@ -1770,8 +1770,8 @@ async function visitsReport(env, who) {
   if (starosta?.grp) lines.push(`Староста: ${escape(await groupLabel(starosta.grp))}`);
   // Журнал за последние 30 дней: по дням, со временем каждого захода.
   const { results: log = [] } = await env.STATS.prepare(
-    "SELECT at FROM visits WHERE tg_id = ? ORDER BY at DESC LIMIT 200"
-  ).bind(id).all();
+    "SELECT at FROM visits WHERE tg_id = ? AND at >= ? ORDER BY at DESC LIMIT 200"
+  ).bind(id, new Date(Date.now() - VISITS_KEEP_DAYS * 86400000).toISOString()).all();
   if (log.length) {
     const days = new Map();
     for (const row of log) {
