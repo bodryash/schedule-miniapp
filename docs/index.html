@@ -30,7 +30,35 @@
   <!-- Здесь заставка описана целиком такой, какой её дорисует style.css:
        тот же фон, тот же шрифт даты, та же полоса. Иначе первые секунды
        видна «черновая» заставка, а потом она на глазах меняет вид. -->
+  <!-- Светлая или тёмная тема, выбранная в настройках, — до первого кадра,
+       чтобы заставка не мигнула чужим цветом. Без выбора — как в Telegram. -->
+  <script>
+    try {
+      var scheme = localStorage.getItem("schedule.scheme");
+      if (scheme === "light" || scheme === "dark") document.documentElement.dataset.scheme = scheme;
+    } catch (e) {}
+  </script>
   <style>
+    /* Telegram задаёт свои цвета прямо на странице; выбранная вручную тема
+       перекрывает их целиком — отсюда !important. */
+    html[data-scheme="light"] {
+      color-scheme: light;
+      --tg-theme-bg-color: #ffffff !important;
+      --tg-theme-text-color: #0f0f0f !important;
+      --tg-theme-hint-color: #7d7d7d !important;
+      --tg-theme-secondary-bg-color: #f2f2f7 !important;
+      --tg-theme-destructive-text-color: #e53935 !important;
+      --tg-theme-button-color: #2ea6ff !important;
+    }
+    html[data-scheme="dark"] {
+      color-scheme: dark;
+      --tg-theme-bg-color: #16181d !important;
+      --tg-theme-text-color: #f1f2f5 !important;
+      --tg-theme-hint-color: #8d93a3 !important;
+      --tg-theme-secondary-bg-color: #23262e !important;
+      --tg-theme-destructive-text-color: #ff6b6b !important;
+      --tg-theme-button-color: #4aa8ff !important;
+    }
     @font-face {
       font-family: "Oswald"; src: url("fonts/oswald-cyr.woff2") format("woff2");
       font-weight: 400 700; font-display: block;

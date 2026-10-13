@@ -7147,3 +7147,42 @@ body.volunteer .tab[aria-selected="true"] {
 .own-card + .dayend {
   margin-top: 0;
 }
+
+/* --- Выбор темы: как в Telegram, светлая, тёмная ---
+   На плитке кружок-образец: половинки для «как в Telegram», белый и тёмный. */
+.scheme-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.scheme-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 22%, transparent);
+}
+
+.scheme-chip[data-scheme="auto"] .scheme-dot {
+  background: linear-gradient(90deg, #ffffff 50%, #16181d 50%);
+}
+
+.scheme-chip[data-scheme="light"] .scheme-dot {
+  background: #ffffff;
+}
+
+.scheme-chip[data-scheme="dark"] .scheme-dot {
+  background: #16181d;
+}
+
+/* Тёмная тема, выбранная вручную: тени на тёмном не видны, а светлые пятна
+   за содержимым слепят — приглушаем. */
+html[data-scheme="dark"] body::before {
+  opacity: 0.6;
+}
+
+html[data-scheme="dark"] {
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 26px -16px rgba(0, 0, 0, 0.6);
+  --shadow-chip: 0 1px 1px rgba(0, 0, 0, 0.25), 0 8px 16px -12px rgba(0, 0, 0, 0.6);
+}

@@ -80,6 +80,36 @@ function fontStyle(pick) {
   }
 }
 for (const pick of FONT_PICKS) document.body.dataset[pick.attr] = fontStyle(pick);
+
+// Светлая или тёмная тема. По умолчанию — как в Telegram; выбор человека
+// сильнее и хранится на устройстве. Цвета заданы в index.html, чтобы
+// заставка сразу была нужного цвета.
+const SCHEME_KEY = "schedule.scheme";
+const SCHEMES = { auto: "Как в Telegram", light: "Светлая", dark: "Тёмная" };
+const SCHEME_BG = { light: "#ffffff", dark: "#16181d" };
+
+function scheme() {
+  try {
+    const saved = localStorage.getItem(SCHEME_KEY);
+    return saved === "light" || saved === "dark" ? saved : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+function applyScheme(value = scheme()) {
+  if (value === "auto") delete document.documentElement.dataset.scheme;
+  else document.documentElement.dataset.scheme = value;
+  // Шапка и фон самого окна Telegram — в тон, иначе вокруг останется рамка другого цвета.
+  const telegram = window.Telegram?.WebApp;
+  try {
+    telegram?.setHeaderColor?.(value === "auto" ? "bg_color" : SCHEME_BG[value]);
+    telegram?.setBackgroundColor?.(value === "auto" ? "bg_color" : SCHEME_BG[value]);
+  } catch {
+    // Старый клиент не умеет — останется рамка, расписанию это не мешает.
+  }
+}
+applyScheme();
 // Где живёт бот: свой сервер в России. Прежний адрес в Cloudflare остался
 // переходником для версий приложения, которые ещё лежат в кэше.
 const API_URL = "https://api.bodryash.ru";
@@ -4549,6 +4579,28 @@ function fillDigits() {
     if (nodes.length) title.classList.add("profiles-title--next");
     nodes.push(title, row);
   }
+  // Тема: как в Telegram, светлая или тёмная.
+  const themes = el("div", "profiles-row");
+  for (const [id, name] of Object.entries(SCHEMES)) {
+    const chip = el("button", id === scheme() ? "chip chip--on digits-chip scheme-chip" : "chip digits-chip scheme-chip");
+    chip.type = "button";
+    chip.dataset.scheme = id;
+    chip.append(el("span", "scheme-dot"), el("span", "digits-title", t(name)));
+    chip.addEventListener("click", () => {
+      haptic("light");
+      try {
+        if (id === "auto") localStorage.removeItem(SCHEME_KEY);
+        else localStorage.setItem(SCHEME_KEY, id);
+      } catch {
+        // Не сохранилось — выбор проживёт до закрытия.
+      }
+      applyScheme(id);
+      fillDigits();
+    });
+    themes.append(chip);
+  }
+  const themeTitle = el("div", "profiles-title profiles-title--next", t("Тема"));
+  nodes.push(themeTitle, themes);
   box.replaceChildren(...nodes);
 }
 
