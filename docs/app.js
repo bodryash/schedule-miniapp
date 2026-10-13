@@ -591,6 +591,8 @@ function showConfetti() {
   // У чемпиона и салют золотой.
   const colors = document.body.classList.contains("champion")
     ? ["#ffd700", "#f5c542", "#e6b422", "#fff3b0", "#d4a017", "#ffcc4d"]
+    : document.body.classList.contains("cska")
+    ? ["#e4002b", "#0b3ea8", "#ff3b5c", "#2f6bff", "#ffffff", "#b80022"]
     : ["#ff2d87", "#ffd166", "#4c6ef5", "#2ea6ff", "#40c057", "#ff922b"];
   for (let i = 0; i < 40; i++) {
     const piece = el("i");
@@ -1457,7 +1459,7 @@ function initReminders() {
 
 // Брутал выдаёт владелец командой /theme, гламур человек находит сам —
 // словом «гламур» в поиске по МФК. Тема с сервера сильнее найденной.
-const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer" };
+const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska" };
 const GLAM_KEY = "schedule.glam";
 // Зелёную тему волонтёра человек может выключить сам и вернуть обратно.
 // Остальные выданные темы так не умеют.
@@ -1518,6 +1520,40 @@ function applyTheme(granted = grantedTheme) {
   }
   renderChampion(name === "champion");
   renderVolunteer(name === "volunteer");
+  renderCska(name === "cska");
+}
+
+/* Тема «ЦСКА» — красно-синяя, выдаёт владелец. Лента под датой и салют в
+   клубных цветах: при первом открытии за день и по нажатию на ленту. */
+const CSKA_KEY = "schedule.cskaSalute";
+
+function renderCska(on) {
+  let ribbon = document.querySelector(".cska-ribbon");
+  if (!on) return ribbon?.remove();
+  if (!ribbon && els.freedom) {
+    ribbon = el("button", "cska-ribbon");
+    ribbon.type = "button";
+    ribbon.append(el("span", "cska-star", "★"), el("span", "", t("Красно-синие")));
+    ribbon.addEventListener("click", () => {
+      haptic("success");
+      showConfetti();
+    });
+    els.freedom.after(ribbon);
+  }
+  const today = isoDate(new Date());
+  let last = "";
+  try {
+    last = localStorage.getItem(CSKA_KEY) || "";
+    if (last === today) return;
+    localStorage.setItem(CSKA_KEY, today);
+  } catch {
+    // Без хранилища салют будет при каждом открытии — не беда.
+  }
+  afterSplash(() => {
+    showConfetti();
+    haptic("success");
+    if (!last) toast(t("★ Тема «ЦСКА» включена. Красно-синий — самый сильный!"));
+  });
 }
 
 /* Тема «Волонтёр» — спасибо тем, кто разносит расписание по своим. Кроме

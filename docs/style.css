@@ -7186,3 +7186,137 @@ html[data-scheme="dark"] {
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 26px -16px rgba(0, 0, 0, 0.6);
   --shadow-chip: 0 1px 1px rgba(0, 0, 0, 0.25), 0 8px 16px -12px rgba(0, 0, 0, 0.6);
 }
+
+/* --- ЦСКА: красно-синяя тема, выдаёт владелец командой /theme ---
+   Красный и синий меняются местами по чётности недели: нечётная — красная,
+   чётная — синяя. Фон остаётся от выбранной светлой или тёмной темы. */
+body.cska {
+  --cska-red: #e4002b;
+  --cska-blue: #0b3ea8;
+  --accent: var(--cska-red);
+  --accent-soft: rgba(228, 0, 43, 0.14);
+  --accent-text: #ffffff;
+  --line: rgba(228, 0, 43, 0.2);
+}
+
+body.cska[data-parity="even"] {
+  /* Синий посветлее клубного: тёмно-синий текст не читался бы на тёмном фоне. */
+  --accent: #2f6bff;
+  --accent-soft: rgba(47, 107, 255, 0.16);
+  --line: rgba(31, 85, 214, 0.22);
+}
+
+body.cska[data-parity="none"] {
+  --accent: var(--cska-red);
+  --accent-soft: rgba(228, 0, 43, 0.14);
+}
+
+/* Свет за содержимым: красное пятно слева, синее справа. */
+body.cska::before {
+  background:
+    radial-gradient(130% 55% at -10% -8%, color-mix(in srgb, #e4002b 22%, transparent), transparent 62%),
+    radial-gradient(100% 46% at 112% 4%, color-mix(in srgb, #1f55d6 24%, transparent), transparent 64%),
+    radial-gradient(120% 40% at 50% 112%, color-mix(in srgb, #e4002b 9%, transparent), transparent 70%);
+}
+
+/* Дата — от красного к синему. То же у надписей, которые едут при листании
+   дней: они рисуются отдельными слоями (см. тему волонтёра). */
+body.cska .date,
+body.cska .date-old,
+body.cska .date-new {
+  background: linear-gradient(100deg, #e4002b 0%, #e4002b 38%, #1f55d6 62%, #1f55d6 100%) 0 0 / 100% 100% no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+body.cska #current-group::before {
+  content: "★ ";
+  color: var(--cska-red);
+}
+
+body.cska .room-badge {
+  background: linear-gradient(135deg, #e4002b, #0b3ea8);
+  color: #ffffff;
+}
+
+body.cska .days-drop {
+  background: linear-gradient(135deg, #ff2d52 0%, #e4002b 45%, #0b3ea8 100%);
+  box-shadow: 0 4px 14px rgba(11, 62, 168, 0.35);
+}
+
+body.cska .primary {
+  background: linear-gradient(135deg, #e4002b, #0b3ea8);
+  color: #ffffff;
+}
+
+/* Идущая пара: рамка из двух цветов. */
+body.cska .card--now {
+  box-shadow:
+    -3px 0 0 0 #e4002b,
+    3px 0 0 0 #1f55d6,
+    0 10px 28px -14px rgba(11, 62, 168, 0.5);
+}
+
+/* Лента под датой: две половины — красная и синяя, по ним бежит блик. */
+.cska-ribbon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 5px 13px 5px 10px;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(100deg, #e4002b 0%, #e4002b 50%, #0b3ea8 50%, #0b3ea8 100%);
+  color: #ffffff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow:
+    0 2px 10px rgba(11, 62, 168, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+}
+
+.cska-ribbon::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  width: 34%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  animation: cska-glint 3.8s ease-in-out infinite;
+}
+
+.cska-ribbon:active {
+  transform: scale(0.96);
+}
+
+.cska-star {
+  font-size: 13px;
+  letter-spacing: 0;
+  animation: cska-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes cska-glint {
+  0%, 55% { left: -40%; }
+  100% { left: 120%; }
+}
+
+@keyframes cska-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cska-ribbon::after,
+  .cska-star {
+    animation: none;
+  }
+}
