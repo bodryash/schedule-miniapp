@@ -1697,6 +1697,71 @@ async function facultiesReport(env) {
   ].join("\n");
 }
 
+/* ---------- Заходы одного человека ---------- */
+
+const VISITS_HELP = "Кого смотреть? <code>/visits @username</code> или <code>/visits 123456789</code>";
+
+/** «13.10 в 14:05» по московскому времени и сколько это назад. */
+function whenMsk(iso) {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return "—";
+  const msk = new Date(at.getTime() + 3 * 3600000);
+  const two = (n) => String(n).padStart(2, "0");
+  const ago = Math.max(0, Date.now() - at.getTime());
+  const days = Math.floor(ago / 86400000);
+  const since = days >= 1 ? `${days} дн. назад` : ago >= 3600000 ? `${Math.floor(ago / 3600000)} ч назад` : `${Math.max(1, Math.floor(ago / 60000))} мин назад`;
+  return `${two(msk.getUTCDate())}.${two(msk.getUTCMonth() + 1)} в ${two(msk.getUTCHours())}:${two(msk.getUTCMinutes())} (${since})`;
+}
+
+/** Группа так, как её видит человек: «МГУ · ВМК · 107». */
+async function groupLabel(grp) {
+  if (!grp) return "группа не выбрана";
+  if (grp.startsWith("преп:")) return `преподаватель ${grp.slice(5)}`;
+  const slash = grp.indexOf("/");
+  const tenantId = slash > 0 ? grp.slice(0, slash) : "msu-fgp";
+  const name = slash > 0 ? grp.slice(slash + 1) : grp;
+  const tenant = (await loadTenants().catch(() => [])).find((t) => t.id === tenantId);
+  return tenant ? `${tenant.university} · ${tenant.short || tenant.faculty} · ${name}` : grp;
+}
+
+/** /visits — что известно о заходах одного человека. Только владельцу. */
+async function visitsReport(env, who) {
+  if (!who) return VISITS_HELP;
+  const person = await findPerson(env, who);
+  if (!person?.tg_id) {
+    return `Не нашёл «${escape(who)}». Человек должен хоть раз открыть расписание или написать боту.`;
+  }
+  const id = person.tg_id;
+  const { results: rows = [] } = await env.STATS.prepare(
+    "SELECT first, last, grp, name, username FROM people WHERE tg_id = ? ORDER BY last DESC"
+  ).bind(id).all();
+  const known = rows[0] || {};
+  const name = known.name || person.name || "";
+  const nick = known.username || person.username || "";
+  const lines = [
+    `<b>${escape(name || "Без имени")}</b>${nick ? ` · @${escape(nick)}` : ""} · id <code>${id}</code>`,
+  ];
+  if (!rows.length) {
+    lines.push("", "Расписание не открывал — только писал боту.");
+    return lines.join("\n");
+  }
+  lines.push("", `Группа: ${escape(await groupLabel(known.grp || ""))}`);
+  const first = rows.reduce((min, r) => (r.first < min ? r.first : min), rows[0].first);
+  lines.push(`Первый заход: ${whenMsk(first)}`, `Последний заход: ${whenMsk(known.last)}`);
+
+  const remind = await env.STATS.prepare("SELECT morning, before FROM reminders WHERE tg_id = ?").bind(id).first();
+  const on = [remind?.morning ? "утром" : "", remind?.before ? `за ${remind.before} мин до пары` : ""].filter(Boolean);
+  lines.push(`Напоминания: ${on.length ? on.join(", ") : "выключены"}`);
+  const source = await env.STATS.prepare("SELECT label FROM sources WHERE tg_id = ? LIMIT 1").bind(id).first().catch(() => null);
+  if (source?.label) lines.push(`Пришёл по метке: <code>${escape(source.label)}</code>`);
+  const theme = await env.STATS.prepare("SELECT theme FROM themes WHERE target = ?").bind(`user:${id}`).first();
+  if (theme?.theme) lines.push(`Тема: ${escape(theme.theme)}`);
+  const starosta = await env.STATS.prepare("SELECT grp FROM starostas WHERE tg_id = ? LIMIT 1").bind(id).first().catch(() => null);
+  if (starosta?.grp) lines.push(`Староста: ${escape(await groupLabel(starosta.grp))}`);
+  //VISITS-LOG
+  return lines.join("\n");
+}
+
 /* ---------- Удаление своих данных ---------- */
 
 const FORGET_HELP = [
@@ -3768,6 +3833,16 @@ ${invite}`,
         reply = text.startsWith("/ads") ? await adsReport(env) : await facultiesReport(env);
       }
       await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: reply.slice(0, 4000), parse_mode: "HTML" });
+    }
+
+    // Заходы одного человека — только владельцу.
+    if (message && /^\/visits(?:@\w+)?(?:\s|$)/.test(text)) {
+      const allowed = String(message.chat.id) === String(env.OWNER_ID);
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: allowed ? await visitsReport(env, text.split(/\s+/)[1] || "") : "Команда недоступна.",
+        parse_mode: "HTML",
+      });
     }
 
     // Сводка и список — только владельцу: данные чужие.
