@@ -7553,7 +7553,7 @@ body.nokia .nokia-bezel::after {
 
 /* Надпись на корпусе между двумя цветными полосками и лампочка питания. */
 body.nokia .nokia-bezel::before {
-  content: "DOT MATRIX 3310";
+  content: "BODRYASH";
   position: absolute;
   z-index: 1;
   top: -30px;
@@ -7568,10 +7568,10 @@ body.nokia .nokia-bezel::before {
   color: #6a6890;
   background:
     radial-gradient(circle at 9px 13px, #ff5a4a 0 2px, #b3261c 2.5px 3.5px, transparent 4px),
-    linear-gradient(#8d2a5b, #8d2a5b) 24px 10px / calc(50% - 92px) 2px no-repeat,
-    linear-gradient(#35397f, #35397f) 24px 15px / calc(50% - 92px) 2px no-repeat,
-    linear-gradient(#8d2a5b, #8d2a5b) right 10px top 10px / calc(50% - 78px) 2px no-repeat,
-    linear-gradient(#35397f, #35397f) right 10px top 15px / calc(50% - 78px) 2px no-repeat;
+    linear-gradient(#8d2a5b, #8d2a5b) 24px 10px / calc(50% - 62px) 2px no-repeat,
+    linear-gradient(#35397f, #35397f) 24px 15px / calc(50% - 62px) 2px no-repeat,
+    linear-gradient(#8d2a5b, #8d2a5b) right 10px top 10px / calc(50% - 48px) 2px no-repeat,
+    linear-gradient(#35397f, #35397f) right 10px top 15px / calc(50% - 48px) 2px no-repeat;
 }
 
 body.nokia .tabs {
