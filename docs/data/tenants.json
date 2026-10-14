@@ -535,5 +535,13 @@
       "base": "1ny5CPAyR0T_W64PQ6N1uWv60aJ8aCJugGpeRy2jHtvE",
       "faculty": "all"
     }
+  },
+  {
+    "id": "msu-polit",
+    "university": "МГУ",
+    "faculty": "Факультет политологии",
+    "path": "msu-polit",
+    "features": [],
+    "short": "Политфак"
   }
 ]
