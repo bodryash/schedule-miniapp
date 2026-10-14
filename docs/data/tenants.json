@@ -573,5 +573,19 @@
       "base": "https://cacs.philos.msu.ru",
       "faculty": "1"
     }
+  },
+  {
+    "id": "msu-socio",
+    "university": "МГУ",
+    "faculty": "Социологический факультет",
+    "path": "msu-socio",
+    "features": [],
+    "short": "Социофак",
+    "source": {
+      "kind": "hist",
+      "base": "http://cacs.socio.msu.ru",
+      "faculty": "all",
+      "entry": "aID=3"
+    }
   }
 ]

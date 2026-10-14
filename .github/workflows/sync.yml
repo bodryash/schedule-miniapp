@@ -45,7 +45,7 @@ jobs:
                   continue
               done = subprocess.run([sys.executable, tool, "--base", source["base"], "--faculty", str(source["faculty"]),
                                      "--id", tenant["id"], "--university", tenant["university"], "--name", tenant["faculty"],
-                                     "--from", start, "--to", end])
+                                     "--from", start, "--to", end] + (["--entry", source["entry"]] if source.get("entry") else []))
               failed += done.returncode != 0
           # Сбой одного вуза не должен мешать опубликовать остальные.
           print(f"не обновилось факультетов: {failed}")

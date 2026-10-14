@@ -97,6 +97,9 @@ def main():
     parser.add_argument("--from", dest="start", required=True)
     parser.add_argument("--to", dest="end", required=True)
     parser.add_argument("--only", default="", help="только эти группы через запятую — для проверки")
+    # Та же система стоит и на других факультетах, но вход в раздел групп там свой:
+    # у истфака «mnu=143», у социологов «aID=3».
+    parser.add_argument("--entry", default="mnu=143", help="адрес раздела «Академ. группы» на сайте")
     args = parser.parse_args()
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,30}", args.id) or args.id == "msu-fgp":
         sys.exit("--id: латиница, цифры и дефис; msu-fgp занят")
@@ -109,7 +112,7 @@ def main():
         cursor = date(cursor.year + cursor.month // 12, cursor.month % 12 + 1, 1)
 
     site = Site(args.base)
-    site.get("mnu=143")
+    site.get(args.entry)
 
     # Подразделение → направление → год набора → группы.
     wanted = {}
@@ -139,7 +142,7 @@ def main():
         title = info["title"]
         try:
             page = site.get(f"gr={gid}")
-            shown = re.search(r"Расписание академической группы: \[([^\]]*)\]", clean(page))
+            shown = re.search(r"Расписание (?:академической )?группы: \[([^\]]*)\]", clean(page))
             if not shown or shown.group(1).strip() != title:
                 raise RuntimeError("сайт показал другую группу")
             merged = defaultdict(list)
@@ -217,7 +220,7 @@ def main():
     tenants = json.loads(registry.read_text(encoding="utf-8"))
     keep = next((t for t in tenants if t["id"] == args.id), {})
     entry = {**keep, "id": args.id, "university": args.university, "faculty": args.name, "path": args.id, "features": keep.get("features", []),
-             "source": {"kind": "hist", "base": args.base, "faculty": "all"}}
+             "source": {"kind": "hist", "base": args.base, "faculty": "all", **({"entry": args.entry} if args.entry != "mnu=143" else {})}}
     registry.write_text(json.dumps([t for t in tenants if t["id"] != args.id] + [entry], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Итого: групп {len(groups)}, строк {len(lessons)}, записано в docs/data/{args.id}/")
 
