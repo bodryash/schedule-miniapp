@@ -514,5 +514,13 @@
     "path": "msu-geo",
     "features": [],
     "short": "Геофак"
+  },
+  {
+    "id": "msu-journ",
+    "university": "МГУ",
+    "faculty": "Факультет журналистики",
+    "path": "msu-journ",
+    "features": [],
+    "short": "Журфак"
   }
 ]
