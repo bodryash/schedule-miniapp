@@ -560,5 +560,18 @@
     "features": [],
     "short": "Реавиз",
     "tz": 4
+  },
+  {
+    "id": "msu-philos",
+    "university": "МГУ",
+    "faculty": "Философский факультет",
+    "path": "msu-philos",
+    "features": [],
+    "short": "Философский",
+    "source": {
+      "kind": "tt",
+      "base": "https://cacs.philos.msu.ru",
+      "faculty": "1"
+    }
   }
 ]
