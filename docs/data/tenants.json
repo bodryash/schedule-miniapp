@@ -543,5 +543,13 @@
     "path": "msu-polit",
     "features": [],
     "short": "Политфак"
+  },
+  {
+    "id": "msu-vshkpiugs",
+    "university": "МГУ",
+    "faculty": "Высшая школа культурной политики и управления в гуманитарной сфере",
+    "path": "msu-vshkpiugs",
+    "features": [],
+    "short": "ВШКПиУГС"
   }
 ]
