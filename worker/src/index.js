@@ -1953,6 +1953,19 @@ async function themeCommand(env, text) {
   return off ? `Тема снята: ${escape(who)}.` : `Тема «${escape(name)}» выдана: ${escape(who)}.`;
 }
 
+/**
+ * Прислал расписание — получает зелёную тему волонтёра. Уже выданную тему
+ * (ЦСКА, брутал…) не трогаем.
+ */
+async function grantVolunteer(env, from) {
+  if (!env.STATS || !from?.id) return;
+  await env.STATS.prepare(
+    "INSERT INTO themes (target, theme, created) VALUES (?, 'volunteer', ?) ON CONFLICT(target) DO NOTHING"
+  )
+    .bind(`user:${from.id}`, new Date().toISOString())
+    .run();
+}
+
 async function themesList(env) {
   const { results = [] } = await env.STATS.prepare(
     "SELECT target, theme FROM themes ORDER BY created DESC LIMIT 60"
@@ -3530,6 +3543,7 @@ ${invite}`,
         await Promise.resolve(
           globalThis.SCHEDULE_SAVE_FILE?.({ ...photo, file_name: "photo.jpg" }, message.from, message.caption || "")
         ).catch(() => {});
+        await grantVolunteer(env, message.from).catch(() => {});
       }
       const words = message.text && !message.text.startsWith("/") ? message.text : message.caption || "";
       if (words || photo) {
@@ -3585,6 +3599,7 @@ ${invite}`,
           // На своём сервере файл ещё и сохраняется — чтобы подключить
           // факультет, не пересылая файл вручную.
           await Promise.resolve(globalThis.SCHEDULE_SAVE_FILE?.(document, message.from, message.caption || "")).catch(() => {});
+          await grantVolunteer(env, message.from).catch(() => {});
           await callTelegram(env.BOT_TOKEN, "forwardMessage", {
             chat_id: env.OWNER_ID,
             from_chat_id: message.chat.id,
