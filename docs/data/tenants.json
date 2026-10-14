@@ -551,5 +551,14 @@
     "path": "msu-vshkpiugs",
     "features": [],
     "short": "ВШКПиУГС"
+  },
+  {
+    "id": "reaviz-samara-stom",
+    "university": "Медицинский университет «Реавиз»",
+    "faculty": "Стоматологический факультет (Самара)",
+    "path": "reaviz-samara-stom",
+    "features": [],
+    "short": "Реавиз",
+    "tz": 4
   }
 ]
