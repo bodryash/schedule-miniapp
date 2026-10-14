@@ -522,5 +522,18 @@
     "path": "msu-journ",
     "features": [],
     "short": "Журфак"
+  },
+  {
+    "id": "msu-tv",
+    "university": "МГУ",
+    "faculty": "Высшая школа телевидения",
+    "path": "msu-tv",
+    "features": [],
+    "short": "ВШТ",
+    "source": {
+      "kind": "tv",
+      "base": "1ny5CPAyR0T_W64PQ6N1uWv60aJ8aCJugGpeRy2jHtvE",
+      "faculty": "all"
+    }
   }
 ]
