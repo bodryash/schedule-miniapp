@@ -6662,6 +6662,7 @@ function initMenu() {
     if (!item) return;
     haptic("select");
     pop.hidden = true;
+    if (item.dataset.menu === "invite") inviteGroup(item);
     if (item.dataset.menu === "rooms") showFree();
     if (item.dataset.menu === "settings") showPicker();
     if (item.dataset.menu === "absences") openAbsences();
