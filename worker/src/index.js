@@ -223,6 +223,14 @@ const AUDIENCE_SQL = `SELECT DISTINCT u.id FROM users u JOIN people p ON p.tg_id
   WHERE p.grp IS NOT NULL AND p.grp != '' AND p.grp NOT LIKE 'преп:%'
     AND CASE WHEN instr(p.grp, '/') > 0 THEN substr(p.grp, 1, instr(p.grp, '/') - 1) ELSE 'msu-fgp' END = ?`;
 
+// «Всем, кроме факультета»: у кого выбрана группа на любом другом факультете.
+const AUDIENCE_EXCEPT_SQL = AUDIENCE_SQL.replace(/END = \?$/, "END != ?");
+
+/** Получатели рассылки: «msu-fgp» — один факультет, «!msu-fgp» — все, кроме него. */
+function audienceQuery(audience) {
+  return audience.startsWith("!") ? [AUDIENCE_EXCEPT_SQL, audience.slice(1)] : [AUDIENCE_SQL, audience];
+}
+
 /** «#фгп», «#msu-fgp», «#Филфак» → факультет. Регистр и пробелы не важны. */
 async function findAudience(word) {
   const want = normalize(word);
@@ -266,14 +274,15 @@ function sendCast(env, chatId, job, markup) {
 
 /** Готовит черновик рассылки и показывает его с кнопками подтверждения. */
 async function draftBroadcast(env, chatId, text, { button = false, audience = null, media = null } = {}) {
+  const key = audience ? `${audience.except ? "!" : ""}${audience.id}` : "";
   const { count } = audience
-    ? await env.STATS.prepare(`SELECT COUNT(*) AS count FROM (${AUDIENCE_SQL})`).bind(audience.id).first()
+    ? await env.STATS.prepare(`SELECT COUNT(*) AS count FROM (${audienceQuery(key)[0]})`).bind(audienceQuery(key)[1]).first()
     : await env.STATS.prepare("SELECT COUNT(*) AS count FROM users").first();
 
   const draft = await env.STATS.prepare(
     "INSERT INTO broadcasts (text, created, button, audience, media_kind, media_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING id"
   )
-    .bind(text, new Date().toISOString(), button ? 1 : 0, audience?.id || "", media?.kind || "", media?.id || "")
+    .bind(text, new Date().toISOString(), button ? 1 : 0, key, media?.kind || "", media?.id || "")
     .first();
 
   // С вложением черновик — само сообщение в том виде, в каком его получат,
@@ -291,7 +300,9 @@ async function draftBroadcast(env, chatId, text, { button = false, audience = nu
   }
 
   const extra = button ? "\n(с кнопкой «📅 Открыть расписание»)" : "";
-  const whom = audience
+  const whom = audience?.except
+    ? `Всем, КРОМЕ ${audience.university} · ${audience.short || audience.faculty}: ${count} получателям — тем, у кого выбрана группа на другом факультете.`
+    : audience
     ? `Только ${audience.university} · ${audience.short || audience.faculty}: ${count} получателям — тем, кто выбрал там группу.`
     : `Разослать это ВСЕМ — ${count} получателям?`;
   await callTelegram(env.BOT_TOKEN, "sendMessage", {
@@ -348,8 +359,8 @@ async function handleButton(env, query) {
       await env.STATS.batch([
         draft?.audience
           ? env.STATS.prepare(
-              `INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM (${AUDIENCE_SQL})`
-            ).bind(id, draft.audience)
+              `INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM (${audienceQuery(draft.audience)[0]})`
+            ).bind(id, audienceQuery(draft.audience)[1])
           : env.STATS.prepare(
               "INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM users"
             ).bind(id),
@@ -3694,6 +3705,7 @@ ${invite}`,
             "Напишите текст следом: /broadcast Завтра занятий нет.",
             "",
             "Одному факультету — с решёткой впереди: /broadcast #фгп Завтра занятий нет.",
+            "Всем, кроме факультета — с минусом: /broadcast #-фгп Новая функция для вас.",
             "После решётки — короткое название или id факультета из /faculties.",
             "",
             "С видео, гифкой или фото — пришлите его боту, а команду и текст впишите в подпись.",
@@ -3703,7 +3715,10 @@ ${invite}`,
         // «#фгп Текст» — только одному факультету. С вложением текста после
         // решётки может и не быть: «#фгп» и видео.
         const tag = body.match(castMedia ? /^#(\S+)(?:\s+([\s\S]+))?$/ : /^#(\S+)\s+([\s\S]+)$/);
-        const audience = tag ? await findAudience(tag[1]) : null;
+        // «#-фгп» — всем, кроме этого факультета.
+        const except = Boolean(tag && tag[1].startsWith("-"));
+        const found = tag ? await findAudience(except ? tag[1].slice(1) : tag[1]) : null;
+        const audience = found ? { ...found, except } : null;
         const words = audience ? (tag[2] || "").trim() : body;
         if (tag && !audience) {
           await callTelegram(env.BOT_TOKEN, "sendMessage", {
