@@ -603,5 +603,13 @@
     "path": "msu-ffl",
     "features": [],
     "short": "ФИЯР"
+  },
+  {
+    "id": "rgup-jur",
+    "university": "РГУП им. В.М. Лебедева",
+    "faculty": "Очный юридический факультет",
+    "path": "rgup-jur",
+    "features": [],
+    "short": "РГУП"
   }
 ]
