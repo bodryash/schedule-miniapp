@@ -4326,6 +4326,7 @@ async function restartWith(title, sub, next, apply) {
   url.searchParams.set("s", Date.now().toString(36));
   // Код «поделились расписанием» уже сработал — второй раз не предлагаем.
   url.searchParams.delete("cfg");
+  url.searchParams.delete("grp");
   const quiet = (request) => request.catch(() => null);
   const folder = `data/${next.path ? `${next.path}/` : ""}`;
   const warm = Promise.all([
@@ -4605,6 +4606,81 @@ async function shareSchedule(button) {
   button.disabled = false;
 }
 
+const INVITE_URL = `${API_URL}/invite`;
+
+/**
+ * Позвать группу: ссылка на расписание этой группы. Кто откроет — сразу
+ * получит её расписание, ничего не выбирая. Ссылка у всей группы одна.
+ */
+async function inviteGroup(button) {
+  if (button.disabled) return;
+  const group = activeGroup();
+  if (!group || prefs.teacher) return;
+  button.disabled = true;
+  haptic("light");
+  try {
+    const res = await fetch(INVITE_URL, {
+      method: "POST",
+      body: JSON.stringify({ tenant: tenantId(), group: group.id, name: group.title }),
+    });
+    const body = await res.json();
+    if (!body.ok) throw new Error(body.error);
+    const link = `${BOT_LINK}?start=g_${body.code}`;
+    const text = t("Расписание группы {name} — открой, и оно сразу настроится 📅", { name: group.title });
+    const share = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+    if (tg?.openTelegramLink) tg.openTelegramLink(share);
+    else window.open(share, "_blank", "noopener");
+    haptic("success");
+  } catch {
+    haptic("error");
+    tg?.showAlert?.(t("Не получилось создать ссылку. Попробуйте ещё раз."));
+  }
+  button.disabled = false;
+}
+
+/**
+ * Открыли по ссылке-приглашению группы. Новичку сразу ставим эту группу;
+ * у кого уже своя — предлагаем добавить её отдельным профилем.
+ */
+async function acceptInvite() {
+  const code = new URLSearchParams(location.search).get("grp");
+  if (!/^[a-z0-9]{8}$/.test(code || "")) return;
+  let body = null;
+  try {
+    body = await (await fetch(`${SHARE_URL}?code=${code}`)).json();
+  } catch {
+    return;
+  }
+  const wanted = body?.ok && body.prefs;
+  if (!wanted?.tenant || !wanted.group) return;
+  const mine = readPrefs();
+  if (mine.tenant === wanted.tenant && mine.group === wanted.group) return;
+  const next = TENANTS.find((item) => item.id === wanted.tenant);
+  if (!next) return;
+  const name = String(body.name || "").slice(0, 40);
+  if (!activeGroup()) {
+    await restartWith(name || next.faculty, `${next.university} · ${next.short || next.faculty}`, next, () =>
+      savePrefs({ ...mine, tenant: wanted.tenant, group: wanted.group, teacher: undefined })
+    );
+    return;
+  }
+  const store = readProfiles();
+  if (store.list.length >= PROFILES_MAX) return;
+  const add = () => {
+    const fresh = readProfiles();
+    if (!fresh.active && fresh.list.length < PROFILES_MAX - 1) {
+      fresh.list.push({ id: `${Date.now().toString(36)}m`, name: t("Моё расписание"), prefs: readPrefs() });
+    }
+    const profile = { id: Date.now().toString(36), name: name || t("Группа"), prefs: { tenant: wanted.tenant, group: wanted.group } };
+    fresh.list.push(profile);
+    writeProfiles(fresh);
+    switchProfile(profile);
+  };
+  const question = t("Добавить расписание группы «{name}» отдельным профилем?", { name: name || next.faculty });
+  if (tg?.showConfirm) tg.showConfirm(question, (yes) => yes && add());
+  else if (window.confirm(question)) add();
+}
+
 /** Открыли по ссылке друга: предлагаем добавить его расписание профилем. */
 async function acceptShared() {
   const code = new URLSearchParams(location.search).get("cfg");
@@ -4740,6 +4816,12 @@ function fillProfiles(edit = null) {
     share.type = "button";
     share.addEventListener("click", () => shareSchedule(share));
     row.append(share);
+    if (!prefs.teacher) {
+      const invite = el("button", "chip chip--share", t("👥 Позвать группу"));
+      invite.type = "button";
+      invite.addEventListener("click", () => inviteGroup(invite));
+      row.append(invite);
+    }
   }
   nodes.push(row);
 
@@ -6580,6 +6662,7 @@ function initMenu() {
     if (!item) return;
     haptic("select");
     pop.hidden = true;
+    if (item.dataset.menu === "invite") inviteGroup(item);
     if (item.dataset.menu === "rooms") showFree();
     if (item.dataset.menu === "settings") showPicker();
     if (item.dataset.menu === "absences") openAbsences();
@@ -8222,6 +8305,7 @@ async function init() {
   finishSplash();
   // Пришли по ссылке «поделиться» — спросим, когда заставка уйдёт.
   setTimeout(acceptShared, SPLASH_MIN + 600);
+  setTimeout(acceptInvite, SPLASH_MIN + 700);
 }
 
 init();
