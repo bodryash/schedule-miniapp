@@ -4057,6 +4057,8 @@ const els = {
   military: document.getElementById("military"),
   electivesRow: document.getElementById("electives-row"),
   electives: document.getElementById("electives"),
+  pairsRow: document.getElementById("pairs-row"),
+  pairs: document.getElementById("pairs"),
   save: document.getElementById("save"),
   lang: document.getElementById("lang"),
   home: document.getElementById("home"),
@@ -5005,6 +5007,152 @@ function fillLanguages() {
 
   fillLang2Subgroups();
   fillElectives();
+  fillPairs();
+}
+
+/* ---------- Мои пары ----------
+   У многих факультетов в одно время у группы стоит несколько карточек: язык
+   у разных преподавателей, курсы по выбору. В данных это никак не помечено,
+   поэтому находим такие места сами и даём выбрать своё. У ФГП свои настройки
+   (язык, подгруппа, дисциплины по выбору) — его не трогаем. */
+
+/** Пара уже разобрана другими настройками — её в «Мои пары» не берём. */
+function pairHandled(lesson) {
+  return Boolean(lesson.elective || lesson.subgroup || LANG2.test(lesson.subject) || LANG3.test(lesson.subject) || MILITARY.test(lesson.subject));
+}
+
+function overlaps(a, b) {
+  if (a.day !== b.day || a.slot !== b.slot) return false;
+  if (a.week !== "all" && b.week !== "all" && a.week !== b.week) return false;
+  if (a.dates?.length && b.dates?.length) {
+    const mine = new Set(a.dates);
+    return b.dates.some((day) => mine.has(day));
+  }
+  return true;
+}
+
+let parallelCache = { key: "", sets: [] };
+
+/** Наборы пар группы, идущих в одно время (больше одной карточки). */
+function parallelSets(groupId) {
+  const key = `${tenantId()}|${groupId}|${data.lessons.length}`;
+  if (parallelCache.key === key) return parallelCache.sets;
+  let sets = [];
+  if (tenantId() !== "msu-fgp") {
+    const list = lessonsOf(groupId).filter((l) => !pairHandled(l));
+    const parent = list.map((_, i) => i);
+    const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+    for (let i = 0; i < list.length; i += 1) {
+      for (let j = i + 1; j < list.length; j += 1) {
+        if (overlaps(list[i], list[j])) parent[find(i)] = find(j);
+      }
+    }
+    const groups = new Map();
+    list.forEach((lesson, i) => {
+      const root = find(i);
+      if (!groups.has(root)) groups.set(root, []);
+      groups.get(root).push(lesson);
+    });
+    sets = [...groups.values()].filter((set) => set.length > 1);
+  }
+  parallelCache = { key, sets };
+  return sets;
+}
+
+/** Что можно выбрать: предметы, идущие в одно время, и преподаватели одного предмета. */
+function pairChoices(groupId) {
+  const subjects = new Set();
+  const teachers = new Map();
+  for (const set of parallelSets(groupId)) {
+    const names = new Set(set.map((l) => l.subject));
+    if (names.size > 1) names.forEach((name) => subjects.add(name));
+    for (const name of names) {
+      const who = new Set(set.filter((l) => l.subject === name && l.teacher).map((l) => l.teacher));
+      if (who.size > 1) {
+        if (!teachers.has(name)) teachers.set(name, new Set());
+        who.forEach((person) => teachers.get(name).add(person));
+      }
+    }
+  }
+  return { subjects: [...subjects].sort(), teachers };
+}
+
+let hiddenCache = { key: "", hidden: new Set() };
+
+/** Пары, которые студент скрыл выбором в «Моих парах». */
+function pairsHidden() {
+  const group = prefs?.group;
+  const pick = prefs?.pick?.group === group ? prefs.pick : null;
+  const key = `${tenantId()}|${group}|${data?.lessons?.length}|${JSON.stringify(pick)}`;
+  if (hiddenCache.key === key) return hiddenCache.hidden;
+  const hidden = new Set();
+  if (pick && group) {
+    const wanted = new Set(pick.subjects || []);
+    const teachers = pick.teachers || {};
+    for (const set of parallelSets(group)) {
+      let keep = set;
+      if (wanted.size && new Set(set.map((l) => l.subject)).size > 1) {
+        const mine = keep.filter((l) => wanted.has(l.subject));
+        if (mine.length) keep = mine;
+      }
+      for (const [subject, teacher] of Object.entries(teachers)) {
+        if (keep.some((l) => l.subject === subject && l.teacher === teacher)) {
+          keep = keep.filter((l) => l.subject !== subject || l.teacher === teacher);
+        }
+      }
+      const kept = new Set(keep);
+      set.forEach((lesson) => kept.has(lesson) || hidden.add(lesson));
+    }
+  }
+  hiddenCache = { key, hidden };
+  return hidden;
+}
+
+function fillPairs() {
+  if (!els.pairsRow) return;
+  const groupId = els.group.value;
+  const { subjects, teachers } = pairChoices(groupId);
+  els.pairsRow.hidden = !subjects.length && !teachers.size;
+  if (els.pairsRow.hidden) return;
+  const pick = prefs.pick?.group === groupId ? prefs.pick : {};
+  const chosen = new Set(pick.subjects || []);
+  const nodes = [];
+  if (subjects.length) {
+    nodes.push(el("p", "hint", t("Предметы в одно время — отметьте свои:")));
+    for (const subject of subjects) {
+      const row = el("label", "check");
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.value = subject;
+      box.dataset.pick = "subject";
+      box.checked = chosen.has(subject);
+      row.append(box, el("span", null, tr(subject)));
+      nodes.push(row);
+    }
+  }
+  for (const [subject, who] of [...teachers].sort((a, b) => a[0].localeCompare(b[0], "ru"))) {
+    const label = el("label", "pick-teacher");
+    label.append(el("span", null, `${tr(subject)} — ${t("ваш преподаватель")}`));
+    const select = document.createElement("select");
+    select.dataset.pick = "teacher";
+    select.dataset.subject = subject;
+    select.append(new Option(t("показывать всех"), ""), ...[...who].sort().map((name) => new Option(name, name)));
+    select.value = pick.teachers?.[subject] && who.has(pick.teachers[subject]) ? pick.teachers[subject] : "";
+    label.append(select);
+    nodes.push(label);
+  }
+  els.pairs.replaceChildren(...nodes);
+}
+
+function readPick() {
+  if (!els.pairsRow || els.pairsRow.hidden) return null;
+  const subjects = [...els.pairs.querySelectorAll('input[data-pick="subject"]:checked')].map((box) => box.value);
+  const teachers = {};
+  els.pairs.querySelectorAll('select[data-pick="teacher"]').forEach((select) => {
+    if (select.value) teachers[select.dataset.subject] = select.value;
+  });
+  if (!subjects.length && !Object.keys(teachers).length) return null;
+  return { group: els.group.value, subjects, teachers };
 }
 
 function fillElectives() {
@@ -5085,6 +5233,7 @@ function collectPrefs() {
     electives: [...els.electives.querySelectorAll("input:checked")].map(
       (box) => box.value
     ),
+    pick: readPick(),
     // МФК и напоминания отмечают прямо в списке, без кнопки «Сохранить».
     mfk: prefs?.mfk || [],
     remindMorning: Boolean(prefs?.remindMorning),
@@ -5597,6 +5746,7 @@ let daysScrolled = false;
 /** Отсеивает языковые пары чужих подгрупп по настройкам студента. */
 function matchesPrefs(lesson) {
   if (prefs.military === "no" && MILITARY.test(lesson.subject)) return false;
+  if (prefs.pick && pairsHidden().has(lesson)) return false;
 
   // Пустой список читаем как «показывать все» — иначе студент, ничего не
   // отметив, получил бы расписание без дисциплин по выбору.
