@@ -587,5 +587,13 @@
       "faculty": "all",
       "entry": "aID=3"
     }
+  },
+  {
+    "id": "msu-bio",
+    "university": "МГУ",
+    "faculty": "Биологический факультет",
+    "path": "msu-bio",
+    "features": [],
+    "short": "Биофак"
   }
 ]
