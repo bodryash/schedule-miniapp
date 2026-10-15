@@ -3234,8 +3234,13 @@ function saveAbsences() {
 
 const absMark = (date, slot) => `${isoDate(date).slice(5).replace("-", "")}-${slot}`;
 
+// Вид пары у факультетов пишется по-разному: «практическое занятие»,
+// «лабораторная», «лекция/семинар» — всё это занятия с отметкой посещаемости.
+const ABS_PATTERN = /семинар|практ|лаборат/;
+
 function isAbsTracked(type) {
-  return ABS_TYPES.includes(String(type || "").toLowerCase());
+  const kind = String(type || "").toLowerCase();
+  return ABS_TYPES.includes(kind) || ABS_PATTERN.test(kind);
 }
 
 /** Пропущена ли пара этого предмета в этот день. */
