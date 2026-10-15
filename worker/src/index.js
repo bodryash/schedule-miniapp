@@ -1632,6 +1632,30 @@ async function shareSave(env, body) {
   return { ok: true, code };
 }
 
+/* ---------- Приглашение группы ---------- */
+
+// Ссылка на расписание группы целиком: открыл — и приложение сразу настроено
+// на эту группу. Код зависит только от факультета и группы, поэтому у всей
+// группы одна и та же ссылка, а записей в базе столько же, сколько групп.
+async function inviteCode(tenantId, group) {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${tenantId}|${group}`)));
+  return [...digest.slice(0, 8)].map((b) => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
+}
+
+async function inviteSave(env, body) {
+  const tenantId = String(body.tenant || "").slice(0, 60);
+  const group = String(body.group || "").slice(0, 160);
+  if (!tenantId || !group) return { ok: false, error: "no group" };
+  const tenants = await loadTenants().catch(() => []);
+  if (tenants.length && !tenants.some((t) => t.id === tenantId)) return { ok: false, error: "no tenant" };
+  const name = String(body.name || "").replace(/\s+/g, " ").trim().slice(0, 40);
+  const code = await inviteCode(tenantId, group);
+  await env.STATS.prepare("INSERT OR IGNORE INTO shares (code, owner, name, prefs, created) VALUES (?, 0, ?, ?, ?)")
+    .bind(code, name, JSON.stringify({ tenant: tenantId, group }), new Date().toISOString())
+    .run();
+  return { ok: true, code };
+}
+
 async function shareLoad(env, code) {
   if (!/^[a-z0-9]{8}$/.test(code || "")) return { ok: false, error: "bad code" };
   const row = await env.STATS.prepare("SELECT name, prefs FROM shares WHERE code = ?").bind(code).first();
@@ -3129,6 +3153,23 @@ export default {
       });
     }
 
+    if (url.pathname === "/invite" && request.method === "POST") {
+      let result;
+      try {
+        result = await inviteSave(env, JSON.parse(await request.text()));
+      } catch {
+        result = { ok: false, error: "bad request" };
+      }
+      return new Response(JSON.stringify(result), {
+        status: result.ok ? 200 : 400,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "no-store",
+        },
+      });
+    }
+
     if (url.pathname === "/share" && (request.method === "POST" || request.method === "GET")) {
       let result;
       try {
@@ -3494,7 +3535,29 @@ export default {
       });
     }
 
-    if (message && text.startsWith("/start") && !shared && !/^\/start(?:@\w+)?\s+starosta$/.test(text)) {
+    // Ссылка-приглашение группы: сразу кнопка, открывающая расписание этой группы.
+    const invited = message && text.match(/^\/start(?:@\w+)?\s+g_([a-z0-9]{8})$/);
+    if (invited) {
+      const found = await shareLoad(env, invited[1]).catch(() => ({ ok: false }));
+      if (message.from?.id) {
+        await env.STATS.prepare("INSERT OR IGNORE INTO sources (tg_id, label, created) VALUES (?, ?, ?)")
+          .bind(message.from.id, "invite", new Date().toISOString())
+          .run()
+          .catch(() => {});
+      }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: found.ok
+          ? `Расписание группы${found.name ? ` «${escape(found.name)}»` : ""} 👇\n\nОткройте — приложение сразу настроится на эту группу.`
+          : "Эта ссылка больше не работает — откройте расписание и выберите группу сами.",
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: found.ok ? `${WEB_APP_URL}?grp=${invited[1]}` : WEB_APP_URL } }]],
+        },
+      });
+    }
+
+    if (message && text.startsWith("/start") && !shared && !invited && !/^\/start(?:@\w+)?\s+starosta$/.test(text)) {
       // Китайский и корейский — сами по языку Telegram. Английский только
       // подсказкой: многие русские студенты держат Telegram на английском.
       const code = String(message.from?.language_code || "").toLowerCase();
