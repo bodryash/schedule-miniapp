@@ -5,7 +5,9 @@
 расписание можно свести руками или скриптом. Одна строка — одна пара:
 
     группа, курс, уровень, день, пара, неделя, предмет, тип, преподаватель,
-    аудитория, подгруппа, начало, конец, примечание
+    аудитория, подгруппа, начало, конец, примечание, выбор
+
+Непустой «выбор» — дисциплина по выбору: студент отмечает свои в настройках.
 
 Обязательны только группа, день, пара и предмет. День — «пн»…«сб» или 1…6.
 Неделя — «все», «чёт», «нечёт» (пусто = все). Уровень — «бакалавриат»
@@ -50,6 +52,7 @@ COLUMNS = {
     "start": ["начало", "start"],
     "end": ["конец", "end"],
     "note": ["примечание", "note"],
+    "elective": ["выбор", "по выбору", "elective"],
 }
 DAYS = {"пн": 1, "вт": 2, "ср": 3, "чт": 4, "пт": 5, "сб": 6,
         "понедельник": 1, "вторник": 2, "среда": 3, "четверг": 4, "пятница": 5, "суббота": 6,
@@ -139,7 +142,7 @@ def main():
         groups.setdefault(group, {"id": group, "title": group, "course": course, "level": level})
         subgroup = int(row["subgroup"]) if row.get("subgroup", "").isdigit() else None
         lessons.append({
-            "group": group, "day": day, "slot": slot, "subgroup": subgroup, "elective": None, "week": week,
+            "group": group, "day": day, "slot": slot, "subgroup": subgroup, "elective": "по выбору" if row.get("elective", "") else None, "week": week,
             "note": row.get("note", ""), "link": "", "start": row.get("start", ""), "end": row.get("end", ""),
             "type": row.get("type", "").lower(), "subject": subject, "room": row.get("room", ""),
             "teacher": row.get("teacher", ""),
