@@ -74,7 +74,8 @@ globalThis.SCHEDULE_SAVE_FILE = async (document, from, caption) => {
   const safe = String(document.file_name || "file").replace(/[^\p{L}\p{N}._ -]/gu, "_").slice(-80);
   // Несколько фото одним сообщением приходят в одну и ту же секунду и все
   // зовутся photo.jpg — без метки файла второе затирало первое.
-  const mark = String(document.file_unique_id || Math.random().toString(36).slice(2, 8)).replace(/[^A-Za-z0-9_-]/g, "").slice(-8);
+  // Метка — код файла целиком: у разных фото совпадают и начало, и конец кода.
+  const mark = String(document.file_unique_id || Math.random().toString(36).slice(2, 8)).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40);
   const stamp = `${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}_${mark}`;
   writeFileSync(join(INBOX, `${stamp}_${safe}`), Buffer.from(await file.arrayBuffer()));
   writeFileSync(
