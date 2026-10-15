@@ -173,7 +173,12 @@
     "faculty": "Юридический факультет",
     "path": "msu-law",
     "features": [],
-    "short": "Юрфак"
+    "short": "Юрфак",
+    "source": {
+      "kind": "tt",
+      "base": "https://cacs.law.msu.ru",
+      "faculty": "8,23"
+    }
   },
   {
     "id": "fa-law",

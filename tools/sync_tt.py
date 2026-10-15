@@ -109,7 +109,7 @@ def lessons_of(page, group):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", required=True)
-    parser.add_argument("--faculty", required=True, help="номер факультета в форме сайта")
+    parser.add_argument("--faculty", required=True, help="номер факультета в форме сайта; несколько — через запятую: 8,23")
     parser.add_argument("--id", required=True)
     parser.add_argument("--university", required=True)
     parser.add_argument("--name", required=True)
@@ -122,20 +122,21 @@ def main():
     span = {"dateStart": start.strftime("%d.%m.%Y"), "dateEnd": end.strftime("%d.%m.%Y")}
 
     site = Site(args.base)
-    site.post(facultyId=args.faculty, course="", groupId="")
-    courses = site.options("course")
-    if not courses:
-        sys.exit("На сайте не нашлось курсов — возможно, форма изменилась.")
-
     groups, lessons, bells = [], [], {}
-    for course_id, course_title in courses:
-        site.post(facultyId=args.faculty, course=course_id, groupId="")
+    # У юрфака бакалавриат в двух разделах формы — обходим все перечисленные.
+    for faculty in [f.strip() for f in str(args.faculty).split(",") if f.strip()]:
+      site.post(facultyId=faculty, course="", groupId="")
+      courses = site.options("course")
+      if not courses:
+          sys.exit(f"Раздел {faculty}: на сайте не нашлось курсов — возможно, форма изменилась.")
+      for course_id, course_title in courses:
+        site.post(facultyId=faculty, course=course_id, groupId="")
         for group_id, name in site.options("groupid"):
             if any(g["id"] == name for g in groups):
                 continue
             try:
-                site.post(facultyId=args.faculty, course=course_id, groupId="")
-                page = site.post(facultyId=args.faculty, course=course_id, groupId=group_id, **span)
+                site.post(facultyId=faculty, course=course_id, groupId="")
+                page = site.post(facultyId=faculty, course=course_id, groupId=group_id, **span)
             except Exception as error:  # одна сбойная группа не должна ронять весь факультет
                 print(f"  {name}: не загрузилось ({error})", file=sys.stderr)
                 continue
