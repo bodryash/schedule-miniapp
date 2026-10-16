@@ -7770,3 +7770,93 @@ body.tint-cherry .card--now {
   flex-wrap: wrap;
   gap: 6px;
 }
+
+/* --- Дьявол: чёрная с красным, выдаёт владелец командой /theme ---
+   Как с подиума: глубокий чёрный, один красный, дата модной антиквой и
+   тонкие линии вместо теней. Светлая и тёмная схемы на неё не влияют. */
+body.devil {
+  --devil-red: #d0021b;
+  --accent: var(--devil-red);
+  --accent-soft: rgba(208, 2, 27, 0.16);
+  --accent-text: #ffffff;
+  --bg: #0a0a0b;
+  --card: #141416;
+  --surface: #141416;
+  --text: #f4f1ee;
+  --muted: #8f8a86;
+  --line: rgba(208, 2, 27, 0.32);
+  --edge: rgba(244, 241, 238, 0.08);
+  --shadow-card: none;
+  --shadow-chip: none;
+  --tg-theme-bg-color: #0a0a0b;
+  --tg-theme-secondary-bg-color: #141416;
+  --tg-theme-text-color: #f4f1ee;
+  --tg-theme-hint-color: #8f8a86;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+body.devil[data-parity="even"],
+body.devil[data-parity="none"] {
+  --accent: var(--devil-red);
+}
+
+/* Красное зарево в углу — единственный «свет» на чёрном. */
+body.devil::before {
+  background:
+    radial-gradient(90% 45% at 110% -5%, rgba(208, 2, 27, 0.28), transparent 62%),
+    radial-gradient(70% 35% at -10% 105%, rgba(208, 2, 27, 0.12), transparent 70%);
+}
+
+/* Дата — высокая контрастная антиква, как обложка журнала. */
+body.devil .date,
+body.devil .date-old,
+body.devil .date-new {
+  font-family: "Didot", "Bodoni 72", "Bodoni MT", "Playfair Display", Georgia, "Times New Roman", serif !important;
+  font-weight: 400 !important;
+  font-style: italic;
+  letter-spacing: 0.01em !important;
+  text-transform: none !important;
+  color: #f4f1ee;
+  -webkit-text-fill-color: #f4f1ee;
+  background: none;
+}
+
+body.devil #current-group::before {
+  content: "♦ ";
+  color: var(--devil-red);
+}
+
+/* Карточки — без теней, с тонкой рамкой; у идущей пары рамка красная. */
+body.devil .card {
+  background: #141416;
+  box-shadow: inset 0 0 0 1px rgba(244, 241, 238, 0.07);
+}
+
+body.devil .card--now {
+  box-shadow: inset 0 0 0 1px var(--devil-red), 0 0 0 1px rgba(208, 2, 27, 0.25), 0 18px 40px -22px rgba(208, 2, 27, 0.7);
+}
+
+body.devil .subject {
+  letter-spacing: 0.005em;
+}
+
+body.devil .room-badge,
+body.devil .primary,
+body.devil .days-drop {
+  background: var(--devil-red);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+body.devil .tabs {
+  background: rgba(10, 10, 11, 0.92);
+  border-color: rgba(244, 241, 238, 0.08);
+}
+
+/* Антиква шире узкого шрифта даты — уменьшаем, чтобы влезала в строку. */
+body.devil .bar--schedule .date,
+body.devil .bar--schedule .date * {
+  font-size: 29px !important;
+  line-height: 1.15 !important;
+}
