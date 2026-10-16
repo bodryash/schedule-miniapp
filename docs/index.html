@@ -277,6 +277,15 @@
       </select>
     </label>
 
+    <!-- Только у групп, где в расписании есть русский для иностранцев -->
+    <label id="rki-row" hidden>
+      <span data-i18n>Русский как иностранный</span>
+      <select id="rki">
+        <option value="" data-i18n>не хожу — скрыть</option>
+        <option value="yes" data-i18n>хожу — показывать</option>
+      </select>
+    </label>
+
     <fieldset id="remind-row">
       <legend data-i18n>Напоминания</legend>
       <label class="check">

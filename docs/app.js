@@ -4157,6 +4157,9 @@ function withFlag(subject) {
 // Военная кафедра — факультатив, на который ходят не все. «Военно-
 // политическое измерение…» — обычная дисциплина по выбору, её не трогаем.
 const MILITARY = /^Военная подготовка/;
+// Русский для иностранных студентов, записанный отдельной парой в общем
+// расписании группы (как у ВШССН). Остальным он не нужен — по умолчанию скрыт.
+const RKI = /^Иностранный язык \(русский язык\)$/;
 
 const FULL_DATE = new Intl.DateTimeFormat(LOCALE, {
   weekday: "long",
@@ -4191,6 +4194,8 @@ const els = {
   lang3Row: document.getElementById("lang3-row"),
   lang3: document.getElementById("lang3"),
   militaryRow: document.getElementById("military-row"),
+  rkiRow: document.getElementById("rki-row"),
+  rki: document.getElementById("rki"),
   military: document.getElementById("military"),
   electivesRow: document.getElementById("electives-row"),
   electives: document.getElementById("electives"),
@@ -5141,6 +5146,10 @@ function fillLanguages() {
     els.militaryRow.hidden = !subjects.some((s) => MILITARY.test(s));
     els.military.value = prefs.military === "no" ? "no" : "";
   }
+  if (els.rkiRow) {
+    els.rkiRow.hidden = !subjects.some((s) => RKI.test(s));
+    els.rki.value = prefs.rki === "yes" ? "yes" : "";
+  }
 
   fillLang2Subgroups();
   fillElectives();
@@ -5367,6 +5376,7 @@ function collectPrefs() {
         : Number(els.lang2Group.value),
     lang3: (els.lang3Row.hidden ? "" : els.lang3.value) || null,
     military: els.militaryRow && !els.militaryRow.hidden && els.military.value === "no" ? "no" : null,
+    rki: els.rkiRow && !els.rkiRow.hidden && els.rki.value === "yes" ? "yes" : null,
     electives: [...els.electives.querySelectorAll("input:checked")].map(
       (box) => box.value
     ),
@@ -5884,6 +5894,7 @@ let daysScrolled = false;
 /** Отсеивает языковые пары чужих подгрупп по настройкам студента. */
 function matchesPrefs(lesson) {
   if (prefs.military === "no" && MILITARY.test(lesson.subject)) return false;
+  if (prefs.rki !== "yes" && RKI.test(lesson.subject)) return false;
   if (prefs.pick && pairsHidden().has(lesson)) return false;
 
   // Пустой список читаем как «показывать все» — иначе студент, ничего не
