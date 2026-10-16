@@ -102,19 +102,6 @@
     "tz": 5
   },
   {
-    "id": "msu-vshga",
-    "university": "МГУ",
-    "faculty": "Высшая школа государственного аудита",
-    "path": "msu-vshga",
-    "features": [],
-    "source": {
-      "kind": "tt",
-      "base": "https://tt.audit.msu.ru",
-      "faculty": "3"
-    },
-    "short": "ВШГА"
-  },
-  {
     "id": "fa-naba",
     "university": "Финансовый университет",
     "faculty": "Факультет налогов, аудита и бизнес-анализа",
@@ -166,19 +153,6 @@
     "path": "msu-cmc",
     "features": [],
     "short": "ВМК"
-  },
-  {
-    "id": "msu-law",
-    "university": "МГУ",
-    "faculty": "Юридический факультет",
-    "path": "msu-law",
-    "features": [],
-    "short": "Юрфак",
-    "source": {
-      "kind": "tt",
-      "base": "https://cacs.law.msu.ru",
-      "faculty": "8,23"
-    }
   },
   {
     "id": "fa-law",
@@ -360,6 +334,108 @@
     }
   },
   {
+    "id": "msu-bio",
+    "university": "МГУ",
+    "faculty": "Биологический факультет",
+    "path": "msu-bio",
+    "features": [],
+    "short": "Биофак"
+  },
+  {
+    "id": "mgimo-mb",
+    "university": "МГИМО",
+    "faculty": "Факультет международного бизнеса",
+    "path": "mgimo-mb",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 29
+    },
+    "short": "МБ"
+  },
+  {
+    "id": "mgimo-miep",
+    "university": "МГИМО",
+    "faculty": "Международный институт энергетической политики и дипломатии",
+    "path": "mgimo-miep",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 31
+    },
+    "short": "МИЭП"
+  },
+  {
+    "id": "mgimo-meo-dip",
+    "university": "МГИМО",
+    "faculty": "Факультет международных экономических отношений (Дип)",
+    "path": "mgimo-meo-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 53
+    },
+    "short": "МЭО (Дип)"
+  },
+  {
+    "id": "mgimo-eui",
+    "university": "МГИМО",
+    "faculty": "Евразийский учебный институт",
+    "path": "mgimo-eui",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 34
+    },
+    "short": "ЕУИ"
+  },
+  {
+    "id": "msu-ffl",
+    "university": "МГУ",
+    "faculty": "Факультет иностранных языков и регионоведения",
+    "path": "msu-ffl",
+    "features": [],
+    "short": "ФИЯР"
+  },
+  {
+    "id": "rgup-jur",
+    "university": "РГУП им. В.М. Лебедева",
+    "faculty": "Очный юридический факультет",
+    "path": "rgup-jur",
+    "features": [],
+    "short": "РГУП"
+  },
+  {
+    "id": "msu-vshga",
+    "university": "МГУ",
+    "faculty": "Высшая школа государственного аудита",
+    "path": "msu-vshga",
+    "features": [],
+    "source": {
+      "kind": "tt",
+      "base": "https://tt.audit.msu.ru",
+      "faculty": "3"
+    },
+    "short": "ВШГА"
+  },
+  {
+    "id": "msu-law",
+    "university": "МГУ",
+    "faculty": "Юридический факультет",
+    "path": "msu-law",
+    "features": [],
+    "short": "Юрфак",
+    "source": {
+      "kind": "tt",
+      "base": "https://cacs.law.msu.ru",
+      "faculty": "8,23"
+    }
+  },
+  {
     "id": "msu-socio",
     "university": "МГУ",
     "faculty": "Социологический факультет",
@@ -372,14 +448,6 @@
       "faculty": "all",
       "entry": "aID=3"
     }
-  },
-  {
-    "id": "msu-bio",
-    "university": "МГУ",
-    "faculty": "Биологический факультет",
-    "path": "msu-bio",
-    "features": [],
-    "short": "Биофак"
   },
   {
     "id": "mgimo-mo-dip",
@@ -447,45 +515,6 @@
     "short": "ИМТУР"
   },
   {
-    "id": "mgimo-mb",
-    "university": "МГИМО",
-    "faculty": "Факультет международного бизнеса",
-    "path": "mgimo-mb",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 29
-    },
-    "short": "МБ"
-  },
-  {
-    "id": "mgimo-miep",
-    "university": "МГИМО",
-    "faculty": "Международный институт энергетической политики и дипломатии",
-    "path": "mgimo-miep",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 31
-    },
-    "short": "МИЭП"
-  },
-  {
-    "id": "mgimo-meo-dip",
-    "university": "МГИМО",
-    "faculty": "Факультет международных экономических отношений (Дип)",
-    "path": "mgimo-meo-dip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 53
-    },
-    "short": "МЭО (Дип)"
-  },
-  {
     "id": "mgimo-mp-dip",
     "university": "МГИМО",
     "faculty": "Международно-правовой факультет (Дип)",
@@ -523,19 +552,6 @@
       "faculty": 52
     },
     "short": "ИМАР"
-  },
-  {
-    "id": "mgimo-eui",
-    "university": "МГИМО",
-    "faculty": "Евразийский учебный институт",
-    "path": "mgimo-eui",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 34
-    },
-    "short": "ЕУИ"
   },
   {
     "id": "mgimo-mo",
@@ -600,21 +616,5 @@
       "base": "http://ccs2.hist.msu.ru",
       "faculty": "all"
     }
-  },
-  {
-    "id": "msu-ffl",
-    "university": "МГУ",
-    "faculty": "Факультет иностранных языков и регионоведения",
-    "path": "msu-ffl",
-    "features": [],
-    "short": "ФИЯР"
-  },
-  {
-    "id": "rgup-jur",
-    "university": "РГУП им. В.М. Лебедева",
-    "faculty": "Очный юридический факультет",
-    "path": "rgup-jur",
-    "features": [],
-    "short": "РГУП"
   }
 ]
