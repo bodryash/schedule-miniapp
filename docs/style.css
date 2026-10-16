@@ -7852,8 +7852,10 @@ body.devil .tabs {
 
 /* --- МГУ: ночная синева, золото и силуэт Главного здания ---
    Выдаёт владелец командой /theme — человеку, группе или всему вузу
-   («/theme вуз:мгу мгу»). Высотка полупрозрачная, стоит внизу у горизонта
-   над панелью вкладок, за ней тёплое свечение; пары прокручиваются поверх. */
+   («/theme вуз:мгу мгу»). Высотка полупрозрачная, стоит на земле внизу
+   экрана и растворяется в тумане; небо в звёздах; пары прокручиваются поверх.
+   Силуэт обведён по фотографии Sergei Gussev, CC BY 2.0, Wikimedia Commons
+   (tools/msu_silhouette.py); автор указан на странице privacy.html. */
 body.msu {
   --msu-gold: #d9b56c;
   --accent: var(--msu-gold);
@@ -7883,12 +7885,50 @@ body.msu[data-parity="none"] {
 /* Небо: тёплое свечение за высоткой, пара звёзд и сам силуэт. */
 body.msu::before {
   background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 220'%3E%3Cpath fill='%23d9b56c' fill-opacity='0.16' d='M0 192H200V220H0ZM200 192H400V220H200ZM18 168H96V220H18ZM304 168H382V220H304ZM48 126H76V220H48ZM324 126H352V220H324ZM52 112H72V126H52ZM328 112H348V126H328ZM56 102H68V112H56ZM332 102H344V112H332ZM96 152H152V220H96ZM248 152H304V220H248ZM116 132H140V220H116ZM260 132H284V220H260ZM120 120H136V132H120ZM264 120H280V132H264ZM124 110H132V120H124ZM268 110H276V120H268ZM150 122H200V220H150ZM200 122H250V220H200ZM160 102H200V122H160ZM200 102H240V122H200ZM171 72H200V102H171ZM200 72H229V102H200ZM178 54H200V72H178ZM200 54H222V72H200ZM184 40H200V54H184ZM200 40H216V54H200ZM190 29H200V40H190ZM200 29H210V40H200ZM60 102L62.0 80L64 102ZM336 102L338.0 80L340 102ZM127 110L128.0 92L129 110ZM271 110L272.0 92L273 110ZM196 29L200 9L204 29ZM200 0L201.6 3.3L205.2 3.6L202.5 6L203.3 9.5L200 7.7L196.7 9.5L197.5 6L194.8 3.6L198.4 3.3Z'/%3E%3C/svg%3E") center bottom 74px / min(100%, 480px) auto no-repeat,
-    radial-gradient(2px 2px at 18% 12%, rgba(255, 255, 255, 0.7), transparent 60%),
-    radial-gradient(1.5px 1.5px at 34% 6%, rgba(255, 255, 255, 0.55), transparent 60%),
-    radial-gradient(1.5px 1.5px at 8% 26%, rgba(255, 255, 255, 0.45), transparent 60%),
-    radial-gradient(2px 2px at 46% 18%, rgba(255, 255, 255, 0.5), transparent 60%),
-    radial-gradient(70% 30% at 50% 92%, rgba(217, 181, 108, 0.16), transparent 70%),
+    /* Туман у земли: силуэт не обрывается краем экрана, а растворяется. */
+    linear-gradient(180deg, transparent 0%, transparent 78%, rgba(9, 18, 40, 0.7) 92%, #091228 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1184 905'%3E%3Cpath fill='%23e2b862' fill-opacity='0.4' d='M0 905L0 882L82 882L82 746L84 746L85.5 709L87 746L101 746L101 646L122 646L122 606L129 606L129 581L154 581L154 606L163 606L163 646L179 646L182 646L182 634L192 634L194 615L196 634L207 634L207 746L212 746L213.5 668L215 746L244 746L244 759L385 759L385 727L400 727L402 704L404 727L419 727L419 759L452 759L452 577L453 577L454.5 545L456 577L519 577L519 398L523 398L525 367L527 398L540 398L540 358L548 358L548 287L551 287L552.5 273L554 287L562 287L562 240L570 240L570 200L578 200L578 162L585 162L589.5 62L592 58L594.5 62L599 162L606 162L606 200L614 200L614 240L622 240L622 287L630 287L631.5 273L633 287L636 287L636 358L644 358L644 398L657 398L659 367L661 398L665 398L665 577L728 577L729.5 545L731 577L732 577L732 759L765 759L765 727L780 727L782 704L784 727L799 727L799 759L940 759L940 746L969 746L970.5 668L972 746L977 746L977 634L988 634L990 615L992 634L1002 634L1002 646L1005 646L1021 646L1021 606L1030 606L1030 581L1055 581L1055 606L1062 606L1062 646L1083 646L1083 746L1097 746L1098.5 709L1100 746L1102 746L1102 882L1184 882L1184 905ZM592.0 29.0L594.6 36.4L602.5 36.6L596.3 41.4L598.5 48.9L592.0 44.5L585.5 48.9L587.7 41.4L581.5 36.6L589.4 36.4Z'/%3E%3Cpath fill='none' stroke='%23e2b862' stroke-opacity='0.4' stroke-width='4' d='M592 23a17 17 0 1 0 0.01 0Z'/%3E%3C/svg%3E") center bottom 0 / min(100%, 460px) auto no-repeat,
+    radial-gradient(2.4px 2.4px at 33.1% 11.1%, rgba(255, 250, 235, 0.57), transparent 70%),
+    radial-gradient(2px 2px at 80.8% 7.6%, rgba(255, 250, 235, 0.58), transparent 70%),
+    radial-gradient(1.8px 1.8px at 50.7% 4.2%, rgba(255, 250, 235, 0.74), transparent 70%),
+    radial-gradient(1.2px 1.2px at 25.1% 35.1%, rgba(255, 250, 235, 0.92), transparent 70%),
+    radial-gradient(2.4px 2.4px at 13.9% 15.4%, rgba(255, 250, 235, 0.81), transparent 70%),
+    radial-gradient(1.2px 1.2px at 7.9% 37.1%, rgba(255, 250, 235, 0.99), transparent 70%),
+    radial-gradient(1.6px 1.6px at 6.5% 53.5%, rgba(255, 250, 235, 0.74), transparent 70%),
+    radial-gradient(2px 2px at 53.9% 36.3%, rgba(255, 250, 235, 0.92), transparent 70%),
+    radial-gradient(2.4px 2.4px at 19.3% 36.9%, rgba(255, 250, 235, 0.63), transparent 70%),
+    radial-gradient(2px 2px at 11.4% 44.7%, rgba(255, 250, 235, 0.58), transparent 70%),
+    radial-gradient(1.8px 1.8px at 21.8% 42.8%, rgba(255, 250, 235, 0.9), transparent 70%),
+    radial-gradient(1.6px 1.6px at 46.7% 57.4%, rgba(255, 250, 235, 0.68), transparent 70%),
+    radial-gradient(1.4px 1.4px at 78.3% 43.9%, rgba(255, 250, 235, 0.59), transparent 70%),
+    radial-gradient(1.6px 1.6px at 30.8% 31.7%, rgba(255, 250, 235, 0.88), transparent 70%),
+    radial-gradient(1.2px 1.2px at 29.6% 60.8%, rgba(255, 250, 235, 0.78), transparent 70%),
+    radial-gradient(1.8px 1.8px at 17.8% 22.5%, rgba(255, 250, 235, 0.74), transparent 70%),
+    radial-gradient(2px 2px at 94.4% 6.7%, rgba(255, 250, 235, 0.81), transparent 70%),
+    radial-gradient(2.4px 2.4px at 86.0% 20.8%, rgba(255, 250, 235, 0.71), transparent 70%),
+    radial-gradient(1.2px 1.2px at 49.7% 49.8%, rgba(255, 250, 235, 0.93), transparent 70%),
+    radial-gradient(2.4px 2.4px at 92.7% 30.4%, rgba(255, 250, 235, 0.58), transparent 70%),
+    radial-gradient(2px 2px at 72.2% 20.6%, rgba(255, 250, 235, 1.0), transparent 70%),
+    radial-gradient(1.8px 1.8px at 80.9% 19.1%, rgba(255, 250, 235, 0.95), transparent 70%),
+    radial-gradient(1.6px 1.6px at 35.3% 58.4%, rgba(255, 250, 235, 0.63), transparent 70%),
+    radial-gradient(3px 3px at 13.2% 5.5%, rgba(255, 250, 235, 0.68), transparent 70%),
+    radial-gradient(3px 3px at 72.9% 25.9%, rgba(255, 250, 235, 0.77), transparent 70%),
+    radial-gradient(1.6px 1.6px at 18.0% 26.1%, rgba(255, 250, 235, 0.95), transparent 70%),
+    radial-gradient(1.6px 1.6px at 80.7% 53.8%, rgba(255, 250, 235, 0.87), transparent 70%),
+    radial-gradient(1.8px 1.8px at 96.7% 43.0%, rgba(255, 250, 235, 0.98), transparent 70%),
+    radial-gradient(1.4px 1.4px at 16.5% 12.6%, rgba(255, 250, 235, 0.85), transparent 70%),
+    radial-gradient(1.4px 1.4px at 3.2% 51.9%, rgba(255, 250, 235, 0.67), transparent 70%),
+    radial-gradient(1.6px 1.6px at 2.4% 27.1%, rgba(255, 250, 235, 0.82), transparent 70%),
+    radial-gradient(3px 3px at 32.6% 9.5%, rgba(255, 250, 235, 0.78), transparent 70%),
+    radial-gradient(1.2px 1.2px at 61.3% 42.6%, rgba(255, 250, 235, 0.76), transparent 70%),
+    radial-gradient(2.4px 2.4px at 85.6% 59.1%, rgba(255, 250, 235, 0.91), transparent 70%),
+    radial-gradient(1.2px 1.2px at 39.7% 25.9%, rgba(255, 250, 235, 0.77), transparent 70%),
+    radial-gradient(1.4px 1.4px at 40.4% 13.4%, rgba(255, 250, 235, 0.75), transparent 70%),
+    radial-gradient(1.2px 1.2px at 12.6% 38.0%, rgba(255, 250, 235, 0.55), transparent 70%),
+    radial-gradient(1.6px 1.6px at 16.5% 8.1%, rgba(255, 250, 235, 0.83), transparent 70%),
+    radial-gradient(1.8px 1.8px at 8.8% 14.5%, rgba(255, 250, 235, 0.62), transparent 70%),
+    radial-gradient(1.6px 1.6px at 26.2% 22.8%, rgba(255, 250, 235, 0.76), transparent 70%),
+    radial-gradient(80% 32% at 50% 96%, rgba(226, 184, 98, 0.16), transparent 70%),
     linear-gradient(180deg, #0e1d42 0%, #0b1733 45%, #091228 100%);
   opacity: 1;
 }
