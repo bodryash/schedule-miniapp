@@ -60,5 +60,11 @@ jobs:
             echo "Расписания не изменились."
           else
             git commit -q -m "Расписания с сайтов вузов обновлены"
-            git push -q
+            # Обновление идёт больше часа — за это время в main могли что-то
+            # выложить. Подтягиваем свежий main и пробуем ещё раз.
+            for attempt in 1 2 3; do
+              if git push -q; then break; fi
+              git pull -q --rebase -X theirs origin main || git rebase --abort
+              sleep $((attempt * 10))
+            done
           fi
