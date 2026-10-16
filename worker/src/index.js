@@ -1059,6 +1059,14 @@ async function resolveTargets(target, env = null) {
   const ids = [];
   const unknown = [];
   for (const name of target.split(",").filter(Boolean)) {
+    const uni = name.match(/^вуз:(.+)$/i);
+    if (uni) {
+      const tenants = await loadTenants().catch(() => []);
+      const found = tenants.find((t) => normalize(t.university) === normalize(uni[1]));
+      if (found) ids.push(`uni:${normalize(found.university)}`);
+      else unknown.push(name);
+      continue;
+    }
     // Человек — только там, где передан env: объявление одному можно, а
     // отменить пару одному человеку смысла нет.
     if (env && (name.startsWith("@") || /^\d{5,}$/.test(name))) {
@@ -1614,6 +1622,9 @@ const THEME_NAMES = {
   "prada": "devil",
   "чёрно-красная": "devil",
   "черно-красная": "devil",
+  "мгу": "msu",
+  "msu": "msu",
+  "высотка": "msu",
 };
 
 const THEME_HELP = [
@@ -1632,6 +1643,8 @@ const THEME_HELP = [
   "/theme @ivanov графит — строгая серая",
   "/theme @ivanov вишня — тёмно-красная",
   "/theme @ivanov дьявол — чёрная с красным, как с подиума",
+  "/theme @ivanov мгу — синяя с золотом и силуэтом Главного здания",
+  "/theme вуз:мгу мгу — всем, у кого выбран факультет МГУ",
   "/theme @ivanov снять — вернуть обычный вид",
   "/theme 311гэу гламур — всей группе, можно и курс («3курс», «все»)",
   "/themes — кому что выдано",
@@ -1978,17 +1991,24 @@ async function hellosList(env) {
 /** Тема человека: личная важнее групповой. */
 async function themeFor(env, userId, group) {
   if (!env.STATS) return "";
+  // Вуз группы: у ФГП в id нет факультета, у остальных — «факультет/группа».
+  const tenantId = group?.id?.includes("/") ? group.id.split("/")[0] : "msu-fgp";
+  const tenants = await loadTenants().catch(() => []);
+  const university = tenants.find((t) => t.id === tenantId)?.university;
+  const uni = university ? `uni:${normalize(university)}` : "—";
   const row = await env.STATS.prepare(
-    `SELECT theme FROM themes WHERE target IN (?, ?, ?, '*')
-     ORDER BY CASE target WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END LIMIT 1`
+    `SELECT theme FROM themes WHERE target IN (?, ?, ?, ?, '*')
+     ORDER BY CASE target WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 WHEN ? THEN 3 ELSE 4 END LIMIT 1`
   )
     .bind(
       `user:${userId || 0}`,
       group?.id || "—",
       courseOf(group || {}),
+      uni,
       `user:${userId || 0}`,
       group?.id || "—",
-      courseOf(group || {})
+      courseOf(group || {}),
+      uni
     )
     .first();
   return row?.theme || "";
@@ -2943,6 +2963,7 @@ async function handleNotice(env, text) {
 
 function targetLabel(grp, people = new Map()) {
   if (grp === "*") return "всех групп";
+  if (grp.startsWith("uni:")) return `всего вуза «${grp.slice(4)}»`;
   if (grp.startsWith("user:")) return people.get(grp) || `id ${grp.slice(5)}`;
   return grp.startsWith("курс:") ? courseLabel(grp) : grp;
 }
