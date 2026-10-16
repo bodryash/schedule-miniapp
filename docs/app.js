@@ -1459,7 +1459,7 @@ function initReminders() {
 
 // Брутал выдаёт владелец командой /theme, гламур человек находит сам —
 // словом «гламур» в поиске по МФК. Тема с сервера сильнее найденной.
-const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry" };
+const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", devil: "devil" };
 const GLAM_KEY = "schedule.glam";
 // Зелёную тему волонтёра человек может выключить сам и вернуть обратно.
 // Остальные выданные темы так не умеют.
@@ -1511,7 +1511,7 @@ function setOwnGlam(on) {
 const OWNER_THEME_KEY = "schedule.ownerTheme";
 const THEME_TITLES = {
   "": "Обычная", glam: "Гламур", brutal: "Брутал", champion: "Чемпион", volunteer: "Волонтёр", cska: "ЦСКА", nokia: "Нокия",
-  ocean: "Океан", sunset: "Закат", mint: "Мята", lavender: "Лаванда", graphite: "Графит", cherry: "Вишня",
+  ocean: "Океан", sunset: "Закат", mint: "Мята", lavender: "Лаванда", graphite: "Графит", cherry: "Вишня", devil: "Дьявол",
 };
 
 function ownerTheme() {
