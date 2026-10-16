@@ -7970,3 +7970,90 @@ body.msu .tabs {
   background: rgba(11, 23, 51, 0.9);
   border-color: rgba(217, 181, 108, 0.18);
 }
+
+/* --- Перемена или обед идут прямо сейчас ---
+   Точка пульсирует, как у идущей пары; линии превращаются в дорожку,
+   которая заполняется по ходу перемены, и по ней бежит мягкий блик. */
+.gap-dot {
+  display: none;
+}
+
+.gap--now {
+  color: var(--accent);
+}
+
+.gap--now .gap-text {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.gap--now .gap-dot {
+  display: block;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
+  animation: gap-pulse 1.6s ease-out infinite;
+}
+
+.gap--now .gap-line {
+  position: relative;
+  height: 3px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--accent-soft);
+}
+
+/* Заполнение: левая линия — первая половина перемены, правая — вторая. */
+.gap--now .gap-line::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--accent);
+  transform-origin: left center;
+  transition: transform 1.2s var(--ease-out, ease-out);
+}
+
+.gap--now .gap-line:first-child::before {
+  transform: scaleX(clamp(0, calc(var(--gap-done, 0) * 2), 1));
+}
+
+.gap--now .gap-line:last-child::before {
+  transform: scaleX(clamp(0, calc(var(--gap-done, 0) * 2 - 1), 1));
+}
+
+/* Блик бежит по дорожке слева направо. */
+.gap--now .gap-line::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  left: -40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: gap-run 2.4s ease-in-out infinite;
+}
+
+.gap--now .gap-line:last-child::after {
+  animation-delay: 1.2s;
+}
+
+@keyframes gap-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+  80%, 100% { box-shadow: 0 0 0 7px transparent; }
+}
+
+@keyframes gap-run {
+  0% { left: -40%; }
+  100% { left: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gap--now .gap-dot,
+  .gap--now .gap-line::after {
+    animation: none;
+  }
+}

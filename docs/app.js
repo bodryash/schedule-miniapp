@@ -7406,6 +7406,26 @@ function refreshNow() {
   const clockNow = new Date();
   const nowMinutes = clockNow.getHours() * 60 + clockNow.getMinutes() + clockNow.getSeconds() / 60;
 
+  // Перемена или обед между карточками, которые идут прямо сейчас: строка
+  // оживает — точка пульсирует, линии заполняются по ходу перемены.
+  for (const gap of els.lessons.querySelectorAll(".gap")) {
+    const from = gap.dataset.from ? minutes(gap.dataset.from) : null;
+    const to = gap.dataset.to ? minutes(gap.dataset.to) : null;
+    const inside = today && from != null && nowMinutes >= from && nowMinutes < to;
+    const text = gap.querySelector(".gap-text");
+    if (text && !text.dataset.idle) text.dataset.idle = text.textContent;
+    gap.classList.toggle("gap--now", inside);
+    if (!inside) {
+      if (text) text.textContent = text.dataset.idle;
+      gap.style.removeProperty("--gap-done");
+      continue;
+    }
+    const left = Math.max(1, Math.ceil(to - nowMinutes));
+    const long = gap.classList.contains("gap--long");
+    text.textContent = t(long ? "☕ обед · ещё {n} мин" : "идёт перемена · ещё {n} мин", { n: left });
+    gap.style.setProperty("--gap-done", String(Math.min(1, (nowMinutes - from) / (to - from))));
+  }
+
   for (const card of els.lessons.querySelectorAll(".card")) {
     // Идёт ли пара именно этой карточки — по её собственному времени. Номер
     // пары у всей группы общий, а время бывает своё: русский 12:15–14:45 идёт
@@ -7501,8 +7521,12 @@ function breakBetween(prev, next) {
   if (gap <= 0) return null;
   const long = gap >= LONG_BREAK;
   const node = el("div", long ? "gap gap--long" : "gap");
+  // Время перемены — чтобы оживить строку, когда перемена идёт сейчас.
+  node.dataset.from = end;
+  node.dataset.to = start;
   node.append(
     el("span", "gap-line"),
+    el("span", "gap-dot"),
     el("span", "gap-text", t(long ? "обед · {n} мин" : "перемена · {n} мин", { n: gap })),
     el("span", "gap-line")
   );
