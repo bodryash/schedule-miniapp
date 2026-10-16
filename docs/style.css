@@ -7672,3 +7672,101 @@ body.nokia.tabs-pinned .tabs {
   line-height: 1;
   cursor: pointer;
 }
+
+/* --- Цветные темы: только акцент, выдаёт владелец командой /theme ---
+   Два цвета на тему: --tint1 основной, --tint2 для градиентов. Фон и
+   текст остаются от светлой или тёмной схемы. */
+body.tint-ocean { --tint1: #0ea5e9; --tint2: #2563eb; }
+body.tint-sunset { --tint1: #f97316; --tint2: #db2777; }
+body.tint-mint { --tint1: #10b981; --tint2: #0d9488; }
+body.tint-lavender { --tint1: #8b5cf6; --tint2: #c026d3; }
+body.tint-graphite { --tint1: #8291a8; --tint2: #5b6b82; }
+body.tint-cherry { --tint1: #e11d48; --tint2: #be123c; }
+
+body.tint-ocean,
+body.tint-sunset,
+body.tint-mint,
+body.tint-lavender,
+body.tint-graphite,
+body.tint-cherry {
+  --accent: var(--tint1);
+  --accent-soft: color-mix(in srgb, var(--tint1) 15%, transparent);
+  --accent-text: #ffffff;
+  --line: color-mix(in srgb, var(--tint1) 22%, transparent);
+}
+
+body.tint-ocean::before,
+body.tint-sunset::before,
+body.tint-mint::before,
+body.tint-lavender::before,
+body.tint-graphite::before,
+body.tint-cherry::before {
+  background:
+    radial-gradient(130% 55% at -10% -8%, color-mix(in srgb, var(--tint1) 20%, transparent), transparent 62%),
+    radial-gradient(100% 46% at 112% 4%, color-mix(in srgb, var(--tint2) 18%, transparent), transparent 64%);
+}
+
+body.tint-ocean .date,
+body.tint-sunset .date,
+body.tint-mint .date,
+body.tint-lavender .date,
+body.tint-graphite .date,
+body.tint-cherry .date,
+body.tint-ocean .date-old,
+body.tint-sunset .date-old,
+body.tint-mint .date-old,
+body.tint-lavender .date-old,
+body.tint-graphite .date-old,
+body.tint-cherry .date-old,
+body.tint-ocean .date-new,
+body.tint-sunset .date-new,
+body.tint-mint .date-new,
+body.tint-lavender .date-new,
+body.tint-graphite .date-new,
+body.tint-cherry .date-new {
+  background: linear-gradient(100deg, var(--tint1), var(--tint2)) 0 0 / 100% 100% no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+body.tint-ocean .room-badge,
+body.tint-sunset .room-badge,
+body.tint-mint .room-badge,
+body.tint-lavender .room-badge,
+body.tint-graphite .room-badge,
+body.tint-cherry .room-badge,
+body.tint-ocean .primary,
+body.tint-sunset .primary,
+body.tint-mint .primary,
+body.tint-lavender .primary,
+body.tint-graphite .primary,
+body.tint-cherry .primary,
+body.tint-ocean .days-drop,
+body.tint-sunset .days-drop,
+body.tint-mint .days-drop,
+body.tint-lavender .days-drop,
+body.tint-graphite .days-drop,
+body.tint-cherry .days-drop {
+  background: linear-gradient(135deg, var(--tint1), var(--tint2));
+  color: #ffffff;
+}
+
+body.tint-ocean .card--now,
+body.tint-sunset .card--now,
+body.tint-mint .card--now,
+body.tint-lavender .card--now,
+body.tint-graphite .card--now,
+body.tint-cherry .card--now {
+  box-shadow:
+    -3px 0 0 0 var(--tint1),
+    0 10px 28px -14px color-mix(in srgb, var(--tint2) 60%, transparent);
+}
+
+/* Примерка тем владельцем — ряд чипов в настройках. */
+.owner-theme-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
