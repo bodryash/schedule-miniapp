@@ -226,8 +226,17 @@ const AUDIENCE_SQL = `SELECT DISTINCT u.id FROM users u JOIN people p ON p.tg_id
 // «Всем, кроме факультета»: у кого выбрана группа на любом другом факультете.
 const AUDIENCE_EXCEPT_SQL = AUDIENCE_SQL.replace(/END = \?$/, "END != ?");
 
-/** Получатели рассылки: «msu-fgp» — один факультет, «!msu-fgp» — все, кроме него. */
+/**
+ * Получатели рассылки: «msu-fgp» — один факультет, «!msu-fgp» — все, кроме
+ * него, «in:msu-fgp,msu-law» — несколько факультетов (весь вуз).
+ * Возвращает [запрос, ...значения для bind].
+ */
 function audienceQuery(audience) {
+  if (audience.startsWith("in:")) {
+    const ids = audience.slice(3).split(",").filter(Boolean);
+    const sql = AUDIENCE_SQL.replace(/END = \?$/, `END IN (${ids.map(() => "?").join(", ")})`);
+    return [sql, ...ids];
+  }
   return audience.startsWith("!") ? [AUDIENCE_EXCEPT_SQL, audience.slice(1)] : [AUDIENCE_SQL, audience];
 }
 
@@ -276,7 +285,7 @@ function sendCast(env, chatId, job, markup) {
 async function draftBroadcast(env, chatId, text, { button = false, audience = null, media = null } = {}) {
   const key = audience ? `${audience.except ? "!" : ""}${audience.id}` : "";
   const { count } = audience
-    ? await env.STATS.prepare(`SELECT COUNT(*) AS count FROM (${audienceQuery(key)[0]})`).bind(audienceQuery(key)[1]).first()
+    ? await env.STATS.prepare(`SELECT COUNT(*) AS count FROM (${audienceQuery(key)[0]})`).bind(...audienceQuery(key).slice(1)).first()
     : await env.STATS.prepare("SELECT COUNT(*) AS count FROM users").first();
 
   const draft = await env.STATS.prepare(
@@ -360,7 +369,7 @@ async function handleButton(env, query) {
         draft?.audience
           ? env.STATS.prepare(
               `INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM (${audienceQuery(draft.audience)[0]})`
-            ).bind(id, audienceQuery(draft.audience)[1])
+            ).bind(id, ...audienceQuery(draft.audience).slice(1))
           : env.STATS.prepare(
               "INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM users"
             ).bind(id),
@@ -3758,6 +3767,7 @@ ${invite}`,
             "",
             "Одному факультету — с решёткой впереди: /broadcast #фгп Завтра занятий нет.",
             "Всем, кроме факультета — с минусом: /broadcast #-фгп Новая функция для вас.",
+            "Всему вузу: /broadcast #вуз:мгу Текст — всем факультетам МГУ.",
             "После решётки — короткое название или id факультета из /faculties.",
             "",
             "С видео, гифкой или фото — пришлите его боту, а команду и текст впишите в подпись.",
@@ -3769,7 +3779,15 @@ ${invite}`,
         const tag = body.match(castMedia ? /^#(\S+)(?:\s+([\s\S]+))?$/ : /^#(\S+)\s+([\s\S]+)$/);
         // «#-фгп» — всем, кроме этого факультета.
         const except = Boolean(tag && tag[1].startsWith("-"));
-        const found = tag ? await findAudience(except ? tag[1].slice(1) : tag[1]) : null;
+        // «#вуз:мгу» — всем факультетам вуза сразу.
+        const uniTag = tag && !except ? tag[1].match(/^вуз:(.+)$/i) : null;
+        let found = null;
+        if (uniTag) {
+          const all = (await loadTenants().catch(() => [])).filter((t) => normalize(t.university) === normalize(uniTag[1]));
+          if (all.length) found = { id: `in:${all.map((t) => t.id).join(",")}`, university: all[0].university, short: "все факультеты" };
+        } else if (tag) {
+          found = await findAudience(except ? tag[1].slice(1) : tag[1]);
+        }
         const audience = found ? { ...found, except } : null;
         const words = audience ? (tag[2] || "").trim() : body;
         if (tag && !audience) {

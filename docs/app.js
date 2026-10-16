@@ -1473,6 +1473,35 @@ function volunteerOff() {
   }
 }
 
+// Тему МГУ каждый, у кого выбран факультет МГУ (студент или преподаватель),
+// включает сам в настройках. Сами мы её никому не ставим.
+const MSU_THEME_KEY = "schedule.msuTheme";
+
+function msuThemeOn() {
+  try {
+    return localStorage.getItem(MSU_THEME_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function inMsu() {
+  return tenant()?.university === "МГУ";
+}
+
+function initMsuTheme() {
+  const box = document.getElementById("msu-theme");
+  box?.addEventListener("change", () => {
+    try {
+      localStorage.setItem(MSU_THEME_KEY, box.checked ? "1" : "");
+    } catch {
+      // Без хранилища выбор доживёт до перезапуска.
+    }
+    haptic(box.checked ? "success" : "light");
+    applyTheme();
+  });
+}
+
 function initVolunteer() {
   const box = document.getElementById("volunteer-theme");
   box?.addEventListener("change", () => {
@@ -1565,8 +1594,13 @@ function applyTheme(granted = grantedTheme) {
   const box = document.getElementById("volunteer-theme");
   if (row) row.hidden = !volunteer;
   if (box) box.checked = volunteer && !volunteerOff();
+  const msuRow = document.getElementById("msu-row");
+  const msuBox = document.getElementById("msu-theme");
+  if (msuRow) msuRow.hidden = !inMsu();
+  if (msuBox) msuBox.checked = msuThemeOn();
+  // Выданная тема сильнее; выключенный волонтёр уступает теме МГУ.
   const worn = volunteer && volunteerOff() ? "" : grantedTheme;
-  const name = worn || (ownGlam() ? "glam" : "");
+  const name = worn || (inMsu() && msuThemeOn() ? "msu" : "") || (ownGlam() ? "glam" : "");
   for (const cls of Object.values(THEMES)) {
     document.body.classList.toggle(cls, THEMES[name] === cls);
   }
@@ -8416,6 +8450,7 @@ async function init() {
   initConfetti();
   initReminders();
   initVolunteer();
+  initMsuTheme();
   applyTheme();
   els.group.addEventListener("change", fillLanguages);
   els.main.addEventListener("change", fillMainSubgroups);
