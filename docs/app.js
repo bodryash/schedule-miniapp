@@ -4160,6 +4160,14 @@ const MILITARY = /^Военная подготовка/;
 // Русский для иностранных студентов, записанный отдельной парой в общем
 // расписании группы (как у ВШССН). Остальным он не нужен — по умолчанию скрыт.
 const RKI = /^Иностранный язык \(русский язык\)$/;
+// Время под МФК в расписании группы. Факультеты подписывают его по-разному:
+// «Межфакультетские учебные курсы МГУ», «МФК», «факульт.МФК»… У ФГП вместо
+// него встают курсы, выбранные из кабинета, — там своя настройка.
+const MFK_SLOT = /^межфакультетск|^мфк(?![а-яё])|факул[а-яё]*\.?\s*мфк/i;
+
+function isMfkSlot(subject) {
+  return tenantId() !== "msu-fgp" && MFK_SLOT.test(subject);
+}
 
 const FULL_DATE = new Intl.DateTimeFormat(LOCALE, {
   weekday: "long",
@@ -4195,6 +4203,8 @@ const els = {
   lang3: document.getElementById("lang3"),
   militaryRow: document.getElementById("military-row"),
   rkiRow: document.getElementById("rki-row"),
+  mfkSlotRow: document.getElementById("mfkslot-row"),
+  mfkSlot: document.getElementById("mfkslot"),
   rki: document.getElementById("rki"),
   military: document.getElementById("military"),
   electivesRow: document.getElementById("electives-row"),
@@ -5150,6 +5160,10 @@ function fillLanguages() {
     els.rkiRow.hidden = !subjects.some((s) => RKI.test(s));
     els.rki.value = prefs.rki === "yes" ? "yes" : "";
   }
+  if (els.mfkSlotRow) {
+    els.mfkSlotRow.hidden = !subjects.some((s) => isMfkSlot(s));
+    els.mfkSlot.value = prefs.mfkSlot === "no" ? "no" : "";
+  }
 
   fillLang2Subgroups();
   fillElectives();
@@ -5377,6 +5391,7 @@ function collectPrefs() {
     lang3: (els.lang3Row.hidden ? "" : els.lang3.value) || null,
     military: els.militaryRow && !els.militaryRow.hidden && els.military.value === "no" ? "no" : null,
     rki: els.rkiRow && !els.rkiRow.hidden && els.rki.value === "yes" ? "yes" : null,
+    mfkSlot: els.mfkSlotRow && !els.mfkSlotRow.hidden && els.mfkSlot.value === "no" ? "no" : null,
     electives: [...els.electives.querySelectorAll("input:checked")].map(
       (box) => box.value
     ),
@@ -5895,6 +5910,7 @@ let daysScrolled = false;
 function matchesPrefs(lesson) {
   if (prefs.military === "no" && MILITARY.test(lesson.subject)) return false;
   if (prefs.rki !== "yes" && RKI.test(lesson.subject)) return false;
+  if (prefs.mfkSlot === "no" && isMfkSlot(lesson.subject)) return false;
   if (prefs.pick && pairsHidden().has(lesson)) return false;
 
   // Пустой список читаем как «показывать все» — иначе студент, ничего не
