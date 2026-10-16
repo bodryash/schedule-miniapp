@@ -1459,7 +1459,7 @@ function initReminders() {
 
 // Брутал выдаёт владелец командой /theme, гламур человек находит сам —
 // словом «гламур» в поиске по МФК. Тема с сервера сильнее найденной.
-const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", devil: "devil" };
+const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", devil: "devil", msu: "msu" };
 const GLAM_KEY = "schedule.glam";
 // Зелёную тему волонтёра человек может выключить сам и вернуть обратно.
 // Остальные выданные темы так не умеют.
@@ -1471,6 +1471,35 @@ function volunteerOff() {
   } catch {
     return false;
   }
+}
+
+// Тему МГУ каждый, у кого выбран факультет МГУ (студент или преподаватель),
+// включает сам в настройках. Сами мы её никому не ставим.
+const MSU_THEME_KEY = "schedule.msuTheme";
+
+function msuThemeOn() {
+  try {
+    return localStorage.getItem(MSU_THEME_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function inMsu() {
+  return tenant()?.university === "МГУ";
+}
+
+function initMsuTheme() {
+  const box = document.getElementById("msu-theme");
+  box?.addEventListener("change", () => {
+    try {
+      localStorage.setItem(MSU_THEME_KEY, box.checked ? "1" : "");
+    } catch {
+      // Без хранилища выбор доживёт до перезапуска.
+    }
+    haptic(box.checked ? "success" : "light");
+    applyTheme();
+  });
 }
 
 function initVolunteer() {
@@ -1511,7 +1540,7 @@ function setOwnGlam(on) {
 const OWNER_THEME_KEY = "schedule.ownerTheme";
 const THEME_TITLES = {
   "": "Обычная", glam: "Гламур", brutal: "Брутал", champion: "Чемпион", volunteer: "Волонтёр", cska: "ЦСКА", nokia: "Нокия",
-  ocean: "Океан", sunset: "Закат", mint: "Мята", lavender: "Лаванда", graphite: "Графит", cherry: "Вишня", devil: "Дьявол",
+  ocean: "Океан", sunset: "Закат", mint: "Мята", lavender: "Лаванда", graphite: "Графит", cherry: "Вишня", devil: "Дьявол", msu: "МГУ",
 };
 
 function ownerTheme() {
@@ -1565,8 +1594,13 @@ function applyTheme(granted = grantedTheme) {
   const box = document.getElementById("volunteer-theme");
   if (row) row.hidden = !volunteer;
   if (box) box.checked = volunteer && !volunteerOff();
+  const msuRow = document.getElementById("msu-row");
+  const msuBox = document.getElementById("msu-theme");
+  if (msuRow) msuRow.hidden = !inMsu();
+  if (msuBox) msuBox.checked = msuThemeOn();
+  // Выданная тема сильнее; выключенный волонтёр уступает теме МГУ.
   const worn = volunteer && volunteerOff() ? "" : grantedTheme;
-  const name = worn || (ownGlam() ? "glam" : "");
+  const name = worn || (inMsu() && msuThemeOn() ? "msu" : "") || (ownGlam() ? "glam" : "");
   for (const cls of Object.values(THEMES)) {
     document.body.classList.toggle(cls, THEMES[name] === cls);
   }
@@ -8416,6 +8450,7 @@ async function init() {
   initConfetti();
   initReminders();
   initVolunteer();
+  initMsuTheme();
   applyTheme();
   els.group.addEventListener("change", fillLanguages);
   els.main.addEventListener("change", fillMainSubgroups);
