@@ -2808,6 +2808,52 @@ function renderOwnAdd() {
   return button;
 }
 
+/* Плашка «Вы староста?» — ведёт в бот, где заявка уходит владельцу на
+   подтверждение. Её не видят преподаватели, уже назначенные старосты и те,
+   кто закрыл её крестиком. */
+const STAROSTA_ASK_KEY = "schedule.starostaAskOff";
+
+function starostaAskHidden() {
+  try {
+    return localStorage.getItem(STAROSTA_ASK_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function renderStarostaAsk() {
+  if (prefs.teacher || notices.canEdit || !activeGroup() || starostaAskHidden()) return null;
+  const card = el("div", "starosta-ask");
+  const open = el("button", "starosta-ask-main");
+  open.type = "button";
+  const text = el("span", "starosta-ask-text");
+  text.append(
+    el("span", "starosta-ask-title", t("Вы староста?")),
+    el("span", "starosta-ask-hint", t("Напишите нам — выдадим права: домашка и объявления для группы"))
+  );
+  open.append(el("span", "starosta-ask-icon", "🎓"), text);
+  open.addEventListener("click", () => {
+    haptic("light");
+    const link = `${BOT_LINK}?start=starosta`;
+    if (tg?.openTelegramLink) tg.openTelegramLink(link);
+    else window.open(link, "_blank", "noopener");
+  });
+  const close = el("button", "starosta-ask-close", "×");
+  close.type = "button";
+  close.setAttribute("aria-label", t("Скрыть"));
+  close.addEventListener("click", () => {
+    haptic("light");
+    try {
+      localStorage.setItem(STAROSTA_ASK_KEY, "1");
+    } catch {
+      // Без хранилища плашка вернётся после перезапуска — не беда.
+    }
+    card.remove();
+  });
+  card.append(open, close);
+  return card;
+}
+
 /** Ставит свои дела между карточками пар — по времени начала. */
 function placeOwn(nodes, date) {
   for (const event of ownEventsOn(date)) {
@@ -5908,7 +5954,7 @@ function renderLessons(group, parity) {
     // Пар нет, но свои дела в этот день могут быть — они под картинкой дня.
     const own = [];
     placeOwn(own, dateOfDay(selectedDay));
-    els.lessons.replaceChildren(renderFreeDay(), ...own, renderOwnAdd());
+    els.lessons.replaceChildren(renderFreeDay(), ...own, renderOwnAdd(), ...[renderStarostaAsk()].filter(Boolean));
     refreshNext();
     return;
   }
@@ -5978,6 +6024,8 @@ function renderLessons(group, parity) {
 
   // Кнопка своего дела — сразу после пар, перед «на сегодня всё».
   nodes.push(renderOwnAdd());
+  const ask = renderStarostaAsk();
+  if (ask) nodes.push(ask);
 
   // Сегодня и всё уже прошло — в конце списка карточка «на сегодня всё».
   const now = new Date();
@@ -7982,7 +8030,8 @@ function dropSplash() {
     // экране «пар нет»: заставка тает, он летит, сцена собирается вокруг.
     const scene = renderFreeDay();
     scene.classList.add("free-day--await");
-    els.lessons.replaceChildren(scene);
+    // Меняем только сцену: «Своё дело» и другие плашки под ней остаются.
+    els.lessons.querySelector(".free-day").replaceWith(scene);
     const from = splash.querySelector(".splash-free-emoji");
     const to = scene.querySelector(".free-day-emoji");
     if (from && to) flyEmoji(from, to, scene);

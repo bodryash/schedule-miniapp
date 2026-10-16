@@ -7602,3 +7602,73 @@ body.nokia .nokia-ribbon > span:not([class]) {
 body.nokia.tabs-pinned .tabs {
   top: calc(var(--tabs-top) - 18px);
 }
+
+/* --- «Вы староста?» — под списком пар, тихая, со своим крестиком --- */
+.starosta-ask {
+  position: relative;
+  margin: 0 0 18px;
+}
+
+.starosta-ask-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 40px 12px 12px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.starosta-ask-main:active {
+  transform: scale(0.98);
+}
+
+.starosta-ask-icon {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--card);
+  font-size: 19px;
+}
+
+.starosta-ask-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.starosta-ask-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.starosta-ask-hint {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.starosta-ask-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
