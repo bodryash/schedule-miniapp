@@ -1608,6 +1608,12 @@ const THEME_NAMES = {
   "вишня": "cherry",
   cherry: "cherry",
   "красная": "cherry",
+  "дьявол": "devil",
+  "прада": "devil",
+  "devil": "devil",
+  "prada": "devil",
+  "чёрно-красная": "devil",
+  "черно-красная": "devil",
 };
 
 const THEME_HELP = [
@@ -1625,6 +1631,7 @@ const THEME_HELP = [
   "/theme @ivanov лаванда — фиолетовая",
   "/theme @ivanov графит — строгая серая",
   "/theme @ivanov вишня — тёмно-красная",
+  "/theme @ivanov дьявол — чёрная с красным, как с подиума",
   "/theme @ivanov снять — вернуть обычный вид",
   "/theme 311гэу гламур — всей группе, можно и курс («3курс», «все»)",
   "/themes — кому что выдано",
