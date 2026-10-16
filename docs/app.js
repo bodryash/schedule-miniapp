@@ -1506,8 +1506,60 @@ function setOwnGlam(on) {
   applyTheme();
 }
 
+// Владелец примеряет темы у себя прямо в настройках. Выбор лежит только в его
+// браузере и сильнее темы с сервера; «как выдано» возвращает обычный порядок.
+const OWNER_THEME_KEY = "schedule.ownerTheme";
+const THEME_TITLES = {
+  "": "Обычная", glam: "Гламур", brutal: "Брутал", champion: "Чемпион", volunteer: "Волонтёр", cska: "ЦСКА", nokia: "Нокия",
+  ocean: "Океан", sunset: "Закат", mint: "Мята", lavender: "Лаванда", graphite: "Графит", cherry: "Вишня",
+};
+
+function ownerTheme() {
+  try {
+    return localStorage.getItem(OWNER_THEME_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function fillOwnerThemes() {
+  const box = document.getElementById("owner-themes");
+  const list = document.getElementById("owner-theme-list");
+  if (!box || !list) return;
+  box.hidden = !notices.owner;
+  if (box.hidden) return;
+  const current = ownerTheme();
+  const chips = [["auto", "Как выдано"], ...Object.entries(THEME_TITLES)].map(([id, title]) => {
+    const on = id === "auto" ? current === null : current === id;
+    const chip = el("button", on ? "chip chip--on" : "chip", title);
+    chip.type = "button";
+    chip.addEventListener("click", () => {
+      haptic("light");
+      try {
+        if (id === "auto") localStorage.removeItem(OWNER_THEME_KEY);
+        else localStorage.setItem(OWNER_THEME_KEY, id);
+      } catch {
+        // Без хранилища примерка живёт до перезапуска.
+      }
+      applyTheme();
+      fillOwnerThemes();
+    });
+    return chip;
+  });
+  list.replaceChildren(...chips);
+}
+
 function applyTheme(granted = grantedTheme) {
   grantedTheme = granted || "";
+  const tried = notices.owner ? ownerTheme() : null;
+  if (tried !== null) {
+    for (const cls of Object.values(THEMES)) document.body.classList.toggle(cls, THEMES[tried] === cls);
+    renderChampion(tried === "champion");
+    renderVolunteer(tried === "volunteer");
+    renderCska(tried === "cska");
+    renderNokia(tried === "nokia");
+    return;
+  }
   const volunteer = grantedTheme === "volunteer";
   const row = document.getElementById("volunteer-row");
   const box = document.getElementById("volunteer-theme");
@@ -5327,6 +5379,7 @@ function showPicker() {
   els.close.hidden = !activeGroup();
   fillProfiles();
   fillDigits();
+  fillOwnerThemes();
   fillTenants();
   // Межфакультетские курсы — только там, где они есть.
   if (els.mfkRow) els.mfkRow.style.display = tenantHas("mfk") ? "" : "none";

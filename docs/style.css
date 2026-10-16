@@ -7763,3 +7763,10 @@ body.tint-cherry .card--now {
     -3px 0 0 0 var(--tint1),
     0 10px 28px -14px color-mix(in srgb, var(--tint2) 60%, transparent);
 }
+
+/* Примерка тем владельцем — ряд чипов в настройках. */
+.owner-theme-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
