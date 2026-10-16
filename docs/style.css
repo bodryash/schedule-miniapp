@@ -7849,3 +7849,84 @@ body.devil .tabs {
   border-color: rgba(244, 241, 238, 0.08);
 }
 
+
+/* --- МГУ: ночная синева, золото и силуэт Главного здания ---
+   Выдаёт владелец командой /theme — человеку, группе или всему вузу
+   («/theme вуз:мгу мгу»). Высотка полупрозрачная, стоит внизу у горизонта
+   над панелью вкладок, за ней тёплое свечение; пары прокручиваются поверх. */
+body.msu {
+  --msu-gold: #d9b56c;
+  --accent: var(--msu-gold);
+  --accent-soft: rgba(217, 181, 108, 0.16);
+  --accent-text: #15110a;
+  --bg: #0b1733;
+  --card: #13224a;
+  --surface: #13224a;
+  --text: #f2eee3;
+  --muted: #9aa6c4;
+  --line: rgba(217, 181, 108, 0.24);
+  --edge: rgba(242, 238, 227, 0.08);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 30px -18px rgba(0, 0, 0, 0.7);
+  --tg-theme-bg-color: #0b1733;
+  --tg-theme-secondary-bg-color: #13224a;
+  --tg-theme-text-color: #f2eee3;
+  --tg-theme-hint-color: #9aa6c4;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+body.msu[data-parity="even"],
+body.msu[data-parity="none"] {
+  --accent: var(--msu-gold);
+}
+
+/* Небо: тёплое свечение за высоткой, пара звёзд и сам силуэт. */
+body.msu::before {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 220'%3E%3Cpath fill='%23d9b56c' fill-opacity='0.16' d='M0 192H200V220H0ZM200 192H400V220H200ZM18 168H96V220H18ZM304 168H382V220H304ZM48 126H76V220H48ZM324 126H352V220H324ZM52 112H72V126H52ZM328 112H348V126H328ZM56 102H68V112H56ZM332 102H344V112H332ZM96 152H152V220H96ZM248 152H304V220H248ZM116 132H140V220H116ZM260 132H284V220H260ZM120 120H136V132H120ZM264 120H280V132H264ZM124 110H132V120H124ZM268 110H276V120H268ZM150 122H200V220H150ZM200 122H250V220H200ZM160 102H200V122H160ZM200 102H240V122H200ZM171 72H200V102H171ZM200 72H229V102H200ZM178 54H200V72H178ZM200 54H222V72H200ZM184 40H200V54H184ZM200 40H216V54H200ZM190 29H200V40H190ZM200 29H210V40H200ZM60 102L62.0 80L64 102ZM336 102L338.0 80L340 102ZM127 110L128.0 92L129 110ZM271 110L272.0 92L273 110ZM196 29L200 9L204 29ZM200 0L201.6 3.3L205.2 3.6L202.5 6L203.3 9.5L200 7.7L196.7 9.5L197.5 6L194.8 3.6L198.4 3.3Z'/%3E%3C/svg%3E") center bottom 74px / min(100%, 480px) auto no-repeat,
+    radial-gradient(2px 2px at 18% 12%, rgba(255, 255, 255, 0.7), transparent 60%),
+    radial-gradient(1.5px 1.5px at 34% 6%, rgba(255, 255, 255, 0.55), transparent 60%),
+    radial-gradient(1.5px 1.5px at 8% 26%, rgba(255, 255, 255, 0.45), transparent 60%),
+    radial-gradient(2px 2px at 46% 18%, rgba(255, 255, 255, 0.5), transparent 60%),
+    radial-gradient(70% 30% at 50% 92%, rgba(217, 181, 108, 0.16), transparent 70%),
+    linear-gradient(180deg, #0e1d42 0%, #0b1733 45%, #091228 100%);
+  opacity: 1;
+}
+
+body.msu .date,
+body.msu .date-old,
+body.msu .date-new {
+  background: linear-gradient(100deg, #f4e2b4 0%, #d9b56c 55%, #b8893d 100%) 0 0 / 100% 100% no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+body.msu #current-group::before {
+  content: "★ ";
+  color: var(--msu-gold);
+}
+
+body.msu .card {
+  background: #13224a;
+}
+
+body.msu .card--now {
+  box-shadow:
+    inset 0 0 0 1px rgba(217, 181, 108, 0.7),
+    0 16px 36px -20px rgba(217, 181, 108, 0.6);
+}
+
+body.msu .room-badge,
+body.msu .primary,
+body.msu .days-drop {
+  background: linear-gradient(135deg, #f0d79a, #d9b56c 55%, #b8893d);
+  color: #15110a;
+  box-shadow: none;
+}
+
+body.msu .tabs {
+  background: rgba(11, 23, 51, 0.9);
+  border-color: rgba(217, 181, 108, 0.18);
+}
