@@ -7771,6 +7771,22 @@ body.tint-cherry .card--now {
   gap: 6px;
 }
 
+@font-face {
+  font-family: "Playfair Display";
+  src: url("fonts/playfair-cyr.woff2") format("woff2");
+  font-weight: 400 900;
+  font-display: swap;
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: "Playfair Display";
+  src: url("fonts/playfair.woff2") format("woff2");
+  font-weight: 400 900;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212, U+2215;
+}
+
 /* --- Дьявол: чёрная с красным, выдаёт владелец командой /theme ---
    Как с подиума: глубокий чёрный, один красный, дата модной антиквой и
    тонкие линии вместо теней. Светлая и тёмная схемы на неё не влияют. */
@@ -7808,15 +7824,15 @@ body.devil::before {
     radial-gradient(70% 35% at -10% 105%, rgba(208, 2, 27, 0.12), transparent 70%);
 }
 
-/* Дата — высокая контрастная антиква, как обложка журнала. */
+/* Дата — контрастная антиква заглавными с разрядкой, как на обложке журнала. */
 body.devil .date,
 body.devil .date-old,
 body.devil .date-new {
-  font-family: "Didot", "Bodoni 72", "Bodoni MT", "Playfair Display", Georgia, "Times New Roman", serif !important;
-  font-weight: 400 !important;
-  font-style: italic;
-  letter-spacing: 0.01em !important;
-  text-transform: none !important;
+  font-family: "Playfair Display", "Didot", "Bodoni 72", Georgia, serif !important;
+  font-weight: 500 !important;
+  font-style: normal !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
   color: #f4f1ee;
   -webkit-text-fill-color: #f4f1ee;
   background: none;
@@ -7857,6 +7873,6 @@ body.devil .tabs {
 /* Антиква шире узкого шрифта даты — уменьшаем, чтобы влезала в строку. */
 body.devil .bar--schedule .date,
 body.devil .bar--schedule .date * {
-  font-size: 29px !important;
-  line-height: 1.15 !important;
+  font-size: 20px !important;
+  line-height: 1.2 !important;
 }
