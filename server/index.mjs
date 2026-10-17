@@ -5,6 +5,7 @@
 // Запуск: node --env-file=/etc/schedule/env server/index.mjs
 import { createServer } from "node:http";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statfsSync, statSync, writeFileSync } from "node:fs";
+import { loadavg } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDatabase } from "./d1.mjs";
@@ -121,7 +122,41 @@ function readBody(req) {
   });
 }
 
-const stats = { started: Date.now(), requests: 0, errors: 0, slow: 0 };
+const stats = { started: Date.now(), requests: 0, errors: 0, slow: 0, limited: 0 };
+
+/* ---------- Защита от потока запросов ----------
+ * Один адрес — не больше LIMIT_PER_MINUTE запросов в минуту. Живому
+ * человеку и десятка хватает, но из общежития или университетского Wi-Fi
+ * сотни студентов выходят с одного адреса — поэтому запас большой. Тысячи
+ * в минуту — это уже скрипт или атака.
+ * Telegram (вебхук с секретом) и проверку «жив ли» не ограничиваем.
+ */
+const LIMIT_PER_MINUTE = 600;
+const hits = new Map();
+
+function clientIp(req) {
+  return String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
+}
+
+function limited(req) {
+  if (env.WEBHOOK_SECRET && req.headers["x-telegram-bot-api-secret-token"] === env.WEBHOOK_SECRET) return false;
+  const ip = clientIp(req);
+  if (!ip) return false;
+  const minute = Math.floor(Date.now() / 60000);
+  const entry = hits.get(ip);
+  if (!entry || entry.minute !== minute) {
+    hits.set(ip, { minute, count: 1 });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > LIMIT_PER_MINUTE;
+}
+
+// Счётчики забываем каждую минуту: иначе таблица адресов росла бы бесконечно.
+setInterval(() => {
+  const minute = Math.floor(Date.now() / 60000);
+  for (const [ip, entry] of hits) if (entry.minute < minute) hits.delete(ip);
+}, 60000).unref();
 
 // Что видит сторож снаружи: место на диске, возраст ночной копии, когда
 // последний раз отработала минутная задача и доходит ли бот до Telegram.
@@ -160,6 +195,12 @@ async function checkTelegram() {
 const server = createServer(async (req, res) => {
   const startedAt = performance.now();
   stats.requests += 1;
+  if (req.url !== "/healthz" && limited(req)) {
+    stats.limited += 1;
+    res.writeHead(429, { "content-type": "application/json", "retry-after": "60" });
+    res.end(JSON.stringify({ ok: false, error: "too many requests" }));
+    return;
+  }
   try {
     // Проверка «жив ли» — для автоматического перезапуска и мониторинга.
     if (req.url === "/healthz") {
@@ -188,6 +229,87 @@ const server = createServer(async (req, res) => {
   }
 });
 
+/* ---------- Сигналы владельцу ----------
+ * Раз в пять минут сервер сам смотрит на себя и пишет владельцу в
+ * Telegram, если что-то вышло за предел: диск, память, процессор, поток
+ * запросов, ошибки, очередь уведомлений, ночная копия. Об одном и том же —
+ * не чаще раза в три часа; когда всё вернулось в норму — короткое «прошло».
+ */
+const ALARM_EVERY = 5 * 60000;
+const ALARM_REPEAT = 3 * 3600000;
+const alarms = new Map();
+let lastAlarmCheck = 0;
+let lastCounts = { requests: 0, errors: 0, limited: 0 };
+
+function memInfo() {
+  try {
+    const text = readFileSync("/proc/meminfo", "utf8");
+    const get = (name) => Number((text.match(new RegExp(`^${name}:\\s+(\\d+)`, "m")) || [])[1] || 0) * 1024;
+    return { total: get("MemTotal"), available: get("MemAvailable"), swapUsed: get("SwapTotal") - get("SwapFree") };
+  } catch {
+    return null;
+  }
+}
+
+async function tellOwner(text) {
+  try {
+    await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ chat_id: env.OWNER_ID, text }),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch (error) {
+    console.error("Не удалось написать владельцу:", error);
+  }
+}
+
+async function checkAlarms() {
+  if (Date.now() - lastAlarmCheck < ALARM_EVERY) return;
+  lastAlarmCheck = Date.now();
+  const found = new Map();
+  const v = vitals();
+  if (v.diskFree !== null && v.diskFree < 20) found.set("disk", `💾 Диск заполнен на ${100 - v.diskFree}%`);
+  const mem = memInfo();
+  if (mem?.total) {
+    const used = Math.round((1 - mem.available / mem.total) * 100);
+    if (used > 85) found.set("memory", `🧠 Память занята на ${used}%`);
+    if (mem.swapUsed > 300 * 1024 * 1024) found.set("swap", `🧠 Подкачка: ${Math.round(mem.swapUsed / 1048576)} МБ — оперативной памяти не хватает`);
+  }
+  const rss = process.memoryUsage().rss;
+  if (rss > 700 * 1024 * 1024) found.set("rss", `🤖 Бот занял ${Math.round(rss / 1048576)} МБ памяти`);
+  const load = loadavg()[1];
+  if (load > 0.9) found.set("cpu", `🔥 Процессор загружен: ${Math.round(load * 100)}% за 5 минут`);
+  const requests = stats.requests - lastCounts.requests;
+  const errors = stats.errors - lastCounts.errors;
+  const blocked = stats.limited - lastCounts.limited;
+  lastCounts = { requests: stats.requests, errors: stats.errors, limited: stats.limited };
+  if (requests > 5000) found.set("flood", `🌊 Необычно много запросов: ${requests} за 5 минут (обычно — сотни)`);
+  if (blocked > 100) found.set("limited", `🛡 Отбито ${blocked} запросов за 5 минут — кто-то шлёт слишком часто`);
+  if (errors > 20) found.set("errors", `⚠️ Ошибок сервера: ${errors} за 5 минут`);
+  if (v.backupAge !== null && v.backupAge > 30) found.set("backup", `🗄 Ночная копия базы не делалась ${v.backupAge} ч`);
+  if (watch.telegramOk === false) found.set("telegram", "📡 Бот не достучался до Telegram — напоминания могут не уходить");
+  try {
+    const queue = STATS.raw.prepare("SELECT COUNT(*) AS n FROM alerts WHERE sent = 0").get().n;
+    if (queue > 3000) found.set("queue", `📨 В очереди уведомлений ${queue} сообщений`);
+  } catch {
+    // Таблицы ещё нет — нечего проверять.
+  }
+  for (const [key, text] of found) {
+    const last = alarms.get(key);
+    if (!last || Date.now() - last > ALARM_REPEAT) {
+      alarms.set(key, Date.now());
+      await tellOwner(`${text}\n\nСервер расписания, ${new Date().toLocaleString("ru-RU", { timeZone: "Europe/Moscow" })}`);
+    }
+  }
+  for (const key of [...alarms.keys()]) {
+    if (!found.has(key)) {
+      alarms.delete(key);
+      await tellOwner(`✅ Прошло: ${key === "disk" ? "диск" : key === "memory" || key === "swap" || key === "rss" ? "память" : key === "cpu" ? "процессор" : key === "flood" || key === "limited" ? "поток запросов" : key === "errors" ? "ошибки" : key === "backup" ? "ночная копия" : key === "queue" ? "очередь уведомлений" : "связь с Telegram"} — снова в норме`);
+    }
+  }
+}
+
 // Раз в минуту, ровно в начале минуты: напоминания привязаны ко времени.
 let ticking = false;
 async function tick() {
@@ -195,6 +317,7 @@ async function tick() {
   ticking = true;
   watch.tick = Date.now();
   checkTelegram();
+  checkAlarms().catch((error) => console.error("Сигналы упали:", error));
   try {
     await new Promise((resolve) => {
       const pending = [];
