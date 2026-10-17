@@ -321,19 +321,6 @@
     "tz": 4
   },
   {
-    "id": "msu-philos",
-    "university": "МГУ",
-    "faculty": "Философский факультет",
-    "path": "msu-philos",
-    "features": [],
-    "short": "Философский",
-    "source": {
-      "kind": "tt",
-      "base": "https://cacs.philos.msu.ru",
-      "faculty": "1"
-    }
-  },
-  {
     "id": "msu-bio",
     "university": "МГУ",
     "faculty": "Биологический факультет",
@@ -423,19 +410,6 @@
     "short": "ВШГА"
   },
   {
-    "id": "msu-law",
-    "university": "МГУ",
-    "faculty": "Юридический факультет",
-    "path": "msu-law",
-    "features": [],
-    "short": "Юрфак",
-    "source": {
-      "kind": "tt",
-      "base": "https://cacs.law.msu.ru",
-      "faculty": "8,23"
-    }
-  },
-  {
     "id": "msu-socio",
     "university": "МГУ",
     "faculty": "Социологический факультет",
@@ -461,6 +435,70 @@
       "faculty": 55
     },
     "short": "МО (Дип)"
+  },
+  {
+    "id": "mgimo-imar",
+    "university": "МГИМО",
+    "faculty": "Институт мировых аграрных рынков",
+    "path": "mgimo-imar",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 52
+    },
+    "short": "ИМАР"
+  },
+  {
+    "id": "mgimo-mag",
+    "university": "МГИМО",
+    "faculty": "Магистратуры",
+    "path": "mgimo-mag",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 32
+    }
+  },
+  {
+    "id": "msu-hist",
+    "university": "МГУ",
+    "faculty": "Исторический факультет",
+    "path": "msu-hist",
+    "features": [],
+    "short": "Истфак",
+    "source": {
+      "kind": "hist",
+      "base": "http://ccs2.hist.msu.ru",
+      "faculty": "all"
+    }
+  },
+  {
+    "id": "msu-philos",
+    "university": "МГУ",
+    "faculty": "Философский факультет",
+    "path": "msu-philos",
+    "features": [],
+    "short": "Философский",
+    "source": {
+      "kind": "tt",
+      "base": "https://cacs.philos.msu.ru",
+      "faculty": "1"
+    }
+  },
+  {
+    "id": "msu-law",
+    "university": "МГУ",
+    "faculty": "Юридический факультет",
+    "path": "msu-law",
+    "features": [],
+    "short": "Юрфак",
+    "source": {
+      "kind": "tt",
+      "base": "https://cacs.law.msu.ru",
+      "faculty": "8,23"
+    }
   },
   {
     "id": "mgimo-meo",
@@ -541,19 +579,6 @@
     "short": "УП (Дип)"
   },
   {
-    "id": "mgimo-imar",
-    "university": "МГИМО",
-    "faculty": "Институт мировых аграрных рынков",
-    "path": "mgimo-imar",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 52
-    },
-    "short": "ИМАР"
-  },
-  {
     "id": "mgimo-mo",
     "university": "МГИМО",
     "faculty": "Факультет международных отношений",
@@ -580,18 +605,6 @@
     "short": "УП"
   },
   {
-    "id": "mgimo-mag",
-    "university": "МГИМО",
-    "faculty": "Магистратуры",
-    "path": "mgimo-mag",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 32
-    }
-  },
-  {
     "id": "mgimo-mo-en",
     "university": "МГИМО",
     "faculty": "Факультет международных отношений (на английском языке)",
@@ -603,18 +616,5 @@
       "faculty": 41
     },
     "short": "МО (англ)"
-  },
-  {
-    "id": "msu-hist",
-    "university": "МГУ",
-    "faculty": "Исторический факультет",
-    "path": "msu-hist",
-    "features": [],
-    "short": "Истфак",
-    "source": {
-      "kind": "hist",
-      "base": "http://ccs2.hist.msu.ru",
-      "faculty": "all"
-    }
   }
 ]
