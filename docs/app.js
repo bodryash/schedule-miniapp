@@ -1857,13 +1857,27 @@ let MFK_LIST = null;
 async function loadMfk() {
   if (MFK_LIST) return MFK_LIST;
   try {
-    // Межфакультетские курсы — особенность МГУ, у других их нет.
-    const res = tenantHas("mfk") ? await fetch(dataFile("mfk.json"), { cache: "no-cache" }) : null;
+    // Межфакультетские курсы — особенность МГУ, у других их нет. Каталог
+    // общий на весь университет, поэтому лежит один, рядом с ФГП.
+    const res = mfkAvailable() ? await fetch("data/mfk.json", { cache: "no-cache" }) : null;
     MFK_LIST = res?.ok ? await res.json() : [];
   } catch {
     MFK_LIST = [];
   }
   return MFK_LIST;
+}
+
+/** Выбор своих МФК — у всех факультетов МГУ: каталог курсов общий. */
+function mfkAvailable() {
+  return tenantHas("mfk") || tenant().university === "МГУ";
+}
+
+/**
+ * Строка расписания, вместо которой встают выбранные МФК. У ФГП она одна,
+ * остальные факультеты подписывают время под МФК по-своему.
+ */
+function isMfkLesson(subject) {
+  return subject === MFK || isMfkSlot(subject);
 }
 
 /** Выбранные курсы — те, что человек отметил в настройках. */
@@ -5648,7 +5662,7 @@ function showPicker() {
   fillOwnerThemes();
   fillTenants();
   // Межфакультетские курсы — только там, где они есть.
-  if (els.mfkRow) els.mfkRow.style.display = tenantHas("mfk") ? "" : "none";
+  if (els.mfkRow) els.mfkRow.style.display = mfkAvailable() ? "" : "none";
   fillCourses();
   fillRole();
   fillReminders();
@@ -5783,7 +5797,7 @@ function ownLessonsForDay(group, day, week) {
   const list = lessonsForDay(group, day, week);
   const mine = group.teacher ? [] : mfkLessons(day);
   if (!mine.length) return list;
-  return [...list.filter((lesson) => lesson.subject !== MFK), ...mine].sort((a, b) => a.slot - b.slot);
+  return [...list.filter((lesson) => !isMfkLesson(lesson.subject)), ...mine].sort((a, b) => a.slot - b.slot);
 }
 
 /* ---------- Экран расписания ---------- */
@@ -6271,7 +6285,7 @@ function renderLessons(group, parity) {
   // времени никому не нужна, если человек указал, на что ходит.
   const mine = group.teacher ? [] : mfkLessons(selectedDay);
   if (mine.length) {
-    const other = list.filter((lesson) => lesson.subject !== MFK);
+    const other = list.filter((lesson) => !isMfkLesson(lesson.subject));
     list.length = 0;
     list.push(...other, ...mine);
     list.sort((a, b) => a.slot - b.slot);
@@ -7967,7 +7981,7 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
   // Дисциплины по выбору и межфакультетские курсы выделены цветом: их
   // посещают не все, и в общем списке их надо отличать с одного взгляда.
   let kind = "";
-  if (first.subject === MFK) kind = " card--mfk";
+  if (isMfkLesson(first.subject)) kind = " card--mfk";
   else if (first.elective === ELECTIVE) kind = " card--elective";
   else if (first.elective) kind = " card--optional";
   const card = el("article", `card${kind}`);
@@ -8002,7 +8016,7 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
     card.dataset.start = bell.start;
     card.dataset.end = end;
   }
-  if (first.subject === MFK) head.append(el("span", "tag", t("МФК")));
+  if (isMfkLesson(first.subject)) head.append(el("span", "tag", t("МФК")));
   else if (first.elective) head.append(el("span", "tag", t(first.elective)));
   // Аудитория выносится вправо отдельной плашкой — но только когда она одна
   // на всю карточку. У подгрупп аудитории разные, и в списке они остаются.
