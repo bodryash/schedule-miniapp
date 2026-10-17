@@ -8229,7 +8229,7 @@ body.msu .tabs {
    Круг растёт из правого верхнего угла, где стоит «⋯», с лёгкой пружинкой,
    а пункты выезжают по очереди сверху вниз. Закрывается обратным кругом. */
 .menu-pop {
-  animation: menu-unfold 420ms cubic-bezier(0.22, 1.2, 0.36, 1) both;
+  animation: menu-unfold 380ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
 .menu-pop--out {
