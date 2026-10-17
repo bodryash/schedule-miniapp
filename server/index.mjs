@@ -197,6 +197,7 @@ const server = createServer(async (req, res) => {
   stats.requests += 1;
   if (req.url !== "/healthz" && limited(req)) {
     stats.limited += 1;
+    if (String(req.url).startsWith("/ics/")) console.log(`ICS limited ${String(req.url).split("?")[0]}`);
     res.writeHead(429, { "content-type": "application/json", "retry-after": "60" });
     res.end(JSON.stringify({ ok: false, error: "too many requests" }));
     return;
@@ -226,6 +227,11 @@ const server = createServer(async (req, res) => {
     res.end(JSON.stringify({ ok: false, error: "server error" }));
   } finally {
     if (performance.now() - startedAt > 1000) stats.slow += 1;
+    // Временно: разбираемся, почему iPhone не подписывается на календарь.
+    // Пишем только метод, адрес без настроек, программу, ответ и время — без IP.
+    if (String(req.url).startsWith("/ics/")) {
+      console.log(`ICS ${req.method} ${String(req.url).split("?")[0]}${String(req.url).includes("open=1") ? " open" : ""} ${res.statusCode} ${Math.round(performance.now() - startedAt)}ms ua=${String(req.headers["user-agent"] || "").slice(0, 120)}`);
+    }
   }
 });
 
