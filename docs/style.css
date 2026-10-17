@@ -8309,3 +8309,45 @@ body.msu .tabs {
 .menu-pop {
   border-top-right-radius: 8px;
 }
+
+/* --- Карточка «Делового протокола и этикета» (3 курс ФГП) в стилистике
+   «Локомотива»: красно-зелёная полоса слева, косые клубные полосы в углу и
+   «рельсы» внизу. Строго — это всё-таки протокол и этикет. */
+.card--loko {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, transparent 0 82%, rgba(227, 6, 19, 0.9) 82% 86%, transparent 86% 88%, rgba(0, 132, 61, 0.9) 88% 92%, transparent 92%) top right / 120px 120px no-repeat,
+    var(--card);
+  box-shadow:
+    inset 5px 0 0 0 #00843d,
+    inset 10px 0 0 0 #e30613,
+    0 10px 24px -18px rgba(0, 132, 61, 0.55);
+}
+
+.card--loko::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 6px;
+  height: 5px;
+  border-top: 1.5px solid rgba(0, 132, 61, 0.55);
+  border-bottom: 1.5px solid rgba(227, 6, 19, 0.55);
+  pointer-events: none;
+}
+
+.card--loko .subject,
+.card--loko h3 {
+  color: #00843d;
+}
+
+.card--loko .tag {
+  background: #e30613;
+  color: #ffffff;
+}
+
+.card--loko .room-badge {
+  background: #00843d;
+  color: #ffffff;
+}

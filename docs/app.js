@@ -8269,6 +8269,9 @@ function subgroupsLabel(n) {
   return `${n} ${word} — показать`;
 }
 
+// Пары в стилистике «Локомотива» — по просьбе 3 курса ФГП.
+const LOKO_SUBJECTS = new Set(["Деловой протокол и этикет"]);
+
 function renderCard(entries, bells, slots = [entries[0].slot]) {
   const first = entries[0];
   const bell = timesOf(first, bells);
@@ -8277,7 +8280,8 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
   // Дисциплины по выбору и межфакультетские курсы выделены цветом: их
   // посещают не все, и в общем списке их надо отличать с одного взгляда.
   let kind = "";
-  if (isMfkLesson(first.subject)) kind = " card--mfk";
+  if (LOKO_SUBJECTS.has(first.subject) && tenantId() === DEFAULT_TENANT) kind = " card--loko";
+  else if (isMfkLesson(first.subject)) kind = " card--mfk";
   else if (first.elective === ELECTIVE) kind = " card--elective";
   else if (first.elective) kind = " card--optional";
   const card = el("article", `card${kind}`);
