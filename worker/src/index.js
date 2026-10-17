@@ -3333,7 +3333,19 @@ export default {
 
     // Подписка на расписание в календаре телефона — см. ics.js.
     if (url.pathname.startsWith("/ics/")) {
-      if (request.method === "GET" || request.method === "HEAD") return handleIcs(url, request);
+      if (request.method === "GET" || request.method === "HEAD") {
+        // Отмены и замены знает только бот — отдаём их календарю.
+        const since = iso(addDays(today(), -14));
+        const active = async (sql) => {
+          const { results = [] } = await env.STATS.prepare(sql).bind(since).all();
+          return results.map((r) => ({ ...r, slots: r.slots ? r.slots.split(",").map(Number) : [] }));
+        };
+        return handleIcs(url, request, {
+          cancels: () => active("SELECT grp, day, slots, reason, subject, subgroup FROM cancels WHERE removed = 0 AND day >= ?"),
+          changes: () => active("SELECT grp, day, slots, from_teacher, teacher, room, start, reason FROM changes WHERE removed = 0 AND day >= ?"),
+          courseOf,
+        });
+      }
       // iPhone перед подпиской проверяет, не CalDAV ли это (PROPFIND). Ответ
       // «200 ok» сбивал его с толку: «не удалось выполнить проверку».
       return new Response(null, { status: 405, headers: { Allow: "GET, HEAD" } });

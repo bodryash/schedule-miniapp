@@ -5176,6 +5176,8 @@ let calendarSheet = null;
 
 /** Ссылка на расписание группы в формате календаря — с выбранными языками и курсами. */
 function calendarUrl() {
+  // Преподаватель — его пары на всех факультетах вуза, как в приложении.
+  if (prefs.teacher) return `${API_URL}/ics/${tenantId()}/teacher/${encodeURIComponent(prefs.teacher)}.ics`;
   const group = groupById(prefs.group);
   if (!group) return "";
   const id = tenantId();
@@ -5185,6 +5187,7 @@ function calendarUrl() {
     if (prefs[name] != null && prefs[name] !== "") keep[name] = prefs[name];
   }
   if (prefs.electives?.length) keep.electives = prefs.electives;
+  if (mfkAvailable() && prefs.mfk?.length) keep.mfk = prefs.mfk;
   const json = JSON.stringify(keep);
   const query = json === "{}" ? "" : `?f=${btoa(String.fromCharCode(...new TextEncoder().encode(json))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")}`;
   return `${API_URL}/ics/${id}/${encodeURIComponent(raw)}.ics${query}`;
@@ -5234,7 +5237,7 @@ function closeCalendar() {
 
 function renderCalendar() {
   const body = calendarSheet.querySelector(".cal-body");
-  const url = prefs.teacher ? "" : calendarUrl();
+  const url = calendarUrl();
   if (!url) {
     body.replaceChildren(el("p", "hint", t("Календарь пока собирается только для группы студента. Выберите группу в настройках.")));
     return;
@@ -5284,8 +5287,10 @@ function renderCalendar() {
     google,
     apple,
     copy,
-    el("p", "hint", t("Яндекс, Outlook и другие: «Добавить календарь по ссылке» — вставьте скопированную ссылку. Учтены ваши языки и курсы по выбору; отмены и переносы от старосты видны только в приложении.")),
-    el("p", "hint", t("В ссылке только факультет, группа и выбранные предметы — без имени и Telegram."))
+    el("p", "hint", t("Яндекс, Outlook и другие: «Добавить календарь по ссылке» — вставьте скопированную ссылку. Учтены ваши языки, курсы по выбору и МФК, а отмены и замены появляются в календаре сами.")),
+    el("p", "hint", prefs.teacher
+      ? t("В ссылке только факультет и фамилия из расписания — без Telegram.")
+      : t("В ссылке только факультет, группа и выбранные предметы — без имени и Telegram."))
   );
 }
 
