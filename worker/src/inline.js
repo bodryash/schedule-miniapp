@@ -491,14 +491,14 @@ function article(id, title, description, text, lang) {
   };
 }
 
-async function loadJson(path) {
+export async function loadJson(path) {
   // Файлы меняются раз в неделю — пусть Cloudflare держит их у себя.
   const response = await fetch(`${DATA_URL}${path}`, { cf: { cacheTtl: 300, cacheEverything: true } });
   if (!response.ok) throw new Error(`${path}: ${response.status}`);
   return response.json();
 }
 
-const DEFAULT_TENANT = "msu-fgp";
+export const DEFAULT_TENANT = "msu-fgp";
 
 /**
  * Группы всех факультетов. У ФГП номера как есть («101»), у остальных — с

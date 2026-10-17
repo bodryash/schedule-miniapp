@@ -434,3 +434,28 @@ CREATE TABLE IF NOT EXISTS starosta_requests (
 );
 
 CREATE INDEX IF NOT EXISTS starosta_requests_user ON starosta_requests (tg_id, grp, status);
+
+-- Уведомления об изменениях: очередь сообщений и отметки, до какого номера
+-- отмены, замены и объявления уже разобраны. sent: 0 — ждёт, 1 — ушло, 2 — не дошло.
+CREATE TABLE IF NOT EXISTS alerts (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  chat_id INTEGER NOT NULL,
+  text    TEXT NOT NULL,
+  created TEXT NOT NULL,
+  sent    INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS alerts_pending ON alerts (sent, id);
+
+CREATE TABLE IF NOT EXISTS alert_marks (
+  kind TEXT PRIMARY KEY,
+  last INTEGER NOT NULL
+);
+
+-- Слепок пар группы на день — чтобы заметить, что расписание на сайте вуза
+-- поменялось. В слепке только отпечаток, без самих пар.
+CREATE TABLE IF NOT EXISTS plan_hash (
+  grp  TEXT NOT NULL,
+  day  TEXT NOT NULL,
+  hash TEXT NOT NULL,
+  PRIMARY KEY (grp, day)
+);

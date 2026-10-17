@@ -14,7 +14,9 @@ import {
   dateLabel,
   iso,
   loadGroups,
+  loadJson,
   loadTenants,
+  DEFAULT_TENANT,
   normalize,
   parityOf,
   parseDay,
@@ -1226,6 +1228,228 @@ async function appCancel(env, body) {
   return { ok: true };
 }
 
+/* ---------- Уведомления об изменениях ----------
+ * Отмены, замены и объявления появляются в базе разными путями: командами
+ * бота, из приложения, отменой по преподавателю. Вместо того чтобы
+ * вставлять рассылку в каждый, раз в минуту смотрим, что появилось нового
+ * (отметка — последний разобранный номер), и складываем сообщения в очередь.
+ * Получатели — у кого включены напоминания и не выключены изменения: они
+ * уже разрешили боту писать.
+ */
+
+const ALERT_KINDS = ["cancels", "changes", "notices"];
+const ALERT_BATCH = 200;
+const ALERT_AHEAD_DAYS = 14;
+
+/** «msu-mm/101» → «101»: человеку своя группа понятна и без факультета. */
+const groupTitle = (grp) => (grp.includes("/") ? grp.slice(grp.indexOf("/") + 1) : grp);
+
+/** Кому слать про запись для grp: сама группа, весь её курс или лично человек. */
+async function alertRecipients(env, grp) {
+  if (!grp || grp === "*" || grp.startsWith("uni:")) return [];
+  if (grp.startsWith("user:")) {
+    const id = Number(grp.slice(5));
+    const row = await env.STATS.prepare("SELECT tg_id FROM reminders WHERE tg_id = ? AND changes = 1").bind(id).first();
+    return row ? [{ id, grp: "" }] : [];
+  }
+  const { results = [] } = await env.STATS.prepare(
+    "SELECT tg_id AS id, grp FROM reminders WHERE changes = 1 AND grp != ''"
+  ).all();
+  if (!grp.startsWith("курс:")) return results.filter((r) => r.grp === grp);
+  const groups = new Map((await loadGroups().catch(() => [])).map((g) => [g.id, g]));
+  return results.filter((r) => groups.has(r.grp) && courseOf(groups.get(r.grp)) === grp);
+}
+
+function alertText(kind, row) {
+  const date = row.day ? dateLabel(new Date(`${row.day}T00:00:00Z`)) : "";
+  const slots = row.slots ? row.slots.split(",").map(Number) : [];
+  const where = (grp) => (grp.startsWith("курс:") ? courseLabel(grp) : groupTitle(grp));
+  if (kind === "cancels") {
+    const what = row.subject ? ` — ${row.subject}${row.subgroup ? ` (подгруппа ${row.subgroup})` : ""}` : "";
+    return [`❌ Отмена · ${where(row.grp)} · ${date}`, `${slotsLabel(slots)}${what}`, row.reason].filter(Boolean).join("\n");
+  }
+  if (kind === "changes") {
+    const from = row.from_teacher ? ` · пары ${row.from_teacher}` : "";
+    return [`🔁 Замена · ${where(row.grp)} · ${date}`, `${slotsLabel(slots)}${from} → ${changeLabel(row)}`, row.reason].filter(Boolean).join("\n");
+  }
+  const text = String(row.text || "").slice(0, 700);
+  return row.grp.startsWith("user:") ? `📢 Сообщение для вас\n${text}` : `📢 Объявление · ${where(row.grp)}\n${text}`;
+}
+
+async function queueAlert(env, recipients, text) {
+  if (!recipients.length) return 0;
+  const stamp = new Date().toISOString();
+  const unique = [...new Set(recipients.map((r) => r.id))];
+  for (let i = 0; i < unique.length; i += 100) {
+    await env.STATS.batch(
+      unique.slice(i, i + 100).map((id) =>
+        env.STATS.prepare("INSERT INTO alerts (chat_id, text, created) VALUES (?, ?, ?)").bind(id, text, stamp)
+      )
+    );
+  }
+  return unique.length;
+}
+
+async function scanAlerts(env) {
+  const from = iso(today());
+  const until = iso(addDays(today(), ALERT_AHEAD_DAYS));
+  for (const kind of ALERT_KINDS) {
+    const mark = await env.STATS.prepare("SELECT last FROM alert_marks WHERE kind = ?").bind(kind).first();
+    const top = await env.STATS.prepare(`SELECT COALESCE(MAX(id), 0) AS id FROM ${kind}`).first();
+    if (!mark) {
+      // Первый запуск: всё, что уже было, — не новость.
+      await env.STATS.prepare("INSERT INTO alert_marks (kind, last) VALUES (?, ?)").bind(kind, top.id).run();
+      continue;
+    }
+    if (top.id <= mark.last) continue;
+    const { results = [] } = await env.STATS.prepare(`SELECT * FROM ${kind} WHERE id > ? ORDER BY id LIMIT 50`)
+      .bind(mark.last)
+      .all();
+    for (const row of results) {
+      const live = kind === "notices" ? row.expires > new Date().toISOString() : !row.removed && row.day >= from && row.day <= until;
+      if (live) await queueAlert(env, await alertRecipients(env, row.grp), alertText(kind, row));
+    }
+    const last = results.length ? results[results.length - 1].id : mark.last;
+    await env.STATS.prepare("UPDATE alert_marks SET last = ? WHERE kind = ?").bind(last, kind).run();
+  }
+}
+
+async function drainAlerts(env) {
+  const { results = [] } = await env.STATS.prepare(
+    "SELECT id, chat_id, text FROM alerts WHERE sent = 0 ORDER BY id LIMIT ?"
+  )
+    .bind(ALERT_BATCH)
+    .all();
+  const open = { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] };
+  for (const alert of results) {
+    let ok = false;
+    try {
+      const reply = await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: alert.chat_id, text: alert.text, reply_markup: open });
+      ok = Boolean(reply?.ok);
+    } catch {
+      ok = false;
+    }
+    await env.STATS.prepare("UPDATE alerts SET sent = ? WHERE id = ?").bind(ok ? 1 : 2, alert.id).run();
+  }
+  await env.STATS.prepare("DELETE FROM alerts WHERE sent != 0 AND created < ?")
+    .bind(new Date(Date.now() - 7 * 86400000).toISOString())
+    .run();
+}
+
+/* Расписание на сайте вуза поменялось: дважды в день сверяем пары каждой
+ * группы, у которой есть подписчики, на неделю вперёд с прошлым слепком.
+ * Новых дней не замечаем — сообщаем, только если поменялся уже известный
+ * день в ближайшие трое суток. Если поменялась бо́льшая часть групп
+ * факультета разом — это переразбор файла, а не новость: молчим. */
+
+const WATCH_TIMES = new Set(["08:10", "20:10"]);
+const WATCH_AHEAD = 7;
+const WATCH_TELL = 3;
+
+function dayParity(weeks, day) {
+  const found = (weeks || []).find((w) => w.from <= day && day <= w.to);
+  return found ? found.parity : null;
+}
+
+function dayLessons(schedule, group, day) {
+  const date = new Date(`${day}T00:00:00Z`);
+  const weekday = date.getUTCDay();
+  const parity = dayParity(schedule.weeks, day);
+  const bells = new Map((schedule.bells || []).map((b) => [b.n, b]));
+  const seen = new Set();
+  const out = [];
+  for (const l of schedule.lessons || []) {
+    if (l.group !== group) continue;
+    const on = l.dates ? l.dates.includes(day) : l.day === weekday && (l.week === "all" || !parity || l.week === parity);
+    if (!on) continue;
+    const start = l.start || bells.get(l.slot)?.start || "";
+    const line = `${start} ${l.subject}${l.room ? ` · ${l.room}` : ""}`;
+    if (seen.has(line)) continue;
+    seen.add(line);
+    out.push({ start, line, key: [start, l.end || "", l.subject, l.type || "", l.room || "", l.teacher || "", l.subgroup || 0, l.week].join("|") });
+  }
+  out.sort((a, b) => a.start.localeCompare(b.start) || a.line.localeCompare(b.line));
+  return out;
+}
+
+function fingerprint(list) {
+  const text = list.map((l) => l.key).sort().join("\n");
+  let h = 0x811c9dc5;
+  for (const char of text) h = Math.imul(h ^ char.codePointAt(0), 0x01000193) >>> 0;
+  return `${list.length}:${h.toString(36)}`;
+}
+
+async function watchSchedules(env) {
+  const { results = [] } = await env.STATS.prepare(
+    "SELECT DISTINCT grp FROM reminders WHERE changes = 1 AND grp != ''"
+  ).all();
+  const byTenant = new Map();
+  for (const { grp } of results) {
+    const slash = grp.indexOf("/");
+    const tenant = slash > 0 ? grp.slice(0, slash) : DEFAULT_TENANT;
+    if (!byTenant.has(tenant)) byTenant.set(tenant, []);
+    byTenant.get(tenant).push(grp);
+  }
+  const tenants = await loadJson("tenants.json").catch(() => []);
+  const days = Array.from({ length: WATCH_AHEAD }, (_, i) => iso(addDays(today(), i))).filter(
+    (day) => new Date(`${day}T00:00:00Z`).getUTCDay() !== 0
+  );
+  await env.STATS.prepare("DELETE FROM plan_hash WHERE day < ?").bind(days[0] || iso(today())).run();
+  for (const [tenantId, groups] of byTenant) {
+    const tenant = tenants.find((t) => t.id === tenantId);
+    if (!tenant) continue;
+    let schedule;
+    try {
+      schedule = await loadJson(`${tenant.path ? `${tenant.path}/` : ""}schedule.json`);
+    } catch {
+      continue;
+    }
+    const pending = [];
+    let changed = 0;
+    for (const grp of groups) {
+      const raw = tenantId === DEFAULT_TENANT ? grp : grp.slice(tenantId.length + 1);
+      let groupChanged = false;
+      for (const day of days) {
+        const list = dayLessons(schedule, raw, day);
+        const hash = fingerprint(list);
+        const old = await env.STATS.prepare("SELECT hash FROM plan_hash WHERE grp = ? AND day = ?").bind(grp, day).first();
+        if (old?.hash === hash) continue;
+        await env.STATS.prepare(
+          "INSERT INTO plan_hash (grp, day, hash) VALUES (?, ?, ?) ON CONFLICT(grp, day) DO UPDATE SET hash = excluded.hash"
+        )
+          .bind(grp, day, hash)
+          .run();
+        if (!old) continue;
+        groupChanged = true;
+        if (days.indexOf(day) < WATCH_TELL) pending.push({ grp, day, list });
+      }
+      changed += groupChanged ? 1 : 0;
+    }
+    if (!pending.length) continue;
+    if (groups.length >= 4 && changed / groups.length > 0.5) {
+      await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text: `Сверка расписаний: у ${tenantId} изменились ${changed} из ${groups.length} групп разом — похоже на переразбор, уведомления не отправлял.` }).catch(() => {});
+      continue;
+    }
+    for (const { grp, day, list } of pending) {
+      const lines = list.slice(0, 8).map((l) => l.line);
+      if (list.length > 8) lines.push(`…и ещё ${list.length - 8}`);
+      const text = [
+        `🗓 Расписание изменилось · ${groupTitle(grp)} · ${dateLabel(new Date(`${day}T00:00:00Z`))}`,
+        lines.length ? `Теперь:\n${lines.join("\n")}` : "Теперь пар в этот день нет.",
+      ].join("\n");
+      await queueAlert(env, await alertRecipients(env, grp), text);
+    }
+  }
+}
+
+async function runAlerts(env) {
+  await scanAlerts(env);
+  const now = new Date(Date.now() + 3 * 3600000);
+  const clock = `${String(now.getUTCHours()).padStart(2, "0")}:${String(now.getUTCMinutes()).padStart(2, "0")}`;
+  if (WATCH_TIMES.has(clock)) await watchSchedules(env);
+  await drainAlerts(env);
+}
+
 /* ---------- Напоминания ---------- */
 
 /**
@@ -1243,12 +1467,15 @@ async function saveReminders(env, body) {
   const shift = await shiftOf(body.group);
   // «Будильник» перед первой парой: от получаса до четырёх часов, 0 — выключен.
   const wake = Math.min(240, Math.max(0, Math.round(Number(body.wake) || 0)));
+  // Уведомления об изменениях: старые версии приложения поля не шлют — включены.
+  const changes = body.changes === false || body.changes === 0 ? 0 : 1;
   await env.STATS.prepare(
-    `INSERT INTO reminders (tg_id, grp, morning, before, updated, shift, wake) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO reminders (tg_id, grp, morning, before, updated, shift, wake, changes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(tg_id) DO UPDATE SET grp = excluded.grp, morning = excluded.morning,
-       before = excluded.before, updated = excluded.updated, shift = excluded.shift, wake = excluded.wake`
+       before = excluded.before, updated = excluded.updated, shift = excluded.shift, wake = excluded.wake,
+       changes = excluded.changes`
   )
-    .bind(user.id, String(body.group || ""), morning, before, new Date().toISOString(), shift, wake)
+    .bind(user.id, String(body.group || ""), morning, before, new Date().toISOString(), shift, wake, changes)
     .run();
 
   const plan = Array.isArray(body.plan) ? body.plan.slice(0, 240) : [];
@@ -3093,6 +3320,9 @@ const WATCH_NAMES = {
 // стучатся сюда — и их запросы уходят на новый сервер, в ту же базу.
 const MOVED_TO = "https://api.bodryash.ru";
 
+// Для проверки на копии базы (без Telegram).
+export { runAlerts, scanAlerts, watchSchedules };
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -4097,6 +4327,9 @@ ${invite}`,
           return REMIND_BATCH;
         });
         await drainOutbox(env, Math.min(BATCH, SEND_BUDGET - (used || 0)));
+        // Уведомления об изменениях — только на своём сервере: в облаке не
+        // хватило бы лимита обращений.
+        if (OWN_SERVER) await runAlerts(env).catch((error) => console.log("alerts failed", String(error?.message || error)));
       })()
     );
   },

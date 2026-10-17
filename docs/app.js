@@ -1326,6 +1326,8 @@ async function sendReminderSettings() {
     // Будильника перед первой парой больше нет. Ноль шлём всегда: у тех, кто
     // успел его включить, он так выключится и на сервере.
     wake: 0,
+    // Отмены, замены и изменения на сайте вуза — по умолчанию включены.
+    changes: prefs?.remindChanges !== false,
     plan: prefs?.remindMorning || prefs?.remindBefore ? reminderPlan() : [],
   };
   fetch(REMIND_URL, { method: "POST", body: JSON.stringify(body) }).catch(() => {
@@ -1421,6 +1423,7 @@ function fillReminders() {
   els.remindRow.hidden = !tg?.initData;
   els.remindMorning.checked = Boolean(prefs?.remindMorning);
   els.remindBefore.checked = Boolean(prefs?.remindBefore);
+  if (els.remindChanges) els.remindChanges.checked = prefs?.remindChanges !== false;
   if (els.remindWake) {
     els.remindWake.checked = Boolean(prefs?.remindWake);
     els.remindWakeLead.value = String(wakeLead());
@@ -1438,6 +1441,7 @@ function initReminders() {
       remindMorning: morning,
       remindBefore: before,
       remindWake: wake,
+      remindChanges: els.remindChanges ? els.remindChanges.checked : prefs?.remindChanges,
       remindWakeLead: Number(els.remindWakeLead?.value) || 120,
       // Выключили всё — значит, вопрос снова открыт: предложение вернётся.
       remindAsked: morning || before || wake ? true : false,
@@ -1448,6 +1452,7 @@ function initReminders() {
   };
   els.remindMorning?.addEventListener("change", save);
   els.remindBefore?.addEventListener("change", save);
+  els.remindChanges?.addEventListener("change", save);
   els.remindWake?.addEventListener("change", () => {
     haptic("light");
     save();
@@ -4281,6 +4286,7 @@ const els = {
   remindAsk: document.getElementById("remind-ask"),
   remindRow: document.getElementById("remind-row"),
   remindMorning: document.getElementById("remind-morning"),
+  remindChanges: document.getElementById("remind-changes"),
   remindBefore: document.getElementById("remind-before"),
   remindWake: document.getElementById("remind-wake"),
   remindWakeRow: document.getElementById("remind-wake-row"),
@@ -5621,6 +5627,7 @@ function collectPrefs() {
     mfk: prefs?.mfk || [],
     remindMorning: Boolean(prefs?.remindMorning),
     remindBefore: Boolean(prefs?.remindBefore),
+    remindChanges: prefs?.remindChanges,
     remindWake: Boolean(prefs?.remindWake),
     remindWakeLead: wakeLead(),
     remindAsked: Boolean(prefs?.remindAsked),
