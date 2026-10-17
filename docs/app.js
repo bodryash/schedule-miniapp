@@ -7518,8 +7518,28 @@ function initMenu() {
   els.menu.addEventListener("click", (event) => {
     event.stopPropagation();
     haptic("light");
-    if (pop.hidden) pop.hidden = false;
-    else close();
+    if (pop.hidden) {
+      // Меню встаёт под кнопкой, а носик смотрит ровно в её середину —
+      // так видно, откуда оно выросло. Считаем по месту кнопки на экране.
+      // Считаем по раскладке, а не по экрану: экранные координаты
+      // искажает масштаб страницы.
+      pop.hidden = false;
+      const parent = pop.offsetParent || document.body;
+      let x = 0;
+      let y = 0;
+      for (let node = els.menu; node && node !== parent; node = node.offsetParent) {
+        x += node.offsetLeft;
+        y += node.offsetTop;
+      }
+      // Носик — не ближе 24 px к краю меню, иначе он упирается в скругление
+      // угла. Меню может немного заходить за край колонки, но не за экран.
+      const center = x + els.menu.offsetWidth / 2;
+      const room = Math.max(0, parent.getBoundingClientRect().left - 6);
+      const right = Math.max(-room, parent.clientWidth - (center + 24));
+      pop.style.right = `${right}px`;
+      pop.style.top = `${y + els.menu.offsetHeight + 10}px`;
+      pop.style.setProperty("--nose-x", `${parent.clientWidth - right - (x + els.menu.offsetWidth / 2)}px`);
+    } else close();
   });
   pop.addEventListener("click", (event) => {
     const item = event.target.closest("[data-menu]");

@@ -8257,23 +8257,23 @@ body.msu .tabs {
 @keyframes menu-unfold {
   from {
     opacity: 0.4;
-    clip-path: circle(0 at calc(100% - 22px) 0);
+    clip-path: circle(0 at calc(100% - var(--nose-x, 22px)) 0);
     transform: scale(0.96);
   }
   to {
     opacity: 1;
-    clip-path: circle(150% at calc(100% - 22px) 0);
+    clip-path: circle(150% at calc(100% - var(--nose-x, 22px)) 0);
     transform: none;
   }
 }
 
 @keyframes menu-fold {
   from {
-    clip-path: circle(150% at calc(100% - 22px) 0);
+    clip-path: circle(150% at calc(100% - var(--nose-x, 22px)) 0);
   }
   to {
     opacity: 0;
-    clip-path: circle(0 at calc(100% - 22px) 0);
+    clip-path: circle(0 at calc(100% - var(--nose-x, 22px)) 0);
   }
 }
 
@@ -8290,4 +8290,18 @@ body.msu .tabs {
   .menu-pop button {
     animation: none;
   }
+}
+
+/* Носик меню: треугольник сверху, смотрит в середину кнопки «⋯». */
+.menu-pop::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  right: calc(var(--nose-x, 22px) - 7px);
+  width: 14px;
+  height: 14px;
+  border-radius: 3px 0 0 0;
+  background: color-mix(in srgb, var(--card) 62%, var(--bg));
+  box-shadow: inset 1px 1px 0 color-mix(in srgb, var(--text) 10%, transparent);
+  transform: rotate(45deg);
 }
