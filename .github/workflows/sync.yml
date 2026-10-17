@@ -52,7 +52,9 @@ jobs:
           PY
 
       - name: Указатель преподавателей по факультетам
-        run: python tools/teacher_map.py
+        run: |
+          python tools/teacher_map.py
+          python tools/teachers_index.py
 
       - name: Опубликовать изменения
         run: |
