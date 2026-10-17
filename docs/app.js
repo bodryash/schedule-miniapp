@@ -2940,9 +2940,21 @@ function renderStarostaAsk() {
   open.append(el("span", "starosta-ask-icon", "🎓"), text);
   open.addEventListener("click", () => {
     haptic("light");
-    const link = `${BOT_LINK}?start=starosta`;
-    if (tg?.openTelegramLink) tg.openTelegramLink(link);
-    else window.open(link, "_blank", "noopener");
+    // Плашку часто задевают случайно, листая день, — переспрашиваем.
+    const group = activeGroup();
+    const question = t("Вы староста группы {g}? Откроем бота, чтобы запросить права старосты.", { g: group?.title || "" });
+    const go = () => {
+      const link = `${BOT_LINK}?start=starosta`;
+      if (tg?.openTelegramLink) tg.openTelegramLink(link);
+      else window.open(link, "_blank", "noopener");
+    };
+    if (tg?.showConfirm && tg.isVersionAtLeast?.("6.2")) {
+      tg.showConfirm(question, (ok) => {
+        if (ok) go();
+      });
+    } else if (window.confirm(question)) {
+      go();
+    }
   });
   const close = el("button", "starosta-ask-close", "×");
   close.type = "button";
