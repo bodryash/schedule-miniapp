@@ -1276,7 +1276,12 @@ function alertText(kind, row) {
   return row.grp.startsWith("user:") ? `📢 Сообщение для вас\n${text}` : `📢 Объявление · ${where(row.grp)}\n${text}`;
 }
 
+// Пока функция на проверке, уведомления получает только владелец. На
+// публикации — true.
+const ALERTS_LIVE = false;
+
 async function queueAlert(env, recipients, text) {
+  if (!ALERTS_LIVE) recipients = recipients.filter((r) => String(r.id) === String(env.OWNER_ID));
   if (!recipients.length) return 0;
   const stamp = new Date().toISOString();
   const unique = [...new Set(recipients.map((r) => r.id))];
@@ -1448,6 +1453,12 @@ async function runAlerts(env) {
   const clock = `${String(now.getUTCHours()).padStart(2, "0")}:${String(now.getUTCMinutes()).padStart(2, "0")}`;
   if (WATCH_TIMES.has(clock)) await watchSchedules(env);
   await drainAlerts(env);
+}
+
+/** «09:05» → 545. */
+function minutesOfDay(time) {
+  const [h, m] = String(time).split(":").map(Number);
+  return h * 60 + (m || 0);
 }
 
 /* ---------- Напоминания ---------- */
@@ -1667,7 +1678,7 @@ async function dueReminders(env, now, shift, limit) {
   const room = limit - outgoing.length;
   if (room > 0 && now.minutes >= MORNING_FROM && now.minutes < MORNING_TO) {
     const { results: people = [] } = await env.STATS.prepare(
-      `SELECT r.tg_id FROM reminders r WHERE r.morning = 1 AND r.shift = ?
+      `SELECT r.tg_id, r.grp FROM reminders r WHERE r.morning = 1 AND r.shift = ?
        AND EXISTS (SELECT 1 FROM reminder_plan p WHERE p.tg_id = r.tg_id AND p.day = ?)
        AND NOT EXISTS (SELECT 1 FROM reminder_sent s WHERE s.tg_id = r.tg_id AND s.key = ?)
        LIMIT ?`
@@ -1685,6 +1696,15 @@ async function dueReminders(env, now, shift, limit) {
       )
         .bind(now.day, ...ids)
         .all();
+      // Отмены на сегодня — строкой в утренней сводке: план их уже не
+      // содержит, но человек должен знать, что пару убрали, а не забыли.
+      const { results: cancelled = [] } = await env.STATS.prepare(
+        "SELECT grp, slots, subject, subgroup, reason FROM cancels WHERE removed = 0 AND day = ?"
+      )
+        .bind(now.day)
+        .all();
+      const groups = cancelled.length ? new Map((await loadGroups().catch(() => [])).map((g) => [g.id, g])) : new Map();
+      const grpOf = new Map(people.map((p) => [p.tg_id, p.grp]));
 
       for (const id of ids) {
         // Одно время — одна строка, даже если предметов в это время несколько.
@@ -1700,12 +1720,28 @@ async function dueReminders(env, now, shift, limit) {
         if (!lessons.length) continue;
         for (const l of lessons) l.pairs = pairsIn(l.start, l.end);
         const total = lessons.reduce((sum, l) => sum + l.pairs, 0);
-        const lines = lessons.map(
-          (l) =>
+        const lines = [];
+        lessons.forEach((l, i) => {
+          // Окно между парами от 40 минут — отдельной строкой: его видно сразу.
+          const prev = lessons[i - 1];
+          if (prev?.end && l.start) {
+            const gap = minutesOfDay(l.start) - minutesOfDay(prev.end);
+            if (gap >= 40) lines.push(`☕ окно ${prev.end}–${l.start}`);
+          }
+          lines.push(
             `${l.start}–${l.end || "?"} · ${escape(l.subjects.join(" / "))}` +
-            (l.pairs > 1 ? ` (${l.pairs} ${pairsWord(l.pairs)} подряд)` : "") +
-            (l.room ? `\n      📍 ${escape(l.room)}` : "")
-        );
+              (l.pairs > 1 ? ` (${l.pairs} ${pairsWord(l.pairs)} подряд)` : "") +
+              (l.room ? `\n      📍 ${escape(l.room)}` : "")
+          );
+        });
+        const grp = grpOf.get(id) || "";
+        const group = groups.get(grp);
+        const mine = cancelled.filter((c) => c.grp === grp || (group && c.grp === courseOf(group)));
+        const cancelLines = mine.map((c) => {
+          const slots = c.slots ? c.slots.split(",").map(Number) : [];
+          const what = c.subject ? ` — ${escape(c.subject)}${c.subgroup ? ` (подгруппа ${c.subgroup})` : ""}` : "";
+          return `❌ отменено: ${slotsLabel(slots)}${what}${c.reason ? ` · ${escape(c.reason)}` : ""}`;
+        });
         outgoing.push({
           tg_id: id,
           key: `${now.day}|morning`,
@@ -1713,6 +1749,7 @@ async function dueReminders(env, now, shift, limit) {
             `☀️ Сегодня ${total === 1 ? "одна пара" : `пар: ${total}`}`,
             "",
             ...lines,
+            ...(cancelLines.length ? ["", ...cancelLines] : []),
             "",
             `Начало в ${lessons[0].start}, конец в ${lessons.at(-1).end || "?"}.`,
           ].join("\n"),
@@ -3321,7 +3358,7 @@ const WATCH_NAMES = {
 const MOVED_TO = "https://api.bodryash.ru";
 
 // Для проверки на копии базы (без Telegram).
-export { runAlerts, scanAlerts, watchSchedules };
+export { runAlerts, scanAlerts, watchSchedules, dueReminders };
 
 export default {
   async fetch(request, env) {

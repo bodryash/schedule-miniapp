@@ -23,7 +23,7 @@ const MFK_SLOT = /^межфакультетск|^мфк(?![а-яё])|факул[
 const ELECTIVE = "по выбору";
 
 // Большие расписания весят мегабайты — держим в памяти несколько последних.
-const CACHE_LIMIT = 8;
+const CACHE_LIMIT = 6;
 const CACHE_TTL = 30 * 60 * 1000;
 const cache = new Map();
 
