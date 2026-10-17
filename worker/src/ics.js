@@ -136,7 +136,7 @@ function tzOffset(tz) {
 
 const stamp = (date, time) => `${date.replace(/-/g, "")}T${time.replace(":", "")}00`;
 
-export async function handleIcs(url) {
+export async function handleIcs(url, request) {
   const match = url.pathname.match(/^\/ics\/([a-z0-9-]+)\/(.+)\.ics$/);
   if (!match) return new Response("Not found", { status: 404 });
   const tenantId = match[1];
@@ -144,7 +144,10 @@ export async function handleIcs(url) {
   const prefs = readPrefs(url.searchParams.get("f"));
   // Из Telegram открываются только http(s): отсюда отправляем на webcals:// — та же подписка, но сразу по https: по webcal:// iPhone идёт на http, а перенаправление на https календарь не принимает,
   // и iPhone сам предлагает подписаться.
-  if (url.searchParams.has("open")) {
+  // Приложение календаря может прийти и по этому же адресу — ему отдаём сам файл.
+  const agent = request?.headers.get("user-agent") || "";
+  const browser = /Mozilla|Safari|AppleWebKit/.test(agent) && !/dataaccessd|CalendarAgent|calaccessd/i.test(agent);
+  if (url.searchParams.has("open") && browser) {
     const target = new URL(url);
     target.searchParams.delete("open");
     target.protocol = "https:";

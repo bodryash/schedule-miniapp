@@ -3095,7 +3095,7 @@ export default {
 
     // Подписка на расписание в календаре телефона — см. ics.js.
     if (url.pathname.startsWith("/ics/")) {
-      if (request.method === "GET" || request.method === "HEAD") return handleIcs(url);
+      if (request.method === "GET" || request.method === "HEAD") return handleIcs(url, request);
       // iPhone перед подпиской проверяет, не CalDAV ли это (PROPFIND). Ответ
       // «200 ok» сбивал его с толку: «не удалось выполнить проверку».
       return new Response(null, { status: 405, headers: { Allow: "GET, HEAD" } });
