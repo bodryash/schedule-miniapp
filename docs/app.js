@@ -5170,6 +5170,160 @@ function weekDates(weeks, day, parity) {
   return out;
 }
 
+/* ---------- Сессия ----------
+ * Экзамены, зачёты и консультации — те же занятия расписания, только с
+ * датами и особым видом («экзамен», «семинар+зачет», «консультации перед
+ * экзаменом»). Собираем ближайшие и показываем отдельным окном, а за две
+ * недели до первого экзамена — плашкой над расписанием.
+ */
+const EXAM_KIND = /экзам|зач[её]т|консультац|аттестац|защит/i;
+const EXAM_BANNER_DAYS = 14;
+let examSheet = null;
+let examBox = null;
+
+function examKind(lesson) {
+  const text = `${lesson.type || ""} ${lesson.subject}`.toLowerCase();
+  if (/консультац/.test(text)) return t("Консультация");
+  if (/защит/.test(text)) return t("Защита");
+  if (/экзам/.test(text)) return t("Экзамен");
+  if (/зач[её]т/.test(text)) return t("Зачёт");
+  return t("Аттестация");
+}
+
+/** Ближайшие экзамены группы или преподавателя: по датам, от сегодня. */
+function upcomingExams() {
+  const group = activeGroup();
+  if (!group || !data) return [];
+  const today = isoDate(new Date());
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  const own = group.teacher
+    ? data.lessons.filter((l) => teachersOf(l.teacher).some((p) => p.key === group.teacher))
+    : lessonsOf(group.id).filter((l) => matchesPrefs(l));
+  const seen = new Set();
+  const out = [];
+  for (const lesson of own) {
+    if (!lesson.dates || !EXAM_KIND.test(`${lesson.type || ""} ${lesson.subject}`)) continue;
+    const time = timesOf(lesson, bells);
+    for (const day of lesson.dates) {
+      if (day < today) continue;
+      const key = [day, time?.start, lesson.subject, examKind(lesson)].join("|");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ day, start: time?.start || "", end: time?.end || "", subject: lesson.subject, kind: examKind(lesson), room: lesson.room || "", teacher: lesson.teacher || "", lesson });
+    }
+  }
+  return out.sort((a, b) => (a.day + a.start).localeCompare(b.day + b.start));
+}
+
+function daysTill(day) {
+  return daysUntil(day);
+}
+
+function tillLabel(n) {
+  if (n === 0) return t("сегодня");
+  if (n === 1) return t("завтра");
+  if (LANG !== "ru") return t("через {n} дн.", { n });
+  const tens = n % 100;
+  const ones = n % 10;
+  const word = tens >= 11 && tens <= 14 ? "дней" : ones === 1 ? "день" : ones >= 2 && ones <= 4 ? "дня" : "дней";
+  return `через ${n} ${word}`;
+}
+
+/** Плашка над расписанием: ближайший экзамен в пределах двух недель. */
+function renderExamBanner() {
+  if (!examBox) {
+    examBox = el("div", "exam-box");
+    (document.getElementById("remind-ask") || els.days).before(examBox);
+  }
+  const next = upcomingExams().find((e) => e.kind !== t("Консультация"));
+  const days = next ? daysTill(next.day) : null;
+  if (!next || days > EXAM_BANNER_DAYS) {
+    examBox.replaceChildren();
+    return;
+  }
+  const card = el("button", `exam-banner${days <= 3 ? " exam-banner--soon" : ""}`);
+  card.type = "button";
+  card.append(
+    el("span", "exam-icon", "🎓"),
+    el("span", "exam-text", `${next.kind} · ${next.subject}`),
+    el("span", "exam-till", tillLabel(days))
+  );
+  card.addEventListener("click", () => {
+    haptic("light");
+    openExams();
+  });
+  examBox.replaceChildren(card);
+}
+
+function openExams() {
+  if (!data) return;
+  if (!examSheet) {
+    examSheet = el("div", "sheet-backdrop");
+    examSheet.hidden = true;
+    const sheet = el("div", "sheet sheet--abs sheet--exams");
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    const top = el("div", "sheet-top");
+    const close = el("button", "icon", "×");
+    close.type = "button";
+    close.setAttribute("aria-label", t("Закрыть"));
+    close.addEventListener("click", closeExams);
+    top.append(el("h2", "", t("Сессия")), close);
+    sheet.append(top, el("div", "exam-body"));
+    examSheet.append(sheet);
+    examSheet.addEventListener("click", (event) => {
+      if (event.target === examSheet) closeExams();
+    });
+    document.body.append(examSheet);
+  }
+  renderExams();
+  examSheet.classList.remove("sheet-backdrop--out");
+  examSheet.hidden = false;
+}
+
+function closeExams() {
+  const sheet = examSheet;
+  if (!sheet || sheet.hidden || sheet.classList.contains("sheet-backdrop--out")) return;
+  haptic("light");
+  sheet.classList.add("sheet-backdrop--out");
+  setTimeout(() => {
+    sheet.hidden = true;
+    sheet.classList.remove("sheet-backdrop--out");
+  }, 260);
+}
+
+function renderExams() {
+  const body = examSheet.querySelector(".exam-body");
+  const list = upcomingExams();
+  if (!list.length) {
+    body.replaceChildren(
+      el("p", "empty", t("Экзаменов в расписании пока нет")),
+      el("p", "hint", t("Когда вуз выложит расписание сессии, экзамены и зачёты появятся здесь сами. Если ваш факультет присылает сессию файлом — пришлите его боту."))
+    );
+    return;
+  }
+  const nodes = [];
+  let lastDay = "";
+  for (const exam of list) {
+    if (exam.day !== lastDay) {
+      lastDay = exam.day;
+      const label = FULL_DATE.format(new Date(`${exam.day}T12:00:00`));
+      const head = el("div", "exam-day");
+      head.append(el("span", "", label[0].toUpperCase() + label.slice(1)), el("span", "exam-day-till", tillLabel(daysTill(exam.day))));
+      nodes.push(head);
+    }
+    const row = el("div", `exam-row${exam.kind === t("Консультация") ? " exam-row--soft" : ""}`);
+    const when = el("div", "exam-when", exam.start ? `${exam.start}${exam.end ? `–${exam.end}` : ""}` : "");
+    const what = el("div", "exam-what");
+    what.append(el("span", "exam-kind", exam.kind), el("b", "", tr(exam.subject)));
+    const meta = [exam.room && t("ауд. {room}", { room: exam.room }), exam.teacher].filter(Boolean).join(" · ");
+    if (meta) what.append(el("span", "exam-meta", meta));
+    row.append(when, what);
+    nodes.push(row);
+  }
+  body.replaceChildren(...nodes);
+}
+
 /* ---------- Подписка в календаре телефона ---------- */
 
 let calendarSheet = null;
@@ -5918,6 +6072,7 @@ function showSchedule() {
   renderDays();
   renderRemindAsk();
   renderEvent();
+  renderExamBanner();
   renderLessons(group, parity);
   loadNotes().then(applyNotes);
   noticesReady = loadNotices(group);
@@ -7287,11 +7442,21 @@ function initMenu() {
     if (item.dataset.menu === "invite") inviteGroup(item);
     if (item.dataset.menu === "rooms") showFree();
     if (item.dataset.menu === "calendar") openCalendar();
+    if (item.dataset.menu === "exams") openExams();
     if (item.dataset.menu === "settings") showPicker();
     if (item.dataset.menu === "absences") openAbsences();
     if (item.dataset.menu === "semester") openSemester();
     if (item.dataset.menu === "meet") openMeet();
   });
+  if (!pop.querySelector('[data-menu="exams"]')) {
+    const item = el("button");
+    item.type = "button";
+    item.dataset.menu = "exams";
+    item.append(el("span", "", "🎓"), el("span", "", t("Сессия")));
+    const semester = pop.querySelector('[data-menu="semester"]') || pop.querySelector('[data-menu="settings"]');
+    if (semester) semester.before(item);
+    else pop.append(item);
+  }
   // Пункт календаря добавляем сами: в закэшированной старой разметке его нет.
   if (!pop.querySelector('[data-menu="calendar"]')) {
     const item = el("button");
