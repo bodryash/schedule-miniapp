@@ -55,12 +55,13 @@ jobs:
         run: |
           python tools/teacher_map.py
           python tools/teachers_index.py
+          python tools/landing_pages.py
 
       - name: Опубликовать изменения
         run: |
           git config user.name "schedule-bot"
           git config user.email "schedule-bot@users.noreply.github.com"
-          git add docs/data
+          git add docs/data docs/f docs/sitemap.xml
           if git diff --cached --quiet; then
             echo "Расписания не изменились."
           else
