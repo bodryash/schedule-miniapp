@@ -1326,6 +1326,8 @@ async function sendReminderSettings() {
     // Будильника перед первой парой больше нет. Ноль шлём всегда: у тех, кто
     // успел его включить, он так выключится и на сервере.
     wake: 0,
+    // Отмены, замены и изменения на сайте вуза — по умолчанию включены.
+    changes: prefs?.remindChanges !== false,
     plan: prefs?.remindMorning || prefs?.remindBefore ? reminderPlan() : [],
   };
   fetch(REMIND_URL, { method: "POST", body: JSON.stringify(body) }).catch(() => {
@@ -1421,6 +1423,7 @@ function fillReminders() {
   els.remindRow.hidden = !tg?.initData;
   els.remindMorning.checked = Boolean(prefs?.remindMorning);
   els.remindBefore.checked = Boolean(prefs?.remindBefore);
+  if (els.remindChanges) els.remindChanges.checked = prefs?.remindChanges !== false;
   if (els.remindWake) {
     els.remindWake.checked = Boolean(prefs?.remindWake);
     els.remindWakeLead.value = String(wakeLead());
@@ -1438,6 +1441,7 @@ function initReminders() {
       remindMorning: morning,
       remindBefore: before,
       remindWake: wake,
+      remindChanges: els.remindChanges ? els.remindChanges.checked : prefs?.remindChanges,
       remindWakeLead: Number(els.remindWakeLead?.value) || 120,
       // Выключили всё — значит, вопрос снова открыт: предложение вернётся.
       remindAsked: morning || before || wake ? true : false,
@@ -1448,6 +1452,7 @@ function initReminders() {
   };
   els.remindMorning?.addEventListener("change", save);
   els.remindBefore?.addEventListener("change", save);
+  els.remindChanges?.addEventListener("change", save);
   els.remindWake?.addEventListener("change", () => {
     haptic("light");
     save();
@@ -4281,6 +4286,7 @@ const els = {
   remindAsk: document.getElementById("remind-ask"),
   remindRow: document.getElementById("remind-row"),
   remindMorning: document.getElementById("remind-morning"),
+  remindChanges: document.getElementById("remind-changes"),
   remindBefore: document.getElementById("remind-before"),
   remindWake: document.getElementById("remind-wake"),
   remindWakeRow: document.getElementById("remind-wake-row"),
@@ -5164,12 +5170,255 @@ function weekDates(weeks, day, parity) {
   return out;
 }
 
+/* ---------- Сессия ----------
+ * Экзамены, зачёты и консультации — те же занятия расписания, только с
+ * датами и особым видом («экзамен», «семинар+зачет», «консультации перед
+ * экзаменом»). Собираем ближайшие и показываем отдельным окном, а за две
+ * недели до первого экзамена — плашкой над расписанием.
+ */
+const EXAM_KIND = /экзам|зач[её]т|консультац|аттестац|защит/i;
+const EXAM_BANNER_DAYS = 14;
+let examSheet = null;
+let examBox = null;
+
+function examKind(lesson) {
+  const text = `${lesson.type || ""} ${lesson.subject}`.toLowerCase();
+  if (/консультац/.test(text)) return t("Консультация");
+  if (/защит/.test(text)) return t("Защита");
+  if (/экзам/.test(text)) return t("Экзамен");
+  if (/зач[её]т/.test(text)) return t("Зачёт");
+  return t("Аттестация");
+}
+
+/** Ближайшие экзамены группы или преподавателя: по датам, от сегодня. */
+function upcomingExams() {
+  const group = activeGroup();
+  if (!group || !data) return [];
+  const today = isoDate(new Date());
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  const own = group.teacher
+    ? data.lessons.filter((l) => teachersOf(l.teacher).some((p) => p.key === group.teacher))
+    : lessonsOf(group.id).filter((l) => matchesPrefs(l));
+  const seen = new Set();
+  const out = [];
+  for (const lesson of own) {
+    if (!lesson.dates || !EXAM_KIND.test(`${lesson.type || ""} ${lesson.subject}`)) continue;
+    const time = timesOf(lesson, bells);
+    for (const day of lesson.dates) {
+      if (day < today) continue;
+      const key = [day, time?.start, lesson.subject, examKind(lesson)].join("|");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ day, start: time?.start || "", end: time?.end || "", subject: lesson.subject, kind: examKind(lesson), room: lesson.room || "", teacher: lesson.teacher || "", lesson });
+    }
+  }
+  return out.sort((a, b) => (a.day + a.start).localeCompare(b.day + b.start));
+}
+
+function daysTill(day) {
+  return daysUntil(day);
+}
+
+function tillLabel(n) {
+  if (n === 0) return t("сегодня");
+  if (n === 1) return t("завтра");
+  if (LANG !== "ru") return t("через {n} дн.", { n });
+  const tens = n % 100;
+  const ones = n % 10;
+  const word = tens >= 11 && tens <= 14 ? "дней" : ones === 1 ? "день" : ones >= 2 && ones <= 4 ? "дня" : "дней";
+  return `через ${n} ${word}`;
+}
+
+/** Плашка над расписанием: ближайший экзамен в пределах двух недель. */
+function renderExamBanner() {
+  if (!examBox) {
+    examBox = el("div", "exam-box");
+    (document.getElementById("remind-ask") || els.days).before(examBox);
+  }
+  const next = upcomingExams().find((e) => e.kind !== t("Консультация"));
+  const days = next ? daysTill(next.day) : null;
+  if (!next || days > EXAM_BANNER_DAYS) {
+    examBox.replaceChildren();
+    return;
+  }
+  const card = el("button", `exam-banner${days <= 3 ? " exam-banner--soon" : ""}`);
+  card.type = "button";
+  card.append(
+    el("span", "exam-icon", "🎓"),
+    el("span", "exam-text", `${next.kind} · ${next.subject}`),
+    el("span", "exam-till", tillLabel(days))
+  );
+  card.addEventListener("click", () => {
+    haptic("light");
+    openExams();
+  });
+  examBox.replaceChildren(card);
+}
+
+function openExams() {
+  if (!data) return;
+  if (!examSheet) {
+    examSheet = el("div", "sheet-backdrop");
+    examSheet.hidden = true;
+    const sheet = el("div", "sheet sheet--abs sheet--exams");
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    const top = el("div", "sheet-top");
+    const close = el("button", "icon", "×");
+    close.type = "button";
+    close.setAttribute("aria-label", t("Закрыть"));
+    close.addEventListener("click", closeExams);
+    top.append(el("h2", "", t("Сессия")), close);
+    sheet.append(top, el("div", "exam-body"));
+    examSheet.append(sheet);
+    examSheet.addEventListener("click", (event) => {
+      if (event.target === examSheet) closeExams();
+    });
+    document.body.append(examSheet);
+  }
+  renderExams();
+  examSheet.classList.remove("sheet-backdrop--out");
+  examSheet.hidden = false;
+}
+
+function closeExams() {
+  const sheet = examSheet;
+  if (!sheet || sheet.hidden || sheet.classList.contains("sheet-backdrop--out")) return;
+  haptic("light");
+  sheet.classList.add("sheet-backdrop--out");
+  setTimeout(() => {
+    sheet.hidden = true;
+    sheet.classList.remove("sheet-backdrop--out");
+  }, 260);
+}
+
+function renderExams() {
+  const body = examSheet.querySelector(".exam-body");
+  const list = upcomingExams();
+  if (!list.length) {
+    body.replaceChildren(
+      el("p", "empty", t("Экзаменов в расписании пока нет")),
+      el("p", "hint", t("Когда вуз выложит расписание сессии, экзамены и зачёты появятся здесь сами. Если ваш факультет присылает сессию файлом — пришлите его боту."))
+    );
+    return;
+  }
+  const nodes = [];
+  let lastDay = "";
+  for (const exam of list) {
+    if (exam.day !== lastDay) {
+      lastDay = exam.day;
+      const label = FULL_DATE.format(new Date(`${exam.day}T12:00:00`));
+      const head = el("div", "exam-day");
+      head.append(el("span", "", label[0].toUpperCase() + label.slice(1)), el("span", "exam-day-till", tillLabel(daysTill(exam.day))));
+      nodes.push(head);
+    }
+    const row = el("div", `exam-row${exam.kind === t("Консультация") ? " exam-row--soft" : ""}`);
+    const when = el("div", "exam-when", exam.start ? `${exam.start}${exam.end ? `–${exam.end}` : ""}` : "");
+    const what = el("div", "exam-what");
+    what.append(el("span", "exam-kind", exam.kind), el("b", "", tr(exam.subject)));
+    const meta = [exam.room && t("ауд. {room}", { room: exam.room }), exam.teacher].filter(Boolean).join(" · ");
+    if (meta) what.append(el("span", "exam-meta", meta));
+    row.append(when, what);
+    nodes.push(row);
+  }
+  body.replaceChildren(...nodes);
+}
+
+/* ---------- Где аудитория ----------
+ * Нажатие на плашку аудитории — окно с корпусом и кнопкой «Открыть в
+ * Яндекс Картах». Корпус угадываем по записи аудитории («ГЗ», «1 ГУМ»,
+ * «химфак», «Шуваловский корп»), иначе ведём к зданию факультета: оно
+ * у большинства и есть место занятий.
+ */
+const BUILDINGS = [
+  [/шувалов|4\s*гум/i, "Шуваловский корпус МГУ"],
+  [/1\s*гум/i, "Первый гуманитарный корпус МГУ"],
+  [/2\s*гум/i, "Второй гуманитарный корпус МГУ"],
+  [/3\s*гум/i, "Третий гуманитарный корпус МГУ"],
+  [/(^|[^а-яё])гз([^а-яё]|$)|главн[а-яё]* здани/i, "Главное здание МГУ"],
+  [/химфак|^бха$/i, "Химический факультет МГУ"],
+  [/^бба$/i, "Биологический факультет МГУ"],
+  [/почвовед/i, "Факультет почвоведения МГУ"],
+  [/спортбаз|с\/база|спорткомплекс/i, "Спортивный комплекс МГУ"],
+];
+
+let mapSheet = null;
+
+/** Корпус аудитории: по её записи, а нет — здание факультета. */
+function buildingOf(room) {
+  const text = String(room || "");
+  const here = tenant();
+  const msu = here.university === "МГУ";
+  for (const [pattern, name] of BUILDINGS) {
+    if (pattern.test(text) && (msu || !/МГУ/.test(name))) return { name, guessed: true };
+  }
+  // Мехмат и геофак занимают этажи Главного здания: «1624» — 16-й этаж ГЗ.
+  if (["msu-mm", "msu-geo"].includes(here.id) && /^\d{4}$/.test(text.trim())) return { name: "Главное здание МГУ", guessed: true };
+  // Корпус в скобках: «Е-250 (Шуваловский корп)», «599-Л (ф-т Почвоведения)».
+  const inside = text.match(/\(([^)]*(корп|ф-т|факультет|здани)[^)]*)\)/i);
+  if (inside) return { name: `${here.university} ${inside[1]}`, guessed: true };
+  return { name: `${here.university} ${here.faculty}`, guessed: false };
+}
+
+function openRoomMap(room) {
+  if (!room || REMOTE_ROOMS.includes(String(room).toLowerCase())) return;
+  if (!mapSheet) {
+    mapSheet = el("div", "sheet-backdrop");
+    mapSheet.hidden = true;
+    const sheet = el("div", "sheet sheet--abs sheet--map");
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    const top = el("div", "sheet-top");
+    const close = el("button", "icon", "×");
+    close.type = "button";
+    close.setAttribute("aria-label", t("Закрыть"));
+    close.addEventListener("click", closeRoomMap);
+    top.append(el("h2", "map-title"), close);
+    sheet.append(top, el("div", "map-body"));
+    mapSheet.append(sheet);
+    mapSheet.addEventListener("click", (event) => {
+      if (event.target === mapSheet) closeRoomMap();
+    });
+    document.body.append(mapSheet);
+  }
+  const place = buildingOf(room);
+  mapSheet.querySelector(".map-title").textContent = roomLabel(room);
+  const open = el("button", "cal-btn", t("Открыть в Яндекс Картах"));
+  open.type = "button";
+  open.addEventListener("click", () => {
+    haptic("light");
+    openOutside(`https://yandex.ru/maps/?text=${encodeURIComponent(place.name)}`);
+  });
+  mapSheet.querySelector(".map-body").replaceChildren(
+    el("p", "map-where", place.name),
+    open,
+    el("p", "hint", place.guessed
+      ? t("Корпус определён по записи аудитории в расписании. Внутри здания ищите по номеру.")
+      : t("Показываем здание факультета. Если пара в другом корпусе, он обычно указан рядом с номером аудитории."))
+  );
+  mapSheet.classList.remove("sheet-backdrop--out");
+  mapSheet.hidden = false;
+}
+
+function closeRoomMap() {
+  const sheet = mapSheet;
+  if (!sheet || sheet.hidden || sheet.classList.contains("sheet-backdrop--out")) return;
+  haptic("light");
+  sheet.classList.add("sheet-backdrop--out");
+  setTimeout(() => {
+    sheet.hidden = true;
+    sheet.classList.remove("sheet-backdrop--out");
+  }, 260);
+}
+
 /* ---------- Подписка в календаре телефона ---------- */
 
 let calendarSheet = null;
 
 /** Ссылка на расписание группы в формате календаря — с выбранными языками и курсами. */
 function calendarUrl() {
+  // Преподаватель — его пары на всех факультетах вуза, как в приложении.
+  if (prefs.teacher) return `${API_URL}/ics/${tenantId()}/teacher/${encodeURIComponent(prefs.teacher)}.ics`;
   const group = groupById(prefs.group);
   if (!group) return "";
   const id = tenantId();
@@ -5179,6 +5428,7 @@ function calendarUrl() {
     if (prefs[name] != null && prefs[name] !== "") keep[name] = prefs[name];
   }
   if (prefs.electives?.length) keep.electives = prefs.electives;
+  if (mfkAvailable() && prefs.mfk?.length) keep.mfk = prefs.mfk;
   const json = JSON.stringify(keep);
   const query = json === "{}" ? "" : `?f=${btoa(String.fromCharCode(...new TextEncoder().encode(json))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")}`;
   return `${API_URL}/ics/${id}/${encodeURIComponent(raw)}.ics${query}`;
@@ -5228,7 +5478,7 @@ function closeCalendar() {
 
 function renderCalendar() {
   const body = calendarSheet.querySelector(".cal-body");
-  const url = prefs.teacher ? "" : calendarUrl();
+  const url = calendarUrl();
   if (!url) {
     body.replaceChildren(el("p", "hint", t("Календарь пока собирается только для группы студента. Выберите группу в настройках.")));
     return;
@@ -5278,8 +5528,10 @@ function renderCalendar() {
     google,
     apple,
     copy,
-    el("p", "hint", t("Яндекс, Outlook и другие: «Добавить календарь по ссылке» — вставьте скопированную ссылку. Учтены ваши языки и курсы по выбору; отмены и переносы от старосты видны только в приложении.")),
-    el("p", "hint", t("В ссылке только факультет, группа и выбранные предметы — без имени и Telegram."))
+    el("p", "hint", t("Яндекс, Outlook и другие: «Добавить календарь по ссылке» — вставьте скопированную ссылку. Учтены ваши языки, курсы по выбору и МФК, а отмены и замены появляются в календаре сами.")),
+    el("p", "hint", prefs.teacher
+      ? t("В ссылке только факультет и фамилия из расписания — без Telegram.")
+      : t("В ссылке только факультет, группа и выбранные предметы — без имени и Telegram."))
   );
 }
 
@@ -5621,6 +5873,7 @@ function collectPrefs() {
     mfk: prefs?.mfk || [],
     remindMorning: Boolean(prefs?.remindMorning),
     remindBefore: Boolean(prefs?.remindBefore),
+    remindChanges: prefs?.remindChanges,
     remindWake: Boolean(prefs?.remindWake),
     remindWakeLead: wakeLead(),
     remindAsked: Boolean(prefs?.remindAsked),
@@ -5906,6 +6159,7 @@ function showSchedule() {
   renderDays();
   renderRemindAsk();
   renderEvent();
+  renderExamBanner();
   renderLessons(group, parity);
   loadNotes().then(applyNotes);
   noticesReady = loadNotices(group);
@@ -7259,13 +7513,33 @@ function initMenu() {
     setTimeout(() => {
       pop.hidden = true;
       pop.classList.remove("menu-pop--out");
-    }, 160);
+    }, 200);
   };
   els.menu.addEventListener("click", (event) => {
     event.stopPropagation();
     haptic("light");
-    if (pop.hidden) pop.hidden = false;
-    else close();
+    if (pop.hidden) {
+      // Меню встаёт под кнопкой, а носик смотрит ровно в её середину —
+      // так видно, откуда оно выросло. Считаем по месту кнопки на экране.
+      // Считаем по раскладке, а не по экрану: экранные координаты
+      // искажает масштаб страницы.
+      pop.hidden = false;
+      const parent = pop.offsetParent || document.body;
+      let x = 0;
+      let y = 0;
+      for (let node = els.menu; node && node !== parent; node = node.offsetParent) {
+        x += node.offsetLeft;
+        y += node.offsetTop;
+      }
+      // Носик — по возможности в 24 px от края меню. За край колонки меню
+      // не выходит: там его обрезает; правый верхний угол у него поэтому
+      // скруглён меньше, чтобы носик у самого края в скругление не упирался.
+      const center = x + els.menu.offsetWidth / 2;
+      const right = Math.max(0, parent.clientWidth - (center + 24));
+      pop.style.right = `${right}px`;
+      pop.style.top = `${y + els.menu.offsetHeight + 10}px`;
+      pop.style.setProperty("--nose-x", `${parent.clientWidth - right - (x + els.menu.offsetWidth / 2)}px`);
+    } else close();
   });
   pop.addEventListener("click", (event) => {
     const item = event.target.closest("[data-menu]");
@@ -7275,11 +7549,21 @@ function initMenu() {
     if (item.dataset.menu === "invite") inviteGroup(item);
     if (item.dataset.menu === "rooms") showFree();
     if (item.dataset.menu === "calendar") openCalendar();
+    if (item.dataset.menu === "exams") openExams();
     if (item.dataset.menu === "settings") showPicker();
     if (item.dataset.menu === "absences") openAbsences();
     if (item.dataset.menu === "semester") openSemester();
     if (item.dataset.menu === "meet") openMeet();
   });
+  if (!pop.querySelector('[data-menu="exams"]')) {
+    const item = el("button");
+    item.type = "button";
+    item.dataset.menu = "exams";
+    item.append(el("span", "", "🎓"), el("span", "", t("Сессия")));
+    const semester = pop.querySelector('[data-menu="semester"]') || pop.querySelector('[data-menu="settings"]');
+    if (semester) semester.before(item);
+    else pop.append(item);
+  }
   // Пункт календаря добавляем сами: в закэшированной старой разметке его нет.
   if (!pop.querySelector('[data-menu="calendar"]')) {
     const item = el("button");
@@ -8062,7 +8346,17 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
   // временем конца пары: низ карточки читается как «до скольких и где».
   if (single && first.room) {
     card.classList.add("card--room");
-    card.append(roomBadge(first.room));
+    const badge = roomBadge(first.room);
+    // Нажатие на аудиторию — где это на карте.
+    if (!badge.classList.contains("room-badge--remote")) {
+      badge.setAttribute("role", "button");
+      badge.addEventListener("click", (event) => {
+        event.stopPropagation();
+        haptic("light");
+        openRoomMap(first.room);
+      });
+    }
+    card.append(badge);
   }
   return card;
 }

@@ -1278,7 +1278,7 @@ function alertText(kind, row) {
 
 // Пока функция на проверке, уведомления получает только владелец. На
 // публикации — true.
-const ALERTS_LIVE = false;
+const ALERTS_LIVE = true;
 
 async function queueAlert(env, recipients, text) {
   if (!ALERTS_LIVE) recipients = recipients.filter((r) => String(r.id) === String(env.OWNER_ID));
