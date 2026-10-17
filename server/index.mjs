@@ -42,6 +42,7 @@ for (const change of [
   "ALTER TABLE broadcasts ADD COLUMN audience TEXT NOT NULL DEFAULT ''",
   "ALTER TABLE broadcasts ADD COLUMN media_kind TEXT NOT NULL DEFAULT ''",
   "ALTER TABLE broadcasts ADD COLUMN media_id TEXT NOT NULL DEFAULT ''",
+  "ALTER TABLE reminders ADD COLUMN changes INTEGER NOT NULL DEFAULT 1",
 ]) {
   try {
     STATS.raw.exec(change);
