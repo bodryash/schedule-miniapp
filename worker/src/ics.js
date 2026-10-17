@@ -122,6 +122,18 @@ function hash(text) {
   return h.toString(36);
 }
 
+/** «Europe/Samara» → «+0400». */
+function tzOffset(tz) {
+  try {
+    const text = new Date().toLocaleString("en-US", { timeZone: tz, timeZoneName: "longOffset" });
+    const m = text.match(/GMT([+-]\d{2}):?(\d{2})?/);
+    if (m) return `${m[1]}${m[2] || "00"}`;
+  } catch {
+    // Неизвестный пояс — считаем московским.
+  }
+  return "+0300";
+}
+
 const stamp = (date, time) => `${date.replace(/-/g, "")}T${time.replace(":", "")}00`;
 
 export async function handleIcs(url) {
@@ -166,6 +178,16 @@ export async function handleIcs(url) {
     `X-WR-TIMEZONE:${tz}`,
     "REFRESH-INTERVAL;VALUE=DURATION:PT6H",
     "X-PUBLISHED-TTL:PT6H",
+    // Описание пояса: без него часть календарей отказывается от подписки.
+    // В России перехода на летнее время нет — одного смещения хватает.
+    "BEGIN:VTIMEZONE",
+    `TZID:${tz}`,
+    "BEGIN:STANDARD",
+    "DTSTART:19700101T000000",
+    `TZOFFSETFROM:${tzOffset(tz)}`,
+    `TZOFFSETTO:${tzOffset(tz)}`,
+    "END:STANDARD",
+    "END:VTIMEZONE",
   ];
   const now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
   const seen = new Set();
