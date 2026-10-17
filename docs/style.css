@@ -8224,3 +8224,70 @@ body.msu .tabs {
 .sheet--map .hint {
   margin: 0;
 }
+
+/* --- Меню «⋯»: раскрывается из самой кнопки ---
+   Круг растёт из правого верхнего угла, где стоит «⋯», с лёгкой пружинкой,
+   а пункты выезжают по очереди сверху вниз. Закрывается обратным кругом. */
+.menu-pop {
+  animation: menu-unfold 420ms cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+
+.menu-pop--out {
+  animation: menu-fold 200ms cubic-bezier(0.55, 0, 0.75, 0.2) forwards;
+}
+
+.menu-pop button {
+  animation: menu-item-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.menu-pop button:nth-child(1) { animation-delay: 40ms; }
+.menu-pop button:nth-child(2) { animation-delay: 70ms; }
+.menu-pop button:nth-child(3) { animation-delay: 100ms; }
+.menu-pop button:nth-child(4) { animation-delay: 130ms; }
+.menu-pop button:nth-child(5) { animation-delay: 160ms; }
+.menu-pop button:nth-child(6) { animation-delay: 190ms; }
+.menu-pop button:nth-child(7) { animation-delay: 220ms; }
+.menu-pop button:nth-child(8) { animation-delay: 250ms; }
+.menu-pop button:nth-child(n + 9) { animation-delay: 280ms; }
+
+.menu-pop--out button {
+  animation: none;
+}
+
+@keyframes menu-unfold {
+  from {
+    opacity: 0.4;
+    clip-path: circle(0 at calc(100% - 22px) 0);
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    clip-path: circle(150% at calc(100% - 22px) 0);
+    transform: none;
+  }
+}
+
+@keyframes menu-fold {
+  from {
+    clip-path: circle(150% at calc(100% - 22px) 0);
+  }
+  to {
+    opacity: 0;
+    clip-path: circle(0 at calc(100% - 22px) 0);
+  }
+}
+
+@keyframes menu-item-in {
+  from {
+    opacity: 0;
+    transform: translate(10px, -6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-pop,
+  .menu-pop--out,
+  .menu-pop button {
+    animation: none;
+  }
+}

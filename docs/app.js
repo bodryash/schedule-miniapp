@@ -7513,7 +7513,7 @@ function initMenu() {
     setTimeout(() => {
       pop.hidden = true;
       pop.classList.remove("menu-pop--out");
-    }, 160);
+    }, 200);
   };
   els.menu.addEventListener("click", (event) => {
     event.stopPropagation();
