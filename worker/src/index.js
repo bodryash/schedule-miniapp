@@ -881,6 +881,34 @@ async function findPerson(env, token) {
 
 const personLabel = (p) => (p.username ? `@${p.username}` : p.name || `id ${p.tg_id}`);
 
+/**
+ * /dm @ivanov текст или /dm 123456 текст — сообщение одному человеку от
+ * имени бота. Текст уходит как есть, без разметки: так в нём можно писать
+ * любые знаки. Доставить можно только тем, кто хоть раз запускал бота.
+ */
+async function directMessage(env, text) {
+  const body = String(text).replace(/^\/dm(@\w+)?/, "").trim();
+  const match = body.match(/^(\S+)\s+([\s\S]+)$/);
+  if (!match) {
+    return "Кому и что: <code>/dm @ivanov Привет! Расписание вашей группы подключили.</code>\nМожно и по номеру: <code>/dm 123456789 текст</code>";
+  }
+  const person = await findPerson(env, match[1]);
+  if (!person?.tg_id) {
+    return `Не знаю человека ${escape(match[1])}: он не открывал расписание и не писал боту. Можно по номеру Telegram.`;
+  }
+  const message = match[2].trim().slice(0, 4000);
+  let result = null;
+  try {
+    result = await (await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: person.tg_id, text: message })).json();
+  } catch {
+    result = null;
+  }
+  if (!result?.ok) {
+    return `Не доставлено ${escape(personLabel(person))}: ${escape(result?.description || "Telegram не ответил")}. Чаще всего человек не запускал бота или заблокировал его.`;
+  }
+  return `Отправлено ${escape(personLabel(person))}:\n\n${escape(message)}`;
+}
+
 const STAROSTA_HELP = [
   "<b>Старосты</b> — вносят домашку своей группе прямо в расписании.",
   "",
@@ -4217,6 +4245,16 @@ ${invite}`,
       if (isOwner(env, message.chat.id)) {
         reply = text.startsWith("/themes") ? await themesList(env) : await themeCommand(env, text);
       }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: reply,
+        parse_mode: "HTML",
+      });
+    }
+
+    // Личное сообщение одному человеку от имени бота: /dm @ivanov текст.
+    if (message && /^\/dm(?:@\w+)?(?:\s|$)/.test(text)) {
+      const reply = isOwner(env, message.chat.id) ? await directMessage(env, text) : "Команда недоступна.";
       await callTelegram(env.BOT_TOKEN, "sendMessage", {
         chat_id: message.chat.id,
         text: reply,
