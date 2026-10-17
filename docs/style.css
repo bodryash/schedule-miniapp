@@ -8305,3 +8305,7 @@ body.msu .tabs {
   box-shadow: inset 1px 1px 0 color-mix(in srgb, var(--text) 10%, transparent);
   transform: rotate(45deg);
 }
+
+.menu-pop {
+  border-top-right-radius: 8px;
+}

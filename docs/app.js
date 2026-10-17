@@ -7531,11 +7531,11 @@ function initMenu() {
         x += node.offsetLeft;
         y += node.offsetTop;
       }
-      // Носик — не ближе 24 px к краю меню, иначе он упирается в скругление
-      // угла. Меню может немного заходить за край колонки, но не за экран.
+      // Носик — по возможности в 24 px от края меню. За край колонки меню
+      // не выходит: там его обрезает; правый верхний угол у него поэтому
+      // скруглён меньше, чтобы носик у самого края в скругление не упирался.
       const center = x + els.menu.offsetWidth / 2;
-      const room = Math.max(0, parent.getBoundingClientRect().left - 6);
-      const right = Math.max(-room, parent.clientWidth - (center + 24));
+      const right = Math.max(0, parent.clientWidth - (center + 24));
       pop.style.right = `${right}px`;
       pop.style.top = `${y + els.menu.offsetHeight + 10}px`;
       pop.style.setProperty("--nose-x", `${parent.clientWidth - right - (x + els.menu.offsetWidth / 2)}px`);
