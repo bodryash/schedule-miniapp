@@ -2266,7 +2266,7 @@ function renderQueuePicker() {
     const chip = el("button", item.subject === queueSubject ? "q-pick q-pick--on" : "q-pick");
     chip.type = "button";
     chip.append(el("span", "q-pick-name", tr(item.subject)));
-    const who = [...item.teachers].map((key) => TEACHER_NAMES?.[key] || key).join(", ");
+    const who = [...item.teachers].map((key) => teacherFull(key) || key).join(", ");
     if (who) chip.append(el("span", "q-pick-who", who));
     chip.addEventListener("click", () => {
       haptic("select");
@@ -2695,7 +2695,7 @@ function applyNotes() {
   const date = dateOfDay(selectedDay);
   for (const card of els.lessons.querySelectorAll(".card")) {
     card.querySelector(".note-pen")?.remove();
-    card.querySelector(".note")?.remove();
+    card.querySelector(".my-note")?.remove();
     const subject = card.dataset.subject;
     const head = card.querySelector(".time");
     if (!subject || !head) continue;
@@ -2714,7 +2714,8 @@ function applyNotes() {
     if (star) star.before(pen);
     else head.append(pen);
     if (!text) continue;
-    const line = el("button", "note");
+    // Своё имя класса: «.note» — примечание из расписания, его не трогаем.
+    const line = el("button", "my-note");
     line.type = "button";
     line.append(el("span", "note-icon", "📝"), el("span", "note-text", text));
     line.addEventListener("click", open);
@@ -5062,6 +5063,212 @@ function allTeachers() {
   return [...keys].sort((a, b) => a.localeCompare(b, "ru"));
 }
 
+/* ---------- Преподаватель на нескольких факультетах ----------
+ * Многие ведут пары на двух-трёх факультетах вуза. Указатель
+ * data/teacher-map.json (собирает tools/teacher_map.py) говорит, на каких
+ * ещё факультетах встречается фамилия, — подгружаем только их расписания и
+ * добавляем пары с подписью факультета. Звонки и чётность у факультетов
+ * свои, поэтому у чужих пар сразу проставлены время и даты.
+ */
+let foreignFor = "";
+
+async function loadForeignTeacher() {
+  const key = prefs.teacher;
+  if (!key || foreignFor === key || !data) return;
+  foreignFor = key;
+  data.lessons = data.lessons.filter((l) => !l.foreign);
+  const here = tenant();
+  let added = 0;
+  try {
+    const res = await fetch("data/teacher-map.json", { cache: "no-cache" });
+    const map = res.ok ? await res.json() : {};
+    const ids = (map[here.university]?.[key] || []).filter((id) => id !== here.id);
+    for (const id of ids) {
+      const other = TENANTS.find((item) => item.id === id);
+      if (!other) continue;
+      const got = await fetch(`data/${other.path ? `${other.path}/` : ""}schedule.json`, { cache: "no-cache" });
+      if (!got.ok || foreignFor !== key) continue;
+      const lessons = foreignLessons(await got.json(), other, key);
+      data.lessons.push(...lessons);
+      added += lessons.length;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+  if (added && prefs.teacher === key && !els.schedule.hidden) showSchedule();
+}
+
+function foreignLessons(schedule, other, key) {
+  const bells = new Map((schedule.bells || []).map((b) => [b.n, b]));
+  const titles = new Map((schedule.groups || []).map((g) => [g.id, g.title]));
+  const short = other.short || other.faculty;
+  const out = [];
+  for (const lesson of schedule.lessons || []) {
+    if (!teachersOf(lesson.teacher).some((p) => p.key === key)) continue;
+    const bell = bells.get(lesson.slot);
+    const start = lesson.start || bell?.start;
+    const end = lesson.end || bell?.end;
+    if (!start || !end) continue;
+    out.push({
+      ...lesson,
+      group: `${other.id}/${lesson.group}`,
+      groupLabel: `${short} · ${titles.get(lesson.group) || lesson.group}`,
+      start,
+      end,
+      slot: nearestSlot(start, end),
+      dates: lesson.dates || weekDates(schedule.weeks, lesson.day, lesson.week),
+      foreign: other.id,
+    });
+  }
+  return out;
+}
+
+/** Своя пара, с которой чужая совпадает по времени больше всего. */
+function nearestSlot(start, end) {
+  const from = minutes(start);
+  const to = minutes(end);
+  let best = data.bells[0];
+  let score = -Infinity;
+  for (const bell of data.bells) {
+    const overlap = Math.min(to, minutes(bell.end)) - Math.max(from, minutes(bell.start));
+    const value = overlap > 0 ? overlap : -Math.abs(minutes(bell.start) - from);
+    if (value > score) [best, score] = [bell, value];
+  }
+  return best.n;
+}
+
+/** Даты дня недели в неделях нужной чётности по календарю чужого факультета. */
+function weekDates(weeks, day, parity) {
+  const out = [];
+  for (const week of weeks || []) {
+    if (parity && parity !== "all" && week.parity !== parity) continue;
+    const date = mondayOf(new Date(`${week.from}T12:00:00`));
+    date.setDate(date.getDate() + day - 1);
+    const value = isoDate(date);
+    if (value >= week.from && value <= week.to) out.push(value);
+  }
+  return out;
+}
+
+/* ---------- Подписка в календаре телефона ---------- */
+
+let calendarSheet = null;
+
+/** Ссылка на расписание группы в формате календаря — с выбранными языками и курсами. */
+function calendarUrl() {
+  const group = groupById(prefs.group);
+  if (!group) return "";
+  const id = tenantId();
+  const raw = id === DEFAULT_TENANT ? group.id : group.id.slice(id.length + 1);
+  const keep = {};
+  for (const name of ["main", "mainGroup", "lang2", "lang2Group", "lang3", "military", "rki", "mfkSlot"]) {
+    if (prefs[name] != null && prefs[name] !== "") keep[name] = prefs[name];
+  }
+  if (prefs.electives?.length) keep.electives = prefs.electives;
+  const json = JSON.stringify(keep);
+  const query = json === "{}" ? "" : `?f=${btoa(String.fromCharCode(...new TextEncoder().encode(json))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")}`;
+  return `${API_URL}/ics/${id}/${encodeURIComponent(raw)}.ics${query}`;
+}
+
+function openOutside(url) {
+  if (tg?.openLink) tg.openLink(url);
+  else window.open(url, "_blank");
+}
+
+function openCalendar() {
+  if (!data) return;
+  if (!calendarSheet) {
+    calendarSheet = el("div", "sheet-backdrop");
+    calendarSheet.hidden = true;
+    const sheet = el("div", "sheet sheet--abs sheet--calendar");
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    const top = el("div", "sheet-top");
+    const close = el("button", "icon", "×");
+    close.type = "button";
+    close.setAttribute("aria-label", t("Закрыть"));
+    close.addEventListener("click", closeCalendar);
+    top.append(el("h2", "", t("В календарь телефона")), close);
+    sheet.append(top, el("div", "cal-body"));
+    calendarSheet.append(sheet);
+    calendarSheet.addEventListener("click", (event) => {
+      if (event.target === calendarSheet) closeCalendar();
+    });
+    document.body.append(calendarSheet);
+  }
+  renderCalendar();
+  calendarSheet.classList.remove("sheet-backdrop--out");
+  calendarSheet.hidden = false;
+}
+
+function closeCalendar() {
+  const sheet = calendarSheet;
+  if (!sheet || sheet.hidden || sheet.classList.contains("sheet-backdrop--out")) return;
+  haptic("light");
+  sheet.classList.add("sheet-backdrop--out");
+  setTimeout(() => {
+    sheet.hidden = true;
+    sheet.classList.remove("sheet-backdrop--out");
+  }, 260);
+}
+
+function renderCalendar() {
+  const body = calendarSheet.querySelector(".cal-body");
+  const url = prefs.teacher ? "" : calendarUrl();
+  if (!url) {
+    body.replaceChildren(el("p", "hint", t("Календарь пока собирается только для группы студента. Выберите группу в настройках.")));
+    return;
+  }
+  const button = (label, action) => {
+    const node = el("button", "cal-btn", label);
+    node.type = "button";
+    node.addEventListener("click", () => {
+      haptic("light");
+      action(node);
+    });
+    return node;
+  };
+  const google = button(t("Google Календарь (Android)"), () =>
+    openOutside(`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(url.replace(/^https:/, "webcal:"))}`)
+  );
+  // Telegram открывает только http(s) — сервер перенаправит на webcal://,
+  // и iPhone сам предложит подписаться.
+  const apple = button(t("iPhone и Mac"), () => openOutside(`${url}${url.includes("?") ? "&" : "?"}open=1`));
+  const copy = button(t("Скопировать ссылку"), async (node) => {
+    let done = false;
+    try {
+      await navigator.clipboard.writeText(url);
+      done = true;
+    } catch {
+      const field = document.createElement("textarea");
+      field.value = url;
+      field.style.position = "fixed";
+      field.style.opacity = "0";
+      document.body.append(field);
+      field.select();
+      try {
+        done = document.execCommand("copy");
+      } catch {
+        done = false;
+      }
+      field.remove();
+    }
+    const was = node.dataset.label || node.textContent;
+    node.dataset.label = was;
+    node.textContent = done ? t("Ссылка скопирована") : url;
+    if (done) setTimeout(() => (node.textContent = was), 2500);
+  });
+  copy.classList.add("cal-btn--plain");
+  body.replaceChildren(
+    el("p", "", t("Пары появятся в обычном календаре — рядом с остальными делами и в его виджете на главном экране. Календарь сам обновляет их несколько раз в день.")),
+    google,
+    apple,
+    copy,
+    el("p", "hint", t("Яндекс, Outlook и другие: «Добавить календарь по ссылке» — вставьте скопированную ссылку. Учтены ваши языки и курсы по выбору; отмены и переносы от старосты видны только в приложении.")),
+    el("p", "hint", t("В ссылке только факультет, группа и выбранные предметы — без имени и Telegram."))
+  );
+}
+
 function lessonsOf(groupId) {
   return data.lessons.filter((l) => l.group === groupId);
 }
@@ -5413,7 +5620,7 @@ function fillRole() {
   loadTeacherNames().then(() => {
     const keys = allTeachers();
     els.teacher.replaceChildren(
-      ...keys.map((key) => new Option(TEACHER_NAMES?.[key] ? `${key} — ${TEACHER_NAMES[key]}` : key, key))
+      ...keys.map((key) => new Option(teacherFull(key) ? `${key} — ${teacherFull(key)}` : key, key))
     );
     if (prefs.teacher && keys.includes(prefs.teacher)) els.teacher.value = prefs.teacher;
   });
@@ -6028,13 +6235,21 @@ function teacherLessons(key, parity, day = selectedDay, iso = isoDate(dateOfDay(
   for (const l of data.lessons) {
     if (l.day !== day || !onDate(l, parity, iso)) continue;
     if (!teachersOf(l.teacher).some((p) => p.key === key)) continue;
-    const id = [l.slot, l.subject, l.type, l.room, l.week, l.start, l.end].join("|");
+    const id = [l.slot, l.subject, l.type, l.room, l.week, l.start, l.end, l.foreign || ""].join("|");
     if (!merged.has(id)) merged.set(id, { ...l, subgroup: null, groups: [] });
-    merged.get(id).groups.push(l.group);
+    merged.get(id).groups.push(l.groupLabel || groupById(l.group)?.title || l.group);
   }
   return [...merged.values()].map((l) => {
-    const groups = [...new Set(l.groups)].sort();
-    const label = groups.length === 1 ? t("Группа {g}", { g: groups[0] }) : t("Группы: {list}", { list: groups.join(", ") });
+    const groups = [...new Set(l.groups)].sort((a, b) => a.localeCompare(b, "ru", { numeric: true }));
+    // Группы другого факультета подписаны «Мехмат · 521» — факультет один раз.
+    const byFaculty = new Map();
+    for (const name of groups) {
+      const [faculty, title] = name.includes(" · ") ? name.split(" · ") : ["", name];
+      if (!byFaculty.has(faculty)) byFaculty.set(faculty, []);
+      byFaculty.get(faculty).push(title);
+    }
+    const list = [...byFaculty].map(([faculty, titles]) => (faculty ? `${faculty} · ` : "") + titles.join(", ")).join("; ");
+    const label = groups.length === 1 ? t("Группа {g}", { g: list }) : t("Группы: {list}", { list });
     return { ...l, note: [label, l.note].filter(Boolean).join(" · ") };
   });
 }
@@ -6309,19 +6524,51 @@ const TEACHER_TITLES = [
  * «зав.каф. Гвозданный В.А., проф. Агафонова Н.В.» → люди с должностями.
  * То же, что tools/teachers_index.py: одно написание на человека.
  */
+// Полные имена, прочитанные прямо из расписания: «Ложкин Сергей Андреевич».
+const PARSED_NAMES = {};
+
+/** Полное имя по ключу «Фамилия И.О.»: из справочника ФГП или из самого расписания. */
+function teacherFull(key) {
+  return TEACHER_NAMES?.[key] || PARSED_NAMES[key] || null;
+}
+
+// Не люди: «Преподаватели ВУЦ», «!Вакансия».
+const NOT_A_PERSON = /^(преподавател|вакансия|кафедра|сотрудник)/i;
+const SURNAME = "[А-ЯЁ][а-яё]+(?:-[А-ЯЁ][а-яё]+)?";
+const NAME_SHORT = new RegExp(`^(${SURNAME})\\s*(?:([А-ЯЁ])\\.?\\s*(?:([А-ЯЁ])\\.?)?)?$`);
+const NAME_FULL = new RegExp(`^(${SURNAME})\\s+([А-ЯЁ])[а-яё]+(?:\\s+([А-ЯЁ])[а-яё]+)?$`);
+const NAME_FIRST = new RegExp(`^([А-ЯЁ])\\.\\s*(?:([А-ЯЁ])\\.\\s*)?(${SURNAME})$`);
+
+/**
+ * Три записи одного человека: «Гена Е.И.», «Гена Евгений Иванович» и
+ * «Е.И.Гена» — у всех ключ «Гена Е.И.».
+ */
+function parseName(text) {
+  if (NOT_A_PERSON.test(text)) return null;
+  let m = text.match(NAME_SHORT);
+  if (m) return { surname: m[1], initials: [m[2], m[3]].filter(Boolean), full: null };
+  m = text.match(NAME_FULL);
+  if (m) return { surname: m[1], initials: [m[2], m[3]].filter(Boolean), full: text.replace(/\s+/g, " ") };
+  m = text.match(NAME_FIRST);
+  if (m) return { surname: m[3], initials: [m[1], m[2]].filter(Boolean), full: null };
+  return null;
+}
+
 function teachersOf(field) {
   const people = [];
   for (let part of String(field || "").split(/,\s*/)) {
     part = part.replace(/^\d{3}[А-ЯЁ]?\b\s*/, "").trim();
     const titled = part.match(/^((?:[а-яё]{1,6}\.*\s*)+)(?=[А-ЯЁA-Z])/);
     const titleRaw = titled ? titled[1].trim() : "";
-    const rest = titled ? part.slice(titled[0].length) : part;
-    const name = rest.match(/^([А-ЯЁ][а-яё]+(?:-[А-ЯЁ][а-яё]+)?)\s*(?:([А-ЯЁ])\.?\s*(?:([А-ЯЁ])\.?)?)?$/);
-    if (!name) continue;
-    const initials = [name[2], name[3]].filter(Boolean).map((c) => `${c}.`).join("");
-    const key = initials ? `${name[1]} ${initials}` : name[1];
+    // Номер аудитории, приписанный после имени: «И. В. Максимова 453».
+    const rest = (titled ? part.slice(titled[0].length) : part).replace(/\s+\d+\S*$/, "");
+    const person = parseName(rest);
+    if (!person) continue;
+    const initials = person.initials.map((c) => `${c}.`).join("");
+    const key = initials ? `${person.surname} ${initials}` : person.surname;
+    if (person.full && !PARSED_NAMES[key]) PARSED_NAMES[key] = person.full;
     const title = TEACHER_TITLES.find(([pattern]) => pattern.test(titleRaw))?.[1] || null;
-    people.push({ key, surname: name[1], title, full: TEACHER_NAMES?.[key] || null });
+    people.push({ key, surname: person.surname, title, full: teacherFull(key) });
   }
   return people;
 }
@@ -6785,10 +7032,38 @@ function clock(total) {
   return `${h}:${String(total % 60).padStart(2, "0")}`;
 }
 
+// На других факультетах аудитории записаны по-своему: «П-14», «Е232»,
+// «В4/3601», «зал 5». Берём всё, где есть номер, кроме мест, где не сядешь,
+// и тех, что встречаются в расписании пару раз — это чужие корпуса.
+const NOT_A_ROOM = /вирт|дист|онлайн|online|эиос|с\/база|спорт|воен|кафедр|^каф|др\.?\s*фак|б\/а|в\.з\.|д\.а\.|ленинские|клиник/i;
+
+function ownRoom(room) {
+  if (tenantId() === DEFAULT_TENANT) return OWN_ROOM.test(room);
+  return /\d/.test(room) && room.length <= 16 && !/[,;]/.test(room) && !NOT_A_ROOM.test(room);
+}
+
 function roomsOfBuilding() {
-  return [
-    ...new Set(data.lessons.map((l) => l.room.trim()).filter((r) => OWN_ROOM.test(r))),
-  ].sort((a, b) => a.localeCompare(b, "ru", { numeric: true }));
+  const counts = new Map();
+  for (const lesson of data.lessons) {
+    const room = (lesson.room || "").trim();
+    if (ownRoom(room)) counts.set(room, (counts.get(room) || 0) + 1);
+  }
+  const rare = tenantId() === DEFAULT_TENANT ? 0 : 2;
+  return [...counts]
+    .filter(([, n]) => n > rare)
+    .map(([room]) => room)
+    .sort((a, b) => a.localeCompare(b, "ru", { numeric: true }));
+}
+
+/** Заголовок блока: у ФГП этаж, у остальных — корпус по буквам перед номером. */
+function roomBlock(room) {
+  if (tenantId() === DEFAULT_TENANT) return t("{n} этаж", { n: room[0] });
+  const prefix = room.split(/\d/)[0].replace(/[\s\-/.]+$/, "");
+  if (prefix) return prefix;
+  // «512» — пятый этаж, «1624» — шестнадцатый (высотки МГУ).
+  const digits = room.match(/^(\d{3,4})(?!\d)/);
+  if (digits) return t("{n} этаж", { n: digits[1].slice(0, digits[1].length - 2) });
+  return t("Аудитории");
 }
 
 /**
@@ -6802,8 +7077,8 @@ function busyIntervals(day, parity) {
   for (const lesson of data.lessons) {
     if (lesson.day !== day) continue;
     if (!onDate(lesson, parity, isoDate(dateOfDay(day)))) continue;
-    const room = lesson.room.trim();
-    if (!OWN_ROOM.test(room)) continue;
+    const room = (lesson.room || "").trim();
+    if (!ownRoom(room)) continue;
     const time = timesOf(lesson, bells);
     if (!time) continue;
     if (!busy.has(room)) busy.set(room, []);
@@ -6880,6 +7155,10 @@ function renderFree() {
     start: bell.start,
     end: bell.end,
   });
+  // У других факультетов в здании бывают свои пары — мы видим только свои.
+  if (tenantId() !== DEFAULT_TENANT) {
+    els.freeHint.textContent += ` · ${t("по расписанию вашего факультета")}`;
+  }
   // Итог меняется вместе с парой. Сам элемент не пересоздаётся, поэтому
   // CSS-анимация сработала бы один раз при открытии — запускаем явно.
   if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -6894,10 +7173,10 @@ function renderFree() {
     return;
   }
 
-  // Группируем по этажу — по первой цифре номера.
+  // Группируем по этажу — по первой цифре номера (у других факультетов — по корпусу).
   const floors = new Map();
   for (const item of free) {
-    const floor = item.room[0];
+    const floor = roomBlock(item.room);
     if (!floors.has(floor)) floors.set(floor, []);
     floors.get(floor).push(item);
   }
@@ -6908,7 +7187,7 @@ function renderFree() {
   els.freeList.replaceChildren(
     ...[...floors].map(([floor, items]) => {
       const block = el("div", "floor");
-      const heading = el("h2", null, t("{n} этаж", { n: floor }));
+      const heading = el("h2", null, floor);
       heading.style.setProperty("--i", order++);
       block.append(heading);
       const grid = el("div", "free-grid");
@@ -6981,11 +7260,22 @@ function initMenu() {
     pop.hidden = true;
     if (item.dataset.menu === "invite") inviteGroup(item);
     if (item.dataset.menu === "rooms") showFree();
+    if (item.dataset.menu === "calendar") openCalendar();
     if (item.dataset.menu === "settings") showPicker();
     if (item.dataset.menu === "absences") openAbsences();
     if (item.dataset.menu === "semester") openSemester();
     if (item.dataset.menu === "meet") openMeet();
   });
+  // Пункт календаря добавляем сами: в закэшированной старой разметке его нет.
+  if (!pop.querySelector('[data-menu="calendar"]')) {
+    const item = el("button");
+    item.type = "button";
+    item.dataset.menu = "calendar";
+    item.append(el("span", "", "📅"), el("span", "", t("В календарь телефона")));
+    const rooms = pop.querySelector('[data-menu="rooms"]');
+    if (rooms) rooms.before(item);
+    else pop.append(item);
+  }
   if (!pop.querySelector('[data-menu="meet"]')) {
     const item = el("button");
     item.type = "button";
@@ -8473,6 +8763,8 @@ async function init() {
     return;
   }
   SUBJECTS = await subjects;
+  // Преподаватель с парами на других факультетах вуза — догружаем их в фоне.
+  setTimeout(loadForeignTeacher, 0);
 
   // Telegram может отдать из кэша старый index.html без переключателя при
   // свежем app.js — без проверки расписание не открылось бы вовсе.
@@ -8512,7 +8804,7 @@ async function init() {
     // Настройки собираются заново — выбранный вуз надо сохранить.
     prefs = { ...collectPrefs(), tenant: tenantId() };
     if (els.role?.value === "teacher" && els.teacher?.value) {
-      prefs = { ...prefs, teacher: els.teacher.value, teacherName: TEACHER_NAMES?.[els.teacher.value] || els.teacher.value };
+      prefs = { ...prefs, teacher: els.teacher.value, teacherName: teacherFull(els.teacher.value) || els.teacher.value };
     }
     savePrefs(prefs);
     notices.group = null;
@@ -8521,6 +8813,7 @@ async function init() {
     const group = !prefs.teacher && groupById(prefs.group);
     if (group && group.id !== before) countOpen({ id: group.id, course: group.course, level: group.level });
     if (prefs.teacher) countOpen(teacherVisit(prefs.teacher));
+    loadForeignTeacher();
   });
   // Telegram может отдать из кэша старый index.html без окна комментариев
   // при свежем app.js. Тогда комментариев просто нет, но расписание открывается.

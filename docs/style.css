@@ -4454,7 +4454,7 @@ body.champion .card--now {
   opacity: 1;
 }
 
-.note {
+.my-note {
   display: flex;
   gap: 8px;
   align-items: baseline;
@@ -8056,4 +8056,41 @@ body.msu .tabs {
   .gap--now .gap-line::after {
     animation: none;
   }
+}
+
+/* --- Подписка в календаре телефона --- */
+.sheet--calendar .cal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 8px;
+}
+
+.sheet--calendar .cal-body p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.cal-btn {
+  width: 100%;
+  padding: 13px 16px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--accent);
+  color: var(--accent-ink, #fff);
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  transition: transform 0.12s ease-out;
+}
+
+.cal-btn:active {
+  transform: scale(0.98);
+}
+
+.cal-btn--plain {
+  background: var(--accent-soft);
+  color: var(--accent);
 }

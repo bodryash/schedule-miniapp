@@ -51,6 +51,9 @@ jobs:
           print(f"не обновилось факультетов: {failed}")
           PY
 
+      - name: Указатель преподавателей по факультетам
+        run: python tools/teacher_map.py
+
       - name: Опубликовать изменения
         run: |
           git config user.name "schedule-bot"
