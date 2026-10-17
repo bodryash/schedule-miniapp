@@ -3322,6 +3322,10 @@ async function handleUnnotice(env, text) {
 async function watchServer(env) {
   if (!env.STATS || !env.OWNER_ID) return;
   await env.STATS.prepare("CREATE TABLE IF NOT EXISTS watch (key TEXT PRIMARY KEY, since TEXT NOT NULL, fails INTEGER NOT NULL DEFAULT 1)").run();
+  // Чистые проверки подряд после тревоги: «прошло» пишем, только когда их
+  // набралось WATCH_CALM — иначе моргающая сеть давала бы тревогу и «прошло»
+  // каждые четверть часа.
+  await env.STATS.prepare("CREATE TABLE IF NOT EXISTS watch_calm (key TEXT PRIMARY KEY, oks INTEGER NOT NULL DEFAULT 0)").run();
 
   const problems = new Map();
   let health = null;
@@ -3355,6 +3359,10 @@ async function watchServer(env) {
   const before = new Map(known.map((row) => [row.key, row.fails]));
   const send = (text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text }).catch(() => {});
 
+  // Сеть до сервера иногда моргает на минуту-две — это не авария. Пишем,
+  // только если проблема держится WATCH_ALARM проверок подряд (пять минут).
+  // Очередь Telegram проверяется раз в пять минут — по ней хватает двух.
+  const threshold = (key) => (key === "telegram-in" ? 2 : WATCH_ALARM);
   for (const [key, text] of problems) {
     const fails = (before.get(key) || 0) + 1;
     await env.STATS.prepare(
@@ -3362,16 +3370,35 @@ async function watchServer(env) {
     )
       .bind(key, new Date().toISOString())
       .run();
-    // Одна неудачная проверка — ещё не беда: сеть моргает. Пишем со второй
-    // подряд. Очередь Telegram проверяется раз в пять минут — о ней сразу.
-    if (fails === (key === "telegram-in" ? 1 : 2)) await send(`🚨 Сторож: ${text}`);
+    await env.STATS.prepare("DELETE FROM watch_calm WHERE key = ?").bind(key).run();
+    if (fails === threshold(key)) await send(`🚨 Сторож: ${text}`);
   }
   for (const [key, fails] of before) {
     if (problems.has(key) || (key === "telegram-in" && new Date().getUTCMinutes() % 5 !== 0)) continue;
-    await env.STATS.prepare("DELETE FROM watch WHERE key = ?").bind(key).run();
-    if (fails >= (key === "telegram-in" ? 1 : 2)) await send(`✅ Сторож: прошло — ${WATCH_NAMES[key] || key}.`);
+    if (fails < threshold(key)) {
+      // Тревоги не было — забываем молча.
+      await env.STATS.prepare("DELETE FROM watch WHERE key = ?").bind(key).run();
+      continue;
+    }
+    // Тревога была: ждём WATCH_CALM чистых проверок подряд, потом «прошло».
+    await env.STATS.prepare("INSERT INTO watch_calm (key, oks) VALUES (?, 1) ON CONFLICT(key) DO UPDATE SET oks = oks + 1")
+      .bind(key)
+      .run();
+    const calm = await env.STATS.prepare("SELECT oks FROM watch_calm WHERE key = ?").bind(key).first();
+    if ((calm?.oks || 0) >= (key === "telegram-in" ? 1 : WATCH_CALM)) {
+      await env.STATS.batch([
+        env.STATS.prepare("DELETE FROM watch WHERE key = ?").bind(key),
+        env.STATS.prepare("DELETE FROM watch_calm WHERE key = ?").bind(key),
+      ]);
+      await send(`✅ Сторож: прошло — ${WATCH_NAMES[key] || key}.`);
+    }
   }
 }
+
+// Сторож: сколько проверок подряд (по минуте) должна держаться проблема,
+// чтобы написать, и сколько чистых подряд — чтобы написать «прошло».
+const WATCH_ALARM = 5;
+const WATCH_CALM = 5;
 
 const WATCH_NAMES = {
   down: "сервер снова отвечает",

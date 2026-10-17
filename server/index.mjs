@@ -237,8 +237,14 @@ const server = createServer(async (req, res) => {
  */
 const ALARM_EVERY = 5 * 60000;
 const ALARM_REPEAT = 3 * 3600000;
+// Проблема должна держаться столько минут подряд, и столько же минут без
+// неё — чтобы написать «прошло». Минутные моргания не тревожат.
+const ALARM_HOLD = 5;
 const alarms = new Map();
+const streaks = new Map();
+const calm = new Map();
 let lastAlarmCheck = 0;
+let windowFound = new Map();
 let lastCounts = { requests: 0, errors: 0, limited: 0 };
 
 function memInfo() {
@@ -265,8 +271,6 @@ async function tellOwner(text) {
 }
 
 async function checkAlarms() {
-  if (Date.now() - lastAlarmCheck < ALARM_EVERY) return;
-  lastAlarmCheck = Date.now();
   const found = new Map();
   const v = vitals();
   if (v.diskFree !== null && v.diskFree < 20) found.set("disk", `💾 Диск заполнен на ${100 - v.diskFree}%`);
@@ -280,13 +284,18 @@ async function checkAlarms() {
   if (rss > 700 * 1024 * 1024) found.set("rss", `🤖 Бот занял ${Math.round(rss / 1048576)} МБ памяти`);
   const load = loadavg()[1];
   if (load > 0.9) found.set("cpu", `🔥 Процессор загружен: ${Math.round(load * 100)}% за 5 минут`);
-  const requests = stats.requests - lastCounts.requests;
-  const errors = stats.errors - lastCounts.errors;
-  const blocked = stats.limited - lastCounts.limited;
-  lastCounts = { requests: stats.requests, errors: stats.errors, limited: stats.limited };
-  if (requests > 5000) found.set("flood", `🌊 Необычно много запросов: ${requests} за 5 минут (обычно — сотни)`);
-  if (blocked > 100) found.set("limited", `🛡 Отбито ${blocked} запросов за 5 минут — кто-то шлёт слишком часто`);
-  if (errors > 20) found.set("errors", `⚠️ Ошибок сервера: ${errors} за 5 минут`);
+  // Поток и ошибки — окнами по пять минут: их и так сглаживает окно.
+  if (Date.now() - lastAlarmCheck >= ALARM_EVERY) {
+    lastAlarmCheck = Date.now();
+    const requests = stats.requests - lastCounts.requests;
+    const errors = stats.errors - lastCounts.errors;
+    const blocked = stats.limited - lastCounts.limited;
+    lastCounts = { requests: stats.requests, errors: stats.errors, limited: stats.limited };
+    windowFound = new Map();
+    if (requests > 5000) windowFound.set("flood", `🌊 Необычно много запросов: ${requests} за 5 минут (обычно — сотни)`);
+    if (blocked > 100) windowFound.set("limited", `🛡 Отбито ${blocked} запросов за 5 минут — кто-то шлёт слишком часто`);
+    if (errors > 20) windowFound.set("errors", `⚠️ Ошибок сервера: ${errors} за 5 минут`);
+  }
   if (v.backupAge !== null && v.backupAge > 30) found.set("backup", `🗄 Ночная копия базы не делалась ${v.backupAge} ч`);
   if (watch.telegramOk === false) found.set("telegram", "📡 Бот не достучался до Telegram — напоминания могут не уходить");
   try {
@@ -295,7 +304,13 @@ async function checkAlarms() {
   } catch {
     // Таблицы ещё нет — нечего проверять.
   }
-  for (const [key, text] of found) {
+  // Состояние должно держаться ALARM_HOLD минут подряд; окна — сразу.
+  for (const key of [...streaks.keys()]) if (!found.has(key)) streaks.delete(key);
+  for (const key of found.keys()) streaks.set(key, (streaks.get(key) || 0) + 1);
+  const firing = new Map([...found].filter(([key]) => streaks.get(key) >= ALARM_HOLD));
+  for (const [key, text] of windowFound) firing.set(key, text);
+  for (const [key, text] of firing) {
+    calm.delete(key);
     const last = alarms.get(key);
     if (!last || Date.now() - last > ALARM_REPEAT) {
       alarms.set(key, Date.now());
@@ -303,7 +318,11 @@ async function checkAlarms() {
     }
   }
   for (const key of [...alarms.keys()]) {
-    if (!found.has(key)) {
+    if (!firing.has(key) && !found.has(key)) {
+      // «Прошло» — только после ALARM_HOLD спокойных минут подряд.
+      calm.set(key, (calm.get(key) || 0) + 1);
+      if (calm.get(key) < ALARM_HOLD) continue;
+      calm.delete(key);
       alarms.delete(key);
       await tellOwner(`✅ Прошло: ${key === "disk" ? "диск" : key === "memory" || key === "swap" || key === "rss" ? "память" : key === "cpu" ? "процессор" : key === "flood" || key === "limited" ? "поток запросов" : key === "errors" ? "ошибки" : key === "backup" ? "ночная копия" : key === "queue" ? "очередь уведомлений" : "связь с Telegram"} — снова в норме`);
     }
