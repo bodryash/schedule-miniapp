@@ -1721,10 +1721,12 @@ async function dueReminders(env, now, shift, limit) {
         for (const l of lessons) l.pairs = pairsIn(l.start, l.end);
         const total = lessons.reduce((sum, l) => sum + l.pairs, 0);
         const lines = [];
+        // Новое в сводке до публикации видит только владелец.
+        const extras = ALERTS_LIVE || String(id) === String(env.OWNER_ID);
         lessons.forEach((l, i) => {
           // Окно между парами от 40 минут — отдельной строкой: его видно сразу.
           const prev = lessons[i - 1];
-          if (prev?.end && l.start) {
+          if (extras && prev?.end && l.start) {
             const gap = minutesOfDay(l.start) - minutesOfDay(prev.end);
             if (gap >= 40) lines.push(`☕ окно ${prev.end}–${l.start}`);
           }
@@ -1736,7 +1738,7 @@ async function dueReminders(env, now, shift, limit) {
         });
         const grp = grpOf.get(id) || "";
         const group = groups.get(grp);
-        const mine = cancelled.filter((c) => c.grp === grp || (group && c.grp === courseOf(group)));
+        const mine = extras ? cancelled.filter((c) => c.grp === grp || (group && c.grp === courseOf(group))) : [];
         const cancelLines = mine.map((c) => {
           const slots = c.slots ? c.slots.split(",").map(Number) : [];
           const what = c.subject ? ` — ${escape(c.subject)}${c.subgroup ? ` (подгруппа ${c.subgroup})` : ""}` : "";
