@@ -252,10 +252,10 @@ const server = createServer(async (req, res) => {
  * не чаще раза в три часа; когда всё вернулось в норму — короткое «прошло».
  */
 const ALARM_EVERY = 5 * 60000;
-const ALARM_REPEAT = 3 * 3600000;
+const ALARM_REPEAT = 12 * 3600000;
 // Проблема должна держаться столько минут подряд, и столько же минут без
 // неё — чтобы написать «прошло». Минутные моргания не тревожат.
-const ALARM_HOLD = 5;
+const ALARM_HOLD = 15;
 const alarms = new Map();
 const streaks = new Map();
 const calm = new Map();
