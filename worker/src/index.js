@@ -2832,14 +2832,22 @@ async function cancelByTeacher(env, words, target = null) {
   }
   const teacher = found[0];
 
-  const parity = parityOf(index.weeks, date);
-  const lessons = index.lessons.filter(
-    ([t, , day, slot, week]) =>
-      t === teacher.i &&
-      day === date.getUTCDay() &&
-      (week === 0 || parity === null || week === WEEK_CODES[parity]) &&
-      (!slots.length || slots.includes(slot))
-  );
+  // Указатель общий на все факультеты: у каждого своя чётность недель, а у
+  // расписаний по датам (код недели 3) — список дней от 1 января.
+  const epoch = index.epoch ? Date.parse(`${index.epoch}T00:00:00Z`) : 0;
+  const dayNumber = Math.round((date.getTime() - epoch) / 86400000);
+  const parities = new Map();
+  const parityFor = (tenant) => {
+    if (!parities.has(tenant)) parities.set(tenant, parityOf(index.tenants?.[tenant]?.weeks || index.weeks, date));
+    return parities.get(tenant);
+  };
+  const lessons = index.lessons.filter(([t, , day, slot, week, , , tenant = 0, days = []]) => {
+    if (t !== teacher.i || day !== date.getUTCDay()) return false;
+    if (slots.length && !slots.includes(slot)) return false;
+    if (week === 3) return days.includes(dayNumber);
+    const parity = parityFor(tenant);
+    return week === 0 || parity === null || week === WEEK_CODES[parity];
+  });
   const scoped = allowed ? lessons.filter(([, g]) => allowed.has(index.groups[g])) : lessons;
   const when = `${dateLabel(date)}${slots.length ? `, ${slotsLabel(slots)}` : ""}`;
   if (!lessons.length) return `У ${escape(teacher.name)} ${when} пар по расписанию нет.`;
