@@ -8760,12 +8760,19 @@ async function init() {
 
   // Переводы названий грузим вместе с расписанием; не загрузились —
   // покажем по-русски, но расписание откроется.
+  // Общий словарь (с ФГП) работает у всех факультетов; свой, если есть, —
+  // поверх него.
+  const dictionary = (file) =>
+    fetch(file, { cache: "no-cache" })
+      .then((res) => (res.ok ? res.json() : {}))
+      .catch(() => ({}));
   const subjects =
     LANG === "ru"
       ? Promise.resolve({})
-      : fetch(dataFile("subjects.json"), { cache: "no-cache" })
-          .then((res) => (res.ok ? res.json() : {}))
-          .catch(() => ({}));
+      : Promise.all([
+          dictionary("data/subjects.json"),
+          tenant().path ? dictionary(dataFile("subjects.json")) : Promise.resolve({}),
+        ]).then(([common, own]) => ({ ...common, ...own }));
 
   try {
     const res = await fetch(dataFile("schedule.json"), { cache: "no-cache" });
