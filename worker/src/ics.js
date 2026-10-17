@@ -27,12 +27,31 @@ const CACHE_LIMIT = 6;
 const CACHE_TTL = 30 * 60 * 1000;
 const cache = new Map();
 
+/**
+ * Расписание — с сайта приложения. Сеть сервера иногда моргает, и тогда
+ * календарь отдавал ошибку, а iPhone отказывался подписываться. Поэтому при
+ * сбое берём последнюю удачную копию из памяти, а если её нет — файл с диска
+ * сервера (SCHEDULE_READ_DATA, на своём сервере). Чуть устаревшее расписание
+ * лучше, чем никакого: через полчаса календарь спросит снова.
+ */
 async function cached(path) {
   const hit = cache.get(path);
   if (hit && Date.now() - hit.at < CACHE_TTL) return hit.value;
-  const res = await fetch(new URL(path, APP_URL), { headers: { "User-Agent": "schedule-ics" } });
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${path}`);
-  const value = await res.json();
+  let value;
+  try {
+    const res = await fetch(new URL(path, APP_URL), {
+      headers: { "User-Agent": "schedule-ics" },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${path}`);
+    value = await res.json();
+  } catch (error) {
+    if (hit) return hit.value;
+    const local = globalThis.SCHEDULE_READ_DATA?.(path);
+    if (!local) throw error;
+    console.log(`ics: ${path} — с диска, сайт не ответил (${error?.message || error})`);
+    value = local;
+  }
   cache.delete(path);
   cache.set(path, { at: Date.now(), value });
   while (cache.size > CACHE_LIMIT) cache.delete(cache.keys().next().value);

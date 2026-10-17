@@ -493,9 +493,16 @@ function article(id, title, description, text, lang) {
 
 export async function loadJson(path) {
   // Файлы меняются раз в неделю — пусть Cloudflare держит их у себя.
-  const response = await fetch(`${DATA_URL}${path}`, { cf: { cacheTtl: 300, cacheEverything: true } });
-  if (!response.ok) throw new Error(`${path}: ${response.status}`);
-  return response.json();
+  try {
+    const response = await fetch(`${DATA_URL}${path}`, { cf: { cacheTtl: 300, cacheEverything: true }, signal: AbortSignal.timeout(10000) });
+    if (!response.ok) throw new Error(`${path}: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    // Сеть моргнула — на своём сервере берём файл с диска (см. server/index.mjs).
+    const local = globalThis.SCHEDULE_READ_DATA?.(`data/${path}`);
+    if (local) return local;
+    throw error;
+  }
 }
 
 export const DEFAULT_TENANT = "msu-fgp";

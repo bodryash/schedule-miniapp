@@ -16,6 +16,16 @@ const here = dirname(fileURLToPath(import.meta.url));
 // потом уже подключаем код бота.
 globalThis.SCHEDULE_OWN_SERVER = true;
 if (process.env.APP_URL) globalThis.SCHEDULE_APP_URL = process.env.APP_URL.replace(/\/?$/, "/");
+// Запасной путь для календаря: файлы расписаний с диска сервера, если сайт
+// приложения не ответил (см. worker/src/ics.js).
+globalThis.SCHEDULE_READ_DATA = (path) => {
+  try {
+    const file = join(here, "..", "docs", ...String(path).split("/").filter((part) => part && part !== ".."));
+    return JSON.parse(readFileSync(file, "utf8"));
+  } catch {
+    return null;
+  }
+};
 const { default: worker } = await import("../worker/src/index.js");
 const PORT = Number(process.env.PORT || 8787);
 const DB_PATH = process.env.DB_PATH || join(here, "..", "data", "schedule.sqlite");
