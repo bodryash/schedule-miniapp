@@ -5324,6 +5324,93 @@ function renderExams() {
   body.replaceChildren(...nodes);
 }
 
+/* ---------- Где аудитория ----------
+ * Нажатие на плашку аудитории — окно с корпусом и кнопкой «Открыть в
+ * Яндекс Картах». Корпус угадываем по записи аудитории («ГЗ», «1 ГУМ»,
+ * «химфак», «Шуваловский корп»), иначе ведём к зданию факультета: оно
+ * у большинства и есть место занятий.
+ */
+const BUILDINGS = [
+  [/шувалов|4\s*гум/i, "Шуваловский корпус МГУ"],
+  [/1\s*гум/i, "Первый гуманитарный корпус МГУ"],
+  [/2\s*гум/i, "Второй гуманитарный корпус МГУ"],
+  [/3\s*гум/i, "Третий гуманитарный корпус МГУ"],
+  [/(^|[^а-яё])гз([^а-яё]|$)|главн[а-яё]* здани/i, "Главное здание МГУ"],
+  [/химфак|^бха$/i, "Химический факультет МГУ"],
+  [/^бба$/i, "Биологический факультет МГУ"],
+  [/почвовед/i, "Факультет почвоведения МГУ"],
+  [/спортбаз|с\/база|спорткомплекс/i, "Спортивный комплекс МГУ"],
+];
+
+let mapSheet = null;
+
+/** Корпус аудитории: по её записи, а нет — здание факультета. */
+function buildingOf(room) {
+  const text = String(room || "");
+  const here = tenant();
+  const msu = here.university === "МГУ";
+  for (const [pattern, name] of BUILDINGS) {
+    if (pattern.test(text) && (msu || !/МГУ/.test(name))) return { name, guessed: true };
+  }
+  // Мехмат и геофак занимают этажи Главного здания: «1624» — 16-й этаж ГЗ.
+  if (["msu-mm", "msu-geo"].includes(here.id) && /^\d{4}$/.test(text.trim())) return { name: "Главное здание МГУ", guessed: true };
+  // Корпус в скобках: «Е-250 (Шуваловский корп)», «599-Л (ф-т Почвоведения)».
+  const inside = text.match(/\(([^)]*(корп|ф-т|факультет|здани)[^)]*)\)/i);
+  if (inside) return { name: `${here.university} ${inside[1]}`, guessed: true };
+  return { name: `${here.university} ${here.faculty}`, guessed: false };
+}
+
+function openRoomMap(room) {
+  if (!room || REMOTE_ROOMS.includes(String(room).toLowerCase())) return;
+  if (!mapSheet) {
+    mapSheet = el("div", "sheet-backdrop");
+    mapSheet.hidden = true;
+    const sheet = el("div", "sheet sheet--abs sheet--map");
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    const top = el("div", "sheet-top");
+    const close = el("button", "icon", "×");
+    close.type = "button";
+    close.setAttribute("aria-label", t("Закрыть"));
+    close.addEventListener("click", closeRoomMap);
+    top.append(el("h2", "map-title"), close);
+    sheet.append(top, el("div", "map-body"));
+    mapSheet.append(sheet);
+    mapSheet.addEventListener("click", (event) => {
+      if (event.target === mapSheet) closeRoomMap();
+    });
+    document.body.append(mapSheet);
+  }
+  const place = buildingOf(room);
+  mapSheet.querySelector(".map-title").textContent = roomLabel(room);
+  const open = el("button", "cal-btn", t("Открыть в Яндекс Картах"));
+  open.type = "button";
+  open.addEventListener("click", () => {
+    haptic("light");
+    openOutside(`https://yandex.ru/maps/?text=${encodeURIComponent(place.name)}`);
+  });
+  mapSheet.querySelector(".map-body").replaceChildren(
+    el("p", "map-where", place.name),
+    open,
+    el("p", "hint", place.guessed
+      ? t("Корпус определён по записи аудитории в расписании. Внутри здания ищите по номеру.")
+      : t("Показываем здание факультета. Если пара в другом корпусе, он обычно указан рядом с номером аудитории."))
+  );
+  mapSheet.classList.remove("sheet-backdrop--out");
+  mapSheet.hidden = false;
+}
+
+function closeRoomMap() {
+  const sheet = mapSheet;
+  if (!sheet || sheet.hidden || sheet.classList.contains("sheet-backdrop--out")) return;
+  haptic("light");
+  sheet.classList.add("sheet-backdrop--out");
+  setTimeout(() => {
+    sheet.hidden = true;
+    sheet.classList.remove("sheet-backdrop--out");
+  }, 260);
+}
+
 /* ---------- Подписка в календаре телефона ---------- */
 
 let calendarSheet = null;
@@ -8239,7 +8326,17 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
   // временем конца пары: низ карточки читается как «до скольких и где».
   if (single && first.room) {
     card.classList.add("card--room");
-    card.append(roomBadge(first.room));
+    const badge = roomBadge(first.room);
+    // Нажатие на аудиторию — где это на карте.
+    if (!badge.classList.contains("room-badge--remote")) {
+      badge.setAttribute("role", "button");
+      badge.addEventListener("click", (event) => {
+        event.stopPropagation();
+        haptic("light");
+        openRoomMap(first.room);
+      });
+    }
+    card.append(badge);
   }
   return card;
 }

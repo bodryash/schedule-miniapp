@@ -8202,3 +8202,25 @@ body.msu .tabs {
   color: var(--muted, #888);
   font-size: 13px;
 }
+
+/* --- Где аудитория --- */
+.room-badge[role="button"] {
+  cursor: pointer;
+}
+
+.sheet--map .map-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 8px;
+}
+
+.map-where {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.sheet--map .hint {
+  margin: 0;
+}
