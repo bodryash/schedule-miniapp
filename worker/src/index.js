@@ -7,6 +7,7 @@
  * Считает обезличенно, см. schema.sql.
  */
 
+import { handleIcs } from "./ics.js";
 import {
   addDays,
   answerInline,
@@ -3090,6 +3091,11 @@ export default {
     if (!OWN_SERVER && MOVED_TO) {
       const body = request.method === "GET" || request.method === "HEAD" ? undefined : await request.arrayBuffer();
       return fetch(`${MOVED_TO}${url.pathname}${url.search}`, { method: request.method, headers: request.headers, body });
+    }
+
+    // Подписка на расписание в календаре телефона — см. ics.js.
+    if (url.pathname.startsWith("/ics/") && (request.method === "GET" || request.method === "HEAD")) {
+      return handleIcs(url);
     }
 
     // Приложение спрашивает объявления своей группы. Сайт на другом адресе,
