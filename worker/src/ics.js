@@ -142,13 +142,13 @@ export async function handleIcs(url) {
   const tenantId = match[1];
   const groupId = decodeURIComponent(match[2]);
   const prefs = readPrefs(url.searchParams.get("f"));
-  // Из Telegram открываются только http(s): отсюда отправляем на webcal://,
+  // Из Telegram открываются только http(s): отсюда отправляем на webcals:// — та же подписка, но сразу по https: по webcal:// iPhone идёт на http, а перенаправление на https календарь не принимает,
   // и iPhone сам предлагает подписаться.
   if (url.searchParams.has("open")) {
     const target = new URL(url);
     target.searchParams.delete("open");
     target.protocol = "https:";
-    return Response.redirect(target.toString().replace(/^https:/, "webcal:"), 302);
+    return Response.redirect(target.toString().replace(/^https:/, "webcals:"), 302);
   }
 
   let tenant, schedule;
