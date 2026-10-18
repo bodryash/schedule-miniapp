@@ -9022,3 +9022,144 @@ article.card {
 .lv-scroll .lv-sections {
   padding: 0 14px;
 }
+
+/* ===== Фон на выбор ===== */
+.bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+  pointer-events: none;
+  display: none;
+}
+
+body[data-bg="mesh"] .bg-layer,
+body[data-bg="pattern"] .bg-layer {
+  display: block;
+}
+
+/* --- Живой градиент: три больших мягких пятна медленно плывут.
+   Только сдвиги — их телефон рисует видеочипом. --- */
+.bg-blob {
+  position: absolute;
+  width: 90vmax;
+  height: 90vmax;
+  border-radius: 50%;
+  opacity: 0;
+  will-change: transform;
+}
+
+body[data-bg="mesh"] .bg-blob {
+  opacity: 0.55;
+}
+
+.bg-blob--1 {
+  left: -35vmax;
+  top: -30vmax;
+  animation: blob-a 26s ease-in-out infinite alternate;
+}
+
+.bg-blob--2 {
+  right: -40vmax;
+  top: 10vh;
+  animation: blob-b 32s ease-in-out infinite alternate;
+}
+
+.bg-blob--3 {
+  left: -10vmax;
+  bottom: -45vmax;
+  animation: blob-c 29s ease-in-out infinite alternate;
+}
+
+@keyframes blob-a {
+  to { transform: translate(18vmax, 22vmax) scale(1.1); }
+}
+
+@keyframes blob-b {
+  to { transform: translate(-22vmax, 18vmax) scale(0.92); }
+}
+
+@keyframes blob-c {
+  to { transform: translate(14vmax, -24vmax) scale(1.08); }
+}
+
+body[data-bg-variant="aurora"] .bg-blob--1 { background: radial-gradient(circle, #3ee0b0 0%, transparent 62%); }
+body[data-bg-variant="aurora"] .bg-blob--2 { background: radial-gradient(circle, #5b8cff 0%, transparent 62%); }
+body[data-bg-variant="aurora"] .bg-blob--3 { background: radial-gradient(circle, #b46bff 0%, transparent 62%); }
+
+body[data-bg-variant="peach"] .bg-blob--1 { background: radial-gradient(circle, #ffb48a 0%, transparent 62%); }
+body[data-bg-variant="peach"] .bg-blob--2 { background: radial-gradient(circle, #ff8fa8 0%, transparent 62%); }
+body[data-bg-variant="peach"] .bg-blob--3 { background: radial-gradient(circle, #ffd27a 0%, transparent 62%); }
+
+body[data-bg-variant="sea"] .bg-blob--1 { background: radial-gradient(circle, #4fc3f7 0%, transparent 62%); }
+body[data-bg-variant="sea"] .bg-blob--2 { background: radial-gradient(circle, #26d0ce 0%, transparent 62%); }
+body[data-bg-variant="sea"] .bg-blob--3 { background: radial-gradient(circle, #2f6bff 0%, transparent 62%); }
+
+body[data-bg-variant="lavender"] .bg-blob--1 { background: radial-gradient(circle, #c3a6ff 0%, transparent 62%); }
+body[data-bg-variant="lavender"] .bg-blob--2 { background: radial-gradient(circle, #f3a6e0 0%, transparent 62%); }
+body[data-bg-variant="lavender"] .bg-blob--3 { background: radial-gradient(circle, #8fb7ff 0%, transparent 62%); }
+
+body[data-bg-variant="night"] .bg-blob--1 { background: radial-gradient(circle, #2b3a8c 0%, transparent 62%); }
+body[data-bg-variant="night"] .bg-blob--2 { background: radial-gradient(circle, #5a2b8c 0%, transparent 62%); }
+body[data-bg-variant="night"] .bg-blob--3 { background: radial-gradient(circle, #1c6a8c 0%, transparent 62%); }
+
+/* --- Узоры: тонко, цветом текста — читаются и в светлой, и в тёмной теме. --- */
+body[data-bg="pattern"] .bg-layer {
+  --ink: color-mix(in srgb, var(--text) 9%, transparent);
+}
+
+body[data-bg-variant="dots"] .bg-layer {
+  background-image: radial-gradient(var(--ink) 1.2px, transparent 1.6px);
+  background-size: 18px 18px;
+}
+
+body[data-bg-variant="grid"] .bg-layer {
+  background-image:
+    linear-gradient(var(--ink) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ink) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+body[data-bg-variant="lines"] .bg-layer {
+  background-image:
+    linear-gradient(90deg, transparent 38px, color-mix(in srgb, #ff5a5f 22%, transparent) 38px, color-mix(in srgb, #ff5a5f 22%, transparent) 40px, transparent 40px),
+    linear-gradient(var(--ink) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 28px;
+}
+
+body[data-bg-variant="paper"] .bg-layer {
+  background-image:
+    repeating-radial-gradient(circle at 17% 32%, var(--ink) 0 0.6px, transparent 0.8px 7px),
+    repeating-radial-gradient(circle at 73% 61%, var(--ink) 0 0.5px, transparent 0.7px 9px),
+    linear-gradient(170deg, color-mix(in srgb, #f5e6c8 18%, transparent), transparent 70%);
+}
+
+body[data-bg-variant="stars"] .bg-layer {
+  background-image:
+    radial-gradient(1.4px 1.4px at 20px 30px, var(--ink), transparent),
+    radial-gradient(1px 1px at 80px 70px, var(--ink), transparent),
+    radial-gradient(1.6px 1.6px at 130px 20px, var(--ink), transparent),
+    radial-gradient(1px 1px at 170px 110px, var(--ink), transparent),
+    radial-gradient(1.2px 1.2px at 60px 140px, var(--ink), transparent);
+  background-size: 200px 160px;
+}
+
+/* --- Небо по времени суток на весь экран --- */
+body[data-bg="sky"] .daysky {
+  height: 100vh;
+  height: 100dvh;
+  opacity: 0.85;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+/* Небо на весь экран — даже если «живые детали» выключены. */
+body[data-bg="sky"][data-decor="off"] .daysky {
+  opacity: 0.85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-blob {
+    animation: none;
+  }
+}

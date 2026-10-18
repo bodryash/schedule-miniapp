@@ -60,6 +60,9 @@ function translatePage() {
   for (const node of document.querySelectorAll("[aria-label]")) {
     node.setAttribute("aria-label", t(node.getAttribute("aria-label")));
   }
+  for (const node of document.querySelectorAll("optgroup[data-i18n-label]")) {
+    node.label = t(node.label);
+  }
 }
 const STORAGE_KEY = "schedule.prefs";
 
@@ -5457,6 +5460,38 @@ function season(date = new Date()) {
   return "summer";
 }
 
+/* ---------- Фон на выбор ----------
+ * Живой градиент, узор или небо по времени суток на весь экран. Выбор
+ * хранится только в памяти телефона. Слой фона лежит под содержимым и
+ * не мешает темам: у них свои цвета карточек и акцента.
+ */
+const BG_KEY = "schedule.bg";
+let bgLayer = null;
+
+function bgChoice() {
+  try {
+    return localStorage.getItem(BG_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function applyBackground() {
+  const choice = bgChoice();
+  const [kind, variant = ""] = choice.split(":");
+  document.body.dataset.bg = kind || "";
+  document.body.dataset.bgVariant = variant;
+  if (!bgLayer) {
+    bgLayer = el("div", "bg-layer");
+    bgLayer.setAttribute("aria-hidden", "true");
+    // Три пятна — для живого градиента; узорам и небу они не мешают.
+    for (let i = 1; i <= 3; i++) bgLayer.append(el("span", `bg-blob bg-blob--${i}`));
+    document.body.prepend(bgLayer);
+  }
+  const pick = document.getElementById("bg-pick");
+  if (pick && pick.value !== choice) pick.value = choice;
+}
+
 function applyDecor() {
   const on = decorOn();
   document.body.dataset.decor = on ? "on" : "off";
@@ -9626,6 +9661,16 @@ async function init() {
   initMsuTheme();
   applyTheme();
   applyDecor();
+  applyBackground();
+  document.getElementById("bg-pick")?.addEventListener("change", (event) => {
+    haptic("select");
+    try {
+      localStorage.setItem(BG_KEY, event.target.value);
+    } catch {
+      // Без памяти — до перезапуска.
+    }
+    applyBackground();
+  });
   const decorBox = document.getElementById("decor");
   if (decorBox) {
     decorBox.checked = decorOn();
