@@ -8744,3 +8744,172 @@ article.card {
     color-mix(in srgb, var(--card) 58%, var(--bg));
   box-shadow: 0 -24px 60px rgba(0, 0, 0, 0.32);
 }
+
+/* --- Подробности пары на весь экран (раскрывается из карточки) --- */
+.lesson-view {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 240px),
+    var(--bg);
+  will-change: clip-path;
+}
+
+body.lesson-open {
+  overflow: hidden;
+}
+
+.lv-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: calc(14px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+  transform-origin: 50% 0;
+}
+
+.lv-bar {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+.lv-back {
+  padding: 8px 12px 8px 6px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lv-hero {
+  padding: 6px 2px 18px;
+}
+
+.lv-time {
+  font-size: 30px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.lv-pair {
+  display: inline-block;
+  margin: 8px 0 10px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lv-subject {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.15;
+}
+
+.lv-kind {
+  margin-top: 8px;
+  color: var(--muted, #888);
+}
+
+.lv-section {
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: 0 1px 0 var(--line);
+}
+
+.lv-section-title {
+  margin: 0 0 10px;
+  color: var(--muted, #888);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lv-hw {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lv-hw-item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.lv-empty,
+.lv-muted {
+  color: var(--muted, #888);
+  font-size: 14px;
+}
+
+.lv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lv-strong {
+  font-weight: 600;
+}
+
+.lv-room {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.lv-link {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.lv-text {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.lv-action,
+.lv-chip {
+  border: 0;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lv-action {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--accent-text, #fff);
+}
+
+.lv-action--soft {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.lv-chip {
+  flex: none;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+}

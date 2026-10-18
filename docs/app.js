@@ -5512,166 +5512,211 @@ function renderSeason() {
 }
 
 /* ---------- Карточка пары раскрывается ----------
- * Нажатие на карточку — окно с подробностями. Окно вырастает из самой
- * карточки (FLIP): видно, откуда оно взялось.
+ * Как приложение на телефоне: нажал — карточка расширяется на весь экран.
+ * Раскрывается рамка (clip-path), а текст рисуется сразу в полном размере
+ * и лишь чуть подрастает — ничего не растягивается и не плющится.
+ * Закрытие — обратно в ту же карточку; работает и системная «назад».
  */
-let lessonSheet = null;
+let lessonView = null;
+let lessonCard = null;
+const VIEW_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
 
-function openLessonSheet(card) {
+function cardClip(card) {
+  const r = card.getBoundingClientRect();
+  const radius = parseFloat(getComputedStyle(card).borderTopLeftRadius) || 18;
+  // Карточка может частично уходить за край экрана — рамку держим в видимой части.
+  const top = Math.min(Math.max(0, r.top), innerHeight - 60);
+  const bottom = Math.min(Math.max(0, innerHeight - r.bottom), innerHeight - top - 60);
+  const right = Math.max(0, innerWidth - r.right);
+  return `inset(${top}px ${right}px ${bottom}px ${Math.max(0, r.left)}px round ${radius}px)`;
+}
+
+function viewSection(title, ...children) {
+  const box = el("section", "lv-section");
+  box.append(el("h3", "lv-section-title", title), ...children.filter(Boolean));
+  return box;
+}
+
+function openLessonView(card) {
   const subject = card.dataset.subject;
   if (!subject) return;
   const slots = cardSlots(card);
   const entries = visible.filter((l) => l.subject === subject && slots.includes(l.slot));
   if (!entries.length) return;
-  if (!lessonSheet) {
-    lessonSheet = el("div", "sheet-backdrop");
-    lessonSheet.hidden = true;
-    const sheet = el("div", "sheet sheet--abs sheet--lesson");
-    sheet.setAttribute("role", "dialog");
-    sheet.setAttribute("aria-modal", "true");
-    const top = el("div", "sheet-top");
-    const close = el("button", "icon", "×");
-    close.type = "button";
-    close.setAttribute("aria-label", t("Закрыть"));
-    close.addEventListener("click", closeLessonSheet);
-    top.append(el("h2", "lesson-title"), close);
-    sheet.append(top, el("div", "lesson-body"));
-    lessonSheet.append(sheet);
-    lessonSheet.addEventListener("click", (event) => {
-      if (event.target === lessonSheet) closeLessonSheet();
-    });
-    document.body.append(lessonSheet);
-  }
   const first = entries[0];
-  lessonSheet.querySelector(".lesson-title").textContent = tr(subject);
-  const rows = [];
-  const row = (label, value, extra) => {
-    if (!value && !extra) return;
-    const node = el("div", "lesson-row");
-    node.append(el("span", "lesson-label", label));
-    const box = el("div", "lesson-value");
-    if (value) box.append(el("span", "", value));
-    if (extra) box.append(extra);
-    node.append(box);
-    rows.push(node);
-  };
-  const time = card.dataset.start ? `${card.dataset.start}–${card.dataset.end || ""}` : "";
-  row(t("Время"), [time, slots.length ? (slots.length > 1 ? t("{a}–{b} пара", { a: slots[0], b: slots.at(-1) }) : t("{n} пара", { n: slots[0] })) : ""].filter(Boolean).join(" · "));
-  if (first.type) row(t("Вид"), t(first.type));
-  const people = [...new Map(entries.flatMap((l) => teachersOf(l.teacher)).map((p) => [p.key, p])).values()];
-  for (const person of people) {
-    const email = TEACHER_EMAILS[person.key];
-    let link = null;
-    if (email) {
-      link = el("a", "lesson-mail", email);
-      link.href = `mailto:${email}`;
+  lessonCard = card;
+
+  lessonView?.remove();
+  lessonView = el("div", "lesson-view");
+  lessonView.setAttribute("role", "dialog");
+  lessonView.setAttribute("aria-modal", "true");
+  const inner = el("div", "lv-inner");
+
+  const bar = el("div", "lv-bar");
+  const back = el("button", "lv-back", `‹ ${t("Назад")}`);
+  back.type = "button";
+  back.addEventListener("click", closeLessonView);
+  bar.append(back);
+
+  const hero = el("div", "lv-hero");
+  const time = card.dataset.start ? `${card.dataset.start} – ${card.dataset.end || ""}` : "";
+  const pair = slots.length > 1 ? t("{a}–{b} пара", { a: slots[0], b: slots.at(-1) }) : t("{n} пара", { n: slots[0] });
+  hero.append(el("div", "lv-time", time), el("span", "lv-pair", pair), el("h2", "lv-subject", tr(subject)));
+  const kind = [first.type ? t(first.type) : "", card.classList.contains("card--cancelled") ? t("отменена") : ""].filter(Boolean).join(" · ");
+  if (kind) hero.append(el("div", "lv-kind", kind));
+
+  const sections = [];
+
+  // Домашка — первой: за ней чаще всего и открывают пару.
+  const items = homeworkFor(card);
+  const hw = el("div", "lv-hw");
+  if (items.length) {
+    for (const item of items) {
+      const line = el("div", "lv-hw-item");
+      const prefix = item.subgroup ? `${t("гр. {n}", { n: item.subgroup })}: ` : "";
+      line.textContent = prefix + item.text;
+      hw.append(line);
     }
-    row(t("Преподаватель"), [person.title, teacherFull(person.key) || person.key].filter(Boolean).join(" "), link);
+  } else {
+    hw.append(el("div", "lv-empty", t("Домашки пока нет")));
   }
+  let hwButton = null;
+  if (notices.canEdit && els.hwSheet) {
+    hwButton = el("button", "lv-action", items.length ? t("Изменить ДЗ") : t("＋ ДЗ"));
+    hwButton.type = "button";
+    hwButton.addEventListener("click", () => {
+      closeLessonView(true);
+      openHomework(card);
+    });
+  }
+  sections.push(viewSection(t("Домашка"), hw, hwButton));
+
+  if (notices.canComment && els.cmSheet) {
+    const count = notices.comments.get(commentKey(isoDate(dateOfDay(selectedDay)), subject)) || 0;
+    const open = el("button", "lv-action", count ? t("Открыть комментарии ({n})", { n: count }) : t("Написать комментарий"));
+    open.type = "button";
+    open.addEventListener("click", () => {
+      closeLessonView(true);
+      openComments(card);
+    });
+    sections.push(viewSection(t("Комментарии группы"), open));
+  }
+
+  const people = [...new Map(entries.flatMap((l) => teachersOf(l.teacher)).map((x) => [x.key, x])).values()];
+  if (people.length) {
+    const list = el("div", "lv-list");
+    for (const person of people) {
+      const line = el("div", "lv-person");
+      line.append(el("div", "lv-strong", teacherFull(person.key) || person.key));
+      if (person.title) line.append(el("div", "lv-muted", person.title));
+      const email = TEACHER_EMAILS[person.key];
+      if (email) {
+        const link = el("a", "lv-link", email);
+        link.href = `mailto:${email}`;
+        line.append(link);
+      }
+      list.append(line);
+    }
+    sections.push(viewSection(people.length > 1 ? t("Преподаватели") : t("Преподаватель"), list));
+  }
+
   const rooms = [...new Set(entries.map((l) => l.room).filter(Boolean))];
-  for (const room of rooms) {
-    const remote = REMOTE_ROOMS.includes(room.toLowerCase());
-    let map = null;
-    if (!remote) {
-      map = el("button", "lesson-map", t("Где это"));
-      map.type = "button";
-      map.addEventListener("click", () => {
-        closeLessonSheet();
-        openRoomMap(room);
-      });
+  if (rooms.length) {
+    const list = el("div", "lv-list");
+    for (const room of rooms) {
+      const line = el("div", "lv-room");
+      line.append(el("span", "lv-strong", roomLabel(room)));
+      if (!REMOTE_ROOMS.includes(room.toLowerCase())) {
+        const map = el("button", "lv-chip", t("Где это"));
+        map.type = "button";
+        map.addEventListener("click", () => {
+          closeLessonView(true);
+          openRoomMap(room);
+        });
+        line.append(map);
+      }
+      list.append(line);
     }
-    row(t("Аудитория"), roomLabel(room), map);
+    sections.push(viewSection(t("Аудитория"), list));
   }
+
   const subs = [...new Set(entries.map((l) => l.subgroup).filter(Boolean))];
-  if (subs.length) row(t("Подгруппы"), subs.join(", "));
+  if (subs.length) sections.push(viewSection(t("Подгруппы"), el("div", "lv-text", subs.join(", "))));
   const notes = [...new Set(entries.map((l) => l.note).filter(Boolean))];
-  if (notes.length) row(t("Примечание"), notes.map(trNote).join("; "));
+  if (notes.length) sections.push(viewSection(t("Примечание"), el("div", "lv-text", notes.map(trNote).join("; "))));
+
   const mine = noteOf(dateOfDay(selectedDay), Number(card.dataset.slot), subject);
-  const pen = el("button", "lesson-note", mine ? t("Изменить заметку") : t("Добавить заметку"));
+  const pen = el("button", "lv-action lv-action--soft", mine ? t("Изменить заметку") : t("Добавить заметку"));
   pen.type = "button";
   pen.addEventListener("click", () => {
-    closeLessonSheet();
+    closeLessonView(true);
     openNote(card);
   });
-  row(t("Моя заметка"), mine || "", pen);
-  const homework = card.querySelector(".hw-text, .hw-item, .homework");
-  if (homework?.textContent.trim()) row(t("Домашка"), homework.textContent.trim());
-  lessonSheet.querySelector(".lesson-body").replaceChildren(...rows);
+  sections.push(viewSection(t("Моя заметка"), mine ? el("div", "lv-text", mine) : null, pen));
 
-  lessonSheet.classList.remove("sheet-backdrop--out");
-  const sheet = lessonSheet.querySelector(".sheet--lesson");
-  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  sheet.classList.toggle("sheet--morph", !reduce);
-  lessonSheet.hidden = false;
-  if (!reduce) morphFromCard(card, sheet);
+  inner.append(bar, hero, ...sections);
+  lessonView.append(inner);
+  document.body.append(lessonView);
+  document.body.classList.add("lesson-open");
+
+  // Системная «назад» в Telegram закрывает подробности.
+  if (tg?.BackButton) {
+    tg.BackButton.onClick(closeLessonView);
+    tg.BackButton.show();
+  }
+
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  card.animate([{ transform: "scale(1)" }, { transform: "scale(0.97)" }], { duration: 120, easing: "ease-out" });
+  const from = cardClip(card);
+  lessonView.animate([{ clipPath: from }, { clipPath: "inset(0px 0px 0px 0px round 0px)" }], {
+    duration: 460,
+    easing: VIEW_EASE,
+  });
+  // Текст — в полном размере с самого начала, лишь чуть подрастает и
+  // проявляется: как содержимое приложения при открытии.
+  const r = card.getBoundingClientRect();
+  inner.animate(
+    [
+      { transform: `translateY(${Math.round(r.top - 40)}px) scale(0.94)`, opacity: 0.3 },
+      { transform: "none", opacity: 1 },
+    ],
+    { duration: 460, easing: VIEW_EASE }
+  );
 }
 
-/**
- * Окно вырастает из карточки. Растягивать само окно с текстом нельзя —
- * буквы сплющиваются, поэтому растёт пустая подложка цвета карточки, а
- * текст окна проявляется, когда подложка встала на место.
- */
-function morphFromCard(card, sheet) {
-  const from = card.getBoundingClientRect();
-  const to = sheet.getBoundingClientRect();
-  if (!to.width || !to.height) {
-    sheet.classList.remove("sheet--morph");
+function closeLessonView(instant = false) {
+  const view = lessonView;
+  if (!view) return;
+  lessonView = null;
+  if (tg?.BackButton) {
+    tg.BackButton.offClick(closeLessonView);
+    tg.BackButton.hide();
+  }
+  document.body.classList.remove("lesson-open");
+  const card = lessonCard && document.body.contains(lessonCard) ? lessonCard : null;
+  if (instant === true || !card || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    view.remove();
     return;
   }
-  // Карточка коротко утапливается — видно, что нажалась именно она.
-  card.animate([{ transform: "scale(1)" }, { transform: "scale(0.97)" }, { transform: "scale(1)" }], {
-    duration: 240,
-    easing: "ease-out",
-  });
-  const surface = el("div", "morph-surface");
-  const radius = getComputedStyle(card).borderRadius || "18px";
-  Object.assign(surface.style, {
-    left: `${from.left}px`,
-    top: `${from.top}px`,
-    width: `${from.width}px`,
-    height: `${from.height}px`,
-    borderRadius: radius,
-  });
-  document.body.append(surface);
-  const grow = surface.animate(
-    [
-      { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, borderRadius: radius },
-      { left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, borderRadius: "28px 28px 0 0" },
-    ],
-    { duration: 400, easing: "cubic-bezier(0.32, 0.72, 0, 1)", fill: "forwards" }
-  );
-  // Страховка: если сигнал «анимация закончилась» не придёт (свёрнутое
-  // приложение, слабый телефон), окно всё равно покажется.
-  let shown = false;
-  const reveal = () => {
-    if (shown) return;
-    shown = true;
-    sheet.classList.remove("sheet--morph");
-    // Содержимое — лёгкой волной сверху вниз.
-    [...sheet.children].forEach((child, i) => {
-      child.animate([{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], {
-        duration: 220,
-        delay: i * 40,
-        easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
-        fill: "backwards",
-      });
-    });
-    surface.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: "forwards" });
-    setTimeout(() => surface.remove(), 200);
-  };
-  grow.onfinish = reveal;
-  setTimeout(reveal, 460);
-}
-
-function closeLessonSheet() {
-  const sheet = lessonSheet;
-  if (!sheet || sheet.hidden || sheet.classList.contains("sheet-backdrop--out")) return;
   haptic("light");
-  sheet.classList.add("sheet-backdrop--out");
-  setTimeout(() => {
-    sheet.hidden = true;
-    sheet.classList.remove("sheet-backdrop--out");
-  }, 260);
+  const r = card.getBoundingClientRect();
+  const shrink = view.animate([{ clipPath: "inset(0px 0px 0px 0px round 0px)" }, { clipPath: cardClip(card) }], {
+    duration: 380,
+    easing: VIEW_EASE,
+    fill: "forwards",
+  });
+  view.firstChild?.animate(
+    [{ transform: "none", opacity: 1 }, { transform: `translateY(${Math.round(r.top - 40)}px) scale(0.94)`, opacity: 0 }],
+    { duration: 380, easing: VIEW_EASE, fill: "forwards" }
+  );
+  let gone = false;
+  const done = () => {
+    if (gone) return;
+    gone = true;
+    view.remove();
+  };
+  shrink.onfinish = done;
+  setTimeout(done, 450);
 }
 
 /* ---------- Заготовки, пока грузится расписание ---------- */
@@ -9447,7 +9492,7 @@ async function init() {
     const card = event.target.closest("article.card");
     if (!card || event.target.closest("button, a, summary, details, input, .room-badge")) return;
     haptic("light");
-    openLessonSheet(card);
+    openLessonView(card);
   });
   els.group.addEventListener("change", fillLanguages);
   els.main.addEventListener("change", fillMainSubgroups);
