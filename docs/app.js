@@ -60,6 +60,9 @@ function translatePage() {
   for (const node of document.querySelectorAll("[aria-label]")) {
     node.setAttribute("aria-label", t(node.getAttribute("aria-label")));
   }
+  for (const node of document.querySelectorAll("optgroup[data-i18n-label]")) {
+    node.label = t(node.label);
+  }
 }
 const STORAGE_KEY = "schedule.prefs";
 
@@ -4146,7 +4149,7 @@ async function submitHomework(text) {
   }
 }
 
-const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"].map((day) => t(day));
+const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => t(day));
 
 // Основной язык: английский либо русский для иностранцев. Одновременно их
 // не бывает, поэтому в опросе это один вопрос. Название зависит от курса.
@@ -4356,10 +4359,9 @@ const els = {
 let data = null;
 let prefs = null;
 
-// В воскресенье занятий нет, поэтому показываем понедельник — уже следующей
-// недели, а не той, что закончилась.
+// Воскресенье — в полосе дней тоже: пар нет, но свои дела бывают. В
+// воскресенье открываемся на нём, а не на понедельнике следующей недели.
 const baseDate = new Date();
-if (baseDate.getDay() === 0) baseDate.setDate(baseDate.getDate() + 1);
 
 const weekStart = mondayOf(baseDate);
 
@@ -4367,7 +4369,7 @@ const weekStart = mondayOf(baseDate);
 // чаще, чем на месяц вперёд, а листать две недели можно одной полосой.
 const WEEKS = 2;
 
-let selectedDay = Math.min((baseDate.getDay() + 6) % 7, 5) + 1;
+let selectedDay = ((baseDate.getDay() + 6) % 7) + 1;
 let selectedWeek = 0;
 
 // Дни двух недель как одна лента: по ней и листаем.
@@ -5423,6 +5425,508 @@ function closeRoomMap() {
   }, 260);
 }
 
+/* ---------- Живое оформление ----------
+ * Небо по времени суток за шапкой, сезонные детали на свободных днях и
+ * гирлянда в декабре. Всё — лёгкие слои на CSS, без постоянных вычислений,
+ * и выключается одной галочкой в настройках. При «уменьшить движение»
+ * сезонные частицы не показываем вовсе.
+ */
+const DECOR_KEY = "schedule.decor";
+let skyLayer = null;
+let seasonLayer = null;
+let garland = null;
+
+function decorOn() {
+  try {
+    return localStorage.getItem(DECOR_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+function daypart(date = new Date()) {
+  const h = date.getHours();
+  if (h >= 5 && h < 11) return "morning";
+  if (h >= 11 && h < 17) return "day";
+  if (h >= 17 && h < 21) return "evening";
+  return "night";
+}
+
+function season(date = new Date()) {
+  const m = date.getMonth();
+  if (m >= 8 && m <= 10) return "autumn";
+  if (m === 11 || m <= 1) return "winter";
+  if (m >= 2 && m <= 4) return "spring";
+  return "summer";
+}
+
+/* ---------- Фон на выбор ----------
+ * Живой градиент, узор или небо по времени суток на весь экран. Выбор
+ * хранится только в памяти телефона. Слой фона лежит под содержимым и
+ * не мешает темам: у них свои цвета карточек и акцента.
+ */
+const BG_KEY = "schedule.bg";
+let bgLayer = null;
+
+function bgChoice() {
+  try {
+    return localStorage.getItem(BG_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function applyBackground() {
+  const choice = bgChoice();
+  const [kind, variant = ""] = choice.split(":");
+  document.body.dataset.bg = kind || "";
+  document.body.dataset.bgVariant = variant;
+  if (!bgLayer) {
+    bgLayer = el("div", "bg-layer");
+    bgLayer.setAttribute("aria-hidden", "true");
+    // Три пятна — для живого градиента; узорам и небу они не мешают.
+    for (let i = 1; i <= 3; i++) bgLayer.append(el("span", `bg-blob bg-blob--${i}`));
+    document.body.prepend(bgLayer);
+  }
+  const pick = document.getElementById("bg-pick");
+  if (pick && pick.value !== choice) pick.value = choice;
+}
+
+function applyDecor() {
+  const on = decorOn();
+  document.body.dataset.decor = on ? "on" : "off";
+  if (!skyLayer) {
+    skyLayer = el("div", "daysky");
+    skyLayer.setAttribute("aria-hidden", "true");
+    document.body.prepend(skyLayer);
+  }
+  document.body.dataset.daypart = daypart();
+  // Гирлянда — в декабре, над датой.
+  const december = new Date().getMonth() === 11;
+  if (on && december && !garland) {
+    garland = el("div", "garland");
+    garland.setAttribute("aria-hidden", "true");
+    for (let i = 0; i < 14; i++) {
+      const bulb = el("i");
+      bulb.style.setProperty("--i", i);
+      garland.append(bulb);
+    }
+    (document.querySelector(".date") || els.days)?.before(garland);
+  }
+  if (garland) garland.hidden = !(on && december);
+  renderSeason();
+}
+
+/** Частицы сезона — только на свободном дне и только если не просили тишины. */
+function renderSeason() {
+  const free = Boolean(els.lessons?.querySelector(".free-day"));
+  const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const kind = season();
+  const show = decorOn() && free && !calm && kind !== "summer";
+  if (!show) {
+    seasonLayer?.remove();
+    seasonLayer = null;
+    return;
+  }
+  if (seasonLayer?.dataset.kind === kind) return;
+  seasonLayer?.remove();
+  seasonLayer = el("div", `season season--${kind}`);
+  seasonLayer.dataset.kind = kind;
+  seasonLayer.setAttribute("aria-hidden", "true");
+  const glyphs = { autumn: ["🍂", "🍁", "🍂"], winter: ["❄", "❅", "❆"], spring: ["🌸", "🌼", "🌸"] }[kind];
+  for (let i = 0; i < 9; i++) {
+    const bit = el("span", "season-bit", glyphs[i % glyphs.length]);
+    bit.style.left = `${(i * 37 + 7) % 96}%`;
+    bit.style.setProperty("--d", `${(i * 1.7) % 9}s`);
+    bit.style.setProperty("--t", `${11 + (i % 4) * 2.5}s`);
+    bit.style.setProperty("--s", `${0.75 + (i % 3) * 0.2}`);
+    bit.style.setProperty("--x", `${(i % 2 ? 1 : -1) * (18 + (i % 3) * 10)}px`);
+    seasonLayer.append(bit);
+  }
+  document.body.append(seasonLayer);
+}
+
+/* ---------- Карточка пары раскрывается ----------
+ * Контейнерный переход, как в iOS. Всё движение — только сдвиги, масштаб
+ * и прозрачность: их iPhone проигрывает видеочипом, без перерисовки
+ * экрана в каждом кадре.
+ *  - фон окна — пустая подложка: растёт из карточки масштабом, углы
+ *    пересчитываются под масштаб и не сплющиваются;
+ *  - сама карточка (её копия) едет только сдвигом — шрифты и переносы
+ *    не меняются, прыгать нечему;
+ *  - подробности проявляются, когда окно уже раскрылось.
+ * На время полёта карточка — в отдельном слое поверх всего; в покое она
+ * переезжает в окно на то же место, пиксель в пиксель.
+ */
+let lessonView = null;
+let lessonCard = null;
+const VIEW_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
+const OPEN_MS = 460;
+const CLOSE_MS = 380;
+const PANEL_RADIUS = 26;
+
+/** Прямоугольник окна: отступы от краёв экрана. */
+function panelRect() {
+  const top = Math.max(48, Math.round(innerHeight * 0.08));
+  const bottom = Math.round(innerHeight * 0.06);
+  return { left: 12, top, width: innerWidth - 24, height: innerHeight - top - bottom };
+}
+
+/** Масштаб и сдвиг подложки, чтобы она совпала с прямоугольником rect. */
+function surfaceFrame(rect, panel, radius) {
+  const sx = rect.width / panel.width;
+  const sy = rect.height / panel.height;
+  return {
+    transform: `translate(${rect.left - panel.left}px, ${rect.top - panel.top}px) scale(${sx}, ${sy})`,
+    // Углы — в масштабе подложки, чтобы после масштаба остались круглыми.
+    borderRadius: `${radius / sx}px / ${radius / sy}px`,
+  };
+}
+
+function viewSection(title, ...children) {
+  const box = el("section", "lv-section");
+  box.append(el("h3", "lv-section-title", title), ...children.filter(Boolean));
+  return box;
+}
+
+/** Дождаться конца анимации; если сигнал не придёт — подстраховка с запасом. */
+function whenDone(animation, ms, fn) {
+  let fired = false;
+  const run = () => {
+    if (fired) return;
+    fired = true;
+    fn();
+  };
+  animation?.finished?.then(run, run);
+  setTimeout(run, ms + 600);
+}
+
+function openLessonView(card) {
+  const subject = card.dataset.subject;
+  if (!subject || lessonView) return;
+  const slots = cardSlots(card);
+  const entries = visible.filter((l) => l.subject === subject && slots.includes(l.slot));
+  if (!entries.length) return;
+  lessonCard = card;
+  const r = card.getBoundingClientRect();
+  const panel = panelRect();
+  const radius = parseFloat(getComputedStyle(card).borderTopLeftRadius) || 18;
+
+  const dim = el("div", "lv-dim");
+  const group = el("div", "lv-group");
+  const surface = el("div", "lv-surface");
+  const scroller = el("div", "lv-scroll");
+  scroller.setAttribute("role", "dialog");
+  scroller.setAttribute("aria-modal", "true");
+  for (const node of [surface, scroller]) {
+    Object.assign(node.style, {
+      left: `${panel.left}px`,
+      top: `${panel.top}px`,
+      width: `${panel.width}px`,
+      height: `${panel.height}px`,
+    });
+  }
+
+  const bar = el("div", "lv-bar");
+  const back = el("button", "lv-back", `‹ ${t("Назад")}`);
+  back.type = "button";
+  back.addEventListener("click", closeLessonView);
+  bar.append(back);
+
+  // Место карточки в окне. Ширина — как у карточки в расписании.
+  const slot = el("div", "lv-slot");
+  slot.style.height = `${r.height}px`;
+  const head = card.cloneNode(true);
+  head.classList.add("lv-head");
+  head.inert = true;
+  head.setAttribute("aria-hidden", "true");
+  head.style.width = `${r.width}px`;
+
+  const sections = [];
+
+  // Домашка — первой: за ней чаще всего и открывают пару.
+  const items = homeworkFor(card);
+  const hw = el("div", "lv-hw");
+  if (items.length) {
+    for (const item of items) {
+      const line = el("div", "lv-hw-item");
+      const prefix = item.subgroup ? `${t("гр. {n}", { n: item.subgroup })}: ` : "";
+      line.textContent = prefix + item.text;
+      hw.append(line);
+    }
+  } else {
+    hw.append(el("div", "lv-empty", t("Домашки пока нет")));
+  }
+  let hwButton = null;
+  if (notices.canEdit && els.hwSheet) {
+    hwButton = el("button", "lv-action", items.length ? t("Изменить ДЗ") : t("＋ ДЗ"));
+    hwButton.type = "button";
+    hwButton.addEventListener("click", () => {
+      closeLessonView(true);
+      openHomework(card);
+    });
+  }
+  sections.push(viewSection(t("Домашка"), hw, hwButton));
+
+  if (notices.canComment && els.cmSheet) {
+    const count = notices.comments.get(commentKey(isoDate(dateOfDay(selectedDay)), subject)) || 0;
+    const open = el("button", "lv-action", count ? t("Открыть комментарии ({n})", { n: count }) : t("Написать комментарий"));
+    open.type = "button";
+    open.addEventListener("click", () => {
+      closeLessonView(true);
+      openComments(card);
+    });
+    sections.push(viewSection(t("Комментарии группы"), open));
+  }
+
+  const people = [...new Map(entries.flatMap((l) => teachersOf(l.teacher)).map((x) => [x.key, x])).values()];
+  if (people.length) {
+    const list = el("div", "lv-list");
+    for (const person of people) {
+      const line = el("div", "lv-person");
+      line.append(el("div", "lv-strong", teacherFull(person.key) || person.key));
+      if (person.title) line.append(el("div", "lv-muted", person.title));
+      const email = TEACHER_EMAILS[person.key];
+      if (email) {
+        const link = el("a", "lv-link", email);
+        link.href = `mailto:${email}`;
+        line.append(link);
+      }
+      list.append(line);
+    }
+    sections.push(viewSection(people.length > 1 ? t("Преподаватели") : t("Преподаватель"), list));
+  }
+
+  const rooms = [...new Set(entries.map((l) => l.room).filter(Boolean))];
+  if (rooms.length) {
+    const list = el("div", "lv-list");
+    for (const room of rooms) {
+      const line = el("div", "lv-room");
+      line.append(el("span", "lv-strong", roomLabel(room)));
+      if (!REMOTE_ROOMS.includes(room.toLowerCase())) {
+        const map = el("button", "lv-chip", t("Где это"));
+        map.type = "button";
+        map.addEventListener("click", () => {
+          closeLessonView(true);
+          openRoomMap(room);
+        });
+        line.append(map);
+      }
+      list.append(line);
+    }
+    sections.push(viewSection(t("Аудитория"), list));
+  }
+
+  const subs = [...new Set(entries.map((l) => l.subgroup).filter(Boolean))];
+  if (subs.length) sections.push(viewSection(t("Подгруппы"), el("div", "lv-text", subs.join(", "))));
+  const notes = [...new Set(entries.map((l) => l.note).filter(Boolean))];
+  if (notes.length) sections.push(viewSection(t("Примечание"), el("div", "lv-text", notes.map(trNote).join("; "))));
+
+  const mine = noteOf(dateOfDay(selectedDay), Number(card.dataset.slot), subject);
+  const pen = el("button", "lv-action lv-action--soft", mine ? t("Изменить заметку") : t("Добавить заметку"));
+  pen.type = "button";
+  pen.addEventListener("click", () => {
+    closeLessonView(true);
+    openNote(card);
+  });
+  sections.push(viewSection(t("Моя заметка"), mine ? el("div", "lv-text", mine) : null, pen));
+
+  const rest = el("div", "lv-sections");
+  rest.append(...sections);
+  scroller.append(bar, slot, rest);
+  group.append(surface, scroller);
+  document.body.append(dim, group);
+  // Карточка в окне — по центру, как в расписании относительно экрана.
+  slot.style.marginLeft = `${r.left - panel.left}px`;
+  slot.style.width = `${r.width}px`;
+
+  lessonView = { dim, group, surface, scroller, head, slot, chrome: [bar, rest], panel, radius };
+  dim.addEventListener("click", closeLessonView);
+  dragToClose(lessonView);
+
+  // Системная «назад» в Telegram закрывает подробности, а свайп вниз не
+  // сворачивает приложение, пока окно открыто.
+  if (tg?.BackButton) {
+    tg.BackButton.onClick(closeLessonView);
+    tg.BackButton.show();
+  }
+  try {
+    tg?.disableVerticalSwipes?.();
+  } catch {
+    // Старый Telegram без этой возможности.
+  }
+
+  const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (calm) {
+    slot.append(head);
+    return;
+  }
+
+  // Полёт: копия карточки — в своём слое поверх окна, от места карточки
+  // до места в окне.
+  const s = slot.getBoundingClientRect();
+  Object.assign(head.style, { position: "fixed", left: `${s.left}px`, top: `${s.top}px`, margin: "0", zIndex: "1002" });
+  document.body.append(head);
+  card.style.visibility = "hidden";
+
+  const timing = { duration: OPEN_MS, easing: VIEW_EASE };
+  const fly = head.animate(
+    [{ transform: `translate(${r.left - s.left}px, ${r.top - s.top}px)` }, { transform: "translate(0px, 0px)" }],
+    timing
+  );
+  const from = surfaceFrame(r, panel, radius);
+  surface.animate([from, { transform: "none", borderRadius: `${PANEL_RADIUS}px` }], timing);
+  dim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS * 0.8, easing: "ease-out" });
+  for (const part of [bar, rest]) {
+    part.animate([{ opacity: 0, transform: "translateY(16px)" }, { opacity: 1, transform: "translateY(0px)" }], {
+      duration: OPEN_MS - 80,
+      delay: 140,
+      easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+      fill: "backwards",
+    });
+  }
+  whenDone(fly, OPEN_MS, () => {
+    // В покое карточка — внутри окна, на том же месте: листается вместе с ним.
+    if (lessonView?.head !== head || head.parentNode !== document.body) return;
+    Object.assign(head.style, { position: "", left: "", top: "", margin: "", zIndex: "" });
+    slot.append(head);
+    card.style.visibility = "";
+  });
+}
+
+/**
+ * Свайп вниз закрывает окно, как на iPhone: из самого верха окно едет за
+ * пальцем, затемнение светлеет. Отпустили далеко или резко — окно
+ * сворачивается обратно в карточку, чуть-чуть — мягко возвращается.
+ */
+function dragToClose(view) {
+  const { scroller, group, dim } = view;
+  let startY = 0;
+  let startTime = 0;
+  let shift = 0;
+  let armed = false;
+  let dragging = false;
+  scroller.addEventListener("touchstart", (event) => {
+    armed = scroller.scrollTop <= 0;
+    dragging = false;
+    shift = 0;
+    startY = event.touches[0].clientY;
+    startTime = performance.now();
+  }, { passive: true });
+  scroller.addEventListener("touchmove", (event) => {
+    if (!armed) return;
+    const dy = event.touches[0].clientY - startY;
+    // С первого же движения вниз: иначе iPhone начинает сам «пружинить».
+    if (!dragging && (dy <= 0 || scroller.scrollTop > 0)) {
+      if (dy < 0) armed = false;
+      return;
+    }
+    dragging = true;
+    event.preventDefault();
+    shift = Math.max(0, dy * 0.75);
+    group.style.transform = `translateY(${shift}px)`;
+    dim.style.opacity = String(Math.max(0.15, 1 - shift / 420));
+  }, { passive: false });
+  scroller.addEventListener("touchend", () => {
+    if (!dragging) return;
+    dragging = false;
+    const speed = shift / Math.max(1, performance.now() - startTime);
+    if (shift > 110 || speed > 0.55) {
+      closeLessonView();
+      return;
+    }
+    group.animate([{ transform: `translateY(${shift}px)` }, { transform: "translateY(0px)" }], {
+      duration: 320,
+      easing: "cubic-bezier(0.34, 1.3, 0.5, 1)",
+    });
+    group.style.transform = "";
+    dim.style.opacity = "";
+  });
+  // Запасной путь: iPhone утянул содержимое вниз за верхний край.
+  scroller.addEventListener("scroll", () => {
+    if (scroller.scrollTop < -50 && lessonView === view) closeLessonView();
+  }, { passive: true });
+}
+
+function closeLessonView(instant = false) {
+  const view = lessonView;
+  if (!view) return;
+  // Место карточки — самым первым делом, до любых изменений.
+  const card = lessonCard && document.body.contains(lessonCard) ? lessonCard : null;
+  const r = card?.getBoundingClientRect();
+  lessonView = null;
+  if (tg?.BackButton) {
+    tg.BackButton.offClick(closeLessonView);
+    tg.BackButton.hide();
+  }
+  try {
+    tg?.enableVerticalSwipes?.();
+  } catch {
+    // Старый Telegram без этой возможности.
+  }
+  const { dim, group, surface, scroller, head, panel, radius } = view;
+  const finish = () => {
+    if (card) card.style.visibility = "";
+    dim.remove();
+    group.remove();
+    head.remove();
+  };
+  if (instant === true || !card || !r || !r.height || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    finish();
+    return;
+  }
+  haptic("light");
+  group.style.pointerEvents = "none";
+  dim.style.pointerEvents = "none";
+
+  // Сдвиг от свайпа: окно стартует оттуда, где его отпустили.
+  const shift = Number((group.style.transform.match(/-?[\d.]+/) || [0])[0]) || 0;
+  // Карточка — снова в свой слой поверх всего, ровно на том месте, где она сейчас.
+  const h = head.getBoundingClientRect();
+  Object.assign(head.style, { position: "fixed", left: `${h.left}px`, top: `${h.top}px`, width: `${h.width}px`, margin: "0", zIndex: "1002" });
+  document.body.append(head);
+  card.style.visibility = "hidden";
+
+  const timing = { duration: CLOSE_MS, easing: VIEW_EASE, fill: "forwards" };
+  const fly = head.animate(
+    [{ transform: "translate(0px, 0px)" }, { transform: `translate(${r.left - h.left}px, ${r.top - h.top}px)` }],
+    timing
+  );
+  // Подложку меряем без сдвига свайпа: сдвиг входит в первый кадр.
+  group.style.transform = "";
+  const start = { transform: `translate(0px, ${shift}px)`, borderRadius: `${PANEL_RADIUS}px` };
+  surface.animate([start, surfaceFrame(r, panel, radius)], timing);
+  scroller.animate([{ opacity: 1, transform: `translateY(${shift}px)` }, { opacity: 0, transform: `translateY(${shift}px)` }], {
+    duration: CLOSE_MS * 0.35,
+    easing: "ease-out",
+    fill: "forwards",
+  });
+  dim.animate([{ opacity: Number(dim.style.opacity || 1) }, { opacity: 0 }], { duration: CLOSE_MS, easing: "ease-out", fill: "forwards" });
+  whenDone(fly, CLOSE_MS, finish);
+}
+
+/* ---------- Заготовки, пока грузится расписание ---------- */
+function renderSkeleton() {
+  if (!els.lessons || els.lessons.children.length) return;
+  const nodes = [];
+  for (let i = 0; i < 3; i++) {
+    const card = el("div", "skeleton");
+    card.append(el("span", "skeleton-time"), el("span", "skeleton-lines"));
+    nodes.push(card);
+  }
+  els.lessons.replaceChildren(...nodes);
+}
+
+/** Прогресс идущей пары кольцом рядом с «осталось». */
+function setNowRing(badge, part) {
+  let ring = badge.querySelector(".now-ring");
+  if (!ring) {
+    ring = el("span", "now-ring");
+    badge.querySelector(".now-left")?.before(ring);
+  }
+  ring.style.setProperty("--p", Math.min(1, Math.max(0, part)).toFixed(3));
+}
+
 /* ---------- Подписка в календаре телефона ---------- */
 
 let calendarSheet = null;
@@ -6173,6 +6677,7 @@ function showSchedule() {
   renderEvent();
   renderExamBanner();
   renderLessons(group, parity);
+  renderSeason();
   loadNotes().then(applyNotes);
   noticesReady = loadNotices(group);
   ensureHomeworkWeek(selectedWeek);
@@ -6320,6 +6825,9 @@ function renderDays() {
       // заставке. Раньше больше четырёх не рисовали, и в пятипарный день
       // точки под датой и на заставке расходились.
       const count = dayLoad(day, week);
+      // День без пар — выходной или свободный: вместо точек тонкая черта,
+      // плитка приглушена. Видно сразу, но не спорит с учебными днями.
+      if (!count) btn.classList.add("day--off");
       const dots = el("span", "day-dots");
       for (let i = 0; i < Math.min(count, 7); i++) {
         const dot = el("i");
@@ -6382,7 +6890,8 @@ function keepSelectedVisible() {
   const max = Math.max(0, strip.scrollWidth - strip.clientWidth);
   let left = Math.min(max, Math.max(0, first.offsetLeft - pad));
   // Узкий экран, неделя не влезла: выбранный день важнее начала недели.
-  const right = active.offsetLeft + active.offsetWidth + pad;
+  // Справа — свой отступ полосы: он больше, чтобы день помещался со свечением.
+  const right = active.offsetLeft + active.offsetWidth + (parseFloat(getComputedStyle(strip).paddingRight) || pad);
   if (right > left + strip.clientWidth) left = Math.min(max, right - strip.clientWidth);
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const behavior = reduce || !daysScrolled ? "auto" : "smooth";
@@ -6455,26 +6964,38 @@ function cardSlots(card) {
 
 // Свободный день: вместо сухого «Пар нет» — фраза, своя на каждую дату.
 // Листаешь туда-обратно — она не меняется, в другой день — другая.
+// Подписи свободного дня — без привязки к вузу: приложением пользуются
+// студенты разных городов. Своя подборка для воскресенья.
 const FREE_DAYS = [
-  ["😴", "Пар нет", "Будильник можно не ставить"],
-  ["🎉", "Свободный день", "Преподаватели тоже отдыхают"],
-  ["☕", "Пар нет", "Идеальный день для кофе и сериала"],
-  ["🛋️", "Выходной", "Диван ждёт"],
-  ["📚", "Пар нет", "Можно наконец сделать домашку. Или нет"],
-  ["🌳", "Свободно", "Воробьёвы горы в двух шагах"],
-  ["🎮", "Пар нет", "Официально разрешено ничего не делать"],
-  ["🍕", "Выходной", "Отличный повод собраться с группой"],
-  ["🧘", "Пар нет", "Выдохни"],
-  ["🌙", "Свободный день", "Можно выспаться за всю неделю"],
+  ["😴", "Пар нет", "Будильник сегодня можно не ставить"],
+  ["☕", "Пар нет", "Кофе без спешки — лучшее начало дня"],
+  ["📚", "Пар нет", "Хороший день, чтобы закрыть хвосты"],
+  ["🎮", "Пар нет", "Официально можно отдохнуть"],
+  ["🍕", "Пар нет", "Повод собраться с друзьями"],
+  ["🧘", "Пар нет", "Выдохните — день свободен"],
+  ["🌙", "Пар нет", "Можно выспаться за всю неделю"],
+  ["🎧", "Пар нет", "Время для своих дел и любимой музыки"],
 ];
+
+const SUNDAYS = [
+  ["☀️", "Воскресенье", "Пар нет — день целиком ваш"],
+  ["🛌", "Воскресенье", "Выспаться и никуда не спешить"],
+  ["🍳", "Воскресенье", "Поздний завтрак — законная традиция"],
+  ["🚶", "Воскресенье", "Погулять, пока неделя не началась"],
+  ["🎬", "Воскресенье", "Фильм, сериал или книга — выбирайте"],
+];
+
+/** Значок, заголовок и подпись свободного дня; у одной даты — всегда одни. */
+function freeDayPhrase(date) {
+  if (LANG !== "ru") return ["🎉", t("Пар нет 🎉").replace("🎉", "").trim(), ""];
+  const list = date.getDay() === 0 ? SUNDAYS : FREE_DAYS;
+  return list[(date.getDate() * 7 + date.getMonth()) % list.length];
+}
 
 function renderFreeDay() {
   const node = el("div", "empty free-day");
   const date = dateOfDay(selectedDay);
-  const [emoji, title, line] =
-    LANG === "ru"
-      ? FREE_DAYS[(date.getDate() * 7 + date.getMonth()) % FREE_DAYS.length]
-      : ["🎉", t("Пар нет 🎉").replace("🎉", "").trim(), ""];
+  const [emoji, title, line] = freeDayPhrase(date);
   // Сцена: значок падает сверху и пружинит, под ним расходится круг, вокруг
   // всплывают искры. Подписи поднимаются следом — день «собирается» за секунду.
   // Фон: три цветных пятна медленно плавают за значком, поверх мерцают
@@ -6628,7 +7149,8 @@ function renderLessons(group, parity) {
   els.lessons.classList.remove("no-cascade");
   nodes.forEach((node, i) => {
     node.style.setProperty("--i", i);
-    node.style.setProperty("--from-x", `${from}px`);
+    // Глубина: чем ниже карточка, тем дальше она «стоит» и тем длиннее путь.
+    node.style.setProperty("--from-x", `${Math.round(from * (1 + Math.min(i, 6) * 0.22))}px`);
   });
 
   // Кнопка своего дела — сразу после пар, перед «на сегодня всё».
@@ -8025,10 +8547,23 @@ function refreshLines() {
     card.classList.toggle("card--past", today && part >= 1);
     card.classList.toggle("card--running", today && part > 0 && part < 1);
   }
+  // Все пары сегодня позади — «на сегодня всё» превращается в закат.
+  const cards = [...els.lessons.querySelectorAll(".card[data-start]")];
+  const over = today && cards.length > 0 && cards.every((card) => card.classList.contains("card--past") || card.classList.contains("card--cancelled"));
+  els.lessons.classList.toggle("day-over", over);
+  const title = els.lessons.querySelector(".dayend-title");
+  if (title) {
+    if (!title.dataset.idle) title.dataset.idle = title.textContent;
+    title.textContent = over ? t("Пары закончились — хорошего вечера") : title.dataset.idle;
+  }
+  if (over && !els.lessons.querySelector(".dayend-sun")) {
+    els.lessons.querySelector(".dayend-mark")?.append(el("span", "dayend-sun"));
+  }
 }
 
 function refreshNow() {
   refreshLines();
+  if (skyLayer) document.body.dataset.daypart = daypart();
   const today = isoDate(dateOfDay(selectedDay)) === isoDate(new Date());
   const clockNow = new Date();
   const nowMinutes = clockNow.getHours() * 60 + clockNow.getMinutes() + clockNow.getSeconds() / 60;
@@ -8118,6 +8653,7 @@ function refreshNow() {
     badge.querySelector(".now-left").textContent = t("осталось {time}", {
       time: humanLeft(current.left),
     });
+    setNowRing(badge, current.total ? current.elapsed / current.total : 0);
 
     if (!bar) {
       bar = el("div", "now-bar");
@@ -8710,10 +9246,7 @@ function assembleFreeSplash() {
   const splash = els.splash;
   splash.classList.add("splash--free");
   const date = dateOfDay(selectedDay);
-  const [emoji, title] =
-    LANG === "ru"
-      ? FREE_DAYS[(date.getDate() * 7 + date.getMonth()) % FREE_DAYS.length]
-      : ["🎉", t("Пар нет 🎉").replace("🎉", "").trim()];
+  const [emoji, title] = freeDayPhrase(date);
   const scene = el("div", "splash-free");
   const rect = els.splashTrack.getBoundingClientRect();
   scene.style.top = `${Math.round(rect.top + rect.height / 2)}px`;
@@ -9063,6 +9596,7 @@ async function init() {
   tg?.expand();
   if (htmlIsStale() && reloadFreshPage()) return;
   translatePage();
+  renderSkeleton();
   // Страховка: что бы ни случилось с загрузкой, заставка не зависнет.
   setTimeout(dropSplash, SPLASH_MAX + 1500);
 
@@ -9126,6 +9660,36 @@ async function init() {
   initVolunteer();
   initMsuTheme();
   applyTheme();
+  applyDecor();
+  applyBackground();
+  document.getElementById("bg-pick")?.addEventListener("change", (event) => {
+    haptic("select");
+    try {
+      localStorage.setItem(BG_KEY, event.target.value);
+    } catch {
+      // Без памяти — до перезапуска.
+    }
+    applyBackground();
+  });
+  const decorBox = document.getElementById("decor");
+  if (decorBox) {
+    decorBox.checked = decorOn();
+    decorBox.addEventListener("change", () => {
+      try {
+        localStorage.setItem(DECOR_KEY, decorBox.checked ? "on" : "off");
+      } catch {
+        // Без памяти — до перезапуска.
+      }
+      applyDecor();
+    });
+  }
+  // 5. Нажатие на карточку пары — подробности. Кнопки внутри — сами по себе.
+  els.lessons.addEventListener("click", (event) => {
+    const card = event.target.closest("article.card");
+    if (!card || event.target.closest("button, a, summary, details, input, .room-badge")) return;
+    haptic("light");
+    openLessonView(card);
+  });
   els.group.addEventListener("change", fillLanguages);
   els.main.addEventListener("change", fillMainSubgroups);
   els.lang2.addEventListener("change", fillLang2Subgroups);

@@ -8398,3 +8398,768 @@ body.msu .tabs {
   color: #00843d;
   padding-right: 46px;
 }
+
+/* --- Семь дней недели: на узком телефоне неделя должна влезать целиком.
+   Плитки и промежутки поджимаются по ширине экрана, на широком — как были. */
+#days {
+  gap: clamp(4px, 1.4vw, 8px);
+}
+
+#days .day {
+  min-width: min(46px, calc((100vw - 40px - 6 * clamp(4px, 1.4vw, 8px)) / 7));
+  padding-inline: 0;
+}
+
+/* --- День без пар в полосе дней: черта вместо точек, плитка тише --- */
+.day--off .day-dots::before {
+  content: "";
+  width: 12px;
+  height: 2px;
+  margin-top: 1px;
+  border-radius: 2px;
+  background: var(--muted);
+  opacity: 0.45;
+}
+
+/* У выбранного выходного черта того же цвета, что число: видна на любой теме. */
+.day--off.active .day-dots::before {
+  background: currentColor;
+  opacity: 0.75;
+}
+
+/* --- Полоса дней: свечение выбранного дня не обрезается ---
+   Затенение по краям узкое (6 px) — крайний день недели в него не попадает.
+   Снизу запас под свечение, вёрстка ниже не сдвигается. */
+#days {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 6px, #000 calc(100% - 6px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 6px, #000 calc(100% - 6px), transparent);
+  padding-top: 8px;
+  margin-top: -8px;
+  /* Тень выбранного дня уходит вниз на ~24 px — запас с избытком. */
+  padding-bottom: 40px;
+  margin-bottom: -24px;
+  /* Справа запас больше: крайний день недели встаёт целиком, со свечением. */
+  padding-right: 24px;
+}
+
+/* Черта выходного на самой капле (выбранный день рисуется её копией). */
+#days .days-drop .day--off .day-dots::before {
+  background: currentColor;
+  opacity: 0.7;
+}
+
+/* ===== Живое оформление ===== */
+
+/* Небо по времени суток: мягкий слой за шапкой. Темы со своим фоном его
+   не замечают — он полупрозрачный и только сверху экрана. */
+.daysky {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 340px;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.55;
+  transition: background 2s ease, opacity 0.6s ease;
+  -webkit-mask-image: linear-gradient(#000 40%, transparent);
+  mask-image: linear-gradient(#000 40%, transparent);
+}
+
+body[data-decor="off"] .daysky {
+  opacity: 0;
+}
+
+body[data-daypart="morning"] .daysky {
+  background: linear-gradient(170deg, rgba(255, 196, 140, 0.55), rgba(255, 228, 196, 0.25) 45%, transparent 75%);
+}
+
+body[data-daypart="day"] .daysky {
+  background: linear-gradient(170deg, rgba(140, 196, 255, 0.4), rgba(200, 228, 255, 0.18) 45%, transparent 75%);
+}
+
+body[data-daypart="evening"] .daysky {
+  background: linear-gradient(170deg, rgba(255, 120, 110, 0.45), rgba(190, 120, 220, 0.25) 45%, transparent 75%);
+}
+
+body[data-daypart="night"] .daysky {
+  background:
+    radial-gradient(1.5px 1.5px at 12% 22%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 28% 12%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 46% 30%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 63% 16%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1.5px 1.5px at 81% 26%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 92% 10%, rgba(255, 255, 255, 0.7), transparent),
+    linear-gradient(170deg, rgba(40, 52, 120, 0.55), rgba(70, 60, 140, 0.25) 50%, transparent 80%);
+}
+
+/* Сезонные частицы — падают на свободном дне. */
+.season {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.season-bit {
+  position: absolute;
+  top: -40px;
+  font-size: calc(16px * var(--s, 1));
+  opacity: 0.75;
+  animation: season-fall var(--t, 12s) linear var(--d, 0s) infinite;
+  will-change: transform;
+}
+
+.season--winter .season-bit {
+  color: #ffffff;
+  text-shadow: 0 0 6px rgba(160, 200, 255, 0.9);
+}
+
+@keyframes season-fall {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(var(--x, 20px), 55vh) rotate(160deg); }
+  100% { transform: translate(0, 110vh) rotate(320deg); }
+}
+
+/* Гирлянда над датой в декабре. */
+.garland {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 4px 6px;
+  height: 14px;
+  background: radial-gradient(120% 20px at 50% -6px, transparent 60%, color-mix(in srgb, var(--text) 25%, transparent) 62%, transparent 66%) top / 100% 14px no-repeat;
+}
+
+.garland i {
+  width: 7px;
+  height: 9px;
+  margin-top: 4px;
+  border-radius: 50% 50% 45% 45%;
+  background: hsl(calc(var(--i) * 52deg), 85%, 60%);
+  box-shadow: 0 0 8px hsl(calc(var(--i) * 52deg), 85%, 60%);
+  animation: garland-twinkle 2.4s ease-in-out calc(var(--i) * 170ms) infinite;
+}
+
+@keyframes garland-twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* 1. Идущая пара: кольцо прогресса и мягкое «дыхание» карточки. */
+.now-ring {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--p, 0) * 1turn), var(--accent-soft) 0);
+  -webkit-mask: radial-gradient(circle, transparent 3.5px, #000 4px);
+  mask: radial-gradient(circle, transparent 3.5px, #000 4px);
+  transition: background 1s linear;
+}
+
+.card--running::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 50%, transparent), inset 0 0 22px -6px color-mix(in srgb, var(--accent) 45%, transparent);
+  opacity: 0.4;
+  animation: card-breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes card-breathe {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.85; }
+}
+
+/* 3. Пары закончились: «на сегодня всё» превращается в закат. */
+.day-over .dayend {
+  background: linear-gradient(160deg, #ffb37a 0%, #f26d6d 45%, #6a4c9c 100%);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.day-over .dayend .dayend-next,
+.day-over .dayend .dayend-go {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.day-over .dayend-mark {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.18);
+  color: transparent;
+}
+
+.day-over .dayend-mark svg {
+  opacity: 0;
+}
+
+.dayend-sun {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 20px;
+  height: 20px;
+  margin-left: -10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff6c2, #ffcf5a 60%, #ff9d3a);
+  box-shadow: 0 0 14px rgba(255, 207, 90, 0.9);
+  animation: sun-set 2.6s cubic-bezier(0.45, 0, 0.3, 1) both;
+}
+
+@keyframes sun-set {
+  from { transform: translateY(-16px); }
+  to { transform: translateY(0); }
+}
+
+/* 4. Каскад с глубиной: дальние карточки чуть меньше на старте. */
+@keyframes day-in {
+  from {
+    opacity: 0.25;
+    transform: translate3d(var(--from-x, 0px), 6px, 0) scale(0.985);
+  }
+}
+
+/* 5. Окно подробностей пары. */
+article.card {
+  cursor: pointer;
+}
+
+.sheet--lesson .lesson-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 8px;
+}
+
+.lesson-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.lesson-row:last-child {
+  border-bottom: 0;
+}
+
+.lesson-label {
+  color: var(--muted, #888);
+  font-size: 13px;
+}
+
+.lesson-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.lesson-map,
+.lesson-note {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lesson-mail {
+  color: var(--accent);
+  font-size: 13px;
+}
+
+/* 6. Заготовки, пока грузится расписание: силуэты с бегущим бликом. */
+.skeleton {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  height: 92px;
+  margin-bottom: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--card);
+}
+
+.skeleton-time {
+  width: 46px;
+  border-radius: 8px;
+  background: var(--line);
+}
+
+.skeleton-lines {
+  flex: 1;
+  border-radius: 8px;
+  background:
+    linear-gradient(var(--line), var(--line)) 0 0 / 40% 12px no-repeat,
+    linear-gradient(var(--line), var(--line)) 0 24px / 85% 16px no-repeat,
+    linear-gradient(var(--line), var(--line)) 0 50px / 60% 12px no-repeat;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: skeleton-shine 1.3s ease-in-out infinite;
+}
+
+@keyframes skeleton-shine {
+  to { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .season,
+  .garland i,
+  .card--running::after,
+  .skeleton::after,
+  .dayend-sun {
+    animation: none;
+  }
+}
+
+/* Окно пары вырастает из карточки: пока растёт подложка, само окно
+   прозрачно и без своего выезда снизу. */
+.sheet--lesson.sheet--morph {
+  animation: none;
+  opacity: 0;
+}
+
+.morph-surface {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 140px),
+    color-mix(in srgb, var(--card) 58%, var(--bg));
+  box-shadow: 0 -24px 60px rgba(0, 0, 0, 0.32);
+}
+
+/* --- Подробности пары на весь экран (раскрывается из карточки) --- */
+.lesson-view {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 240px),
+    var(--bg);
+  will-change: clip-path;
+}
+
+
+.lv-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: calc(14px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+  transform-origin: 50% 0;
+}
+
+.lv-bar {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+.lv-back {
+  padding: 8px 12px 8px 6px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lv-hero {
+  padding: 6px 2px 18px;
+}
+
+.lv-time {
+  font-size: 30px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.lv-pair {
+  display: inline-block;
+  margin: 8px 0 10px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lv-subject {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.15;
+}
+
+.lv-kind {
+  margin-top: 8px;
+  color: var(--muted, #888);
+}
+
+.lv-section {
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: 0 1px 0 var(--line);
+}
+
+.lv-section-title {
+  margin: 0 0 10px;
+  color: var(--muted, #888);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lv-hw {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lv-hw-item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.lv-empty,
+.lv-muted {
+  color: var(--muted, #888);
+  font-size: 14px;
+}
+
+.lv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lv-strong {
+  font-weight: 600;
+}
+
+.lv-room {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.lv-link {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.lv-text {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.lv-action,
+.lv-chip {
+  border: 0;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lv-action {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--accent-text, #fff);
+}
+
+.lv-action--soft {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.lv-chip {
+  flex: none;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+}
+
+/* --- Подробности пары: окно с отступами поверх затемнённого расписания --- */
+.lesson-view {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 240px) 0 var(--lv-top, 48px) / 100% 100% no-repeat,
+    var(--card);
+}
+
+.lesson-view .lv-inner {
+  padding: calc(var(--lv-top, 48px) + 10px) 26px calc(var(--lv-bottom, 40px) + 16px);
+}
+
+.lesson-view .lv-section {
+  background: color-mix(in srgb, var(--bg) 55%, var(--card));
+}
+
+.lv-dim {
+  position: fixed;
+  inset: 0;
+  z-index: 949;
+  background: rgba(8, 10, 20, 0.45);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* Свайп вниз из верха окна подробностей — жест закрытия, а не «пружина». */
+.lesson-view {
+  touch-action: pan-y;
+}
+
+/* --- Подробности пары: верх окна — сама карточка --- */
+.lesson-view .lv-inner {
+  max-width: none;
+  padding: calc(var(--lv-top, 48px) + 6px) 0 calc(var(--lv-bottom, 40px) + 16px);
+}
+
+.lesson-view .lv-bar {
+  padding: 0 26px;
+  margin-bottom: 8px;
+}
+
+.lv-head {
+  margin: 0 0 14px;
+  pointer-events: none;
+  /* Копия не участвует в каскаде дня и не «дышит» заново. */
+  animation: none !important;
+}
+
+.lv-sections {
+  padding: 0 26px;
+}
+
+/* --- Подробности пары: слои контейнерного перехода --- */
+.lv-dim {
+  position: fixed;
+  inset: 0;
+  z-index: 949;
+  background: rgba(8, 10, 20, 0.5);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.lv-group {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  pointer-events: none;
+}
+
+.lv-surface,
+.lv-scroll {
+  position: fixed;
+  border-radius: 26px;
+}
+
+.lv-surface {
+  transform-origin: 0 0;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 220px),
+    var(--card);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  will-change: transform;
+}
+
+.lv-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  pointer-events: auto;
+  padding: 10px 0 24px;
+}
+
+.lv-scroll .lv-bar {
+  padding: 0 14px;
+  margin-bottom: 6px;
+}
+
+.lv-slot {
+  margin-bottom: 14px;
+}
+
+.lv-head {
+  margin: 0;
+  pointer-events: none;
+  animation: none !important;
+  will-change: transform;
+}
+
+.lv-scroll .lv-sections {
+  padding: 0 14px;
+}
+
+/* ===== Фон на выбор ===== */
+.bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+  pointer-events: none;
+  display: none;
+}
+
+body[data-bg="mesh"] .bg-layer,
+body[data-bg="pattern"] .bg-layer {
+  display: block;
+}
+
+/* --- Живой градиент: три больших мягких пятна медленно плывут.
+   Только сдвиги — их телефон рисует видеочипом. --- */
+.bg-blob {
+  position: absolute;
+  width: 90vmax;
+  height: 90vmax;
+  border-radius: 50%;
+  opacity: 0;
+  will-change: transform;
+}
+
+body[data-bg="mesh"] .bg-blob {
+  opacity: 0.55;
+}
+
+.bg-blob--1 {
+  left: -35vmax;
+  top: -30vmax;
+  animation: blob-a 26s ease-in-out infinite alternate;
+}
+
+.bg-blob--2 {
+  right: -40vmax;
+  top: 10vh;
+  animation: blob-b 32s ease-in-out infinite alternate;
+}
+
+.bg-blob--3 {
+  left: -10vmax;
+  bottom: -45vmax;
+  animation: blob-c 29s ease-in-out infinite alternate;
+}
+
+@keyframes blob-a {
+  to { transform: translate(18vmax, 22vmax) scale(1.1); }
+}
+
+@keyframes blob-b {
+  to { transform: translate(-22vmax, 18vmax) scale(0.92); }
+}
+
+@keyframes blob-c {
+  to { transform: translate(14vmax, -24vmax) scale(1.08); }
+}
+
+body[data-bg-variant="aurora"] .bg-blob--1 { background: radial-gradient(circle, #3ee0b0 0%, transparent 62%); }
+body[data-bg-variant="aurora"] .bg-blob--2 { background: radial-gradient(circle, #5b8cff 0%, transparent 62%); }
+body[data-bg-variant="aurora"] .bg-blob--3 { background: radial-gradient(circle, #b46bff 0%, transparent 62%); }
+
+body[data-bg-variant="peach"] .bg-blob--1 { background: radial-gradient(circle, #ffb48a 0%, transparent 62%); }
+body[data-bg-variant="peach"] .bg-blob--2 { background: radial-gradient(circle, #ff8fa8 0%, transparent 62%); }
+body[data-bg-variant="peach"] .bg-blob--3 { background: radial-gradient(circle, #ffd27a 0%, transparent 62%); }
+
+body[data-bg-variant="sea"] .bg-blob--1 { background: radial-gradient(circle, #4fc3f7 0%, transparent 62%); }
+body[data-bg-variant="sea"] .bg-blob--2 { background: radial-gradient(circle, #26d0ce 0%, transparent 62%); }
+body[data-bg-variant="sea"] .bg-blob--3 { background: radial-gradient(circle, #2f6bff 0%, transparent 62%); }
+
+body[data-bg-variant="lavender"] .bg-blob--1 { background: radial-gradient(circle, #c3a6ff 0%, transparent 62%); }
+body[data-bg-variant="lavender"] .bg-blob--2 { background: radial-gradient(circle, #f3a6e0 0%, transparent 62%); }
+body[data-bg-variant="lavender"] .bg-blob--3 { background: radial-gradient(circle, #8fb7ff 0%, transparent 62%); }
+
+body[data-bg-variant="night"] .bg-blob--1 { background: radial-gradient(circle, #2b3a8c 0%, transparent 62%); }
+body[data-bg-variant="night"] .bg-blob--2 { background: radial-gradient(circle, #5a2b8c 0%, transparent 62%); }
+body[data-bg-variant="night"] .bg-blob--3 { background: radial-gradient(circle, #1c6a8c 0%, transparent 62%); }
+
+/* --- Узоры: тонко, цветом текста — читаются и в светлой, и в тёмной теме. --- */
+body[data-bg="pattern"] .bg-layer {
+  --ink: color-mix(in srgb, var(--text) 9%, transparent);
+}
+
+body[data-bg-variant="dots"] .bg-layer {
+  background-image: radial-gradient(var(--ink) 1.2px, transparent 1.6px);
+  background-size: 18px 18px;
+}
+
+body[data-bg-variant="grid"] .bg-layer {
+  background-image:
+    linear-gradient(var(--ink) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ink) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+body[data-bg-variant="lines"] .bg-layer {
+  background-image:
+    linear-gradient(90deg, transparent 38px, color-mix(in srgb, #ff5a5f 22%, transparent) 38px, color-mix(in srgb, #ff5a5f 22%, transparent) 40px, transparent 40px),
+    linear-gradient(var(--ink) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 28px;
+}
+
+body[data-bg-variant="paper"] .bg-layer {
+  background-image:
+    repeating-radial-gradient(circle at 17% 32%, var(--ink) 0 0.6px, transparent 0.8px 7px),
+    repeating-radial-gradient(circle at 73% 61%, var(--ink) 0 0.5px, transparent 0.7px 9px),
+    linear-gradient(170deg, color-mix(in srgb, #f5e6c8 18%, transparent), transparent 70%);
+}
+
+body[data-bg-variant="stars"] .bg-layer {
+  background-image:
+    radial-gradient(1.4px 1.4px at 20px 30px, var(--ink), transparent),
+    radial-gradient(1px 1px at 80px 70px, var(--ink), transparent),
+    radial-gradient(1.6px 1.6px at 130px 20px, var(--ink), transparent),
+    radial-gradient(1px 1px at 170px 110px, var(--ink), transparent),
+    radial-gradient(1.2px 1.2px at 60px 140px, var(--ink), transparent);
+  background-size: 200px 160px;
+}
+
+/* --- Небо по времени суток на весь экран --- */
+body[data-bg="sky"] .daysky {
+  height: 100vh;
+  height: 100dvh;
+  opacity: 0.85;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+/* Небо на весь экран — даже если «живые детали» выключены. */
+body[data-bg="sky"][data-decor="off"] .daysky {
+  opacity: 0.85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-blob {
+    animation: none;
+  }
+}

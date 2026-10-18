@@ -178,8 +178,8 @@
     </div>
     <div class="splash-times" id="splash-times"></div>
   </div>
-  <!-- Дата на заставке — сразу, не дожидаясь кода приложения. В воскресенье
-       расписание открывается на понедельник — и заставка тоже. -->
+  <!-- Дата на заставке — сразу, не дожидаясь кода приложения. Воскресенье
+       теперь есть в полосе дней, поэтому заставка показывает сегодняшний день. -->
   <script>
     (function () {
       try {
@@ -192,7 +192,6 @@
           document.body.dataset.digits = document.body.dataset.head = "tall";
         }
         var day = new Date();
-        if (day.getDay() === 0) day.setDate(day.getDate() + 1);
         var locale = { ru: "ru-RU", en: "en-GB", zh: "zh-CN", ko: "ko-KR" }[window.__lang] || "ru-RU";
         var text = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(day);
         document.getElementById("splash-day").textContent = text.charAt(0).toUpperCase() + text.slice(1);
@@ -294,6 +293,35 @@
         <option value="yes" data-i18n>хожу — показывать</option>
       </select>
     </label>
+
+    <fieldset id="decor-row">
+      <legend data-i18n>Оформление</legend>
+      <label class="check">
+        <input id="decor" type="checkbox">
+        <span data-i18n>Небо по времени суток и сезонные детали</span>
+      </label>
+      <label>
+        <span data-i18n>Фон</span>
+        <select id="bg-pick">
+          <option value="" data-i18n>Обычный</option>
+          <optgroup label="Живой градиент" data-i18n-label>
+            <option value="mesh:aurora" data-i18n>Северное сияние</option>
+            <option value="mesh:peach" data-i18n>Персик</option>
+            <option value="mesh:sea" data-i18n>Море</option>
+            <option value="mesh:lavender" data-i18n>Лаванда</option>
+            <option value="mesh:night" data-i18n>Ночь</option>
+          </optgroup>
+          <optgroup label="Узор" data-i18n-label>
+            <option value="pattern:dots" data-i18n>Точки</option>
+            <option value="pattern:grid" data-i18n>Клетка</option>
+            <option value="pattern:lines" data-i18n>Линейка</option>
+            <option value="pattern:paper" data-i18n>Бумага</option>
+            <option value="pattern:stars" data-i18n>Звёзды</option>
+          </optgroup>
+          <option value="sky" data-i18n>Небо по времени суток</option>
+        </select>
+      </label>
+    </fieldset>
 
     <fieldset id="remind-row">
       <legend data-i18n>Напоминания</legend>
