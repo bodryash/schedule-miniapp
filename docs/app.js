@@ -5422,6 +5422,234 @@ function closeRoomMap() {
   }, 260);
 }
 
+/* ---------- Живое оформление ----------
+ * Небо по времени суток за шапкой, сезонные детали на свободных днях и
+ * гирлянда в декабре. Всё — лёгкие слои на CSS, без постоянных вычислений,
+ * и выключается одной галочкой в настройках. При «уменьшить движение»
+ * сезонные частицы не показываем вовсе.
+ */
+const DECOR_KEY = "schedule.decor";
+let skyLayer = null;
+let seasonLayer = null;
+let garland = null;
+
+function decorOn() {
+  try {
+    return localStorage.getItem(DECOR_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+function daypart(date = new Date()) {
+  const h = date.getHours();
+  if (h >= 5 && h < 11) return "morning";
+  if (h >= 11 && h < 17) return "day";
+  if (h >= 17 && h < 21) return "evening";
+  return "night";
+}
+
+function season(date = new Date()) {
+  const m = date.getMonth();
+  if (m >= 8 && m <= 10) return "autumn";
+  if (m === 11 || m <= 1) return "winter";
+  if (m >= 2 && m <= 4) return "spring";
+  return "summer";
+}
+
+function applyDecor() {
+  const on = decorOn();
+  document.body.dataset.decor = on ? "on" : "off";
+  if (!skyLayer) {
+    skyLayer = el("div", "daysky");
+    skyLayer.setAttribute("aria-hidden", "true");
+    document.body.prepend(skyLayer);
+  }
+  document.body.dataset.daypart = daypart();
+  // Гирлянда — в декабре, над датой.
+  const december = new Date().getMonth() === 11;
+  if (on && december && !garland) {
+    garland = el("div", "garland");
+    garland.setAttribute("aria-hidden", "true");
+    for (let i = 0; i < 14; i++) {
+      const bulb = el("i");
+      bulb.style.setProperty("--i", i);
+      garland.append(bulb);
+    }
+    (document.querySelector(".date") || els.days)?.before(garland);
+  }
+  if (garland) garland.hidden = !(on && december);
+  renderSeason();
+}
+
+/** Частицы сезона — только на свободном дне и только если не просили тишины. */
+function renderSeason() {
+  const free = Boolean(els.lessons?.querySelector(".free-day"));
+  const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const kind = season();
+  const show = decorOn() && free && !calm && kind !== "summer";
+  if (!show) {
+    seasonLayer?.remove();
+    seasonLayer = null;
+    return;
+  }
+  if (seasonLayer?.dataset.kind === kind) return;
+  seasonLayer?.remove();
+  seasonLayer = el("div", `season season--${kind}`);
+  seasonLayer.dataset.kind = kind;
+  seasonLayer.setAttribute("aria-hidden", "true");
+  const glyphs = { autumn: ["🍂", "🍁", "🍂"], winter: ["❄", "❅", "❆"], spring: ["🌸", "🌼", "🌸"] }[kind];
+  for (let i = 0; i < 9; i++) {
+    const bit = el("span", "season-bit", glyphs[i % glyphs.length]);
+    bit.style.left = `${(i * 37 + 7) % 96}%`;
+    bit.style.setProperty("--d", `${(i * 1.7) % 9}s`);
+    bit.style.setProperty("--t", `${11 + (i % 4) * 2.5}s`);
+    bit.style.setProperty("--s", `${0.75 + (i % 3) * 0.2}`);
+    bit.style.setProperty("--x", `${(i % 2 ? 1 : -1) * (18 + (i % 3) * 10)}px`);
+    seasonLayer.append(bit);
+  }
+  document.body.append(seasonLayer);
+}
+
+/* ---------- Карточка пары раскрывается ----------
+ * Нажатие на карточку — окно с подробностями. Окно вырастает из самой
+ * карточки (FLIP): видно, откуда оно взялось.
+ */
+let lessonSheet = null;
+
+function openLessonSheet(card) {
+  const subject = card.dataset.subject;
+  if (!subject) return;
+  const slots = cardSlots(card);
+  const entries = visible.filter((l) => l.subject === subject && slots.includes(l.slot));
+  if (!entries.length) return;
+  if (!lessonSheet) {
+    lessonSheet = el("div", "sheet-backdrop");
+    lessonSheet.hidden = true;
+    const sheet = el("div", "sheet sheet--abs sheet--lesson");
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    const top = el("div", "sheet-top");
+    const close = el("button", "icon", "×");
+    close.type = "button";
+    close.setAttribute("aria-label", t("Закрыть"));
+    close.addEventListener("click", closeLessonSheet);
+    top.append(el("h2", "lesson-title"), close);
+    sheet.append(top, el("div", "lesson-body"));
+    lessonSheet.append(sheet);
+    lessonSheet.addEventListener("click", (event) => {
+      if (event.target === lessonSheet) closeLessonSheet();
+    });
+    document.body.append(lessonSheet);
+  }
+  const first = entries[0];
+  lessonSheet.querySelector(".lesson-title").textContent = tr(subject);
+  const rows = [];
+  const row = (label, value, extra) => {
+    if (!value && !extra) return;
+    const node = el("div", "lesson-row");
+    node.append(el("span", "lesson-label", label));
+    const box = el("div", "lesson-value");
+    if (value) box.append(el("span", "", value));
+    if (extra) box.append(extra);
+    node.append(box);
+    rows.push(node);
+  };
+  const time = card.dataset.start ? `${card.dataset.start}–${card.dataset.end || ""}` : "";
+  row(t("Время"), [time, slots.length ? (slots.length > 1 ? t("{a}–{b} пара", { a: slots[0], b: slots.at(-1) }) : t("{n} пара", { n: slots[0] })) : ""].filter(Boolean).join(" · "));
+  if (first.type) row(t("Вид"), t(first.type));
+  const people = [...new Map(entries.flatMap((l) => teachersOf(l.teacher)).map((p) => [p.key, p])).values()];
+  for (const person of people) {
+    const email = TEACHER_EMAILS[person.key];
+    let link = null;
+    if (email) {
+      link = el("a", "lesson-mail", email);
+      link.href = `mailto:${email}`;
+    }
+    row(t("Преподаватель"), [person.title, teacherFull(person.key) || person.key].filter(Boolean).join(" "), link);
+  }
+  const rooms = [...new Set(entries.map((l) => l.room).filter(Boolean))];
+  for (const room of rooms) {
+    const remote = REMOTE_ROOMS.includes(room.toLowerCase());
+    let map = null;
+    if (!remote) {
+      map = el("button", "lesson-map", t("Где это"));
+      map.type = "button";
+      map.addEventListener("click", () => {
+        closeLessonSheet();
+        openRoomMap(room);
+      });
+    }
+    row(t("Аудитория"), roomLabel(room), map);
+  }
+  const subs = [...new Set(entries.map((l) => l.subgroup).filter(Boolean))];
+  if (subs.length) row(t("Подгруппы"), subs.join(", "));
+  const notes = [...new Set(entries.map((l) => l.note).filter(Boolean))];
+  if (notes.length) row(t("Примечание"), notes.map(trNote).join("; "));
+  const mine = noteOf(dateOfDay(selectedDay), Number(card.dataset.slot), subject);
+  const pen = el("button", "lesson-note", mine ? t("Изменить заметку") : t("Добавить заметку"));
+  pen.type = "button";
+  pen.addEventListener("click", () => {
+    closeLessonSheet();
+    openNote(card);
+  });
+  row(t("Моя заметка"), mine || "", pen);
+  const homework = card.querySelector(".hw-text, .hw-item, .homework");
+  if (homework?.textContent.trim()) row(t("Домашка"), homework.textContent.trim());
+  lessonSheet.querySelector(".lesson-body").replaceChildren(...rows);
+
+  lessonSheet.classList.remove("sheet-backdrop--out");
+  lessonSheet.hidden = false;
+  // FLIP: окно сначала встаёт на место карточки, потом растёт до своего.
+  const sheet = lessonSheet.querySelector(".sheet--lesson");
+  const from = card.getBoundingClientRect();
+  const to = sheet.getBoundingClientRect();
+  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches && to.width && to.height) {
+    const dx = from.left + from.width / 2 - (to.left + to.width / 2);
+    const dy = from.top + from.height / 2 - (to.top + to.height / 2);
+    sheet.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(${from.width / to.width}, ${from.height / to.height})`, opacity: 0.4 },
+        { transform: "none", opacity: 1 },
+      ],
+      { duration: 380, easing: "cubic-bezier(0.32, 0.72, 0, 1)" }
+    );
+  }
+}
+
+function closeLessonSheet() {
+  const sheet = lessonSheet;
+  if (!sheet || sheet.hidden || sheet.classList.contains("sheet-backdrop--out")) return;
+  haptic("light");
+  sheet.classList.add("sheet-backdrop--out");
+  setTimeout(() => {
+    sheet.hidden = true;
+    sheet.classList.remove("sheet-backdrop--out");
+  }, 260);
+}
+
+/* ---------- Заготовки, пока грузится расписание ---------- */
+function renderSkeleton() {
+  if (!els.lessons || els.lessons.children.length) return;
+  const nodes = [];
+  for (let i = 0; i < 3; i++) {
+    const card = el("div", "skeleton");
+    card.append(el("span", "skeleton-time"), el("span", "skeleton-lines"));
+    nodes.push(card);
+  }
+  els.lessons.replaceChildren(...nodes);
+}
+
+/** Прогресс идущей пары кольцом рядом с «осталось». */
+function setNowRing(badge, part) {
+  let ring = badge.querySelector(".now-ring");
+  if (!ring) {
+    ring = el("span", "now-ring");
+    badge.querySelector(".now-left")?.before(ring);
+  }
+  ring.style.setProperty("--p", Math.min(1, Math.max(0, part)).toFixed(3));
+}
+
 /* ---------- Подписка в календаре телефона ---------- */
 
 let calendarSheet = null;
@@ -6172,6 +6400,7 @@ function showSchedule() {
   renderEvent();
   renderExamBanner();
   renderLessons(group, parity);
+  renderSeason();
   loadNotes().then(applyNotes);
   noticesReady = loadNotices(group);
   ensureHomeworkWeek(selectedWeek);
@@ -6643,7 +6872,8 @@ function renderLessons(group, parity) {
   els.lessons.classList.remove("no-cascade");
   nodes.forEach((node, i) => {
     node.style.setProperty("--i", i);
-    node.style.setProperty("--from-x", `${from}px`);
+    // Глубина: чем ниже карточка, тем дальше она «стоит» и тем длиннее путь.
+    node.style.setProperty("--from-x", `${Math.round(from * (1 + Math.min(i, 6) * 0.22))}px`);
   });
 
   // Кнопка своего дела — сразу после пар, перед «на сегодня всё».
@@ -8040,10 +8270,23 @@ function refreshLines() {
     card.classList.toggle("card--past", today && part >= 1);
     card.classList.toggle("card--running", today && part > 0 && part < 1);
   }
+  // Все пары сегодня позади — «на сегодня всё» превращается в закат.
+  const cards = [...els.lessons.querySelectorAll(".card[data-start]")];
+  const over = today && cards.length > 0 && cards.every((card) => card.classList.contains("card--past") || card.classList.contains("card--cancelled"));
+  els.lessons.classList.toggle("day-over", over);
+  const title = els.lessons.querySelector(".dayend-title");
+  if (title) {
+    if (!title.dataset.idle) title.dataset.idle = title.textContent;
+    title.textContent = over ? t("Пары закончились — хорошего вечера") : title.dataset.idle;
+  }
+  if (over && !els.lessons.querySelector(".dayend-sun")) {
+    els.lessons.querySelector(".dayend-mark")?.append(el("span", "dayend-sun"));
+  }
 }
 
 function refreshNow() {
   refreshLines();
+  if (skyLayer) document.body.dataset.daypart = daypart();
   const today = isoDate(dateOfDay(selectedDay)) === isoDate(new Date());
   const clockNow = new Date();
   const nowMinutes = clockNow.getHours() * 60 + clockNow.getMinutes() + clockNow.getSeconds() / 60;
@@ -8133,6 +8376,7 @@ function refreshNow() {
     badge.querySelector(".now-left").textContent = t("осталось {time}", {
       time: humanLeft(current.left),
     });
+    setNowRing(badge, current.total ? current.elapsed / current.total : 0);
 
     if (!bar) {
       bar = el("div", "now-bar");
@@ -9075,6 +9319,7 @@ async function init() {
   tg?.expand();
   if (htmlIsStale() && reloadFreshPage()) return;
   translatePage();
+  renderSkeleton();
   // Страховка: что бы ни случилось с загрузкой, заставка не зависнет.
   setTimeout(dropSplash, SPLASH_MAX + 1500);
 
@@ -9138,6 +9383,26 @@ async function init() {
   initVolunteer();
   initMsuTheme();
   applyTheme();
+  applyDecor();
+  const decorBox = document.getElementById("decor");
+  if (decorBox) {
+    decorBox.checked = decorOn();
+    decorBox.addEventListener("change", () => {
+      try {
+        localStorage.setItem(DECOR_KEY, decorBox.checked ? "on" : "off");
+      } catch {
+        // Без памяти — до перезапуска.
+      }
+      applyDecor();
+    });
+  }
+  // 5. Нажатие на карточку пары — подробности. Кнопки внутри — сами по себе.
+  els.lessons.addEventListener("click", (event) => {
+    const card = event.target.closest("article.card");
+    if (!card || event.target.closest("button, a, summary, details, input, .room-badge")) return;
+    haptic("light");
+    openLessonSheet(card);
+  });
   els.group.addEventListener("change", fillLanguages);
   els.main.addEventListener("change", fillMainSubgroups);
   els.lang2.addEventListener("change", fillLang2Subgroups);
