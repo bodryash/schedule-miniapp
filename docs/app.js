@@ -5733,7 +5733,10 @@ function dragToClose(view, dim) {
   view.addEventListener("touchmove", (event) => {
     if (!armed) return;
     const dy = event.touches[0].clientY - startY;
-    if (!dragging && (dy <= 4 || view.scrollTop > 0)) {
+    // Перехватываем с первого же движения вниз: если упустить первые
+    // миллиметры, iPhone начинает сам «пружинить» содержимое, и дальше
+    // жест уже не отдаёт.
+    if (!dragging && (dy <= 0 || view.scrollTop > 0)) {
       if (dy < 0) armed = false;
       return;
     }
@@ -5744,6 +5747,11 @@ function dragToClose(view, dim) {
     view.style.transform = `translateY(${shift}px)`;
     if (dim) dim.style.opacity = String(Math.max(0.15, 1 - shift / 420));
   }, { passive: false });
+  // Запасной путь: если iPhone всё же утянул содержимое вниз за верхний
+  // край (отрицательная прокрутка) — это тоже жест «закрыть».
+  view.addEventListener("scroll", () => {
+    if (view.scrollTop < -50 && lessonView === view) closeLessonView();
+  }, { passive: true });
   view.addEventListener("touchend", () => {
     if (!dragging) return;
     dragging = false;
