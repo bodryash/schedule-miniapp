@@ -5688,7 +5688,6 @@ function openLessonView(card) {
   lessonView.head = head;
   lessonView.chrome = [bar, rest];
   dragToClose(lessonView, dim);
-  document.body.classList.add("lesson-open");
 
   // Системная «назад» в Telegram закрывает подробности.
   if (tg?.BackButton) {
@@ -5789,12 +5788,14 @@ function dragToClose(view, dim) {
 function closeLessonView(instant = false) {
   const view = lessonView;
   if (!view) return;
+  // Место карточки — самым первым делом, до любых изменений на странице:
+  // иначе окно садилось туда, где карточка была мгновение назад.
+  const target = lessonCard && document.body.contains(lessonCard) ? lessonCard.getBoundingClientRect() : null;
   lessonView = null;
   if (tg?.BackButton) {
     tg.BackButton.offClick(closeLessonView);
     tg.BackButton.hide();
   }
-  document.body.classList.remove("lesson-open");
   try {
     tg?.enableVerticalSwipes?.();
   } catch {
@@ -5818,7 +5819,7 @@ function closeLessonView(instant = false) {
   const shift = Number((dragged.match(/-?[\d.]+/) || [0])[0]) || 0;
   view.style.transform = "";
   card.style.visibility = "hidden";
-  const r = card.getBoundingClientRect();
+  const r = target || card.getBoundingClientRect();
   const h = view.head.getBoundingClientRect();
   const dx = Math.round(r.left - h.left);
   const dy = Math.round(r.top - (h.top - shift));

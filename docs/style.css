@@ -8758,9 +8758,6 @@ article.card {
   will-change: clip-path;
 }
 
-body.lesson-open {
-  overflow: hidden;
-}
 
 .lv-inner {
   max-width: 640px;
