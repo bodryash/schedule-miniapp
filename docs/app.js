@@ -5548,6 +5548,77 @@ function viewSection(title, ...children) {
   return box;
 }
 
+/**
+ * Переезд информации: время, номер пары, название, вид и аудитория
+ * перелетают из карточки на свои места в окне (и обратно при закрытии).
+ * Летит копия элемента — равномерно масштабируется, без сплющивания;
+ * настоящие элементы на время полёта прячутся.
+ */
+const SHARED = [
+  [".card-start", ".lv-time"],
+  [".slot", ".lv-pair"],
+  [".subject", ".lv-subject"],
+  [".meta", ".lv-kind"],
+  [".room-badge", ".lv-room .lv-strong"],
+];
+
+function flyShared(card, view, opening, duration) {
+  const hidden = [];
+  for (const [inCard, inView] of SHARED) {
+    const a = card.querySelector(inCard);
+    const b = view.querySelector(inView);
+    if (!a || !b) continue;
+    const src = opening ? a : b;
+    const dst = opening ? b : a;
+    const from = src.getBoundingClientRect();
+    const to = dst.getBoundingClientRect();
+    if (!from.width || !from.height || !to.width || !to.height) continue;
+    const ghost = src.cloneNode(true);
+    const style = getComputedStyle(src);
+    ghost.className = `${src.className} shared-ghost`;
+    Object.assign(ghost.style, {
+      position: "fixed",
+      left: `${from.left}px`,
+      top: `${from.top}px`,
+      width: `${from.width}px`,
+      height: `${from.height}px`,
+      margin: "0",
+      font: style.font,
+      color: style.color,
+      letterSpacing: style.letterSpacing,
+      background: style.background,
+      borderRadius: style.borderRadius,
+      padding: style.padding,
+      whiteSpace: "nowrap",
+      overflow: "visible",
+      transformOrigin: "0 0",
+      zIndex: "1001",
+      pointerEvents: "none",
+    });
+    document.body.append(ghost);
+    // Масштаб — по высоте строки: текст растёт равномерно, как в iOS.
+    const scale = to.height / from.height;
+    const move = `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(${scale})`;
+    ghost.animate(
+      [
+        { transform: "none", opacity: 1 },
+        { transform: move, opacity: 1, offset: 0.82 },
+        { transform: move, opacity: 0 },
+      ],
+      { duration, easing: VIEW_EASE, fill: "forwards" }
+    );
+    a.style.visibility = "hidden";
+    b.style.visibility = "hidden";
+    hidden.push(a, b, ghost);
+  }
+  setTimeout(() => {
+    for (const node of hidden) {
+      if (node.classList.contains("shared-ghost")) node.remove();
+      else node.style.visibility = "";
+    }
+  }, duration * 0.85);
+}
+
 function openLessonView(card) {
   const subject = card.dataset.subject;
   if (!subject) return;
@@ -5693,7 +5764,7 @@ function openLessonView(card) {
   }
 
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  card.animate([{ transform: "scale(1)" }, { transform: "scale(0.97)" }], { duration: 120, easing: "ease-out" });
+  flyShared(card, lessonView, true, 460);
   const from = cardClip(card);
   lessonView.animate([{ clipPath: from }, { clipPath: panelClip() }], {
     duration: 460,
@@ -5793,6 +5864,7 @@ function closeLessonView(instant = false) {
   }
   haptic("light");
   view.style.pointerEvents = "none";
+  flyShared(card, view, false, 340);
   const r = card.getBoundingClientRect();
   // Окно сворачивается в карточку и одновременно растворяется — к концу
   // от него ничего не остаётся, тёмного куска поверх расписания нет.
