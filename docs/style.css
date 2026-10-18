@@ -8727,3 +8727,20 @@ article.card {
     animation: none;
   }
 }
+
+/* Окно пары вырастает из карточки: пока растёт подложка, само окно
+   прозрачно и без своего выезда снизу. */
+.sheet--lesson.sheet--morph {
+  animation: none;
+  opacity: 0;
+}
+
+.morph-surface {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 140px),
+    color-mix(in srgb, var(--card) 58%, var(--bg));
+  box-shadow: 0 -24px 60px rgba(0, 0, 0, 0.32);
+}

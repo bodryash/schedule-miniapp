@@ -5599,22 +5599,68 @@ function openLessonSheet(card) {
   lessonSheet.querySelector(".lesson-body").replaceChildren(...rows);
 
   lessonSheet.classList.remove("sheet-backdrop--out");
-  lessonSheet.hidden = false;
-  // FLIP: окно сначала встаёт на место карточки, потом растёт до своего.
   const sheet = lessonSheet.querySelector(".sheet--lesson");
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  sheet.classList.toggle("sheet--morph", !reduce);
+  lessonSheet.hidden = false;
+  if (!reduce) morphFromCard(card, sheet);
+}
+
+/**
+ * Окно вырастает из карточки. Растягивать само окно с текстом нельзя —
+ * буквы сплющиваются, поэтому растёт пустая подложка цвета карточки, а
+ * текст окна проявляется, когда подложка встала на место.
+ */
+function morphFromCard(card, sheet) {
   const from = card.getBoundingClientRect();
   const to = sheet.getBoundingClientRect();
-  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches && to.width && to.height) {
-    const dx = from.left + from.width / 2 - (to.left + to.width / 2);
-    const dy = from.top + from.height / 2 - (to.top + to.height / 2);
-    sheet.animate(
-      [
-        { transform: `translate(${dx}px, ${dy}px) scale(${from.width / to.width}, ${from.height / to.height})`, opacity: 0.4 },
-        { transform: "none", opacity: 1 },
-      ],
-      { duration: 380, easing: "cubic-bezier(0.32, 0.72, 0, 1)" }
-    );
+  if (!to.width || !to.height) {
+    sheet.classList.remove("sheet--morph");
+    return;
   }
+  // Карточка коротко утапливается — видно, что нажалась именно она.
+  card.animate([{ transform: "scale(1)" }, { transform: "scale(0.97)" }, { transform: "scale(1)" }], {
+    duration: 240,
+    easing: "ease-out",
+  });
+  const surface = el("div", "morph-surface");
+  const radius = getComputedStyle(card).borderRadius || "18px";
+  Object.assign(surface.style, {
+    left: `${from.left}px`,
+    top: `${from.top}px`,
+    width: `${from.width}px`,
+    height: `${from.height}px`,
+    borderRadius: radius,
+  });
+  document.body.append(surface);
+  const grow = surface.animate(
+    [
+      { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, borderRadius: radius },
+      { left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, borderRadius: "28px 28px 0 0" },
+    ],
+    { duration: 400, easing: "cubic-bezier(0.32, 0.72, 0, 1)", fill: "forwards" }
+  );
+  // Страховка: если сигнал «анимация закончилась» не придёт (свёрнутое
+  // приложение, слабый телефон), окно всё равно покажется.
+  let shown = false;
+  const reveal = () => {
+    if (shown) return;
+    shown = true;
+    sheet.classList.remove("sheet--morph");
+    // Содержимое — лёгкой волной сверху вниз.
+    [...sheet.children].forEach((child, i) => {
+      child.animate([{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], {
+        duration: 220,
+        delay: i * 40,
+        easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        fill: "backwards",
+      });
+    });
+    surface.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: "forwards" });
+    setTimeout(() => surface.remove(), 200);
+  };
+  grow.onfinish = reveal;
+  setTimeout(reveal, 460);
 }
 
 function closeLessonSheet() {
