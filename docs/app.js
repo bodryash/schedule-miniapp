@@ -4146,7 +4146,7 @@ async function submitHomework(text) {
   }
 }
 
-const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"].map((day) => t(day));
+const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => t(day));
 
 // Основной язык: английский либо русский для иностранцев. Одновременно их
 // не бывает, поэтому в опросе это один вопрос. Название зависит от курса.
@@ -4356,10 +4356,9 @@ const els = {
 let data = null;
 let prefs = null;
 
-// В воскресенье занятий нет, поэтому показываем понедельник — уже следующей
-// недели, а не той, что закончилась.
+// Воскресенье — в полосе дней тоже: пар нет, но свои дела бывают. В
+// воскресенье открываемся на нём, а не на понедельнике следующей недели.
 const baseDate = new Date();
-if (baseDate.getDay() === 0) baseDate.setDate(baseDate.getDate() + 1);
 
 const weekStart = mondayOf(baseDate);
 
@@ -4367,7 +4366,7 @@ const weekStart = mondayOf(baseDate);
 // чаще, чем на месяц вперёд, а листать две недели можно одной полосой.
 const WEEKS = 2;
 
-let selectedDay = Math.min((baseDate.getDay() + 6) % 7, 5) + 1;
+let selectedDay = ((baseDate.getDay() + 6) % 7) + 1;
 let selectedWeek = 0;
 
 // Дни двух недель как одна лента: по ней и листаем.

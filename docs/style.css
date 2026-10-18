@@ -8398,3 +8398,14 @@ body.msu .tabs {
   color: #00843d;
   padding-right: 46px;
 }
+
+/* --- Семь дней недели: на узком телефоне неделя должна влезать целиком.
+   Плитки и промежутки поджимаются по ширине экрана, на широком — как были. */
+#days {
+  gap: clamp(4px, 1.4vw, 8px);
+}
+
+#days .day {
+  min-width: min(46px, calc((100vw - 32px - 6 * clamp(4px, 1.4vw, 8px)) / 7));
+  padding-inline: 0;
+}
