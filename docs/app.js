@@ -5676,6 +5676,7 @@ function openLessonView(card) {
   lessonView.append(inner);
   document.body.append(dim, lessonView);
   lessonView.dim = dim;
+  dragToClose(lessonView, dim);
   document.body.classList.add("lesson-open");
 
   // Системная «назад» в Telegram закрывает подробности.
@@ -5711,6 +5712,56 @@ function openLessonView(card) {
   );
 }
 
+/**
+ * Свайп вниз закрывает окно, как на iPhone: из самого верха окно едет за
+ * пальцем, затемнение светлеет. Отпустили далеко или резко — окно
+ * сворачивается обратно в карточку, чуть-чуть — мягко возвращается.
+ */
+function dragToClose(view, dim) {
+  let startY = 0;
+  let startTime = 0;
+  let shift = 0;
+  let armed = false;
+  let dragging = false;
+  view.addEventListener("touchstart", (event) => {
+    armed = view.scrollTop <= 0;
+    dragging = false;
+    shift = 0;
+    startY = event.touches[0].clientY;
+    startTime = performance.now();
+  }, { passive: true });
+  view.addEventListener("touchmove", (event) => {
+    if (!armed) return;
+    const dy = event.touches[0].clientY - startY;
+    if (!dragging && (dy <= 4 || view.scrollTop > 0)) {
+      if (dy < 0) armed = false;
+      return;
+    }
+    dragging = true;
+    event.preventDefault();
+    // Сопротивление: окно идёт за пальцем, но чуть медленнее.
+    shift = Math.max(0, dy * 0.75);
+    view.style.transform = `translateY(${shift}px)`;
+    if (dim) dim.style.opacity = String(Math.max(0.15, 1 - shift / 420));
+  }, { passive: false });
+  view.addEventListener("touchend", () => {
+    if (!dragging) return;
+    dragging = false;
+    const speed = shift / Math.max(1, performance.now() - startTime);
+    if (shift > 110 || speed > 0.55) {
+      closeLessonView();
+      return;
+    }
+    view.animate([{ transform: `translateY(${shift}px)` }, { transform: "translateY(0)" }], {
+      duration: 320,
+      easing: "cubic-bezier(0.34, 1.3, 0.5, 1)",
+    });
+    view.style.transform = "";
+    dim?.animate([{ opacity: dim.style.opacity || 1 }, { opacity: 1 }], { duration: 250 });
+    if (dim) dim.style.opacity = "";
+  });
+}
+
 function closeLessonView(instant = false) {
   const view = lessonView;
   if (!view) return;
@@ -5737,10 +5788,14 @@ function closeLessonView(instant = false) {
   const r = card.getBoundingClientRect();
   // Окно сворачивается в карточку и одновременно растворяется — к концу
   // от него ничего не остаётся, тёмного куска поверх расписания нет.
+  // Если окно тянули свайпом, оно стартует со сдвигом — сдвиг уходит вместе
+  // со сворачиванием, и окно садится ровно в свою карточку.
+  const dragged = view.style.transform || "translateY(0)";
+  view.style.transform = "";
   view.animate(
     [
-      { clipPath: panelClip(), opacity: 1 },
-      { clipPath: cardClip(card), opacity: 0 },
+      { clipPath: panelClip(), opacity: 1, transform: dragged },
+      { clipPath: cardClip(card), opacity: 0, transform: "translateY(0)" },
     ],
     { duration: 340, easing: VIEW_EASE, fill: "forwards" }
   );
