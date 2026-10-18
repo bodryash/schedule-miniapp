@@ -475,32 +475,6 @@
     }
   },
   {
-    "id": "msu-philos",
-    "university": "МГУ",
-    "faculty": "Философский факультет",
-    "path": "msu-philos",
-    "features": [],
-    "short": "Философский",
-    "source": {
-      "kind": "tt",
-      "base": "https://cacs.philos.msu.ru",
-      "faculty": "1"
-    }
-  },
-  {
-    "id": "msu-law",
-    "university": "МГУ",
-    "faculty": "Юридический факультет",
-    "path": "msu-law",
-    "features": [],
-    "short": "Юрфак",
-    "source": {
-      "kind": "tt",
-      "base": "https://cacs.law.msu.ru",
-      "faculty": "8,23"
-    }
-  },
-  {
     "id": "mgimo-meo",
     "university": "МГИМО",
     "faculty": "Факультет международных экономических отношений",
@@ -616,5 +590,31 @@
       "faculty": 41
     },
     "short": "МО (англ)"
+  },
+  {
+    "id": "msu-philos",
+    "university": "МГУ",
+    "faculty": "Философский факультет",
+    "path": "msu-philos",
+    "features": [],
+    "short": "Философский",
+    "source": {
+      "kind": "tt",
+      "base": "https://cacs.philos.msu.ru",
+      "faculty": "1"
+    }
+  },
+  {
+    "id": "msu-law",
+    "university": "МГУ",
+    "faculty": "Юридический факультет",
+    "path": "msu-law",
+    "features": [],
+    "short": "Юрфак",
+    "source": {
+      "kind": "tt",
+      "base": "https://cacs.law.msu.ru",
+      "faculty": "8,23"
+    }
   }
 ]
