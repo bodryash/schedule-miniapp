@@ -5683,6 +5683,13 @@ function openLessonView(card) {
     tg.BackButton.onClick(closeLessonView);
     tg.BackButton.show();
   }
+  // Резкий свайп вниз Telegram понимает как «свернуть приложение» — пока
+  // подробности открыты, этот жест выключаем: окно листается, а не уезжает.
+  try {
+    tg?.disableVerticalSwipes?.();
+  } catch {
+    // Старый Telegram без этой возможности.
+  }
 
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   card.animate([{ transform: "scale(1)" }, { transform: "scale(0.97)" }], { duration: 120, easing: "ease-out" });
@@ -5713,6 +5720,11 @@ function closeLessonView(instant = false) {
     tg.BackButton.hide();
   }
   document.body.classList.remove("lesson-open");
+  try {
+    tg?.enableVerticalSwipes?.();
+  } catch {
+    // Старый Telegram без этой возможности.
+  }
   const dim = view.dim;
   const card = lessonCard && document.body.contains(lessonCard) ? lessonCard : null;
   if (instant === true || !card || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
