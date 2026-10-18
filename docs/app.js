@@ -6319,6 +6319,9 @@ function renderDays() {
       // заставке. Раньше больше четырёх не рисовали, и в пятипарный день
       // точки под датой и на заставке расходились.
       const count = dayLoad(day, week);
+      // День без пар — выходной или свободный: вместо точек тонкая черта,
+      // плитка приглушена. Видно сразу, но не спорит с учебными днями.
+      if (!count) btn.classList.add("day--off");
       const dots = el("span", "day-dots");
       for (let i = 0; i < Math.min(count, 7); i++) {
         const dot = el("i");

@@ -8409,3 +8409,24 @@ body.msu .tabs {
   min-width: min(46px, calc((100vw - 32px - 6 * clamp(4px, 1.4vw, 8px)) / 7));
   padding-inline: 0;
 }
+
+/* --- День без пар в полосе дней: черта вместо точек, плитка тише --- */
+.day--off .day-dots::before {
+  content: "";
+  width: 12px;
+  height: 2px;
+  margin-top: 1px;
+  border-radius: 2px;
+  background: var(--muted);
+  opacity: 0.45;
+}
+
+.day--off:not(.active) .day-name,
+.day--off:not(.active) .day-num {
+  opacity: 0.55;
+}
+
+.day--off.active .day-dots::before {
+  background: var(--accent-text);
+  opacity: 0.8;
+}
