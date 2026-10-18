@@ -178,8 +178,8 @@
     </div>
     <div class="splash-times" id="splash-times"></div>
   </div>
-  <!-- Дата на заставке — сразу, не дожидаясь кода приложения. В воскресенье
-       расписание открывается на понедельник — и заставка тоже. -->
+  <!-- Дата на заставке — сразу, не дожидаясь кода приложения. Воскресенье
+       теперь есть в полосе дней, поэтому заставка показывает сегодняшний день. -->
   <script>
     (function () {
       try {
@@ -192,7 +192,6 @@
           document.body.dataset.digits = document.body.dataset.head = "tall";
         }
         var day = new Date();
-        if (day.getDay() === 0) day.setDate(day.getDate() + 1);
         var locale = { ru: "ru-RU", en: "en-GB", zh: "zh-CN", ko: "ko-KR" }[window.__lang] || "ru-RU";
         var text = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(day);
         document.getElementById("splash-day").textContent = text.charAt(0).toUpperCase() + text.slice(1);
