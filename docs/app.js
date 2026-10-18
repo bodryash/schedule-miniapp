@@ -6384,7 +6384,8 @@ function keepSelectedVisible() {
   const max = Math.max(0, strip.scrollWidth - strip.clientWidth);
   let left = Math.min(max, Math.max(0, first.offsetLeft - pad));
   // Узкий экран, неделя не влезла: выбранный день важнее начала недели.
-  const right = active.offsetLeft + active.offsetWidth + pad;
+  // Справа — свой отступ полосы: он больше, чтобы день помещался со свечением.
+  const right = active.offsetLeft + active.offsetWidth + (parseFloat(getComputedStyle(strip).paddingRight) || pad);
   if (right > left + strip.clientWidth) left = Math.min(max, right - strip.clientWidth);
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const behavior = reduce || !daysScrolled ? "auto" : "smooth";

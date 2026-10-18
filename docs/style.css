@@ -8406,7 +8406,7 @@ body.msu .tabs {
 }
 
 #days .day {
-  min-width: min(46px, calc((100vw - 32px - 6 * clamp(4px, 1.4vw, 8px)) / 7));
+  min-width: min(46px, calc((100vw - 40px - 6 * clamp(4px, 1.4vw, 8px)) / 7));
   padding-inline: 0;
 }
 
@@ -8435,6 +8435,15 @@ body.msu .tabs {
   mask-image: linear-gradient(to right, transparent, #000 6px, #000 calc(100% - 6px), transparent);
   padding-top: 8px;
   margin-top: -8px;
-  padding-bottom: 22px;
-  margin-bottom: -6px;
+  /* Тень выбранного дня уходит вниз на ~24 px — запас с избытком. */
+  padding-bottom: 40px;
+  margin-bottom: -24px;
+  /* Справа запас больше: крайний день недели встаёт целиком, со свечением. */
+  padding-right: 24px;
+}
+
+/* Черта выходного на самой капле (выбранный день рисуется её копией). */
+#days .days-drop .day--off .day-dots::before {
+  background: currentColor;
+  opacity: 0.7;
 }
