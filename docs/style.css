@@ -8961,3 +8961,64 @@ article.card {
 .lv-sections {
   padding: 0 26px;
 }
+
+/* --- Подробности пары: слои контейнерного перехода --- */
+.lv-dim {
+  position: fixed;
+  inset: 0;
+  z-index: 949;
+  background: rgba(8, 10, 20, 0.5);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.lv-group {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  pointer-events: none;
+}
+
+.lv-surface,
+.lv-scroll {
+  position: fixed;
+  border-radius: 26px;
+}
+
+.lv-surface {
+  transform-origin: 0 0;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 220px),
+    var(--card);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  will-change: transform;
+}
+
+.lv-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  pointer-events: auto;
+  padding: 10px 0 24px;
+}
+
+.lv-scroll .lv-bar {
+  padding: 0 14px;
+  margin-bottom: 6px;
+}
+
+.lv-slot {
+  margin-bottom: 14px;
+}
+
+.lv-head {
+  margin: 0;
+  pointer-events: none;
+  animation: none !important;
+  will-change: transform;
+}
+
+.lv-scroll .lv-sections {
+  padding: 0 14px;
+}

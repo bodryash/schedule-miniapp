@@ -5512,36 +5512,40 @@ function renderSeason() {
 }
 
 /* ---------- Карточка пары раскрывается ----------
- * Как приложение на телефоне: нажал — карточка расширяется на весь экран.
- * Раскрывается рамка (clip-path), а текст рисуется сразу в полном размере
- * и лишь чуть подрастает — ничего не растягивается и не плющится.
- * Закрытие — обратно в ту же карточку; работает и системная «назад».
+ * Контейнерный переход, как в iOS. Всё движение — только сдвиги, масштаб
+ * и прозрачность: их iPhone проигрывает видеочипом, без перерисовки
+ * экрана в каждом кадре.
+ *  - фон окна — пустая подложка: растёт из карточки масштабом, углы
+ *    пересчитываются под масштаб и не сплющиваются;
+ *  - сама карточка (её копия) едет только сдвигом — шрифты и переносы
+ *    не меняются, прыгать нечему;
+ *  - подробности проявляются, когда окно уже раскрылось.
+ * На время полёта карточка — в отдельном слое поверх всего; в покое она
+ * переезжает в окно на то же место, пиксель в пиксель.
  */
 let lessonView = null;
 let lessonCard = null;
 const VIEW_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
-const OPEN_MS = 480;
-const CLOSE_MS = 400;
+const OPEN_MS = 460;
+const CLOSE_MS = 380;
+const PANEL_RADIUS = 26;
 
-function cardClip(card) {
-  const r = card.getBoundingClientRect();
-  const radius = parseFloat(getComputedStyle(card).borderTopLeftRadius) || 18;
-  // Карточка может частично уходить за край экрана — рамку держим в видимой части.
-  const top = Math.min(Math.max(0, r.top), innerHeight - 60);
-  const bottom = Math.min(Math.max(0, innerHeight - r.bottom), innerHeight - top - 60);
-  const right = Math.max(0, innerWidth - r.right);
-  return `inset(${top}px ${right}px ${bottom}px ${Math.max(0, r.left)}px round ${radius}px)`;
-}
-
-/** Рамка открытого окна: отступы от краёв экрана и скругление. */
-function panelClip() {
+/** Прямоугольник окна: отступы от краёв экрана. */
+function panelRect() {
   const top = Math.max(48, Math.round(innerHeight * 0.08));
   const bottom = Math.round(innerHeight * 0.06);
-  return `inset(${top}px 12px ${bottom}px 12px round 26px)`;
+  return { left: 12, top, width: innerWidth - 24, height: innerHeight - top - bottom };
 }
 
-function panelGaps() {
-  return { top: Math.max(48, Math.round(innerHeight * 0.08)), bottom: Math.round(innerHeight * 0.06) };
+/** Масштаб и сдвиг подложки, чтобы она совпала с прямоугольником rect. */
+function surfaceFrame(rect, panel, radius) {
+  const sx = rect.width / panel.width;
+  const sy = rect.height / panel.height;
+  return {
+    transform: `translate(${rect.left - panel.left}px, ${rect.top - panel.top}px) scale(${sx}, ${sy})`,
+    // Углы — в масштабе подложки, чтобы после масштаба остались круглыми.
+    borderRadius: `${radius / sx}px / ${radius / sy}px`,
+  };
 }
 
 function viewSection(title, ...children) {
@@ -5550,20 +5554,43 @@ function viewSection(title, ...children) {
   return box;
 }
 
+/** Дождаться конца анимации; если сигнал не придёт — подстраховка с запасом. */
+function whenDone(animation, ms, fn) {
+  let fired = false;
+  const run = () => {
+    if (fired) return;
+    fired = true;
+    fn();
+  };
+  animation?.finished?.then(run, run);
+  setTimeout(run, ms + 600);
+}
+
 function openLessonView(card) {
   const subject = card.dataset.subject;
-  if (!subject) return;
+  if (!subject || lessonView) return;
   const slots = cardSlots(card);
   const entries = visible.filter((l) => l.subject === subject && slots.includes(l.slot));
   if (!entries.length) return;
   lessonCard = card;
+  const r = card.getBoundingClientRect();
+  const panel = panelRect();
+  const radius = parseFloat(getComputedStyle(card).borderTopLeftRadius) || 18;
 
-  lessonView?.remove();
-  lessonView?.dim?.remove();
-  lessonView = el("div", "lesson-view");
-  lessonView.setAttribute("role", "dialog");
-  lessonView.setAttribute("aria-modal", "true");
-  const inner = el("div", "lv-inner");
+  const dim = el("div", "lv-dim");
+  const group = el("div", "lv-group");
+  const surface = el("div", "lv-surface");
+  const scroller = el("div", "lv-scroll");
+  scroller.setAttribute("role", "dialog");
+  scroller.setAttribute("aria-modal", "true");
+  for (const node of [surface, scroller]) {
+    Object.assign(node.style, {
+      left: `${panel.left}px`,
+      top: `${panel.top}px`,
+      width: `${panel.width}px`,
+      height: `${panel.height}px`,
+    });
+  }
 
   const bar = el("div", "lv-bar");
   const back = el("button", "lv-back", `‹ ${t("Назад")}`);
@@ -5571,16 +5598,14 @@ function openLessonView(card) {
   back.addEventListener("click", closeLessonView);
   bar.append(back);
 
-  // Верх окна — сама карточка: та же вёрстка, шрифты и ширина. Поэтому при
-  // открытии ей не нужно ни растягиваться, ни подменяться — она просто
-  // едет на своё место, и прыгать нечему.
-  const r = card.getBoundingClientRect();
+  // Место карточки в окне. Ширина — как у карточки в расписании.
+  const slot = el("div", "lv-slot");
+  slot.style.height = `${r.height}px`;
   const head = card.cloneNode(true);
   head.classList.add("lv-head");
   head.inert = true;
   head.setAttribute("aria-hidden", "true");
   head.style.width = `${r.width}px`;
-  head.style.marginLeft = `${r.left}px`;
 
   const sections = [];
 
@@ -5673,58 +5698,65 @@ function openLessonView(card) {
 
   const rest = el("div", "lv-sections");
   rest.append(...sections);
-  inner.append(bar, head, rest);
+  scroller.append(bar, slot, rest);
+  group.append(surface, scroller);
+  document.body.append(dim, group);
+  // Карточка в окне — по центру, как в расписании относительно экрана.
+  slot.style.marginLeft = `${r.left - panel.left}px`;
+  slot.style.width = `${r.width}px`;
 
-  // Затемнение за окном — отдельным слоем: его не задевает рамка окна.
-  const dim = el("div", "lv-dim");
+  lessonView = { dim, group, surface, scroller, head, slot, chrome: [bar, rest], panel, radius };
   dim.addEventListener("click", closeLessonView);
-  const gaps = panelGaps();
-  lessonView.style.setProperty("--lv-top", `${gaps.top}px`);
-  lessonView.style.setProperty("--lv-bottom", `${gaps.bottom}px`);
-  lessonView.style.clipPath = panelClip();
-  lessonView.append(inner);
-  document.body.append(dim, lessonView);
-  lessonView.dim = dim;
-  lessonView.head = head;
-  lessonView.chrome = [bar, rest];
-  dragToClose(lessonView, dim);
+  dragToClose(lessonView);
 
-  // Системная «назад» в Telegram закрывает подробности.
+  // Системная «назад» в Telegram закрывает подробности, а свайп вниз не
+  // сворачивает приложение, пока окно открыто.
   if (tg?.BackButton) {
     tg.BackButton.onClick(closeLessonView);
     tg.BackButton.show();
   }
-  // Резкий свайп вниз Telegram понимает как «свернуть приложение» — пока
-  // подробности открыты, этот жест выключаем: окно листается, а не уезжает.
   try {
     tg?.disableVerticalSwipes?.();
   } catch {
     // Старый Telegram без этой возможности.
   }
 
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (calm) {
+    slot.append(head);
+    return;
+  }
 
-  // Настоящая карточка на время перехода прячется: на её месте — копия в окне.
+  // Полёт: копия карточки — в своём слое поверх окна, от места карточки
+  // до места в окне.
+  const s = slot.getBoundingClientRect();
+  Object.assign(head.style, { position: "fixed", left: `${s.left}px`, top: `${s.top}px`, margin: "0", zIndex: "1002" });
+  document.body.append(head);
   card.style.visibility = "hidden";
-  const h = head.getBoundingClientRect();
-  const dx = Math.round(r.left - h.left);
-  const dy = Math.round(r.top - h.top);
+
   const timing = { duration: OPEN_MS, easing: VIEW_EASE };
-  head.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0, 0)" }], timing);
-  lessonView.animate([{ clipPath: cardClip(card) }, { clipPath: panelClip() }], timing);
-  // Подробности выезжают снизу чуть позже, когда окно уже раскрылось.
+  const fly = head.animate(
+    [{ transform: `translate(${r.left - s.left}px, ${r.top - s.top}px)` }, { transform: "translate(0px, 0px)" }],
+    timing
+  );
+  const from = surfaceFrame(r, panel, radius);
+  surface.animate([from, { transform: "none", borderRadius: `${PANEL_RADIUS}px` }], timing);
+  dim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS * 0.8, easing: "ease-out" });
   for (const part of [bar, rest]) {
-    part.animate([{ opacity: 0, transform: "translateY(18px)" }, { opacity: 1, transform: "translateY(0)" }], {
-      duration: OPEN_MS - 100,
-      delay: 120,
+    part.animate([{ opacity: 0, transform: "translateY(16px)" }, { opacity: 1, transform: "translateY(0px)" }], {
+      duration: OPEN_MS - 80,
+      delay: 140,
       easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
       fill: "backwards",
     });
   }
-  dim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS * 0.7, easing: "ease-out" });
-  setTimeout(() => {
+  whenDone(fly, OPEN_MS, () => {
+    // В покое карточка — внутри окна, на том же месте: листается вместе с ним.
+    if (lessonView?.head !== head || head.parentNode !== document.body) return;
+    Object.assign(head.style, { position: "", left: "", top: "", margin: "", zIndex: "" });
+    slot.append(head);
     card.style.visibility = "";
-  }, OPEN_MS + 20);
+  });
 }
 
 /**
@@ -5732,42 +5764,35 @@ function openLessonView(card) {
  * пальцем, затемнение светлеет. Отпустили далеко или резко — окно
  * сворачивается обратно в карточку, чуть-чуть — мягко возвращается.
  */
-function dragToClose(view, dim) {
+function dragToClose(view) {
+  const { scroller, group, dim } = view;
   let startY = 0;
   let startTime = 0;
   let shift = 0;
   let armed = false;
   let dragging = false;
-  view.addEventListener("touchstart", (event) => {
-    armed = view.scrollTop <= 0;
+  scroller.addEventListener("touchstart", (event) => {
+    armed = scroller.scrollTop <= 0;
     dragging = false;
     shift = 0;
     startY = event.touches[0].clientY;
     startTime = performance.now();
   }, { passive: true });
-  view.addEventListener("touchmove", (event) => {
+  scroller.addEventListener("touchmove", (event) => {
     if (!armed) return;
     const dy = event.touches[0].clientY - startY;
-    // Перехватываем с первого же движения вниз: если упустить первые
-    // миллиметры, iPhone начинает сам «пружинить» содержимое, и дальше
-    // жест уже не отдаёт.
-    if (!dragging && (dy <= 0 || view.scrollTop > 0)) {
+    // С первого же движения вниз: иначе iPhone начинает сам «пружинить».
+    if (!dragging && (dy <= 0 || scroller.scrollTop > 0)) {
       if (dy < 0) armed = false;
       return;
     }
     dragging = true;
     event.preventDefault();
-    // Сопротивление: окно идёт за пальцем, но чуть медленнее.
     shift = Math.max(0, dy * 0.75);
-    view.style.transform = `translateY(${shift}px)`;
-    if (dim) dim.style.opacity = String(Math.max(0.15, 1 - shift / 420));
+    group.style.transform = `translateY(${shift}px)`;
+    dim.style.opacity = String(Math.max(0.15, 1 - shift / 420));
   }, { passive: false });
-  // Запасной путь: если iPhone всё же утянул содержимое вниз за верхний
-  // край (отрицательная прокрутка) — это тоже жест «закрыть».
-  view.addEventListener("scroll", () => {
-    if (view.scrollTop < -50 && lessonView === view) closeLessonView();
-  }, { passive: true });
-  view.addEventListener("touchend", () => {
+  scroller.addEventListener("touchend", () => {
     if (!dragging) return;
     dragging = false;
     const speed = shift / Math.max(1, performance.now() - startTime);
@@ -5775,22 +5800,25 @@ function dragToClose(view, dim) {
       closeLessonView();
       return;
     }
-    view.animate([{ transform: `translateY(${shift}px)` }, { transform: "translateY(0)" }], {
+    group.animate([{ transform: `translateY(${shift}px)` }, { transform: "translateY(0px)" }], {
       duration: 320,
       easing: "cubic-bezier(0.34, 1.3, 0.5, 1)",
     });
-    view.style.transform = "";
-    dim?.animate([{ opacity: dim.style.opacity || 1 }, { opacity: 1 }], { duration: 250 });
-    if (dim) dim.style.opacity = "";
+    group.style.transform = "";
+    dim.style.opacity = "";
   });
+  // Запасной путь: iPhone утянул содержимое вниз за верхний край.
+  scroller.addEventListener("scroll", () => {
+    if (scroller.scrollTop < -50 && lessonView === view) closeLessonView();
+  }, { passive: true });
 }
 
 function closeLessonView(instant = false) {
   const view = lessonView;
   if (!view) return;
-  // Место карточки — самым первым делом, до любых изменений на странице:
-  // иначе окно садилось туда, где карточка была мгновение назад.
-  const target = lessonCard && document.body.contains(lessonCard) ? lessonCard.getBoundingClientRect() : null;
+  // Место карточки — самым первым делом, до любых изменений.
+  const card = lessonCard && document.body.contains(lessonCard) ? lessonCard : null;
+  const r = card?.getBoundingClientRect();
   lessonView = null;
   if (tg?.BackButton) {
     tg.BackButton.offClick(closeLessonView);
@@ -5801,50 +5829,45 @@ function closeLessonView(instant = false) {
   } catch {
     // Старый Telegram без этой возможности.
   }
-  const dim = view.dim;
-  const card = lessonCard && document.body.contains(lessonCard) ? lessonCard : null;
+  const { dim, group, surface, scroller, head, panel, radius } = view;
   const finish = () => {
     if (card) card.style.visibility = "";
-    view.remove();
-    dim?.remove();
+    dim.remove();
+    group.remove();
+    head.remove();
   };
-  if (instant === true || !card || !view.head || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  if (instant === true || !card || !r || !r.height || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     finish();
     return;
   }
   haptic("light");
-  view.style.pointerEvents = "none";
-  // Окно могли тянуть свайпом — сдвиг уходит вместе со сворачиванием.
-  const dragged = view.style.transform || "translateY(0px)";
-  const shift = Number((dragged.match(/-?[\d.]+/) || [0])[0]) || 0;
-  view.style.transform = "";
+  group.style.pointerEvents = "none";
+  dim.style.pointerEvents = "none";
+
+  // Сдвиг от свайпа: окно стартует оттуда, где его отпустили.
+  const shift = Number((group.style.transform.match(/-?[\d.]+/) || [0])[0]) || 0;
+  // Карточка — снова в свой слой поверх всего, ровно на том месте, где она сейчас.
+  const h = head.getBoundingClientRect();
+  Object.assign(head.style, { position: "fixed", left: `${h.left}px`, top: `${h.top}px`, width: `${h.width}px`, margin: "0", zIndex: "1002" });
+  document.body.append(head);
   card.style.visibility = "hidden";
-  const r = target || card.getBoundingClientRect();
-  const h = view.head.getBoundingClientRect();
-  const dx = Math.round(r.left - h.left);
-  const dy = Math.round(r.top - (h.top - shift));
+
   const timing = { duration: CLOSE_MS, easing: VIEW_EASE, fill: "forwards" };
-  view.head.animate([{ transform: "translate(0, 0)" }, { transform: `translate(${dx}px, ${dy}px)` }], timing);
-  view.animate(
-    [
-      { clipPath: panelClip(), transform: dragged },
-      { clipPath: cardClip(card), transform: "translateY(0px)" },
-    ],
+  const fly = head.animate(
+    [{ transform: "translate(0px, 0px)" }, { transform: `translate(${r.left - h.left}px, ${r.top - h.top}px)` }],
     timing
   );
-  // Подробности уходят первыми — к концу на месте остаётся только карточка.
-  for (const part of view.chrome || []) {
-    part.animate([{ opacity: 1 }, { opacity: 0 }], { duration: CLOSE_MS * 0.4, easing: "ease-out", fill: "forwards" });
-  }
-  dim?.animate([{ opacity: Number(dim.style.opacity || 1) }, { opacity: 0 }], { duration: CLOSE_MS, easing: "ease-out", fill: "forwards" });
-  let done = false;
-  const end = () => {
-    if (done) return;
-    done = true;
-    finish();
-  };
-  view.getAnimations()[0]?.addEventListener?.("finish", end);
-  setTimeout(end, CLOSE_MS + 40);
+  // Подложку меряем без сдвига свайпа: сдвиг входит в первый кадр.
+  group.style.transform = "";
+  const start = { transform: `translate(0px, ${shift}px)`, borderRadius: `${PANEL_RADIUS}px` };
+  surface.animate([start, surfaceFrame(r, panel, radius)], timing);
+  scroller.animate([{ opacity: 1, transform: `translateY(${shift}px)` }, { opacity: 0, transform: `translateY(${shift}px)` }], {
+    duration: CLOSE_MS * 0.35,
+    easing: "ease-out",
+    fill: "forwards",
+  });
+  dim.animate([{ opacity: Number(dim.style.opacity || 1) }, { opacity: 0 }], { duration: CLOSE_MS, easing: "ease-out", fill: "forwards" });
+  whenDone(fly, CLOSE_MS, finish);
 }
 
 /* ---------- Заготовки, пока грузится расписание ---------- */
