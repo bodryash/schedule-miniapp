@@ -5531,6 +5531,17 @@ function cardClip(card) {
   return `inset(${top}px ${right}px ${bottom}px ${Math.max(0, r.left)}px round ${radius}px)`;
 }
 
+/** Рамка открытого окна: отступы от краёв экрана и скругление. */
+function panelClip() {
+  const top = Math.max(48, Math.round(innerHeight * 0.08));
+  const bottom = Math.round(innerHeight * 0.06);
+  return `inset(${top}px 12px ${bottom}px 12px round 26px)`;
+}
+
+function panelGaps() {
+  return { top: Math.max(48, Math.round(innerHeight * 0.08)), bottom: Math.round(innerHeight * 0.06) };
+}
+
 function viewSection(title, ...children) {
   const box = el("section", "lv-section");
   box.append(el("h3", "lv-section-title", title), ...children.filter(Boolean));
@@ -5655,8 +5666,16 @@ function openLessonView(card) {
   sections.push(viewSection(t("Моя заметка"), mine ? el("div", "lv-text", mine) : null, pen));
 
   inner.append(bar, hero, ...sections);
+  // Затемнение за окном — отдельным слоем: его не задевает рамка окна.
+  const dim = el("div", "lv-dim");
+  dim.addEventListener("click", closeLessonView);
+  const gaps = panelGaps();
+  lessonView.style.setProperty("--lv-top", `${gaps.top}px`);
+  lessonView.style.setProperty("--lv-bottom", `${gaps.bottom}px`);
+  lessonView.style.clipPath = panelClip();
   lessonView.append(inner);
-  document.body.append(lessonView);
+  document.body.append(dim, lessonView);
+  lessonView.dim = dim;
   document.body.classList.add("lesson-open");
 
   // Системная «назад» в Telegram закрывает подробности.
@@ -5668,10 +5687,11 @@ function openLessonView(card) {
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   card.animate([{ transform: "scale(1)" }, { transform: "scale(0.97)" }], { duration: 120, easing: "ease-out" });
   const from = cardClip(card);
-  lessonView.animate([{ clipPath: from }, { clipPath: "inset(0px 0px 0px 0px round 0px)" }], {
+  lessonView.animate([{ clipPath: from }, { clipPath: panelClip() }], {
     duration: 460,
     easing: VIEW_EASE,
   });
+  dim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: "ease-out" });
   // Текст — в полном размере с самого начала, лишь чуть подрастает и
   // проявляется: как содержимое приложения при открытии.
   const r = card.getBoundingClientRect();
@@ -5693,30 +5713,34 @@ function closeLessonView(instant = false) {
     tg.BackButton.hide();
   }
   document.body.classList.remove("lesson-open");
+  const dim = view.dim;
   const card = lessonCard && document.body.contains(lessonCard) ? lessonCard : null;
   if (instant === true || !card || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     view.remove();
+    dim?.remove();
     return;
   }
   haptic("light");
+  view.style.pointerEvents = "none";
   const r = card.getBoundingClientRect();
-  const shrink = view.animate([{ clipPath: "inset(0px 0px 0px 0px round 0px)" }, { clipPath: cardClip(card) }], {
-    duration: 380,
-    easing: VIEW_EASE,
-    fill: "forwards",
-  });
-  view.firstChild?.animate(
-    [{ transform: "none", opacity: 1 }, { transform: `translateY(${Math.round(r.top - 40)}px) scale(0.94)`, opacity: 0 }],
-    { duration: 380, easing: VIEW_EASE, fill: "forwards" }
+  // Окно сворачивается в карточку и одновременно растворяется — к концу
+  // от него ничего не остаётся, тёмного куска поверх расписания нет.
+  view.animate(
+    [
+      { clipPath: panelClip(), opacity: 1 },
+      { clipPath: cardClip(card), opacity: 0 },
+    ],
+    { duration: 340, easing: VIEW_EASE, fill: "forwards" }
   );
-  let gone = false;
-  const done = () => {
-    if (gone) return;
-    gone = true;
+  view.firstChild?.animate(
+    [{ transform: "none", opacity: 1 }, { transform: `translateY(${Math.round(r.top - 80)}px) scale(0.94)`, opacity: 0 }],
+    { duration: 240, easing: VIEW_EASE, fill: "forwards" }
+  );
+  dim?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: "ease-out", fill: "forwards" });
+  setTimeout(() => {
     view.remove();
-  };
-  shrink.onfinish = done;
-  setTimeout(done, 450);
+    dim?.remove();
+  }, 360);
 }
 
 /* ---------- Заготовки, пока грузится расписание ---------- */
