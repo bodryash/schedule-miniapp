@@ -5520,6 +5520,8 @@ function renderSeason() {
 let lessonView = null;
 let lessonCard = null;
 const VIEW_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
+const OPEN_MS = 480;
+const CLOSE_MS = 400;
 
 function cardClip(card) {
   const r = card.getBoundingClientRect();
@@ -5548,87 +5550,16 @@ function viewSection(title, ...children) {
   return box;
 }
 
-/**
- * Переезд информации: время, номер пары, название, вид и аудитория
- * перелетают из карточки на свои места в окне (и обратно при закрытии).
- * Летит копия элемента — равномерно масштабируется, без сплющивания;
- * настоящие элементы на время полёта прячутся.
- */
-const SHARED = [
-  [".card-start", ".lv-time"],
-  [".slot", ".lv-pair"],
-  [".subject", ".lv-subject"],
-  [".meta", ".lv-kind"],
-  [".room-badge", ".lv-room .lv-strong"],
-];
-
-function flyShared(card, view, opening, duration) {
-  const hidden = [];
-  for (const [inCard, inView] of SHARED) {
-    const a = card.querySelector(inCard);
-    const b = view.querySelector(inView);
-    if (!a || !b) continue;
-    const src = opening ? a : b;
-    const dst = opening ? b : a;
-    const from = src.getBoundingClientRect();
-    const to = dst.getBoundingClientRect();
-    if (!from.width || !from.height || !to.width || !to.height) continue;
-    const ghost = src.cloneNode(true);
-    const style = getComputedStyle(src);
-    ghost.className = `${src.className} shared-ghost`;
-    Object.assign(ghost.style, {
-      position: "fixed",
-      left: `${from.left}px`,
-      top: `${from.top}px`,
-      width: `${from.width}px`,
-      height: `${from.height}px`,
-      margin: "0",
-      font: style.font,
-      color: style.color,
-      letterSpacing: style.letterSpacing,
-      background: style.background,
-      borderRadius: style.borderRadius,
-      padding: style.padding,
-      whiteSpace: "nowrap",
-      overflow: "visible",
-      transformOrigin: "0 0",
-      zIndex: "1001",
-      pointerEvents: "none",
-    });
-    document.body.append(ghost);
-    // Масштаб — по высоте строки: текст растёт равномерно, как в iOS.
-    const scale = to.height / from.height;
-    const move = `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(${scale})`;
-    ghost.animate(
-      [
-        { transform: "none", opacity: 1 },
-        { transform: move, opacity: 1, offset: 0.82 },
-        { transform: move, opacity: 0 },
-      ],
-      { duration, easing: VIEW_EASE, fill: "forwards" }
-    );
-    a.style.visibility = "hidden";
-    b.style.visibility = "hidden";
-    hidden.push(a, b, ghost);
-  }
-  setTimeout(() => {
-    for (const node of hidden) {
-      if (node.classList.contains("shared-ghost")) node.remove();
-      else node.style.visibility = "";
-    }
-  }, duration * 0.85);
-}
-
 function openLessonView(card) {
   const subject = card.dataset.subject;
   if (!subject) return;
   const slots = cardSlots(card);
   const entries = visible.filter((l) => l.subject === subject && slots.includes(l.slot));
   if (!entries.length) return;
-  const first = entries[0];
   lessonCard = card;
 
   lessonView?.remove();
+  lessonView?.dim?.remove();
   lessonView = el("div", "lesson-view");
   lessonView.setAttribute("role", "dialog");
   lessonView.setAttribute("aria-modal", "true");
@@ -5640,12 +5571,16 @@ function openLessonView(card) {
   back.addEventListener("click", closeLessonView);
   bar.append(back);
 
-  const hero = el("div", "lv-hero");
-  const time = card.dataset.start ? `${card.dataset.start} – ${card.dataset.end || ""}` : "";
-  const pair = slots.length > 1 ? t("{a}–{b} пара", { a: slots[0], b: slots.at(-1) }) : t("{n} пара", { n: slots[0] });
-  hero.append(el("div", "lv-time", time), el("span", "lv-pair", pair), el("h2", "lv-subject", tr(subject)));
-  const kind = [first.type ? t(first.type) : "", card.classList.contains("card--cancelled") ? t("отменена") : ""].filter(Boolean).join(" · ");
-  if (kind) hero.append(el("div", "lv-kind", kind));
+  // Верх окна — сама карточка: та же вёрстка, шрифты и ширина. Поэтому при
+  // открытии ей не нужно ни растягиваться, ни подменяться — она просто
+  // едет на своё место, и прыгать нечему.
+  const r = card.getBoundingClientRect();
+  const head = card.cloneNode(true);
+  head.classList.add("lv-head");
+  head.inert = true;
+  head.setAttribute("aria-hidden", "true");
+  head.style.width = `${r.width}px`;
+  head.style.marginLeft = `${r.left}px`;
 
   const sections = [];
 
@@ -5736,7 +5671,10 @@ function openLessonView(card) {
   });
   sections.push(viewSection(t("Моя заметка"), mine ? el("div", "lv-text", mine) : null, pen));
 
-  inner.append(bar, hero, ...sections);
+  const rest = el("div", "lv-sections");
+  rest.append(...sections);
+  inner.append(bar, head, rest);
+
   // Затемнение за окном — отдельным слоем: его не задевает рамка окна.
   const dim = el("div", "lv-dim");
   dim.addEventListener("click", closeLessonView);
@@ -5747,6 +5685,8 @@ function openLessonView(card) {
   lessonView.append(inner);
   document.body.append(dim, lessonView);
   lessonView.dim = dim;
+  lessonView.head = head;
+  lessonView.chrome = [bar, rest];
   dragToClose(lessonView, dim);
   document.body.classList.add("lesson-open");
 
@@ -5764,23 +5704,28 @@ function openLessonView(card) {
   }
 
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  flyShared(card, lessonView, true, 460);
-  const from = cardClip(card);
-  lessonView.animate([{ clipPath: from }, { clipPath: panelClip() }], {
-    duration: 460,
-    easing: VIEW_EASE,
-  });
-  dim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: "ease-out" });
-  // Текст — в полном размере с самого начала, лишь чуть подрастает и
-  // проявляется: как содержимое приложения при открытии.
-  const r = card.getBoundingClientRect();
-  inner.animate(
-    [
-      { transform: `translateY(${Math.round(r.top - 40)}px) scale(0.94)`, opacity: 0.3 },
-      { transform: "none", opacity: 1 },
-    ],
-    { duration: 460, easing: VIEW_EASE }
-  );
+
+  // Настоящая карточка на время перехода прячется: на её месте — копия в окне.
+  card.style.visibility = "hidden";
+  const h = head.getBoundingClientRect();
+  const dx = Math.round(r.left - h.left);
+  const dy = Math.round(r.top - h.top);
+  const timing = { duration: OPEN_MS, easing: VIEW_EASE };
+  head.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0, 0)" }], timing);
+  lessonView.animate([{ clipPath: cardClip(card) }, { clipPath: panelClip() }], timing);
+  // Подробности выезжают снизу чуть позже, когда окно уже раскрылось.
+  for (const part of [bar, rest]) {
+    part.animate([{ opacity: 0, transform: "translateY(18px)" }, { opacity: 1, transform: "translateY(0)" }], {
+      duration: OPEN_MS - 100,
+      delay: 120,
+      easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+      fill: "backwards",
+    });
+  }
+  dim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS * 0.7, easing: "ease-out" });
+  setTimeout(() => {
+    card.style.visibility = "";
+  }, OPEN_MS + 20);
 }
 
 /**
@@ -5857,37 +5802,48 @@ function closeLessonView(instant = false) {
   }
   const dim = view.dim;
   const card = lessonCard && document.body.contains(lessonCard) ? lessonCard : null;
-  if (instant === true || !card || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  const finish = () => {
+    if (card) card.style.visibility = "";
     view.remove();
     dim?.remove();
+  };
+  if (instant === true || !card || !view.head || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    finish();
     return;
   }
   haptic("light");
   view.style.pointerEvents = "none";
-  flyShared(card, view, false, 340);
-  const r = card.getBoundingClientRect();
-  // Окно сворачивается в карточку и одновременно растворяется — к концу
-  // от него ничего не остаётся, тёмного куска поверх расписания нет.
-  // Если окно тянули свайпом, оно стартует со сдвигом — сдвиг уходит вместе
-  // со сворачиванием, и окно садится ровно в свою карточку.
-  const dragged = view.style.transform || "translateY(0)";
+  // Окно могли тянуть свайпом — сдвиг уходит вместе со сворачиванием.
+  const dragged = view.style.transform || "translateY(0px)";
+  const shift = Number((dragged.match(/-?[\d.]+/) || [0])[0]) || 0;
   view.style.transform = "";
+  card.style.visibility = "hidden";
+  const r = card.getBoundingClientRect();
+  const h = view.head.getBoundingClientRect();
+  const dx = Math.round(r.left - h.left);
+  const dy = Math.round(r.top - (h.top - shift));
+  const timing = { duration: CLOSE_MS, easing: VIEW_EASE, fill: "forwards" };
+  view.head.animate([{ transform: "translate(0, 0)" }, { transform: `translate(${dx}px, ${dy}px)` }], timing);
   view.animate(
     [
-      { clipPath: panelClip(), opacity: 1, transform: dragged },
-      { clipPath: cardClip(card), opacity: 0, transform: "translateY(0)" },
+      { clipPath: panelClip(), transform: dragged },
+      { clipPath: cardClip(card), transform: "translateY(0px)" },
     ],
-    { duration: 340, easing: VIEW_EASE, fill: "forwards" }
+    timing
   );
-  view.firstChild?.animate(
-    [{ transform: "none", opacity: 1 }, { transform: `translateY(${Math.round(r.top - 80)}px) scale(0.94)`, opacity: 0 }],
-    { duration: 240, easing: VIEW_EASE, fill: "forwards" }
-  );
-  dim?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: "ease-out", fill: "forwards" });
-  setTimeout(() => {
-    view.remove();
-    dim?.remove();
-  }, 360);
+  // Подробности уходят первыми — к концу на месте остаётся только карточка.
+  for (const part of view.chrome || []) {
+    part.animate([{ opacity: 1 }, { opacity: 0 }], { duration: CLOSE_MS * 0.4, easing: "ease-out", fill: "forwards" });
+  }
+  dim?.animate([{ opacity: Number(dim.style.opacity || 1) }, { opacity: 0 }], { duration: CLOSE_MS, easing: "ease-out", fill: "forwards" });
+  let done = false;
+  const end = () => {
+    if (done) return;
+    done = true;
+    finish();
+  };
+  view.getAnimations()[0]?.addEventListener?.("finish", end);
+  setTimeout(end, CLOSE_MS + 40);
 }
 
 /* ---------- Заготовки, пока грузится расписание ---------- */

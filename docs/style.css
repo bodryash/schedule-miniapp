@@ -8942,3 +8942,25 @@ body.lesson-open {
 .lesson-view {
   touch-action: pan-y;
 }
+
+/* --- Подробности пары: верх окна — сама карточка --- */
+.lesson-view .lv-inner {
+  max-width: none;
+  padding: calc(var(--lv-top, 48px) + 6px) 0 calc(var(--lv-bottom, 40px) + 16px);
+}
+
+.lesson-view .lv-bar {
+  padding: 0 26px;
+  margin-bottom: 8px;
+}
+
+.lv-head {
+  margin: 0 0 14px;
+  pointer-events: none;
+  /* Копия не участвует в каскаде дня и не «дышит» заново. */
+  animation: none !important;
+}
+
+.lv-sections {
+  padding: 0 26px;
+}
