@@ -491,7 +491,8 @@ function applyHomework() {
     card.querySelector(".hw")?.remove();
     card.querySelector(".owner-actions")?.remove();
     const subject = card.dataset.subject;
-    if (subject && notices.owner) addOwnerButtons(card);
+    // Отмена пары — у владельца и у старосты своей группы.
+    if (subject && (notices.owner || notices.canEdit)) addOwnerButtons(card);
     if (!subject || seen.has(subject)) continue;
     seen.add(subject);
 
@@ -3862,9 +3863,21 @@ async function sendCancel(body) {
   await loadNotices(group);
 }
 
+/** Староста отменяет только у своей группы — спрашиваем просто «да или нет». */
+function askConfirm(group) {
+  const text = t("Отменить эту пару у группы {g}? Группа получит уведомление.", { g: group.title });
+  return new Promise((resolve) => {
+    if (tg?.showConfirm && tg.isVersionAtLeast?.("6.2")) {
+      tg.showConfirm(text, (ok) => resolve(ok ? "group" : null));
+      return;
+    }
+    resolve(confirm(text) ? "group" : null);
+  });
+}
+
 async function cancelLesson(card, slots) {
   const group = groupById(prefs.group);
-  const scope = await askScope(group);
+  const scope = notices.owner ? await askScope(group) : await askConfirm(group);
   if (!scope) return;
   await sendCancel({
     action: "cancel",
@@ -3879,7 +3892,7 @@ async function cancelLesson(card, slots) {
 }
 
 function restoreLesson(ids) {
-  return sendCancel({ action: "restore", ids });
+  return sendCancel({ action: "restore", ids, group: groupById(prefs.group)?.id });
 }
 
 /* ---------- Комментарии ---------- */

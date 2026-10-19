@@ -1231,29 +1231,57 @@ async function handleCancel(env, text) {
  * Отмена из приложения: только владельцу. action cancel — отменить предмет
  * в этих парах у группы или всего её курса; restore — вернуть по номерам.
  */
+/**
+ * Отмена из приложения. Владелец — у любой группы и целого курса. Староста —
+ * только у своей группы, только сегодня и на две недели вперёд и вернуть
+ * может только отмены своей группы. О каждой отмене старосты бот пишет
+ * владельцу, а группе — уведомление (см. «Уведомления об изменениях»).
+ */
 async function appCancel(env, body) {
   const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
-  if (!user || !isOwner(env, user.id)) return { ok: false, error: "forbidden" };
+  if (!user) return { ok: false, error: "forbidden" };
+  const owner = isOwner(env, user.id);
+  const group = String(body.group || "");
+  if (!owner && !(await canEditHomework(env, body.initData || "", group))) return { ok: false, error: "forbidden" };
   if (body.action === "restore") {
     const ids = (body.ids || []).map(Number).filter(Boolean).slice(0, 20);
     if (!ids.length) return { ok: false, error: "no ids" };
     await env.STATS.batch(
-      ids.map((id) => env.STATS.prepare("UPDATE cancels SET removed = 1 WHERE id = ?").bind(id))
+      ids.map((id) =>
+        owner
+          ? env.STATS.prepare("UPDATE cancels SET removed = 1 WHERE id = ?").bind(id)
+          : env.STATS.prepare("UPDATE cancels SET removed = 1 WHERE id = ? AND grp = ?").bind(id, group)
+      )
     );
+    if (!owner) await tellOwnerAbout(env, user, `↩️ вернул(а) пару · ${groupTitle(group)}`);
     return { ok: true };
   }
   const day = String(body.day || "");
   const slots = (body.slots || []).map(Number).filter((n) => n >= 1 && n <= 7);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !slots.length || !body.group) return { ok: false, error: "bad lesson" };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !slots.length || !group) return { ok: false, error: "bad lesson" };
+  if (!owner && (day < iso(today()) || day > iso(addDays(today(), 14)))) return { ok: false, error: "bad day" };
   const grp =
-    body.scope === "course" && body.level && body.course ? courseKey(body.level, Number(body.course)) : String(body.group);
+    owner && body.scope === "course" && body.level && body.course ? courseKey(body.level, Number(body.course)) : group;
   await env.STATS.prepare(
     `INSERT INTO cancels (grp, day, slots, reason, created, subject, subgroup, teacher)
      VALUES (?, ?, ?, ?, ?, ?, 0, '')`
   )
     .bind(grp, day, slots.join(","), String(body.reason || "").slice(0, 200), new Date().toISOString(), String(body.subject || ""))
     .run();
+  if (!owner) {
+    await tellOwnerAbout(
+      env,
+      user,
+      `❌ отменил(а) · ${groupTitle(group)} · ${dateLabel(new Date(`${day}T00:00:00Z`))} · ${slotsLabel(slots)}${body.subject ? ` — ${body.subject}` : ""}`
+    );
+  }
   return { ok: true };
+}
+
+/** Владельцу — кто из старост что сделал: видно, если права используют не по делу. */
+async function tellOwnerAbout(env, user, what) {
+  const who = user.username ? `@${user.username}` : [user.first_name, user.last_name].filter(Boolean).join(" ") || `id ${user.id}`;
+  await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text: `Староста ${who} ${what}` }).catch(() => {});
 }
 
 /* ---------- Уведомления об изменениях ----------
