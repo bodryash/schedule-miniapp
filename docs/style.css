@@ -9259,3 +9259,92 @@ body[data-bg="sky"] .daysky {
 .bg-layer {
   inset: -24px;
 }
+
+/* --- Компактные карточки, по-настоящему: весь день на одном экране.
+   Номер пары прячем (время его и так показывает), линию между временем
+   начала и конца убираем, карандаш и звезду — в угол, подпись — в одну
+   строку. Карточка выходит примерно вдвое ниже обычной. */
+body[data-cards="compact"] .card {
+  align-items: center;
+  min-height: 0;
+  padding: 8px 12px;
+}
+
+body[data-cards="compact"] .card .card-line,
+body[data-cards="compact"] .card .slot {
+  display: none;
+}
+
+body[data-cards="compact"] .card .card-when {
+  justify-content: center;
+  gap: 2px;
+}
+
+body[data-cards="compact"] .card .card-start,
+body[data-cards="compact"] .card .card-end {
+  font-size: 14px;
+  line-height: 1.1;
+}
+
+body[data-cards="compact"] .card .card-body {
+  min-width: 0;
+}
+
+body[data-cards="compact"] .card .time {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  min-height: 0;
+  margin: 0;
+}
+
+body[data-cards="compact"] .card .subject {
+  margin: 0;
+  padding-right: 44px;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+body[data-cards="compact"] .card .meta {
+  margin-top: 2px;
+  padding-right: 64px;
+  overflow: hidden;
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+body[data-cards="compact"] .card .room-badge {
+  bottom: 8px;
+  right: 10px;
+  transform: scale(0.9);
+  transform-origin: 100% 100%;
+}
+
+body[data-cards="compact"] .card .room-badge {
+  position: absolute;
+  margin: 0;
+}
+
+body[data-cards="compact"] .card.card--room {
+  padding-bottom: 8px;
+}
+
+body[data-cards="compact"] .card .card-when,
+body[data-cards="compact"] .card .card-body {
+  min-height: 0;
+  height: auto;
+  align-self: center;
+}
+
+body[data-cards="compact"] .card .card-body {
+  padding-bottom: 0;
+}
+
+body[data-cards="compact"] .card .time {
+  top: 1px;
+}
+
+body[data-cards="compact"] .card .room-badge {
+  bottom: 5px;
+}
