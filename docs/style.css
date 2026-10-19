@@ -9243,3 +9243,19 @@ body[data-cards="compact"] .gap {
 .bg-layer {
   inset: -20px;
 }
+
+/* Параллакс: небо сдвигается при наклоне — даём ему запас по краям больше
+   максимального сдвига (14 px), иначе у края экрана открывалась полоса. */
+.daysky {
+  inset: -24px -24px auto -24px;
+  height: calc(340px + 24px);
+}
+
+body[data-bg="sky"] .daysky {
+  inset: -24px;
+  height: auto;
+}
+
+.bg-layer {
+  inset: -24px;
+}
