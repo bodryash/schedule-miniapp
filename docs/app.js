@@ -3338,10 +3338,8 @@ function renderSemester() {
 
 // Свой счётчик у каждого студента, в облаке Telegram: переживает смену
 // телефона, и никто, кроме самого человека, его не видит. Вне Telegram —
-// в памяти браузера. Считаем только семинары и практики: посещаемость
-// отмечают там.
+// в памяти браузера. Отмечать можно любую пару — лекции тоже.
 const ABS_KEY = "absences";
-const ABS_TYPES = ["семинар", "практика"];
 let absences = { on: false, marks: {}, limits: {} };
 let absLoaded = false;
 // Строки с раскрытыми датами — чтобы после отметки список не схлопывался.
@@ -3402,13 +3400,11 @@ function saveAbsences() {
 
 const absMark = (date, slot) => `${isoDate(date).slice(5).replace("-", "")}-${slot}`;
 
-// Вид пары у факультетов пишется по-разному: «практическое занятие»,
-// «лабораторная», «лекция/семинар» — всё это занятия с отметкой посещаемости.
-const ABS_PATTERN = /семинар|практ|лаборат/;
+// Отметка «пропустил» — на любой паре: лекции, семинары, практики. Раньше
+// была только у семинаров и практик, но пропуск лекции тоже хочется учесть.
 
-function isAbsTracked(type) {
-  const kind = String(type || "").toLowerCase();
-  return ABS_TYPES.includes(kind) || ABS_PATTERN.test(kind);
+function isAbsTracked() {
+  return true;
 }
 
 /** Пропущена ли пара этого предмета в этот день. */
@@ -3427,7 +3423,7 @@ function toggleMissed(subject, date, slot) {
 }
 
 /**
- * Кнопка «пропустил» под семинаром, который уже начался. У будущих пар её
+ * Кнопка «пропустил» под любой парой, которая уже началась. У будущих пар её
  * нет: пропуск отмечают после, а не заранее.
  */
 function applyAbsenceButtons() {
@@ -3438,7 +3434,8 @@ function applyAbsenceButtons() {
   const today = isoDate(date) === isoDate(now);
   if (isoDate(date) > isoDate(now)) return;
   for (const card of els.lessons.querySelectorAll(".card")) {
-    if (!isAbsTracked(card.dataset.type) || card.classList.contains("card--cancelled")) continue;
+    // Свои дела — не пары: у них нет предмета, пропуск к ним не относится.
+    if (!card.dataset.subject || !isAbsTracked(card.dataset.type) || card.classList.contains("card--cancelled")) continue;
     if (today && card.dataset.start && minutes(card.dataset.start) > now.getHours() * 60 + now.getMinutes()) continue;
     const subject = card.dataset.subject;
     const slot = Number(card.dataset.slot);
@@ -3747,12 +3744,12 @@ function renderAbsences() {
   }
 
   if (!absences.on) {
-    els.absNote.textContent = t("Личный счётчик по семинарам");
+    els.absNote.textContent = t("Личный счётчик пропусков");
     const intro = el("div", "abs-intro");
     intro.append(
       el("div", "abs-intro-title", t("Сколько ещё можно пропустить?")),
-      el("p", null, t("Отмечайте пропущенные семинары — приложение посчитает, сколько осталось до лимита, и подсветит, когда хватит.")),
-      el("p", "abs-intro-hint", t("Под каждым прошедшим семинаром появится кнопка «пропустил?». Лимит для каждого предмета задаёте сами."))
+      el("p", null, t("Отмечайте пропущенные пары — приложение посчитает, сколько осталось до лимита, и подсветит, когда хватит.")),
+      el("p", "abs-intro-hint", t("Под каждой прошедшей парой появится кнопка «пропустил?». Лимит для каждого предмета задаёте сами."))
     );
     const start = el("button", "primary abs-start", t("Начать считать"));
     start.type = "button";
@@ -3770,7 +3767,7 @@ function renderAbsences() {
 
   els.absNote.textContent = t("Семинары и практики до конца семестра · будущие даты — план");
   const rows = absenceSubjects().map((subject, i) => buildAbsRow(subject, i));
-  if (!rows.length) rows.push(el("p", "hint", t("У группы нет семинаров и практик.")));
+  if (!rows.length) rows.push(el("p", "hint", t("У группы нет пар.")));
 
   const stop = el("button", "ghost abs-stop", t("Перестать считать"));
   stop.type = "button";
