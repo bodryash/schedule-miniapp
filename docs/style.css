@@ -9348,3 +9348,28 @@ body[data-cards="compact"] .card .time {
 body[data-cards="compact"] .card .room-badge {
   bottom: 5px;
 }
+
+/* Текущая пара «дышит»: мягкое свечение вокруг карточки. Через outline,
+   чтобы не спорить с тенями тем оформления. */
+.card--now {
+  outline: 2px solid color-mix(in srgb, var(--accent) 0%, transparent);
+  outline-offset: 0;
+  animation: card-breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes card-breathe {
+  0%, 100% {
+    outline-color: color-mix(in srgb, var(--accent) 0%, transparent);
+    outline-offset: 0;
+    scale: 1;
+  }
+  50% {
+    outline-color: color-mix(in srgb, var(--accent) 38%, transparent);
+    outline-offset: 3px;
+    scale: 1.008;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card--now { animation: none; }
+}
