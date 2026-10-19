@@ -2366,6 +2366,7 @@ function initWeekSwipe() {
   let decided = false;
   body.addEventListener("pointerdown", (event) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (lessonViewBusy()) return;
     start = { x: event.clientX, y: event.clientY, at: performance.now(), id: event.pointerId };
     shift = 0;
     dragging = false;
@@ -5723,6 +5724,11 @@ function renderSeason() {
  * переезжает в окно на то же место, пиксель в пиксель.
  */
 let lessonView = null;
+
+/** Открыта карточка пары или ещё идёт анимация её закрытия. */
+function lessonViewBusy() {
+  return Boolean(lessonView || document.querySelector(".lv-group"));
+}
 let lessonCard = null;
 const VIEW_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
 const OPEN_MS = 460;
@@ -8425,6 +8431,8 @@ function initSwipe() {
     if (document.body.classList.contains("sheet-open")) return;
     if (event.target.closest?.(".days, button, .sheet, .event")) return;
     if (sheetOpen()) return;
+    // Развёрнута пара (или ещё закрывается) — дни не листаются.
+    if (lessonViewBusy()) return;
     pointer = event.pointerId;
     startX = event.clientX;
     startY = event.clientY;
