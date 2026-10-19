@@ -9163,3 +9163,83 @@ body[data-bg="sky"][data-decor="off"] .daysky {
     animation: none;
   }
 }
+
+/* ===== Свой вид ===== */
+
+/* Цвет предмета: полоска слева у карточки. */
+.card--colored {
+  border-left: 4px solid var(--subject-color) !important;
+}
+
+.color-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.color-dot {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--dot, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 18%, transparent);
+  cursor: pointer;
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+
+.color-dot--none {
+  background:
+    linear-gradient(135deg, transparent 46%, #ff5a5f 46% 54%, transparent 54%),
+    var(--card);
+}
+
+.color-dot--on {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--dot, var(--text));
+}
+
+/* Вид карточек. */
+body[data-cards="glass"] .card {
+  background: color-mix(in srgb, var(--card) 52%, transparent) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent) !important;
+}
+
+body[data-cards="flat"] .card {
+  box-shadow: inset 0 0 0 1px var(--line) !important;
+}
+
+body[data-cards="compact"] .card {
+  padding: 9px 12px;
+  margin-bottom: 6px;
+  gap: 10px;
+}
+
+body[data-cards="compact"] .card .subject {
+  font-size: 15px;
+}
+
+body[data-cards="compact"] .card .card-start,
+body[data-cards="compact"] .card .card-end {
+  font-size: 15px;
+}
+
+body[data-cards="compact"] .card .card-line {
+  min-height: 8px;
+}
+
+body[data-cards="compact"] .gap {
+  margin: 0;
+  padding: 2px 0;
+}
+
+/* Параллакс: фон и небо смещаются при наклоне. */
+.bg-layer,
+.daysky {
+  translate: var(--tilt-x, 0px) var(--tilt-y, 0px);
+  transition: translate 0.3s ease-out;
+}
+
+.bg-layer {
+  inset: -20px;
+}

@@ -5470,6 +5470,160 @@ function season(date = new Date()) {
   return "summer";
 }
 
+/* ---------- Цвета предметов ----------
+ * Человек сам красит предметы: полоска цвета на карточке, расписание
+ * читается с одного взгляда. Хранится только в телефоне.
+ */
+const SUBJECT_COLORS_KEY = "schedule.subjectColors";
+const SUBJECT_PALETTE = ["#ff5a5f", "#ff9f1c", "#ffd60a", "#2ec27e", "#1fb5c9", "#3a7bff", "#8b5cf6", "#ec4899"];
+
+function subjectColors() {
+  try {
+    return JSON.parse(localStorage.getItem(SUBJECT_COLORS_KEY) || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+
+function subjectColor(subject) {
+  return subjectColors()[subject] || "";
+}
+
+function setSubjectColor(subject, color) {
+  const all = subjectColors();
+  if (color) all[subject] = color;
+  else delete all[subject];
+  try {
+    localStorage.setItem(SUBJECT_COLORS_KEY, JSON.stringify(all));
+  } catch {
+    // Без памяти — до перезапуска.
+  }
+  // Перекрашиваем карточки этого предмета на экране без перерисовки дня.
+  for (const card of document.querySelectorAll(".card")) {
+    if (card.dataset.subject !== subject) continue;
+    paintSubject(card);
+  }
+}
+
+function paintSubject(card) {
+  const color = subjectColor(card.dataset.subject);
+  card.classList.toggle("card--colored", Boolean(color));
+  if (color) card.style.setProperty("--subject-color", color);
+  else card.style.removeProperty("--subject-color");
+}
+
+/** Ряд кружков-цветов в окне пары. */
+function subjectColorPicker(subject) {
+  const row = el("div", "color-row");
+  const current = subjectColor(subject);
+  const make = (color) => {
+    const dot = el("button", `color-dot${color === current ? " color-dot--on" : ""}${color ? "" : " color-dot--none"}`);
+    dot.type = "button";
+    dot.setAttribute("aria-label", color ? t("Цвет") : t("Без цвета"));
+    if (color) dot.style.setProperty("--dot", color);
+    dot.addEventListener("click", () => {
+      haptic("select");
+      setSubjectColor(subject, color);
+      for (const node of row.children) node.classList.toggle("color-dot--on", node === dot);
+      if (lessonView?.head) paintSubject(lessonView.head);
+    });
+    return dot;
+  };
+  row.append(make(""), ...SUBJECT_PALETTE.map(make));
+  return row;
+}
+
+/* ---------- Вид карточек ---------- */
+const CARDS_KEY = "schedule.cards";
+
+function applyCardsStyle() {
+  let style = "";
+  try {
+    style = localStorage.getItem(CARDS_KEY) || "";
+  } catch {
+    style = "";
+  }
+  document.body.dataset.cards = style;
+  const pick = document.getElementById("cards-pick");
+  if (pick && pick.value !== style) pick.value = style;
+}
+
+/* ---------- Параллакс ----------
+ * Фон чуть смещается при наклоне телефона. На iPhone нужен разрешение на
+ * датчик движения — спрашиваем при включении галочки (по нажатию).
+ */
+const PARALLAX_KEY = "schedule.parallax";
+let parallaxBound = false;
+let parallaxFrame = 0;
+
+function parallaxOn() {
+  try {
+    return localStorage.getItem(PARALLAX_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
+function onTilt(event) {
+  if (!parallaxOn()) return;
+  const x = Math.max(-1, Math.min(1, (event.gamma || 0) / 30));
+  const y = Math.max(-1, Math.min(1, ((event.beta || 0) - 45) / 30));
+  if (parallaxFrame) return;
+  parallaxFrame = requestAnimationFrame(() => {
+    parallaxFrame = 0;
+    document.body.style.setProperty("--tilt-x", `${(-x * 14).toFixed(1)}px`);
+    document.body.style.setProperty("--tilt-y", `${(-y * 14).toFixed(1)}px`);
+  });
+}
+
+async function enableParallax(ask) {
+  const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!parallaxOn() || calm) {
+    document.body.style.removeProperty("--tilt-x");
+    document.body.style.removeProperty("--tilt-y");
+    return;
+  }
+  // iPhone: разрешение на датчик — только по нажатию пользователя.
+  if (ask && typeof DeviceOrientationEvent?.requestPermission === "function") {
+    try {
+      const answer = await DeviceOrientationEvent.requestPermission();
+      if (answer !== "granted") return;
+    } catch {
+      return;
+    }
+  }
+  if (!parallaxBound) {
+    parallaxBound = true;
+    window.addEventListener("deviceorientation", onTilt, { passive: true });
+  }
+}
+
+function initCustomLook() {
+  applyCardsStyle();
+  document.getElementById("cards-pick")?.addEventListener("change", (event) => {
+    haptic("select");
+    try {
+      localStorage.setItem(CARDS_KEY, event.target.value);
+    } catch {
+      // Без памяти — до перезапуска.
+    }
+    applyCardsStyle();
+  });
+  const tilt = document.getElementById("parallax");
+  if (tilt) {
+    tilt.checked = parallaxOn();
+    tilt.addEventListener("change", () => {
+      try {
+        localStorage.setItem(PARALLAX_KEY, tilt.checked ? "on" : "off");
+      } catch {
+        // Без памяти — до перезапуска.
+      }
+      enableParallax(true);
+    });
+  }
+  enableParallax(false);
+}
+
 /* ---------- Фон на выбор ----------
  * Живой градиент, узор или небо по времени суток на весь экран. Выбор
  * хранится только в памяти телефона. Слой фона лежит под содержимым и
@@ -5740,6 +5894,7 @@ function openLessonView(card) {
     openNote(card);
   });
   sections.push(viewSection(t("Моя заметка"), mine ? el("div", "lv-text", mine) : null, pen));
+  sections.push(viewSection(t("Цвет предмета"), subjectColorPicker(subject)));
 
   const rest = el("div", "lv-sections");
   rest.append(...sections);
@@ -8834,6 +8989,7 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
   card.dataset.slot = first.slot;
   card.dataset.slots = slots.join(",");
   card.dataset.subject = first.subject;
+  paintSubject(card);
   card.dataset.subgroups = [...new Set(entries.map((e) => e.subgroup).filter(Boolean))].join(",");
   card.dataset.teachers = entries.map((e) => e.teacher || "").join(" | ");
   card.dataset.type = first.type || "";
@@ -9672,6 +9828,7 @@ async function init() {
   applyTheme();
   applyDecor();
   applyBackground();
+  initCustomLook();
   document.getElementById("bg-pick")?.addEventListener("change", (event) => {
     haptic("select");
     try {
