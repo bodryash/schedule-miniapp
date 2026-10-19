@@ -8761,6 +8761,24 @@ function refreshNow() {
     gap.style.setProperty("--gap-done", String(Math.min(1, (nowMinutes - from) / (to - from))));
   }
 
+  // Окно, которое идёт сейчас: дышит, как текущая пара, заполняется по ходу
+  // и показывает, сколько осталось до следующей пары.
+  for (const win of els.lessons.querySelectorAll(".window")) {
+    const from = win.dataset.from ? minutes(win.dataset.from) : null;
+    const to = win.dataset.to ? minutes(win.dataset.to) : null;
+    const inside = today && from != null && nowMinutes >= from && nowMinutes < to;
+    const label = win.querySelector(".window-label");
+    win.classList.toggle("window--now", inside);
+    if (!inside) {
+      if (label) label.textContent = t("ОКНО");
+      win.style.removeProperty("--win-done");
+      continue;
+    }
+    const left = Math.max(1, Math.ceil(to - nowMinutes));
+    if (label) label.textContent = t("окно · ещё {n} мин", { n: left });
+    win.style.setProperty("--win-done", String(Math.min(1, (nowMinutes - from) / (to - from))));
+  }
+
   for (const card of els.lessons.querySelectorAll(".card")) {
     // Идёт ли пара именно этой карточки — по её собственному времени. Номер
     // пары у всей группы общий, а время бывает своё: русский 12:15–14:45 идёт
@@ -8872,8 +8890,13 @@ function breakBetween(prev, next) {
 function renderWindow(slot, bell) {
   const node = el("div", "window");
   node.append(el("span", "window-slot", t("{n} пара", { n: slot })));
-  node.append(el("span", null, t("ОКНО")));
-  if (bell) node.append(el("span", "window-time", `${bell.start} – ${bell.end}`));
+  node.append(el("span", "window-label", t("ОКНО")));
+  if (bell) {
+    node.append(el("span", "window-time", `${bell.start} – ${bell.end}`));
+    // Время окна — чтобы оживить его, когда оно идёт сейчас.
+    node.dataset.from = bell.start;
+    node.dataset.to = bell.end;
+  }
   return node;
 }
 
