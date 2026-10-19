@@ -410,20 +410,6 @@
     "short": "ВШГА"
   },
   {
-    "id": "msu-socio",
-    "university": "МГУ",
-    "faculty": "Социологический факультет",
-    "path": "msu-socio",
-    "features": [],
-    "short": "Социофак",
-    "source": {
-      "kind": "hist",
-      "base": "http://cacs.socio.msu.ru",
-      "faculty": "all",
-      "entry": "aID=3"
-    }
-  },
-  {
     "id": "mgimo-mo-dip",
     "university": "МГИМО",
     "faculty": "Факультет Международные отношения (Дип)",
@@ -460,45 +446,6 @@
       "base": "https://ruz.mgimo.ru",
       "faculty": 32
     }
-  },
-  {
-    "id": "msu-hist",
-    "university": "МГУ",
-    "faculty": "Исторический факультет",
-    "path": "msu-hist",
-    "features": [],
-    "short": "Истфак",
-    "source": {
-      "kind": "hist",
-      "base": "http://ccs2.hist.msu.ru",
-      "faculty": "all"
-    }
-  },
-  {
-    "id": "mgimo-meo",
-    "university": "МГИМО",
-    "faculty": "Факультет международных экономических отношений",
-    "path": "mgimo-meo",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 25
-    },
-    "short": "МЭО"
-  },
-  {
-    "id": "mgimo-mj",
-    "university": "МГИМО",
-    "faculty": "Факультет международной журналистики",
-    "path": "mgimo-mj",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 26
-    },
-    "short": "МЖ"
   },
   {
     "id": "mgimo-mp",
@@ -603,6 +550,59 @@
       "base": "https://cacs.philos.msu.ru",
       "faculty": "1"
     }
+  },
+  {
+    "id": "msu-socio",
+    "university": "МГУ",
+    "faculty": "Социологический факультет",
+    "path": "msu-socio",
+    "features": [],
+    "short": "Социофак",
+    "source": {
+      "kind": "hist",
+      "base": "http://cacs.socio.msu.ru",
+      "faculty": "all",
+      "entry": "aID=3"
+    }
+  },
+  {
+    "id": "msu-hist",
+    "university": "МГУ",
+    "faculty": "Исторический факультет",
+    "path": "msu-hist",
+    "features": [],
+    "short": "Истфак",
+    "source": {
+      "kind": "hist",
+      "base": "http://ccs2.hist.msu.ru",
+      "faculty": "all"
+    }
+  },
+  {
+    "id": "mgimo-meo",
+    "university": "МГИМО",
+    "faculty": "Факультет международных экономических отношений",
+    "path": "mgimo-meo",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 25
+    },
+    "short": "МЭО"
+  },
+  {
+    "id": "mgimo-mj",
+    "university": "МГИМО",
+    "faculty": "Факультет международной журналистики",
+    "path": "mgimo-mj",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 26
+    },
+    "short": "МЖ"
   },
   {
     "id": "msu-law",
