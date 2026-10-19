@@ -616,5 +616,13 @@
       "base": "https://cacs.law.msu.ru",
       "faculty": "8,23"
     }
+  },
+  {
+    "id": "msal-orenburg-spo3",
+    "university": "МГЮА, Оренбургский институт",
+    "faculty": "Юриспруденция (СПО, 3 курс)",
+    "path": "msal-orenburg-spo3",
+    "features": [],
+    "tz": 5
   }
 ]
