@@ -9372,3 +9372,47 @@ body[data-cards="compact"] .card .room-badge {
 @media (prefers-reduced-motion: reduce) {
   .card--running::after { animation: none; opacity: 0.5; }
 }
+
+/* Окно, которое идёт сейчас: рамка цвета темы, дыхание по краям и дорожка
+   внизу, которая заполняется по ходу окна. */
+.window--now {
+  position: relative;
+  overflow: hidden;
+  color: var(--accent);
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--accent) 8%, var(--card));
+  letter-spacing: normal;
+}
+
+.window--now .window-label {
+  font-weight: 700;
+}
+
+.window--now::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--accent) 70%, transparent),
+    inset 0 0 24px -4px color-mix(in srgb, var(--accent) 55%, transparent);
+  animation: card-glow 2.8s ease-in-out infinite;
+}
+
+.window--now::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: var(--accent);
+  transform-origin: left center;
+  transform: scaleX(var(--win-done, 0));
+  transition: transform 1.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .window--now::after { animation: none; opacity: 0.5; }
+}
