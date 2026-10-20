@@ -5885,13 +5885,13 @@ function initOverscroll() {
     // Запас: кадр отрисовки отстаёт от пружины, и на сильном рывке между
     // заливкой и страницей проглядывала полоса. Лишнее уходит за край экрана
     // и на 40px заходит на страницу — там тот же цвет.
-    overTop.style.height = top ? `${top + 140}px` : "0";
+    // Сверху на страницу не заходим: там группа и чётность недели.
+    overTop.style.height = top ? `${top + 100}px` : "0";
     overBottom.style.height = bottom ? `${bottom + 140}px` : "0";
     overTop.classList.toggle("over--egg", top > 90);
   };
-  window.addEventListener("scroll", () => {
-    if (!overFrame) overFrame = requestAnimationFrame(update);
-  }, { passive: true });
+  // Сразу в обработчике, без ожидания кадра: так заливка не отстаёт.
+  window.addEventListener("scroll", update, { passive: true });
 }
 
 /** Меняем раскладку стопки так, чтобы карточки переехали плавно. */
