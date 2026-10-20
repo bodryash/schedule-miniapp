@@ -355,19 +355,6 @@
     "short": "МИЭП"
   },
   {
-    "id": "mgimo-meo-dip",
-    "university": "МГИМО",
-    "faculty": "Факультет международных экономических отношений (Дип)",
-    "path": "mgimo-meo-dip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 53
-    },
-    "short": "МЭО (Дип)"
-  },
-  {
     "id": "mgimo-eui",
     "university": "МГИМО",
     "faculty": "Евразийский учебный институт",
@@ -397,19 +384,6 @@
     "short": "РГУП"
   },
   {
-    "id": "msu-vshga",
-    "university": "МГУ",
-    "faculty": "Высшая школа государственного аудита",
-    "path": "msu-vshga",
-    "features": [],
-    "source": {
-      "kind": "tt",
-      "base": "https://tt.audit.msu.ru",
-      "faculty": "3"
-    },
-    "short": "ВШГА"
-  },
-  {
     "id": "mgimo-mo-dip",
     "university": "МГИМО",
     "faculty": "Факультет Международные отношения (Дип)",
@@ -434,6 +408,66 @@
       "faculty": 52
     },
     "short": "ИМАР"
+  },
+  {
+    "id": "mgimo-mp-dip",
+    "university": "МГИМО",
+    "faculty": "Международно-правовой факультет (Дип)",
+    "path": "mgimo-mp-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 57
+    },
+    "short": "МП (Дип)"
+  },
+  {
+    "id": "mgimo-up-dip",
+    "university": "МГИМО",
+    "faculty": "Факультет управления и политики (Дип)",
+    "path": "mgimo-up-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 63
+    },
+    "short": "УП (Дип)"
+  },
+  {
+    "id": "msal-orenburg-spo3",
+    "university": "МГЮА, Оренбургский институт",
+    "faculty": "Юриспруденция (СПО, 3 курс)",
+    "path": "msal-orenburg-spo3",
+    "features": [],
+    "tz": 5
+  },
+  {
+    "id": "mgimo-meo-dip",
+    "university": "МГИМО",
+    "faculty": "Факультет международных экономических отношений (Дип)",
+    "path": "mgimo-meo-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 53
+    },
+    "short": "МЭО (Дип)"
+  },
+  {
+    "id": "msu-vshga",
+    "university": "МГУ",
+    "faculty": "Высшая школа государственного аудита",
+    "path": "msu-vshga",
+    "features": [],
+    "source": {
+      "kind": "tt",
+      "base": "https://tt.audit.msu.ru",
+      "faculty": "3"
+    },
+    "short": "ВШГА"
   },
   {
     "id": "mgimo-mag",
@@ -472,32 +506,6 @@
       "faculty": 28
     },
     "short": "ИМТУР"
-  },
-  {
-    "id": "mgimo-mp-dip",
-    "university": "МГИМО",
-    "faculty": "Международно-правовой факультет (Дип)",
-    "path": "mgimo-mp-dip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 57
-    },
-    "short": "МП (Дип)"
-  },
-  {
-    "id": "mgimo-up-dip",
-    "university": "МГИМО",
-    "faculty": "Факультет управления и политики (Дип)",
-    "path": "mgimo-up-dip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 63
-    },
-    "short": "УП (Дип)"
   },
   {
     "id": "mgimo-mo",
@@ -616,13 +624,5 @@
       "base": "https://cacs.law.msu.ru",
       "faculty": "8,23"
     }
-  },
-  {
-    "id": "msal-orenburg-spo3",
-    "university": "МГЮА, Оренбургский институт",
-    "faculty": "Юриспруденция (СПО, 3 курс)",
-    "path": "msal-orenburg-spo3",
-    "features": [],
-    "tz": 5
   }
 ]
