@@ -5802,9 +5802,10 @@ function applyStack() {
       stackChip.type = "button";
       stackChip.addEventListener("click", () => {
         haptic("light");
-        stackOpen = false;
-        applyStack();
-        strip.scrollIntoView({ block: "start", behavior: "smooth" });
+        flipStack(() => {
+          stackOpen = false;
+          applyStack();
+        });
       });
     }
     if (stackChip.parentNode !== strip) strip.append(stackChip);
@@ -5813,11 +5814,58 @@ function applyStack() {
   }
 }
 
+/** Меняем раскладку стопки так, чтобы карточки переехали плавно. */
+function flipStack(change) {
+  const strip = els.lessons;
+  const cards = [...strip.querySelectorAll(":scope > article.card")];
+  const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const anchor = strip.querySelector(".card--stack-top") || cards.find((c) => c.classList.contains("card--now"));
+  const before = new Map(cards.map((c) => [c, { top: c.getBoundingClientRect().top, transform: getComputedStyle(c).transform }]));
+  const anchorTop = anchor?.getBoundingClientRect().top;
+  for (const c of cards) c.getAnimations().forEach((a) => a.cancel());
+  change();
+  // Верхняя карточка не прыгает: подкручиваем страницу на её сдвиг.
+  if (anchor && anchorTop != null) {
+    const shift = anchor.getBoundingClientRect().top - anchorTop;
+    if (Math.abs(shift) > 1) window.scrollBy(0, shift);
+  }
+  if (calm) return;
+  const order = anchor ? cards.indexOf(anchor) : 0;
+  cards.forEach((card) => {
+    const was = before.get(card);
+    const dy = was.top - card.getBoundingClientRect().top;
+    const to = getComputedStyle(card).transform;
+    const from = `translateY(${dy}px) ${was.transform === "none" ? "" : was.transform}`.trim();
+    if (Math.abs(dy) < 1 && was.transform === to) return;
+    // Волна расходится от верхней карточки: ближние едут первыми.
+    const delay = Math.min(Math.abs(cards.indexOf(card) - order) * 35, 200);
+    card.animate([{ transform: from }, { transform: to === "none" ? "none" : to }], {
+      duration: 560,
+      delay,
+      easing: "cubic-bezier(0.22, 1.12, 0.36, 1)",
+      fill: "backwards",
+    });
+  });
+  // Перемены и окна проявляются, когда карточки уже почти на местах.
+  if (!strip.classList.contains("stack")) {
+    for (const node of strip.querySelectorAll(":scope > :not(article.card)")) {
+      node.animate([{ opacity: 0, transform: "scale(0.96)" }, { opacity: 1, transform: "none" }], {
+        duration: 320,
+        delay: 260,
+        easing: "ease-out",
+        fill: "backwards",
+      });
+    }
+  }
+}
+
 function openStack() {
   if (!els.lessons.classList.contains("stack")) return false;
   haptic("select");
-  stackOpen = true;
-  applyStack();
+  flipStack(() => {
+    stackOpen = true;
+    applyStack();
+  });
   return true;
 }
 

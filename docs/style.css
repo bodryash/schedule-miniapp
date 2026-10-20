@@ -9518,11 +9518,7 @@ body[data-cards="compact"] .card .room-badge {
 
 /* ===== Стопка, как в Wallet ===== */
 #lessons > article.card {
-  transition:
-    margin-bottom 0.5s var(--ease-soft, ease),
-    transform 0.5s var(--ease-soft, ease),
-    filter 0.4s ease,
-    box-shadow 0.4s ease;
+  transition: filter 0.4s ease, box-shadow 0.4s ease;
 }
 
 #lessons.stack > article.card {
@@ -9553,20 +9549,8 @@ body[data-cards="compact"] .card .room-badge {
 }
 
 /* Перемены, окна и прочее между карточками в стопке прячем. */
-#lessons > :not(article.card):not(.stack-close) {
-  transition: opacity 0.35s ease, max-height 0.45s ease;
-  max-height: 600px;
-}
-
 #lessons.stack > :not(article.card) {
-  max-height: 0;
-  opacity: 0;
-  margin-top: 0;
-  margin-bottom: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  overflow: hidden;
-  pointer-events: none;
+  display: none;
 }
 
 .stack-close {
@@ -9609,12 +9593,15 @@ body.neon .card {
 }
 
 body.neon .card--colored {
-  box-shadow: -6px 0 18px -10px var(--subject-color);
+  box-shadow: inset 6px 0 14px -8px var(--subject-color);
 }
 
 body.neon .card--now {
-  border-color: #00e5ff;
-  box-shadow: 0 0 18px rgba(0, 229, 255, 0.45), inset 0 0 18px rgba(0, 229, 255, 0.18) !important;
+  border-color: rgba(0, 229, 255, 0.85);
+  box-shadow:
+    0 0 0 1px rgba(0, 229, 255, 0.35),
+    inset 0 0 22px rgba(0, 229, 255, 0.22),
+    inset 0 1px 0 rgba(127, 243, 255, 0.35) !important;
 }
 
 body.neon .card--now .subject {
@@ -9629,8 +9616,8 @@ body.neon .card--running::after {
 }
 
 body.neon .day.active {
-  background: #ff2bd6;
-  box-shadow: 0 0 16px rgba(255, 43, 214, 0.65);
+  background: radial-gradient(120% 90% at 50% 0%, #ff6be4, #ff2bd6 55%, #c3009f);
+  box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.35), 0 0 0 1px rgba(255, 43, 214, 0.6);
 }
 
 body.neon .room-badge {
@@ -9639,7 +9626,23 @@ body.neon .room-badge {
 }
 
 body.neon .wgrid-cell {
-  box-shadow: 0 0 12px -2px var(--c);
+  background: color-mix(in srgb, var(--c) 22%, #11131f);
+  color: #f2f4ff;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 75%, transparent), inset 0 0 14px color-mix(in srgb, var(--c) 45%, transparent);
+}
+
+body.neon .wgrid-cell b {
+  color: color-mix(in srgb, var(--c) 45%, #ffffff);
+}
+
+body.neon .wgrid-cell--parity {
+  background:
+    repeating-linear-gradient(135deg, transparent 0 8px, color-mix(in srgb, var(--c) 14%, transparent) 8px 16px),
+    color-mix(in srgb, var(--c) 22%, #11131f);
+}
+
+body.neon #lessons.stack > .card--stack-top {
+  box-shadow: inset 0 0 0 1px rgba(0, 229, 255, 0.5), inset 0 0 24px rgba(0, 229, 255, 0.2);
 }
 
 /* В свёрнутой стопке на полоске должно читаться название предмета. */
