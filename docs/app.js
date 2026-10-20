@@ -5960,14 +5960,14 @@ function flipStack(change, focus = null, keep = true) {
   });
   // Перемены и окна проявляются, когда карточки уже почти на местах.
   if (!strip.classList.contains("stack")) {
-    for (const node of strip.querySelectorAll(":scope > :not(article.card)")) {
-      node.animate([{ opacity: 0 }, { opacity: 1 }], {
-        duration: 420,
-        delay: 300,
-        easing: "ease-out",
+    [...strip.querySelectorAll(":scope > :not(article.card)")].forEach((node, i) => {
+      node.animate([{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "none" }], {
+        duration: 620,
+        delay: 320 + Math.min(i, 6) * 70,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
         fill: "backwards",
       });
-    }
+    });
   }
 }
 
@@ -6021,10 +6021,22 @@ function initStack() {
     } else if (!open && stackOpen) {
       quietUntil = performance.now() + 700;
       haptic("light");
-      flipStack(() => {
-        stackOpen = false;
-        applyStack();
-      }, null, false);
+      // Плашки между карточками сначала мягко гаснут, потом карточки съезжаются.
+      const extras = [...strip.querySelectorAll(":scope > :not(article.card)")];
+      extras.forEach((node) =>
+        node.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(10px)" }], {
+          duration: 200,
+          easing: "ease-in",
+          fill: "forwards",
+        })
+      );
+      setTimeout(() => {
+        extras.forEach((node) => node.getAnimations().forEach((a) => a.cancel()));
+        flipStack(() => {
+          stackOpen = false;
+          applyStack();
+        }, null, false);
+      }, extras.length ? 190 : 0);
     }
   };
   let startY = null;
