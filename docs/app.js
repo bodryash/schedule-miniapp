@@ -2494,67 +2494,8 @@ function showWeek() {
     })
   );
 
-  document.getElementById("week-mode")?.replaceChildren(weekGridOn() ? t("Списком") : t("Сеткой"));
-  els.weekBody.classList.toggle("week-body--grid", weekGridOn());
-  if (weekGridOn()) {
-    els.weekBody.replaceChildren(renderWeekGrid(group));
-    return;
-  }
-
-  const bells = new Map(data.bells.map((b) => [b.n, b]));
-  const todayIso = isoDate(new Date());
-  const nodes = [];
-  for (let day = 1; day <= 6; day++) {
-    const date = dateOfDay(day, selectedWeek);
-    const lessons = ownLessonsForDay(group, day, selectedWeek);
-    const column = el("div", isoDate(date) === todayIso ? "week-day week-day--today" : "week-day");
-    const head = el("div", "week-head");
-    head.append(el("span", "week-name", DAYS[day - 1]), el("span", "week-date", SHORT_DATE.format(date)));
-    column.append(head);
-
-    if (!lessons.length) {
-      column.append(el("div", "week-empty", t("Пар нет")));
-      appendOwnRows(column, date, day);
-      nodes.push(column);
-      continue;
-    }
-
-    // В неделе важен объём дня, а не подробности: одна строка на пару.
-    // Языки идут девятью потоками в одной паре — их сводим в «+8».
-    const bySlot = new Map();
-    let own = 0;
-    for (const lesson of lessons) {
-      // Свой МФК — отдельной строкой сразу после пары, на время которой он
-      // приходится: в «+1» к чужому предмету его было не разглядеть.
-      const key = lesson.type === "МФК" ? lesson.slot + 0.5 + own++ / 100 : lesson.slot;
-      if (!bySlot.has(key)) bySlot.set(key, []);
-      const subjects = bySlot.get(key);
-      if (!subjects.some((l) => l.subject === lesson.subject)) subjects.push(lesson);
-    }
-    for (const [key, entries] of [...bySlot].sort((a, b) => a[0] - b[0])) {
-      const slot = Math.floor(key);
-      const lesson = entries[0];
-      const extra = entries.length - 1;
-      const time = timesOf(lesson, bells);
-      const row = el("button", lessonCancelOn(lesson, isoDate(date)) ? "week-row week-row--off" : "week-row");
-      row.type = "button";
-      row.append(el("span", "week-slot", String(slot)));
-      if (entries.some((entry) => isMine(entry.subject, date))) row.classList.add("week-row--mine");
-      row.append(
-        el("span", "week-subject", extra ? `${withFlag(tr(lesson.subject))} +${extra}` : withFlag(tr(lesson.subject)))
-      );
-      row.append(el("span", "week-time", time ? time.start : ""));
-      row.addEventListener("click", () => {
-        selectedDay = day;
-        openTab("schedule");
-      });
-      column.append(row);
-    }
-    appendOwnRows(column, date, day);
-    nodes.push(column);
-  }
-  nodes.forEach((node, i) => node.style.setProperty("--i", i));
-  els.weekBody.replaceChildren(...nodes);
+  // Неделя — одной сеткой: дни столбцами, пары строками.
+  els.weekBody.replaceChildren(renderWeekGrid(group));
 }
 
 /* ---------- Блокировка ---------- */
@@ -5698,16 +5639,7 @@ function initCustomLook() {
  * Все шесть дней сразу, как бумажное расписание: строки — пары, столбцы —
  * дни. Цвет клетки — цвет предмета (свой или по названию). Тап — день.
  */
-const WEEK_GRID_KEY = "schedule.weekGrid";
 const GRID_PALETTE = ["#3a7bff", "#8b5cf6", "#2ec27e", "#ff9f1c", "#ec4899", "#1fb5c9", "#ff5a5f", "#6366f1", "#14b8a6", "#f59e0b"];
-
-function weekGridOn() {
-  try {
-    return localStorage.getItem(WEEK_GRID_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
 
 function gridColor(subject) {
   const own = subjectColor(subject);
@@ -5790,25 +5722,6 @@ function renderWeekGrid(group) {
   return grid;
 }
 
-function initWeekGrid() {
-  const button = document.getElementById("week-mode");
-  if (!button) return;
-  const label = () => {
-    button.textContent = weekGridOn() ? t("Списком") : t("Сеткой");
-  };
-  label();
-  button.addEventListener("click", () => {
-    haptic("select");
-    try {
-      localStorage.setItem(WEEK_GRID_KEY, weekGridOn() ? "" : "1");
-    } catch {
-      // Без памяти — до перезапуска.
-    }
-    label();
-    showWeek();
-  });
-}
-
 /* Зазоры при перетягивании (пружина iPhone). За страницей лежит фон —
    узор, небо, сетка — и в зазоре он торчал обрывком. Закрываем зазоры
    сплошным цветом расписания; в верхнем при сильном рывке выглядывает :P. */
@@ -5822,16 +5735,16 @@ function initOverscroll() {
   // а надписи шапки остаются поверх. :P — в самом зазоре, при сильном рывке.
   const overTop = el("div", "over over--top");
   const egg = el("span", "over-egg", ":P");
-  overTop.append(egg);
   overBottom = el("div", "over over--bottom");
+  overBottom.append(egg);
   document.body.append(overTop, overBottom);
   const update = () => {
     const page = document.scrollingElement || document.documentElement;
     const top = Math.max(0, -page.scrollTop);
     const bottom = Math.max(0, page.scrollTop + window.innerHeight - page.scrollHeight);
     overTop.style.height = top ? `${top + 100 + 260}px` : "0";
-    egg.style.top = `${100 + top - 44}px`;
-    overTop.classList.toggle("over--egg", top > 90);
+    // :P — над нижней панелью, когда страницу сильно тянут вверх.
+    overBottom.classList.toggle("over--egg", bottom > 130);
     overBottom.style.height = bottom ? `${bottom + 140}px` : "0";
   };
   window.addEventListener("scroll", update, { passive: true });
@@ -10117,7 +10030,6 @@ async function init() {
   applyDecor();
   applyBackground();
   initCustomLook();
-  initWeekGrid();
   initOverscroll();
   initNeon();
   document.getElementById("bg-pick")?.addEventListener("change", (event) => {

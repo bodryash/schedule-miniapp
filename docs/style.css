@@ -9424,11 +9424,6 @@ body[data-cards="compact"] .card .room-badge {
 }
 
 /* ===== Неделя сеткой ===== */
-.week-mode {
-  position: absolute;
-  right: 16px;
-  bottom: 10px;
-}
 
 .bar--schedule {
   position: relative;
@@ -9695,6 +9690,8 @@ body.neon .wgrid-cell--parity {
 .over-egg {
   position: absolute;
   left: 50%;
+  /* В нижнем зазоре, над панелью вкладок. */
+  bottom: calc(100px + 96px + env(safe-area-inset-bottom, 0px));
   font-size: 20px;
   font-weight: 900;
   color: #000;
