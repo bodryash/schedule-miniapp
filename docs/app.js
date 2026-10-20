@@ -5938,20 +5938,14 @@ function flipStack(change, focus = null, keep = true) {
     let dy = was.top - now.top;
     const to = getComputedStyle(card).transform;
     if (Math.abs(dy) < 1 && was.transform === to) return;
-    // Карточка была далеко за экраном: не тащим её через весь экран из
-    // ниоткуда, а начинаем чуть за краем и проявляем.
-    const far = was.top > screen + 40 || was.top + now.height < -40;
-    if (far) dy = Math.sign(dy) * Math.min(Math.abs(dy), 90);
+    // Карточка была далеко за экраном: не тащим её через весь экран, а
+    // запускаем прямо из-за края — въезжает, не мигая прозрачностью.
+    if (was.top > screen) dy = screen + 12 - now.top;
+    else if (was.top + now.height < 0) dy = -now.height - 12 - now.top;
     const from = `translateY(${dy}px) ${was.transform === "none" ? "" : was.transform}`.trim();
     // Волна расходится от верхней карточки: ближние едут первыми.
     const delay = Math.min(Math.abs(cards.indexOf(card) - order) * 35, 200);
-    const first = { transform: from };
-    const last = { transform: to === "none" ? "none" : to };
-    if (far) {
-      first.opacity = 0;
-      last.opacity = 1;
-    }
-    card.animate([first, last], {
+    card.animate([{ transform: from }, { transform: to === "none" ? "none" : to }], {
       duration: 560,
       delay,
       easing: "cubic-bezier(0.22, 1.12, 0.36, 1)",
@@ -6056,7 +6050,7 @@ function initStack() {
     if (dy > 50 && fromBottom && atBottom()) {
       startY = null;
       flip(true);
-    } else if (dy < -70 && fromTop && atTop()) {
+    } else if (dy < -36 && fromTop && atTop()) {
       // Собираем, когда палец отпущен: пока тянешь, страница сама
       // пружинит вниз, и сборка поверх этого дёргается.
       closeOnRelease = true;
