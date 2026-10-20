@@ -5607,21 +5607,13 @@ const CARDS_KEY = "schedule.cards";
 function applyCardsStyle() {
   let style = "";
   try {
-    // Не выбирал сам — стопкой: это вид по умолчанию.
-    const saved = localStorage.getItem(CARDS_KEY);
-    style = saved === null ? "stack" : saved;
+    style = localStorage.getItem(CARDS_KEY) || "";
+    // Стопку «как в Wallet» убрали — кто её выбрал, видит обычные карточки.
+    if (style === "stack") style = "";
   } catch {
     style = "";
   }
   document.body.dataset.cards = style;
-  try {
-    // Свайп вниз у верхнего края в Telegram сворачивает приложение — а в
-    // стопке этим жестом она собирается обратно.
-    if (style === "stack") tg?.disableVerticalSwipes?.();
-    else if (!lessonView) tg?.enableVerticalSwipes?.();
-  } catch {
-    // Старый Telegram без этой возможности.
-  }
   const pick = document.getElementById("cards-pick");
   if (pick && pick.value !== style) pick.value = style;
 }
@@ -5686,8 +5678,6 @@ function initCustomLook() {
       // Без памяти — до перезапуска.
     }
     applyCardsStyle();
-    stackOpen = false;
-    applyStack();
   });
   const tilt = document.getElementById("parallax");
   if (tilt) {
@@ -5819,56 +5809,6 @@ function initWeekGrid() {
   });
 }
 
-/* ---------- Стопка, как в Wallet ----------
- * Карточки дня лежат стопкой: прошедшие — узкими полосками сверху, текущая
- * (или ближайшая) — целиком, следующие выглядывают краем. Тап по стопке или
- * свайп вверх — стопка раскрывается в обычный список, кнопка внизу собирает.
- */
-let stackOpen = false;
-let stackChip = null;
-
-function stackMode() {
-  return document.body.dataset.cards === "stack";
-}
-
-function applyStack() {
-  const strip = els.lessons;
-  if (!strip) return;
-  const cards = [...strip.querySelectorAll(":scope > article.card")];
-  const mode = stackMode() && cards.length > 1;
-  const closed = mode && !stackOpen;
-  for (const card of cards) {
-    card.classList.remove("card--stack-past", "card--stack-top", "card--stack-next");
-  }
-  if (closed) {
-    const anchor =
-      cards.find((c) => c.classList.contains("card--now")) ||
-      cards.find((c) => !c.classList.contains("card--past") && !c.classList.contains("card--cancelled")) ||
-      cards[cards.length - 1];
-    const at = cards.indexOf(anchor);
-    cards.forEach((card, i) => {
-      const height = card.offsetHeight;
-      let pull = "";
-      if (i < at) {
-        card.classList.add("card--stack-past");
-        pull = `${-(height - 60)}px`;
-      } else if (i === at) {
-        card.classList.add("card--stack-top");
-      } else {
-        card.classList.add("card--stack-next");
-        if (i < cards.length - 1) pull = `${-(height - 62)}px`;
-      }
-      if (pull) card.style.setProperty("--stack-pull", pull);
-      else card.style.removeProperty("--stack-pull");
-    });
-  } else {
-    for (const card of cards) card.style.removeProperty("--stack-pull");
-  }
-  strip.classList.toggle("stack", closed);
-  strip.classList.toggle("stack--open", mode && stackOpen);
-  stackChip?.remove();
-}
-
 /* Зазоры при перетягивании (пружина iPhone). За страницей лежит фон —
    узор, небо, сетка — и в зазоре он торчал обрывком. Закрываем зазоры
    сплошным цветом расписания; в верхнем при сильном рывке выглядывает :P. */
@@ -5909,165 +5849,6 @@ function initOverscroll() {
   document.addEventListener("touchstart", kick, { passive: true });
   document.addEventListener("touchmove", kick, { passive: true });
   document.addEventListener("touchend", kick, { passive: true });
-}
-
-/** Меняем раскладку стопки так, чтобы карточки переехали плавно. */
-function flipStack(change, focus = null, keep = true) {
-  const strip = els.lessons;
-  const cards = [...strip.querySelectorAll(":scope > article.card")];
-  const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  // Держим на месте ту карточку, на которую нажали, иначе — верхнюю.
-  const anchor = focus || strip.querySelector(".card--stack-top") || cards.find((c) => c.classList.contains("card--now"));
-  const before = new Map(cards.map((c) => [c, { top: c.getBoundingClientRect().top, transform: getComputedStyle(c).transform }]));
-  const anchorTop = anchor?.getBoundingClientRect().top;
-  for (const c of cards) c.getAnimations().forEach((a) => a.cancel());
-  change();
-  // Верхняя карточка не прыгает: подкручиваем страницу на её сдвиг.
-  // При сборке у верхнего края подкручивать некуда — страница уже в нуле,
-  // и подкрутка только дёргала экран; там карточки просто съезжаются.
-  if (keep && anchor && anchorTop != null) {
-    const shift = anchor.getBoundingClientRect().top - anchorTop;
-    if (Math.abs(shift) > 1) window.scrollBy(0, shift);
-  }
-  if (calm) return;
-  const order = anchor ? cards.indexOf(anchor) : 0;
-  const screen = window.innerHeight;
-  cards.forEach((card) => {
-    const was = before.get(card);
-    const now = card.getBoundingClientRect();
-    let dy = was.top - now.top;
-    const to = getComputedStyle(card).transform;
-    if (Math.abs(dy) < 1 && was.transform === to) return;
-    // Карточка была далеко за экраном: не тащим её через весь экран, а
-    // запускаем прямо из-за края — въезжает, не мигая прозрачностью.
-    if (was.top > screen) dy = screen + 12 - now.top;
-    else if (was.top + now.height < 0) dy = -now.height - 12 - now.top;
-    const from = `translateY(${dy}px) ${was.transform === "none" ? "" : was.transform}`.trim();
-    // Волна расходится от верхней карточки: ближние едут первыми.
-    const delay = Math.min(Math.abs(cards.indexOf(card) - order) * 35, 200);
-    card.animate([{ transform: from }, { transform: to === "none" ? "none" : to }], {
-      duration: 560,
-      delay,
-      easing: "cubic-bezier(0.22, 1.12, 0.36, 1)",
-      fill: "backwards",
-    });
-  });
-  // Перемены и окна проявляются, когда карточки уже почти на местах.
-  if (!strip.classList.contains("stack")) {
-    [...strip.querySelectorAll(":scope > :not(article.card)")].forEach((node, i) => {
-      node.animate([{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "none" }], {
-        duration: 620,
-        delay: 320 + Math.min(i, 6) * 70,
-        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-        fill: "backwards",
-      });
-    });
-  }
-}
-
-function openStack(focus = null) {
-  if (!els.lessons.classList.contains("stack")) return false;
-  haptic("select");
-  flipStack(() => {
-    stackOpen = true;
-    applyStack();
-  }, focus);
-  // Карточка, на которую нажали, после раскрытия должна быть целиком на экране.
-  if (focus) {
-    const box = focus.getBoundingClientRect();
-    const bottom = window.innerHeight - 96; // нижняя панель
-    if (box.top < 70) window.scrollBy({ top: box.top - 70, behavior: "smooth" });
-    else if (box.bottom > bottom) window.scrollBy({ top: box.bottom - bottom, behavior: "smooth" });
-  }
-  return true;
-}
-
-function initStack() {
-  const strip = els.lessons;
-  if (!strip) return;
-  // Новый день на экране — снова стопкой.
-  new MutationObserver((records) => {
-    if (records.some((r) => [...r.addedNodes].some((n) => n !== stackChip))) {
-      stackOpen = false;
-      requestAnimationFrame(applyStack);
-    }
-  }).observe(strip, { childList: true });
-  // Тап по собранной стопке раскрывает её, а не открывает пару
-  // (кроме верхней, целиком видной карточки).
-  strip.addEventListener("click", (event) => {
-    if (!strip.classList.contains("stack")) return;
-    const card = event.target.closest("article.card");
-    if (card && card.classList.contains("card--stack-top")) return;
-    event.stopImmediatePropagation();
-    openStack(card);
-  }, true);
-  // Стопка раскрывается, когда долистал до низа и тянешь дальше, и
-  // собирается обратно, когда долистал до верха и тянешь вниз.
-  const page = () => document.scrollingElement || document.documentElement;
-  const atBottom = () => page().scrollTop + window.innerHeight >= page().scrollHeight - 4;
-  const atTop = () => page().scrollTop <= 2;
-  let quietUntil = 0;
-  const flip = (open) => {
-    if (performance.now() < quietUntil || !stackMode()) return;
-    if (open && strip.classList.contains("stack")) {
-      quietUntil = performance.now() + 700;
-      openStack();
-    } else if (!open && stackOpen) {
-      quietUntil = performance.now() + 700;
-      haptic("light");
-      // Плашки между карточками сначала мягко гаснут, потом карточки съезжаются.
-      const extras = [...strip.querySelectorAll(":scope > :not(article.card)")];
-      extras.forEach((node) =>
-        node.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(10px)" }], {
-          duration: 200,
-          easing: "ease-in",
-          fill: "forwards",
-        })
-      );
-      setTimeout(() => {
-        extras.forEach((node) => node.getAnimations().forEach((a) => a.cancel()));
-        flipStack(() => {
-          stackOpen = false;
-          applyStack();
-        }, null, false);
-      }, extras.length ? 190 : 0);
-    }
-  };
-  let startY = null;
-  let fromBottom = false;
-  let fromTop = false;
-  let closeOnRelease = false;
-  document.addEventListener("touchstart", (e) => {
-    if (els.schedule.hidden || lessonViewBusy()) return;
-    startY = e.touches[0].clientY;
-    closeOnRelease = false;
-    fromBottom = atBottom();
-    fromTop = atTop();
-  }, { passive: true });
-  document.addEventListener("touchmove", (e) => {
-    if (startY == null) return;
-    const dy = startY - e.touches[0].clientY;
-    if (dy > 50 && fromBottom && atBottom()) {
-      startY = null;
-      flip(true);
-    } else if (dy < -36 && fromTop && atTop()) {
-      // Собираем, когда палец отпущен: пока тянешь, страница сама
-      // пружинит вниз, и сборка поверх этого дёргается.
-      closeOnRelease = true;
-    }
-  }, { passive: true });
-  document.addEventListener("touchend", () => {
-    startY = null;
-    if (closeOnRelease) {
-      closeOnRelease = false;
-      setTimeout(() => flip(false), 90);
-    }
-  }, { passive: true });
-  document.addEventListener("wheel", (e) => {
-    if (els.schedule.hidden || lessonViewBusy()) return;
-    if (e.deltaY > 20 && atBottom()) flip(true);
-    else if (e.deltaY < -20 && atTop()) flip(false);
-  }, { passive: true });
 }
 
 /* ---------- Неоновая ночь ---------- */
@@ -6505,9 +6286,7 @@ function closeLessonView(instant = false) {
     tg.BackButton.hide();
   }
   try {
-    // В стопке тянуть вниз у верхнего края — это «собрать», а не закрыть.
-    if (stackMode()) tg?.disableVerticalSwipes?.();
-    else tg?.enableVerticalSwipes?.();
+    tg?.enableVerticalSwipes?.();
   } catch {
     // Старый Telegram без этой возможности.
   }
@@ -9337,7 +9116,6 @@ function refreshNow() {
     const [animation] = bar.getAnimations();
     if (animation) animation.currentTime = current.elapsed * 60_000;
   }
-  if (stackMode() && !stackOpen) applyStack();
 }
 
 /**
@@ -10340,7 +10118,6 @@ async function init() {
   applyBackground();
   initCustomLook();
   initWeekGrid();
-  initStack();
   initOverscroll();
   initNeon();
   document.getElementById("bg-pick")?.addEventListener("change", (event) => {
