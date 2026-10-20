@@ -5865,33 +5865,30 @@ function applyStack() {
   stackChip?.remove();
 }
 
-/* Пасхалка: кто сильно тянет расписание за нижний край, находит там
-   зверька с напутствием. Каждый раз — новый. */
-const EGGS = [[":P", ""]];
-let eggNode = null;
-let eggShown = false;
+/* Зазоры при перетягивании (пружина iPhone). За страницей лежит фон —
+   узор, небо, сетка — и в зазоре он торчал обрывком. Закрываем зазоры
+   сплошным цветом расписания; в верхнем при сильном рывке выглядывает :P. */
+let overTop = null;
+let overBottom = null;
+let overFrame = 0;
 
-function pullEgg(dy) {
-  if (!eggNode) {
-    eggNode = el("div", "pull-egg");
-    eggNode.append(el("span", "pull-egg-face"), el("span", "pull-egg-text"));
-    document.body.append(eggNode);
-  }
-  const strength = Math.max(0, Math.min(1, (dy - 60) / 110));
-  if (strength > 0 && !eggShown) {
-    const [face, text] = EGGS[Math.floor(Math.random() * EGGS.length)];
-    eggNode.firstChild.textContent = face;
-    eggNode.lastChild.textContent = t(text);
-    eggShown = true;
-  }
-  if (!strength) eggShown = false;
-  eggNode.style.setProperty("--egg", strength.toFixed(3));
-  eggNode.classList.toggle("pull-egg--drag", strength > 0);
-  if (strength === 1 && !eggNode.dataset.buzzed) {
-    eggNode.dataset.buzzed = "1";
-    haptic("success");
-  }
-  if (!strength) delete eggNode.dataset.buzzed;
+function initOverscroll() {
+  overTop = el("div", "over over--top");
+  overTop.append(el("span", "over-egg", ":P"));
+  overBottom = el("div", "over over--bottom");
+  document.body.append(overTop, overBottom);
+  const update = () => {
+    overFrame = 0;
+    const page = document.scrollingElement || document.documentElement;
+    const top = Math.max(0, -page.scrollTop);
+    const bottom = Math.max(0, page.scrollTop + window.innerHeight - page.scrollHeight);
+    overTop.style.height = `${top}px`;
+    overBottom.style.height = `${bottom}px`;
+    overTop.classList.toggle("over--egg", top > 90);
+  };
+  window.addEventListener("scroll", () => {
+    if (!overFrame) overFrame = requestAnimationFrame(update);
+  }, { passive: true });
 }
 
 /** Меняем раскладку стопки так, чтобы карточки переехали плавно. */
@@ -6024,7 +6021,6 @@ function initStack() {
   document.addEventListener("touchmove", (e) => {
     if (startY == null) return;
     const dy = startY - e.touches[0].clientY;
-    if (fromBottom && atBottom()) pullEgg(dy);
     if (dy > 50 && fromBottom && atBottom()) {
       startY = null;
       flip(true);
@@ -6036,7 +6032,6 @@ function initStack() {
   }, { passive: true });
   document.addEventListener("touchend", () => {
     startY = null;
-    pullEgg(0);
     if (closeOnRelease) {
       closeOnRelease = false;
       setTimeout(() => flip(false), 90);
@@ -10320,6 +10315,7 @@ async function init() {
   initCustomLook();
   initWeekGrid();
   initStack();
+  initOverscroll();
   initNeon();
   document.getElementById("bg-pick")?.addEventListener("change", (event) => {
     haptic("select");

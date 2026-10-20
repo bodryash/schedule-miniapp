@@ -9720,41 +9720,56 @@ body.neon #lessons.stack > .card--stack-top {
   }
 }
 
-/* ===== Пасхалка за нижним краем ===== */
-.pull-egg {
-  --egg: 0;
+/* ===== Зазоры при перетягивании ===== */
+.over {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  height: 0;
+  z-index: 4;
+  background: var(--bg);
   pointer-events: none;
-  opacity: var(--egg);
-  transform: translateY(calc((1 - var(--egg)) * 40px)) scale(calc(0.8 + var(--egg) * 0.2));
-  transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.2, 1.3, 0.4, 1);
+  overflow: hidden;
 }
 
-.pull-egg--drag {
-  transition: none;
+.over--top {
+  top: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
 }
 
-.pull-egg-face {
-  font-size: 64px;
+.over--bottom {
+  bottom: 0;
+}
+
+/* :P — чёрный на светлом, белый на тёмном. */
+.over-egg {
+  margin-bottom: 14px;
+  font-size: 20px;
   font-weight: 900;
-  letter-spacing: -0.02em;
-  color: var(--accent);
-  line-height: 1;
-  transform: rotate(calc((1 - var(--egg)) * -20deg));
+  color: #000;
+  opacity: 0;
+  transform: translateY(16px) rotate(-12deg);
+  transition: opacity 0.25s ease, transform 0.4s cubic-bezier(0.2, 1.5, 0.4, 1);
 }
 
-.pull-egg-text {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-  text-align: center;
-  padding: 0 30px;
+@media (prefers-color-scheme: dark) {
+  .over-egg { color: #fff; }
+}
+
+html[data-scheme="dark"] .over-egg,
+body.neon .over-egg,
+body.devil .over-egg,
+body.glam-noir .over-egg {
+  color: #fff;
+}
+
+html[data-scheme="light"] .over-egg {
+  color: #000;
+}
+
+.over--egg .over-egg {
+  opacity: 1;
+  transform: none;
 }
