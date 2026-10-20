@@ -9033,7 +9033,7 @@ article.card {
 .bg-layer {
   position: fixed;
   inset: 0;
-  z-index: -3; /* ниже «крышки» над страницей (.over-cap) */
+  z-index: -3; /* ниже верхней заливки зазора (.over--top) */
   overflow: hidden;
   pointer-events: none;
   display: none;
@@ -9732,20 +9732,10 @@ body.neon #lessons.stack > .card--stack-top {
   overflow: hidden;
 }
 
-.over-cap {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -100vh;
-  height: 100vh;
-  /* Над узором фона (-3), но под свечением темы (body::before, -1) и небом:
-     они продолжаются и над страницей, без шва на её краю. */
+.over--top {
+  top: -100px;
+  /* Под страницей, над узором фона: заходит под шапку, не закрывая её. */
   z-index: -2;
-  background: var(--bg);
-  pointer-events: none;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
 }
 
 .over--bottom {
@@ -9753,13 +9743,20 @@ body.neon #lessons.stack > .card--stack-top {
 }
 
 /* :P — чёрный на светлом, белый на тёмном. */
-/* Сидит повыше: видно, только если потянуть сильно. */
 .over-egg {
-  margin-bottom: 70px;
+  position: absolute;
+  left: 50%;
   font-size: 20px;
   font-weight: 900;
   color: #000;
-  transform: rotate(-12deg);
+  opacity: 0;
+  transform: translate(-50%, 10px) rotate(-12deg);
+  transition: opacity 0.2s ease, transform 0.35s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+
+.over--egg .over-egg {
+  opacity: 1;
+  transform: translate(-50%, 0) rotate(-12deg);
 }
 
 .over-egg--light {

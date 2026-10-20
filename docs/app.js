@@ -5875,21 +5875,40 @@ function applyStack() {
 let overBottom = null;
 
 function initOverscroll() {
-  // Сверху — «крышка», приклеенная к самой странице над её верхним краем:
-  // едет вместе со страницей, поэтому отстать от пружины не может. :P сидит
-  // в ней повыше и показывается только при сильном рывке.
-  const cap = el("div", "over-cap");
-  cap.append(el("span", "over-egg", ":P"));
-  document.body.prepend(cap);
-  // Снизу так нельзя (страница стала бы длиннее) — там заливка по прокрутке.
+  // За краем страницы, пока её тянут, проглядывает фон (узор, небо). Закрываем
+  // зазоры сплошным цветом. Пружину iPhone рисует сама система, а прокрутка
+  // приходит в код с опозданием — поэтому верхняя заливка лежит ПОД страницей
+  // и с большим запасом заходит под неё: отстала на кадр — всё равно закрыто,
+  // а надписи шапки остаются поверх. :P — в самом зазоре, при сильном рывке.
+  const overTop = el("div", "over over--top");
+  const egg = el("span", "over-egg", ":P");
+  overTop.append(egg);
   overBottom = el("div", "over over--bottom");
-  document.body.append(overBottom);
+  document.body.append(overTop, overBottom);
   const update = () => {
     const page = document.scrollingElement || document.documentElement;
+    const top = Math.max(0, -page.scrollTop);
     const bottom = Math.max(0, page.scrollTop + window.innerHeight - page.scrollHeight);
+    overTop.style.height = top ? `${top + 100 + 260}px` : "0";
+    egg.style.top = `${100 + top - 44}px`;
+    overTop.classList.toggle("over--egg", top > 90);
     overBottom.style.height = bottom ? `${bottom + 140}px` : "0";
   };
   window.addEventListener("scroll", update, { passive: true });
+  // Пока палец на экране и пружина доигрывает — сверяемся каждый кадр.
+  let until = 0;
+  const loop = () => {
+    update();
+    if (performance.now() < until) requestAnimationFrame(loop);
+  };
+  const kick = () => {
+    const idle = performance.now() >= until;
+    until = performance.now() + 1200;
+    if (idle) requestAnimationFrame(loop);
+  };
+  document.addEventListener("touchstart", kick, { passive: true });
+  document.addEventListener("touchmove", kick, { passive: true });
+  document.addEventListener("touchend", kick, { passive: true });
 }
 
 /** Меняем раскладку стопки так, чтобы карточки переехали плавно. */
