@@ -5575,11 +5575,21 @@ const CARDS_KEY = "schedule.cards";
 function applyCardsStyle() {
   let style = "";
   try {
-    style = localStorage.getItem(CARDS_KEY) || "";
+    // Не выбирал сам — стопкой: это вид по умолчанию.
+    const saved = localStorage.getItem(CARDS_KEY);
+    style = saved === null ? "stack" : saved;
   } catch {
     style = "";
   }
   document.body.dataset.cards = style;
+  try {
+    // Свайп вниз у верхнего края в Telegram сворачивает приложение — а в
+    // стопке этим жестом она собирается обратно.
+    if (style === "stack") tg?.disableVerticalSwipes?.();
+    else if (!lessonView) tg?.enableVerticalSwipes?.();
+  } catch {
+    // Старый Telegram без этой возможности.
+  }
   const pick = document.getElementById("cards-pick");
   if (pick && pick.value !== style) pick.value = style;
 }
@@ -5824,22 +5834,7 @@ function applyStack() {
   }
   strip.classList.toggle("stack", closed);
   strip.classList.toggle("stack--open", mode && stackOpen);
-  if (mode && stackOpen) {
-    if (!stackChip) {
-      stackChip = el("button", "chip stack-close", t("Собрать стопку"));
-      stackChip.type = "button";
-      stackChip.addEventListener("click", () => {
-        haptic("light");
-        flipStack(() => {
-          stackOpen = false;
-          applyStack();
-        });
-      });
-    }
-    if (stackChip.parentNode !== strip) strip.append(stackChip);
-  } else {
-    stackChip?.remove();
-  }
+  stackChip?.remove();
 }
 
 /** Меняем раскладку стопки так, чтобы карточки переехали плавно. */
@@ -6409,7 +6404,9 @@ function closeLessonView(instant = false) {
     tg.BackButton.hide();
   }
   try {
-    tg?.enableVerticalSwipes?.();
+    // В стопке тянуть вниз у верхнего края — это «собрать», а не закрыть.
+    if (stackMode()) tg?.disableVerticalSwipes?.();
+    else tg?.enableVerticalSwipes?.();
   } catch {
     // Старый Telegram без этой возможности.
   }
