@@ -5882,8 +5882,11 @@ function initOverscroll() {
     const page = document.scrollingElement || document.documentElement;
     const top = Math.max(0, -page.scrollTop);
     const bottom = Math.max(0, page.scrollTop + window.innerHeight - page.scrollHeight);
-    overTop.style.height = `${top}px`;
-    overBottom.style.height = `${bottom}px`;
+    // Запас: кадр отрисовки отстаёт от пружины, и на сильном рывке между
+    // заливкой и страницей проглядывала полоса. Лишнее уходит за край экрана
+    // и на 40px заходит на страницу — там тот же цвет.
+    overTop.style.height = top ? `${top + 140}px` : "0";
+    overBottom.style.height = bottom ? `${bottom + 140}px` : "0";
     overTop.classList.toggle("over--egg", top > 90);
   };
   window.addEventListener("scroll", () => {

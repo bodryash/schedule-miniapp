@@ -9733,14 +9733,14 @@ body.neon #lessons.stack > .card--stack-top {
 }
 
 .over--top {
-  top: 0;
+  top: -100px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
 }
 
 .over--bottom {
-  bottom: 0;
+  bottom: -100px;
 }
 
 /* :P — чёрный на светлом, белый на тёмном. */
