@@ -1611,6 +1611,10 @@ function rememberLook() {
     const paint = style.backgroundColor && style.backgroundColor !== "rgba(0, 0, 0, 0)" ? style.backgroundColor : style.getPropertyValue("--bg").trim();
     if (paint) {
       document.documentElement.style.backgroundColor = paint;
+      // :P над страницей — чёрный на светлом фоне, белый на тёмном.
+      const rgb = (toHex(paint) || "#ffffff").slice(1).match(/../g).map((h) => parseInt(h, 16));
+      const light = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2] > 140;
+      document.querySelector(".over-egg")?.classList.toggle("over-egg--light", !light);
       // В Telegram за верхним и нижним краем виден не html, а само окно
       // мини-приложения — красим и его, и шапку, в цвет расписания.
       const hex = toHex(paint);
@@ -5868,29 +5872,23 @@ function applyStack() {
 /* Зазоры при перетягивании (пружина iPhone). За страницей лежит фон —
    узор, небо, сетка — и в зазоре он торчал обрывком. Закрываем зазоры
    сплошным цветом расписания; в верхнем при сильном рывке выглядывает :P. */
-let overTop = null;
 let overBottom = null;
-let overFrame = 0;
 
 function initOverscroll() {
-  overTop = el("div", "over over--top");
-  overTop.append(el("span", "over-egg", ":P"));
+  // Сверху — «крышка», приклеенная к самой странице над её верхним краем:
+  // едет вместе со страницей, поэтому отстать от пружины не может. :P сидит
+  // в ней повыше и показывается только при сильном рывке.
+  const cap = el("div", "over-cap");
+  cap.append(el("span", "over-egg", ":P"));
+  document.body.prepend(cap);
+  // Снизу так нельзя (страница стала бы длиннее) — там заливка по прокрутке.
   overBottom = el("div", "over over--bottom");
-  document.body.append(overTop, overBottom);
+  document.body.append(overBottom);
   const update = () => {
-    overFrame = 0;
     const page = document.scrollingElement || document.documentElement;
-    const top = Math.max(0, -page.scrollTop);
     const bottom = Math.max(0, page.scrollTop + window.innerHeight - page.scrollHeight);
-    // Запас: кадр отрисовки отстаёт от пружины, и на сильном рывке между
-    // заливкой и страницей проглядывала полоса. Лишнее уходит за край экрана
-    // и на 40px заходит на страницу — там тот же цвет.
-    // Сверху на страницу не заходим: там группа и чётность недели.
-    overTop.style.height = top ? `${top + 100}px` : "0";
     overBottom.style.height = bottom ? `${bottom + 140}px` : "0";
-    overTop.classList.toggle("over--egg", top > 90);
   };
-  // Сразу в обработчике, без ожидания кадра: так заливка не отстаёт.
   window.addEventListener("scroll", update, { passive: true });
 }
 

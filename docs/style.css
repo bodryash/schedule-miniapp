@@ -9033,7 +9033,7 @@ article.card {
 .bg-layer {
   position: fixed;
   inset: 0;
-  z-index: -2;
+  z-index: -3; /* ниже «крышки» над страницей (.over-cap) */
   overflow: hidden;
   pointer-events: none;
   display: none;
@@ -9732,8 +9732,17 @@ body.neon #lessons.stack > .card--stack-top {
   overflow: hidden;
 }
 
-.over--top {
-  top: -100px;
+.over-cap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -100vh;
+  height: 100vh;
+  /* Над узором фона (-3), но под свечением темы (body::before, -1) и небом:
+     они продолжаются и над страницей, без шва на её краю. */
+  z-index: -2;
+  background: var(--bg);
+  pointer-events: none;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -9744,32 +9753,16 @@ body.neon #lessons.stack > .card--stack-top {
 }
 
 /* :P — чёрный на светлом, белый на тёмном. */
+/* Сидит повыше: видно, только если потянуть сильно. */
 .over-egg {
-  margin-bottom: 14px;
+  margin-bottom: 70px;
   font-size: 20px;
   font-weight: 900;
   color: #000;
-  opacity: 0;
-  transform: translateY(16px) rotate(-12deg);
-  transition: opacity 0.25s ease, transform 0.4s cubic-bezier(0.2, 1.5, 0.4, 1);
+  transform: rotate(-12deg);
 }
 
-@media (prefers-color-scheme: dark) {
-  .over-egg { color: #fff; }
-}
-
-html[data-scheme="dark"] .over-egg,
-body.neon .over-egg,
-body.devil .over-egg,
-body.glam-noir .over-egg {
+.over-egg--light {
   color: #fff;
 }
 
-html[data-scheme="light"] .over-egg {
-  color: #000;
-}
-
-.over--egg .over-egg {
-  opacity: 1;
-  transform: none;
-}
