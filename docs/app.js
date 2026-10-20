@@ -5888,19 +5888,53 @@ function initStack() {
     event.stopImmediatePropagation();
     openStack();
   }, true);
-  // Свайп вверх по стопке — раскрыть.
-  let startY = null;
-  strip.addEventListener("touchstart", (e) => {
-    startY = strip.classList.contains("stack") ? e.touches[0].clientY : null;
-  }, { passive: true });
-  strip.addEventListener("touchmove", (e) => {
-    if (startY != null && startY - e.touches[0].clientY > 36) {
-      startY = null;
+  // Стопка раскрывается, когда долистал до низа и тянешь дальше, и
+  // собирается обратно, когда долистал до верха и тянешь вниз.
+  const page = () => document.scrollingElement || document.documentElement;
+  const atBottom = () => page().scrollTop + window.innerHeight >= page().scrollHeight - 4;
+  const atTop = () => page().scrollTop <= 2;
+  let quietUntil = 0;
+  const flip = (open) => {
+    if (performance.now() < quietUntil || !stackMode()) return;
+    if (open && strip.classList.contains("stack")) {
+      quietUntil = performance.now() + 700;
       openStack();
+    } else if (!open && stackOpen) {
+      quietUntil = performance.now() + 700;
+      haptic("light");
+      flipStack(() => {
+        stackOpen = false;
+        applyStack();
+      });
+    }
+  };
+  let startY = null;
+  let fromBottom = false;
+  let fromTop = false;
+  document.addEventListener("touchstart", (e) => {
+    if (els.schedule.hidden || lessonViewBusy()) return;
+    startY = e.touches[0].clientY;
+    fromBottom = atBottom();
+    fromTop = atTop();
+  }, { passive: true });
+  document.addEventListener("touchmove", (e) => {
+    if (startY == null) return;
+    const dy = startY - e.touches[0].clientY;
+    if (dy > 50 && fromBottom && atBottom()) {
+      startY = null;
+      flip(true);
+    } else if (dy < -70 && fromTop && atTop()) {
+      startY = null;
+      flip(false);
     }
   }, { passive: true });
-  strip.addEventListener("wheel", (e) => {
-    if (e.deltaY > 20) openStack();
+  document.addEventListener("touchend", () => {
+    startY = null;
+  }, { passive: true });
+  document.addEventListener("wheel", (e) => {
+    if (els.schedule.hidden || lessonViewBusy()) return;
+    if (e.deltaY > 20 && atBottom()) flip(true);
+    else if (e.deltaY < -20 && atTop()) flip(false);
   }, { passive: true });
 }
 
