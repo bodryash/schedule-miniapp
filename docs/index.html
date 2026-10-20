@@ -217,6 +217,7 @@
             splash.style.setProperty("--tg-theme-text-color", look.text);
             splash.style.setProperty("--splash-accent", look.accent);
             document.documentElement.style.background = look.bg;
+            document.documentElement.classList.add("bg-root");
             document.body.dataset.returning = "1";
           }
         } catch (e) {}

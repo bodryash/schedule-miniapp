@@ -1921,6 +1921,14 @@ body.glam-noir {
   --text: #f5efe0;
   --muted: #9e9484;
   --line: rgba(212, 175, 55, 0.22);
+  /* Тёмная тема при любой схеме: без этого на светлой схеме Telegram
+     карточки и дни становились белыми, а золото на белом не читалось. */
+  --surface: #1c1a20;
+  --edge: rgba(245, 239, 224, 0.08);
+  --tg-theme-bg-color: #111014;
+  --tg-theme-secondary-bg-color: #1c1a20;
+  --tg-theme-text-color: #f5efe0;
+  --tg-theme-hint-color: #9e9484;
   background-color: var(--bg);
   color: var(--text);
 }
@@ -9851,4 +9859,302 @@ body.neon-day .wgrid-cell--parity {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* ===== Небо по времени суток — сцена ===== */
+body[data-daypart] .daysky {
+  background: none;
+  opacity: 1;
+  overflow: hidden;
+}
+
+body[data-decor="off"]:not([data-bg="sky"]) .daysky {
+  opacity: 0;
+}
+
+/* Вверху экрана небо мягко растворяется в фон; на весь экран — без маски. */
+body:not([data-bg="sky"]) .daysky {
+  opacity: 0.7;
+}
+
+.sky-grad,
+.sky-glow,
+.sky-haze,
+.sky-stars,
+.sky-clouds {
+  position: absolute;
+  inset: 0;
+  transition: opacity 2s ease, background 2s ease;
+}
+
+/* Небо: три-четыре полосы цвета, как настоящее. */
+body[data-daypart="morning"] .sky-grad {
+  background: linear-gradient(180deg, #7fb5ff 0%, #b9d4ff 30%, #ffd9c2 62%, #ffc29a 82%, #ffe7cf 100%);
+}
+
+body[data-daypart="day"] .sky-grad {
+  background: linear-gradient(180deg, #3d8bff 0%, #6aaaff 35%, #a9cfff 70%, #dcecff 100%);
+}
+
+body[data-daypart="evening"] .sky-grad {
+  background: linear-gradient(180deg, #2b2f6b 0%, #6b3d8f 30%, #d4578a 58%, #ff8a5c 80%, #ffc57a 100%);
+}
+
+body[data-daypart="night"] .sky-grad {
+  background: linear-gradient(180deg, #050816 0%, #0d1438 40%, #1d2560 75%, #2d3070 100%);
+}
+
+/* Зарево вокруг солнца/луны. */
+.sky-glow {
+  background: radial-gradient(38% 26% at var(--sun-x, 50%) var(--sun-y, 30%), rgba(255, 236, 190, 0.75), transparent 70%);
+}
+
+body[data-daypart="evening"] .sky-glow {
+  background:
+    radial-gradient(60% 30% at var(--sun-x, 80%) 92%, rgba(255, 150, 80, 0.7), transparent 70%),
+    radial-gradient(34% 22% at var(--sun-x, 50%) var(--sun-y, 30%), rgba(255, 200, 140, 0.7), transparent 70%);
+}
+
+body[data-daypart="night"] .sky-glow {
+  background: radial-gradient(26% 18% at var(--sun-x, 50%) var(--sun-y, 30%), rgba(190, 210, 255, 0.35), transparent 70%);
+}
+
+/* Солнце и луна. */
+.sky-body {
+  position: absolute;
+  left: var(--sun-x, 50%);
+  top: var(--sun-y, 30%);
+  width: 58px;
+  height: 58px;
+  margin: -29px 0 0 -29px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 38%, #fffbe6, #ffe08a 55%, #ffc24d);
+  box-shadow: 0 0 40px 12px rgba(255, 214, 120, 0.55), 0 0 110px 40px rgba(255, 214, 120, 0.25);
+  transition: left 60s linear, top 60s linear, background 2s ease;
+  animation: sky-sun 6s ease-in-out infinite;
+}
+
+body[data-daypart="evening"] .sky-body {
+  background: radial-gradient(circle at 40% 38%, #fff1d6, #ffa45c 55%, #ff6f3c);
+  box-shadow: 0 0 46px 16px rgba(255, 130, 70, 0.55), 0 0 120px 50px rgba(255, 110, 80, 0.25);
+}
+
+/* Луна — с тенью-серпом. */
+body[data-daypart="night"] .sky-body {
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  background: radial-gradient(circle at 38% 36%, #ffffff, #e4e9ff 60%, #c7cff0);
+  box-shadow: 0 0 30px 8px rgba(200, 215, 255, 0.35), inset -12px -6px 0 0 rgba(30, 40, 90, 0.35);
+  animation: none;
+}
+
+@keyframes sky-sun {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* Звёзды — только ночью, мерцают каждая в своём ритме. */
+.sky-stars {
+  opacity: 0;
+}
+
+body[data-daypart="night"] .sky-stars {
+  opacity: 1;
+}
+
+body[data-daypart="evening"] .sky-stars {
+  opacity: 0.35;
+}
+
+.sky-stars i {
+  position: absolute;
+  width: var(--s, 1.5px);
+  height: var(--s, 1.5px);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+  animation: sky-twinkle var(--d, 3s) ease-in-out infinite;
+}
+
+@keyframes sky-twinkle {
+  0%, 100% { opacity: 0.25; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+/* Облака — мягкие, из нескольких кругов, плывут медленно. */
+.sky-cloud {
+  position: absolute;
+  height: 34px;
+  border-radius: 40px;
+  background: rgba(255, 255, 255, 0.85);
+  filter: blur(1.5px);
+  animation: sky-drift linear infinite;
+}
+
+.sky-cloud::before,
+.sky-cloud::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background: inherit;
+}
+
+.sky-cloud::before {
+  width: 46%;
+  height: 150%;
+  left: 14%;
+  bottom: 30%;
+}
+
+.sky-cloud::after {
+  width: 34%;
+  height: 120%;
+  right: 16%;
+  bottom: 35%;
+}
+
+.sky-cloud--1 { width: 130px; top: 16%; animation-duration: 140s; animation-delay: -30s; }
+.sky-cloud--2 { width: 90px; top: 34%; animation-duration: 180s; animation-delay: -110s; opacity: 0.8; }
+.sky-cloud--3 { width: 160px; top: 52%; animation-duration: 220s; animation-delay: -60s; opacity: 0.7; }
+.sky-cloud--4 { width: 70px; top: 24%; animation-duration: 160s; animation-delay: -140s; opacity: 0.6; }
+
+@keyframes sky-drift {
+  from { transform: translateX(-200px); }
+  to { transform: translateX(calc(100vw + 200px)); }
+}
+
+body[data-daypart="morning"] .sky-cloud {
+  background: rgba(255, 240, 230, 0.85);
+}
+
+body[data-daypart="evening"] .sky-cloud {
+  background: rgba(255, 170, 160, 0.55);
+}
+
+body[data-daypart="night"] .sky-clouds {
+  opacity: 0.12;
+}
+
+/* Лёгкая дымка внизу — чтобы карточки на небе читались. */
+.sky-haze {
+  background: linear-gradient(180deg, transparent 45%, color-mix(in srgb, var(--bg) 55%, transparent) 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sky-cloud,
+  .sky-stars i,
+  .sky-body {
+    animation: none;
+  }
+}
+
+/* Фон темы лежит на html (его же видно при перетягивании за край), а body
+   прозрачный — иначе он закрывал небо, узор и свечение темы. */
+html.bg-root body {
+  background-color: transparent !important;
+}
+
+/* Небо под тон подложки: на светлой теме вечер и ночь — пастельные (тёмный
+   текст шапки читается), на тёмной утро и день — приглушённые (светлый). */
+body[data-tone="light"][data-daypart="night"] .sky-grad {
+  background: linear-gradient(180deg, #b9bdf0 0%, #d2d0f7 40%, #e9e4fb 75%, #f6f2ff 100%);
+}
+
+body[data-tone="light"][data-daypart="night"] .sky-stars i {
+  background: #6c70d8;
+  box-shadow: 0 0 6px rgba(108, 112, 216, 0.6);
+}
+
+body[data-tone="light"][data-daypart="night"] .sky-body {
+  background: radial-gradient(circle at 38% 36%, #ffffff, #eef0ff 60%, #d6dbf7);
+  box-shadow: 0 0 30px 10px rgba(150, 160, 240, 0.35), inset -12px -6px 0 0 rgba(120, 130, 210, 0.3);
+}
+
+body[data-tone="light"][data-daypart="evening"] .sky-grad {
+  background: linear-gradient(180deg, #e6c6f0 0%, #ffc6d6 35%, #ffd3bd 65%, #ffe9d6 100%);
+}
+
+body[data-tone="dark"][data-daypart="day"] .sky-grad {
+  background: linear-gradient(180deg, #0b2a63 0%, #144a9a 40%, #1f5fae 70%, #22416e 100%);
+}
+
+body[data-tone="dark"][data-daypart="morning"] .sky-grad {
+  background: linear-gradient(180deg, #23285e 0%, #4a3a78 35%, #8a4f6e 65%, #a86a55 85%, #3a2b3a 100%);
+}
+
+body[data-tone="dark"] .sky-cloud {
+  background: rgba(200, 210, 240, 0.35);
+}
+
+/* На светлой подложке дымка внизу — белая, на тёмной — тёмная (через --bg). */
+body[data-daypart="night"] .sky-clouds {
+  opacity: 0.12;
+  transition: none;
+}
+
+/* ===== Читаемость надписей во всех темах =====
+   Цветной текст берёт не сам акцент, а его «чернильный» вариант: на светлой
+   подложке — темнее, на тёмной — светлее. Белый текст на цветной плашке
+   стоит на затемнённом акценте. Тон подложки (light/dark) ставит код по
+   яркости фона темы (rememberLook). */
+body {
+  --accent-ink: color-mix(in srgb, var(--accent) 62%, #000);
+  --accent-deep: color-mix(in srgb, var(--accent) 78%, #000);
+}
+
+body[data-tone="dark"] {
+  --accent-ink: color-mix(in srgb, var(--accent) 58%, #fff);
+}
+
+body[data-tone] .week,
+body[data-tone] .freedom,
+body[data-tone] .note {
+  color: var(--accent-ink) !important;
+}
+
+body[data-tone] .day.active .day-name,
+body[data-tone] .day.active .day-num {
+  color: var(--on-accent, #ffffff) !important;
+}
+
+/* Приглушённый текст — номер пары, подписи, перемены, вкладки — на треть
+   ближе к основному цвету текста: на любой теме читается, но остаётся
+   второстепенным. */
+body[data-tone] .slot,
+body[data-tone] .meta,
+body[data-tone] .mine-star,
+body[data-tone] .note-pen,
+body[data-tone] .gap-text,
+body[data-tone] .month,
+body[data-tone] .own-add-hint,
+body[data-tone] .starosta-ask-hint,
+body[data-tone] .day:not(.active) .day-name,
+body[data-tone] .tabs .tab:not(.tab--on) span {
+  color: color-mix(in srgb, var(--muted) 62%, var(--text)) !important;
+}
+
+body[data-tone] .tabs .tab--on span {
+  color: var(--accent-ink) !important;
+}
+
+/* Закатная плашка «Пары закончились»: белый текст — на тени. */
+.day-over .dayend .dayend-title,
+.day-over .dayend .dayend-next {
+  text-shadow: 0 1px 2px rgba(60, 20, 50, 0.45), 0 0 14px rgba(60, 20, 50, 0.35);
+}
+
+/* Белая плашка аудитории на светлом акценте (оттенки, гламур, волонтёр)
+   — на затемнённом акценте. */
+body.tint-ocean .room-badge,
+body.tint-sunset .room-badge,
+body.tint-mint .room-badge,
+body.tint-lavender .room-badge,
+body.tint-graphite .room-badge,
+body.tint-cherry .room-badge,
+body.glam .room-badge,
+body.volunteer .room-badge,
+body:not([class*="tint-"]):not(.glam):not(.glam-noir):not(.champion):not(.volunteer):not(.cska):not(.nokia):not(.devil):not(.msu):not(.neon):not(.neon-day) .room-badge {
+  background: var(--accent) !important;
+  color: var(--on-accent, #ffffff) !important;
 }

@@ -1609,6 +1609,9 @@ function toHex(color) {
   if (/^#[0-9a-f]{6}$/i.test(value)) return value;
   if (/^#[0-9a-f]{3}$/i.test(value)) return "#" + [...value.slice(1)].map((c) => c + c).join("");
   const rgb = value.match(/^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
+  // color-mix() браузер отдаёт как color(srgb 0.1 0.5 0.9).
+  const srgb = value.match(/^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/i);
+  if (srgb) return "#" + srgb.slice(1, 4).map((n) => Math.round(Number(n) * 255).toString(16).padStart(2, "0")).join("");
   if (!rgb) return "";
   return "#" + rgb.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, "0")).join("");
 }
@@ -1621,15 +1624,39 @@ function rememberLook() {
   clearTimeout(lookTimer);
   lookTimer = setTimeout(async () => {
     await window.__cssReady;
+    // Цвет фона темы меряем у body без «прозрачности» (см. ниже).
+    const root = document.documentElement;
+    root.classList.remove("bg-root");
     const style = getComputedStyle(document.body);
     // То, что видно, когда страницу перетянули за край (пружина на iPhone), —
     // того же цвета, что расписание, а не цвета Telegram.
     const paint = style.backgroundColor && style.backgroundColor !== "rgba(0, 0, 0, 0)" ? style.backgroundColor : style.getPropertyValue("--bg").trim();
     if (paint) {
-      document.documentElement.style.backgroundColor = paint;
+      // Красим html, а body делаем прозрачным: иначе фон body ложится
+      // поверх неба, узора и свечения (они под ним, z-index меньше нуля).
+      root.style.backgroundColor = paint;
+      root.classList.add("bg-root");
       // :P над страницей — чёрный на светлом фоне, белый на тёмном.
       const rgb = (toHex(paint) || "#ffffff").slice(1).match(/../g).map((h) => parseInt(h, 16));
       const light = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2] > 140;
+      // Светлая или тёмная подложка — небо подбирает под неё свои краски,
+      // чтобы шапка читалась и днём, и ночью.
+      document.body.dataset.tone = light ? "light" : "dark";
+      // Текст на плашке цвета акцента (выбранный день, аудитория): белый на
+      // тёмном акценте, почти чёрный — на светлом (золото МГУ, мята, жёлтые).
+      // Акцент бывает задан через color-mix — меряем его готовый цвет на пробнике.
+      const probe = el("span");
+      probe.style.cssText = "position:absolute;visibility:hidden;color:var(--accent)";
+      document.body.append(probe);
+      const accent = toHex(getComputedStyle(probe).color);
+      probe.remove();
+      if (accent) {
+        const [ar, ag, ab] = accent.slice(1).match(/../g).map((h) => parseInt(h, 16) / 255);
+        const lin = (v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+        const L = 0.2126 * lin(ar) + 0.7152 * lin(ag) + 0.0722 * lin(ab);
+        // Белый выигрывает, если контраст с белым не хуже, чем с чёрным.
+        document.body.style.setProperty("--on-accent", 1.05 / (L + 0.05) >= (L + 0.05) / 0.05 ? "#ffffff" : "#14141a");
+      }
       document.querySelector(".over-egg")?.classList.toggle("over-egg--light", !light);
       // В Telegram за верхним и нижним краем виден не html, а само окно
       // мини-приложения — красим и его, и шапку, в цвет расписания.
@@ -4989,6 +5016,7 @@ function fillDigits() {
         // Не сохранилось — выбор проживёт до закрытия.
       }
       applyScheme(id);
+      rememberLook();
       fillDigits();
     });
     themes.append(chip);
@@ -5528,6 +5556,47 @@ function daypart(date = new Date()) {
   return "night";
 }
 
+/* ---------- Небо по времени суток ----------
+ * Настоящая сцена, а не пятно цвета: небо в несколько слоёв, солнце или
+ * луна идут по дуге по часам, облака медленно плывут, ночью мерцают звёзды,
+ * на закате у горизонта тёплое зарево.
+ */
+function buildSky(layer) {
+  const stars = el("div", "sky-stars");
+  // Звёзды — одни и те же у всех: сид от числа, а не случайно на каждый запуск.
+  let seed = 7;
+  const rnd = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  for (let i = 0; i < 46; i++) {
+    const star = el("i");
+    star.style.left = `${(rnd() * 100).toFixed(1)}%`;
+    star.style.top = `${(rnd() * 70).toFixed(1)}%`;
+    star.style.setProperty("--s", `${(1 + rnd() * 1.8).toFixed(1)}px`);
+    star.style.setProperty("--d", `${(2 + rnd() * 4).toFixed(1)}s`);
+    star.style.animationDelay = `${(-rnd() * 6).toFixed(1)}s`;
+    stars.append(star);
+  }
+  const clouds = el("div", "sky-clouds");
+  for (let i = 1; i <= 4; i++) clouds.append(el("span", `sky-cloud sky-cloud--${i}`));
+  layer.append(el("div", "sky-grad"), el("div", "sky-glow"), stars, el("div", "sky-body"), clouds, el("div", "sky-haze"));
+}
+
+/** Солнце днём и луна ночью — по дуге слева направо, по часам. */
+function placeSky() {
+  if (!skyLayer) return;
+  const now = new Date();
+  const h = now.getHours() + now.getMinutes() / 60;
+  // Солнце: 6:00 восход слева — 20:00 закат справа; луна: 20:00 — 6:00.
+  const day = h >= 6 && h < 20;
+  const part = day ? (h - 6) / 14 : ((h - 20 + 24) % 24) / 10;
+  const x = 8 + part * 84;
+  const y = 62 - Math.sin(part * Math.PI) * 48;
+  skyLayer.style.setProperty("--sun-x", `${x.toFixed(1)}%`);
+  skyLayer.style.setProperty("--sun-y", `${y.toFixed(1)}%`);
+}
+
 function season(date = new Date()) {
   const m = date.getMonth();
   if (m >= 8 && m <= 10) return "autumn";
@@ -5867,9 +5936,11 @@ function applyDecor() {
   if (!skyLayer) {
     skyLayer = el("div", "daysky");
     skyLayer.setAttribute("aria-hidden", "true");
+    buildSky(skyLayer);
     document.body.prepend(skyLayer);
   }
   document.body.dataset.daypart = daypart();
+  placeSky();
   // Гирлянда — в декабре, над датой.
   const december = new Date().getMonth() === 11;
   if (on && december && !garland) {
@@ -8940,7 +9011,10 @@ function refreshLines() {
 
 function refreshNow() {
   refreshLines();
-  if (skyLayer) document.body.dataset.daypart = daypart();
+  if (skyLayer) {
+    document.body.dataset.daypart = daypart();
+    placeSky();
+  }
   const today = isoDate(dateOfDay(selectedDay)) === isoDate(new Date());
   const clockNow = new Date();
   const nowMinutes = clockNow.getHours() * 60 + clockNow.getMinutes() + clockNow.getSeconds() / 60;
