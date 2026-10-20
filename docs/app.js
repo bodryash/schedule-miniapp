@@ -5838,7 +5838,7 @@ function applyStack() {
 }
 
 /** Меняем раскладку стопки так, чтобы карточки переехали плавно. */
-function flipStack(change, focus = null) {
+function flipStack(change, focus = null, keep = true) {
   const strip = els.lessons;
   const cards = [...strip.querySelectorAll(":scope > article.card")];
   const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -5849,7 +5849,9 @@ function flipStack(change, focus = null) {
   for (const c of cards) c.getAnimations().forEach((a) => a.cancel());
   change();
   // Верхняя карточка не прыгает: подкручиваем страницу на её сдвиг.
-  if (anchor && anchorTop != null) {
+  // При сборке у верхнего края подкручивать некуда — страница уже в нуле,
+  // и подкрутка только дёргала экран; там карточки просто съезжаются.
+  if (keep && anchor && anchorTop != null) {
     const shift = anchor.getBoundingClientRect().top - anchorTop;
     if (Math.abs(shift) > 1) window.scrollBy(0, shift);
   }
@@ -5936,15 +5938,17 @@ function initStack() {
       flipStack(() => {
         stackOpen = false;
         applyStack();
-      });
+      }, null, false);
     }
   };
   let startY = null;
   let fromBottom = false;
   let fromTop = false;
+  let closeOnRelease = false;
   document.addEventListener("touchstart", (e) => {
     if (els.schedule.hidden || lessonViewBusy()) return;
     startY = e.touches[0].clientY;
+    closeOnRelease = false;
     fromBottom = atBottom();
     fromTop = atTop();
   }, { passive: true });
@@ -5955,12 +5959,17 @@ function initStack() {
       startY = null;
       flip(true);
     } else if (dy < -70 && fromTop && atTop()) {
-      startY = null;
-      flip(false);
+      // Собираем, когда палец отпущен: пока тянешь, страница сама
+      // пружинит вниз, и сборка поверх этого дёргается.
+      closeOnRelease = true;
     }
   }, { passive: true });
   document.addEventListener("touchend", () => {
     startY = null;
+    if (closeOnRelease) {
+      closeOnRelease = false;
+      setTimeout(() => flip(false), 90);
+    }
   }, { passive: true });
   document.addEventListener("wheel", (e) => {
     if (els.schedule.hidden || lessonViewBusy()) return;
