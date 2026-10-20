@@ -9743,7 +9743,10 @@ body.neon #lessons.stack > .card--stack-top {
 }
 
 .pull-egg-face {
-  font-size: 46px;
+  font-size: 64px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--accent);
   line-height: 1;
   transform: rotate(calc((1 - var(--egg)) * -20deg));
 }

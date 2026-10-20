@@ -1587,6 +1587,16 @@ function fillOwnerThemes() {
   list.replaceChildren(...chips);
 }
 
+/** «rgb(7, 8, 15)» или «#07080f» → «#07080f»; иначе пусто. */
+function toHex(color) {
+  const value = String(color).trim();
+  if (/^#[0-9a-f]{6}$/i.test(value)) return value;
+  if (/^#[0-9a-f]{3}$/i.test(value)) return "#" + [...value.slice(1)].map((c) => c + c).join("");
+  const rgb = value.match(/^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
+  if (!rgb) return "";
+  return "#" + rgb.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, "0")).join("");
+}
+
 /* Вид с прошлого раза: классы темы и основные цвета. Заставка при
    следующем открытии берёт их до загрузки стилей (см. index.html). */
 let lookTimer = 0;
@@ -1599,7 +1609,21 @@ function rememberLook() {
     // То, что видно, когда страницу перетянули за край (пружина на iPhone), —
     // того же цвета, что расписание, а не цвета Telegram.
     const paint = style.backgroundColor && style.backgroundColor !== "rgba(0, 0, 0, 0)" ? style.backgroundColor : style.getPropertyValue("--bg").trim();
-    if (paint) document.documentElement.style.backgroundColor = paint;
+    if (paint) {
+      document.documentElement.style.backgroundColor = paint;
+      // В Telegram за верхним и нижним краем виден не html, а само окно
+      // мини-приложения — красим и его, и шапку, в цвет расписания.
+      const hex = toHex(paint);
+      if (hex) {
+        try {
+          tg?.setBackgroundColor?.(hex);
+          tg?.setHeaderColor?.(hex);
+          tg?.setBottomBarColor?.(hex);
+        } catch {
+          // Старый Telegram — красит сам.
+        }
+      }
+    }
     const cls = [...Object.values(THEMES), "neon"].filter((c) => document.body.classList.contains(c));
     const pick = (name, fallback) => style.getPropertyValue(name).trim() || fallback;
     try {
@@ -5843,16 +5867,7 @@ function applyStack() {
 
 /* Пасхалка: кто сильно тянет расписание за нижний край, находит там
    зверька с напутствием. Каждый раз — новый. */
-const EGGS = [
-  ["🦦", "Тут живёт выдра. Пар дальше нет, честно"],
-  ["🐈", "Мяу. Дальше только сон"],
-  ["🦔", "Ёжик охраняет конец расписания"],
-  ["🐸", "Ква. Ты долистал до дна"],
-  ["🦉", "Сова одобряет: всё прочитано"],
-  ["🐧", "Пингвин тоже ищет, где кончаются пары"],
-  ["🦥", "Ленивец советует отдохнуть"],
-  ["🐙", "Осьминог держит расписание, чтобы не уехало"],
-];
+const EGGS = [[":P", ""]];
 let eggNode = null;
 let eggShown = false;
 
