@@ -8,6 +8,8 @@
     аудитория, подгруппа, начало, конец, примечание, выбор
 
 Непустой «выбор» — дисциплина по выбору: студент отмечает свои в настройках.
+«Даты» — если пара бывает только в отдельные дни: «12.10, 23.11» (год берётся
+по семестру); тогда неделя и чётность для неё не важны.
 
 Обязательны только группа, день, пара и предмет. День — «пн»…«сб» или 1…6.
 Неделя — «все», «чёт», «нечёт» (пусто = все). Уровень — «бакалавриат»
@@ -53,6 +55,7 @@ COLUMNS = {
     "end": ["конец", "end"],
     "note": ["примечание", "note"],
     "elective": ["выбор", "по выбору", "elective"],
+    "dates": ["даты", "dates"],
 }
 DAYS = {"пн": 1, "вт": 2, "ср": 3, "чт": 4, "пт": 5, "сб": 6,
         "понедельник": 1, "вторник": 2, "среда": 3, "четверг": 4, "пятница": 5, "суббота": 6,
@@ -125,7 +128,7 @@ def main():
         begin, finish = pair.strip().split("-")
         bells.append({"n": n, "start": begin, "end": finish})
 
-    lessons, groups, problems = [], {}, []
+    lessons, groups, problems, dated = [], {}, [], []
     for line, row in enumerate(read_rows(args.table), 2):
         group = row.get("group", "")
         subject = row.get("subject", "")
@@ -147,6 +150,7 @@ def main():
             "type": row.get("type", "").lower(), "subject": subject, "room": row.get("room", ""),
             "teacher": row.get("teacher", ""),
         })
+        dated.append(row.get("dates", ""))
 
     if problems:
         print(f"Не разобрал строк: {len(problems)}", file=sys.stderr)
@@ -158,6 +162,15 @@ def main():
         sys.exit("Ни одной пары не разобрано.")
 
     start, end = date.fromisoformat(args.start), date.fromisoformat(args.end)
+    for lesson, raw_dates in zip(lessons, dated):
+        if not raw_dates:
+            continue
+        days = []
+        for d, m in re.findall(r"(\d{1,2})\.(\d{1,2})", raw_dates):
+            year = start.year if int(m) >= start.month else start.year + 1
+            days.append(date(year, int(m), int(d)).isoformat())
+        if days:
+            lesson["dates"] = sorted(set(days))
     group_list = sorted(groups.values(), key=lambda g: (g["level"], g["course"], g["id"]))
     schedule = {
         "meta": {
