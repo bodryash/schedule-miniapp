@@ -9792,3 +9792,63 @@ body.neon-day .wgrid-cell--parity {
     repeating-linear-gradient(135deg, transparent 0 8px, color-mix(in srgb, var(--c) 12%, transparent) 8px 16px),
     color-mix(in srgb, var(--c) 14%, #ffffff);
 }
+
+/* ===== Раздел «Оформление» в настройках ===== */
+.look-head {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.look-themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+}
+
+.look-theme {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px 8px;
+  border: 0;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.look-theme--on {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  background: var(--accent-soft);
+}
+
+.look-swatch {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 15%, transparent);
+}
+
+.look-name {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.look-extra {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.look-extra > label:not(.check) {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

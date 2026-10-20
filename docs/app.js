@@ -1482,16 +1482,41 @@ function volunteerOff() {
   }
 }
 
-// Тему МГУ каждый, у кого выбран факультет МГУ (студент или преподаватель),
-// включает сам в настройках. Сами мы её никому не ставим.
+// Своя цветовая тема: человек выбирает сам в «Оформлении». Коллекционные
+// (гламур, брутал, чемпион, ЦСКА, нокия, дьявол, волонтёр) так не выбрать —
+// их выдают. МГУ — только тем, у кого факультет МГУ.
+const COLOR_KEY = "schedule.colorTheme";
 const MSU_THEME_KEY = "schedule.msuTheme";
+const COLOR_THEMES = [
+  ["", "Обычная", ["var(--accent)", "var(--card)"]],
+  ["ocean", "Океан", ["#0ea5e9", "#2563eb"]],
+  ["sunset", "Закат", ["#f97316", "#db2777"]],
+  ["mint", "Мята", ["#10b981", "#0d9488"]],
+  ["lavender", "Лаванда", ["#8b5cf6", "#c026d3"]],
+  ["graphite", "Графит", ["#8291a8", "#5b6b82"]],
+  ["cherry", "Вишня", ["#e11d48", "#be123c"]],
+  ["neon", "Неон ночь", ["#ff2bd6", "#07080f"]],
+  ["neon-day", "Неон день", ["#ff1fae", "#e9f9ff"]],
+  ["msu", "МГУ", ["#c9a227", "#0b1733"]],
+];
+
+function colorTheme() {
+  try {
+    const saved = localStorage.getItem(COLOR_KEY);
+    if (saved !== null) return saved;
+    // Раньше неон и МГУ включались отдельно — переносим их выбор.
+    const neon = localStorage.getItem("schedule.neon");
+    if (neon === "1" || neon === "night") return "neon";
+    if (neon === "day") return "neon-day";
+    if (localStorage.getItem(MSU_THEME_KEY) === "1") return "msu";
+  } catch {
+    // Без памяти — обычная.
+  }
+  return "";
+}
 
 function msuThemeOn() {
-  try {
-    return localStorage.getItem(MSU_THEME_KEY) === "1";
-  } catch {
-    return false;
-  }
+  return colorTheme() === "msu";
 }
 
 function inMsu() {
@@ -1499,16 +1524,7 @@ function inMsu() {
 }
 
 function initMsuTheme() {
-  const box = document.getElementById("msu-theme");
-  box?.addEventListener("change", () => {
-    try {
-      localStorage.setItem(MSU_THEME_KEY, box.checked ? "1" : "");
-    } catch {
-      // Без хранилища выбор доживёт до перезапуска.
-    }
-    haptic(box.checked ? "success" : "light");
-    applyTheme();
-  });
+  // Тема МГУ теперь плиткой в «Оформлении» (fillLook).
 }
 
 function initVolunteer() {
@@ -1663,13 +1679,14 @@ function applyTheme(granted = grantedTheme) {
   const box = document.getElementById("volunteer-theme");
   if (row) row.hidden = !volunteer;
   if (box) box.checked = volunteer && !volunteerOff();
-  const msuRow = document.getElementById("msu-row");
-  const msuBox = document.getElementById("msu-theme");
-  if (msuRow) msuRow.hidden = !inMsu();
-  if (msuBox) msuBox.checked = msuThemeOn();
-  // Выданная тема сильнее; выключенный волонтёр уступает теме МГУ.
+  // Выданная тема сильнее; выключенный волонтёр уступает своей теме.
   const worn = volunteer && volunteerOff() ? "" : grantedTheme;
-  const name = worn || (inMsu() && msuThemeOn() ? "msu" : "") || (ownGlam() ? "glam" : "");
+  const own = colorTheme();
+  const ownName = own === "msu" ? (inMsu() ? "msu" : "") : THEMES[own] ? own : "";
+  const name = worn || ownName || (ownGlam() ? "glam" : "");
+  // Неон — свои классы, не из THEMES; под выданной темой не включаем.
+  document.body.classList.toggle("neon", !worn && own === "neon");
+  document.body.classList.toggle("neon-day", !worn && own === "neon-day");
   for (const cls of Object.values(THEMES)) {
     document.body.classList.toggle(cls, THEMES[name] === cls);
   }
@@ -4976,9 +4993,49 @@ function fillDigits() {
     });
     themes.append(chip);
   }
-  const themeTitle = el("div", "profiles-title profiles-title--next", t("Тема"));
+  const themeTitle = el("div", "profiles-title profiles-title--next", t("Светлая или тёмная"));
   nodes.push(themeTitle, themes);
-  box.replaceChildren(...nodes);
+
+  // Цветовые темы — плитками с образцом цвета.
+  const colors = el("div", "look-themes");
+  const current = colorTheme();
+  for (const [id, name, [a, b]] of COLOR_THEMES) {
+    if (id === "msu" && !inMsu()) continue;
+    const chip = el("button", id === current ? "look-theme look-theme--on" : "look-theme");
+    chip.type = "button";
+    const swatch = el("span", "look-swatch");
+    swatch.style.background = `linear-gradient(135deg, ${a} 0 50%, ${b} 50% 100%)`;
+    chip.append(swatch, el("span", "look-name", t(name)));
+    chip.addEventListener("click", () => {
+      haptic(id ? "success" : "light");
+      try {
+        localStorage.setItem(COLOR_KEY, id);
+      } catch {
+        // Не сохранилось — выбор проживёт до закрытия.
+      }
+      applyTheme();
+      fillDigits();
+    });
+    colors.append(chip);
+  }
+  nodes.push(el("div", "profiles-title profiles-title--next", t("Цветовая тема")), colors);
+  if (grantedTheme && !(grantedTheme === "volunteer" && volunteerOff())) {
+    nodes.push(el("p", "hint", t("Сейчас надета выданная тема — она сильнее. Выбранная включится, когда её снимут.")));
+  }
+
+  // Фон, вид карточек и галочки — из старого блока «Оформление», сюда же.
+  const rest = document.getElementById("decor-row");
+  if (rest) {
+    const extra = el("div", "look-extra");
+    for (const node of [...rest.children]) {
+      if (node.tagName !== "LEGEND") extra.append(node);
+    }
+    rest.remove();
+    box.dataset.extra = "1";
+    box._extra = extra;
+  }
+  if (box._extra) nodes.push(box._extra);
+  box.replaceChildren(el("div", "look-head", t("Оформление")), ...nodes);
 }
 
 /** Блок профилей вверху настроек. edit: { id } — открыто поле названия. */
@@ -5767,37 +5824,9 @@ function initOverscroll() {
 /* ---------- Неоновая ночь ---------- */
 const NEON_KEY = "schedule.neon";
 
-// Неон бывает ночной (тёмный) и дневной (светлый). Раньше была одна
-// галочка — её «1» читаем как ночь.
-function neonMode() {
-  try {
-    const saved = localStorage.getItem(NEON_KEY) || "";
-    return saved === "1" ? "night" : saved;
-  } catch {
-    return "";
-  }
-}
-
-function applyNeon() {
-  const mode = neonMode();
-  document.body.classList.toggle("neon", mode === "night");
-  document.body.classList.toggle("neon-day", mode === "day");
-  rememberLook();
-  const pick = document.getElementById("neon");
-  if (pick && pick.value !== mode) pick.value = mode;
-}
-
+// Неон — одна из цветовых тем (COLOR_THEMES), классы ставит applyTheme.
 function initNeon() {
-  applyNeon();
-  document.getElementById("neon")?.addEventListener("change", (event) => {
-    haptic(event.target.value ? "success" : "light");
-    try {
-      localStorage.setItem(NEON_KEY, event.target.value);
-    } catch {
-      // Без памяти — до перезапуска.
-    }
-    applyNeon();
-  });
+  applyTheme();
 }
 
 /* ---------- Фон на выбор ----------
