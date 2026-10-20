@@ -1587,7 +1587,35 @@ function fillOwnerThemes() {
   list.replaceChildren(...chips);
 }
 
+/* Вид с прошлого раза: классы темы и основные цвета. Заставка при
+   следующем открытии берёт их до загрузки стилей (см. index.html). */
+let lookTimer = 0;
+
+function rememberLook() {
+  clearTimeout(lookTimer);
+  lookTimer = setTimeout(async () => {
+    await window.__cssReady;
+    const style = getComputedStyle(document.body);
+    const cls = [...Object.values(THEMES), "neon"].filter((c) => document.body.classList.contains(c));
+    const pick = (name, fallback) => style.getPropertyValue(name).trim() || fallback;
+    try {
+      localStorage.setItem(
+        "schedule.look",
+        JSON.stringify({
+          cls,
+          bg: style.backgroundColor && style.backgroundColor !== "rgba(0, 0, 0, 0)" ? style.backgroundColor : pick("--bg", "#ffffff"),
+          text: pick("--text", style.color),
+          accent: pick("--accent", "#2ea6ff"),
+        })
+      );
+    } catch {
+      // Без памяти — в следующий раз заставка в цветах Telegram.
+    }
+  }, 300);
+}
+
 function applyTheme(granted = grantedTheme) {
+  rememberLook();
   grantedTheme = granted || "";
   const tried = notices.owner ? ownerTheme() : null;
   if (tried !== null) {
@@ -5815,11 +5843,12 @@ function applyStack() {
 }
 
 /** Меняем раскладку стопки так, чтобы карточки переехали плавно. */
-function flipStack(change) {
+function flipStack(change, focus = null) {
   const strip = els.lessons;
   const cards = [...strip.querySelectorAll(":scope > article.card")];
   const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const anchor = strip.querySelector(".card--stack-top") || cards.find((c) => c.classList.contains("card--now"));
+  // Держим на месте ту карточку, на которую нажали, иначе — верхнюю.
+  const anchor = focus || strip.querySelector(".card--stack-top") || cards.find((c) => c.classList.contains("card--now"));
   const before = new Map(cards.map((c) => [c, { top: c.getBoundingClientRect().top, transform: getComputedStyle(c).transform }]));
   const anchorTop = anchor?.getBoundingClientRect().top;
   for (const c of cards) c.getAnimations().forEach((a) => a.cancel());
@@ -5859,13 +5888,20 @@ function flipStack(change) {
   }
 }
 
-function openStack() {
+function openStack(focus = null) {
   if (!els.lessons.classList.contains("stack")) return false;
   haptic("select");
   flipStack(() => {
     stackOpen = true;
     applyStack();
-  });
+  }, focus);
+  // Карточка, на которую нажали, после раскрытия должна быть целиком на экране.
+  if (focus) {
+    const box = focus.getBoundingClientRect();
+    const bottom = window.innerHeight - 96; // нижняя панель
+    if (box.top < 70) window.scrollBy({ top: box.top - 70, behavior: "smooth" });
+    else if (box.bottom > bottom) window.scrollBy({ top: box.bottom - bottom, behavior: "smooth" });
+  }
   return true;
 }
 
@@ -5886,7 +5922,7 @@ function initStack() {
     const card = event.target.closest("article.card");
     if (card && card.classList.contains("card--stack-top")) return;
     event.stopImmediatePropagation();
-    openStack();
+    openStack(card);
   }, true);
   // Стопка раскрывается, когда долистал до низа и тянешь дальше, и
   // собирается обратно, когда долистал до верха и тянешь вниз.
@@ -5949,6 +5985,7 @@ function applyNeon() {
     on = false;
   }
   document.body.classList.toggle("neon", on);
+  rememberLook();
   const box = document.getElementById("neon");
   if (box) box.checked = on;
 }
@@ -9623,7 +9660,9 @@ renderHello();
 
 /* ---------- Заставка: день собирается из точек ---------- */
 
-const SPLASH_MIN = 1700; // не короче: иначе сборка и приветствие не успевают прочитаться
+// Не короче: иначе сборка и приветствие не успевают прочитаться. Кто уже
+// заходил, видел их не раз — ему заставка короче.
+const SPLASH_MIN = document.body.dataset.returning ? 1000 : 1700;
 const SPLASH_MAX = 3200; // и не дольше, даже если сеть тормозит
 const splashStarted = performance.now();
 

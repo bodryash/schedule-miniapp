@@ -9650,3 +9650,65 @@ body.neon #lessons.stack > .card--stack-top {
 #lessons.stack > .card--stack-next .slot {
   display: none;
 }
+
+/* ===== Заставка: разные уходы ===== */
+/* Запомненная тема: заставка сразу в своих цветах. */
+.splash {
+  transition: background-color 0.3s ease;
+}
+
+.splash[data-intro="drop"]:not(.splash--free).splash--gone {
+  animation: splash-drop-out 620ms cubic-bezier(0.7, 0, 0.3, 1) forwards;
+  box-shadow: none;
+}
+
+.splash[data-intro="blur"]:not(.splash--free).splash--gone {
+  animation: splash-blur-out 560ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  box-shadow: none;
+}
+
+.splash[data-intro="rise"]:not(.splash--free).splash--gone {
+  animation: splash-iris 680ms cubic-bezier(0.7, 0, 0.2, 1) forwards;
+  box-shadow: none;
+}
+
+.splash[data-intro="blur"]:not(.splash--free).splash--gone > *,
+.splash[data-intro="rise"]:not(.splash--free).splash--gone > * {
+  transform: scale(0.92);
+}
+
+.splash[data-intro="drop"]:not(.splash--free).splash--gone > * {
+  transform: translateY(120px) rotate(3deg);
+}
+
+@keyframes splash-drop-out {
+  to {
+    transform: translateY(104%);
+    border-radius: 48px 48px 0 0;
+  }
+}
+
+@keyframes splash-blur-out {
+  to {
+    opacity: 0;
+    transform: scale(1.12);
+    filter: blur(10px);
+  }
+}
+
+@keyframes splash-iris {
+  from {
+    clip-path: circle(150% at 50% 50%);
+  }
+  to {
+    clip-path: circle(0% at 50% 50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash[data-intro].splash--gone {
+    animation: none;
+    opacity: 0;
+    transition: opacity 200ms ease;
+  }
+}
