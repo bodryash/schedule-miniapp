@@ -366,9 +366,13 @@
         <input id="parallax" type="checkbox">
         <span data-i18n>Объём при наклоне телефона</span>
       </label>
-      <label class="check">
-        <input id="neon" type="checkbox">
-        <span data-i18n>Неоновая ночь</span>
+      <label>
+        <span data-i18n>Неон</span>
+        <select id="neon">
+          <option value="" data-i18n>Выключен</option>
+          <option value="night" data-i18n>Неоновая ночь</option>
+          <option value="day" data-i18n>Неоновый день</option>
+        </select>
       </label>
       <p class="hint" data-i18n>Цвет предмета — откройте пару и выберите цвет внизу.</p>
     </fieldset>

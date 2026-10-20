@@ -1628,7 +1628,7 @@ function rememberLook() {
         }
       }
     }
-    const cls = [...Object.values(THEMES), "neon"].filter((c) => document.body.classList.contains(c));
+    const cls = [...Object.values(THEMES), "neon", "neon-day"].filter((c) => document.body.classList.contains(c));
     const pick = (name, fallback) => style.getPropertyValue(name).trim() || fallback;
     try {
       localStorage.setItem(
@@ -5767,25 +5767,32 @@ function initOverscroll() {
 /* ---------- Неоновая ночь ---------- */
 const NEON_KEY = "schedule.neon";
 
-function applyNeon() {
-  let on = false;
+// Неон бывает ночной (тёмный) и дневной (светлый). Раньше была одна
+// галочка — её «1» читаем как ночь.
+function neonMode() {
   try {
-    on = localStorage.getItem(NEON_KEY) === "1";
+    const saved = localStorage.getItem(NEON_KEY) || "";
+    return saved === "1" ? "night" : saved;
   } catch {
-    on = false;
+    return "";
   }
-  document.body.classList.toggle("neon", on);
+}
+
+function applyNeon() {
+  const mode = neonMode();
+  document.body.classList.toggle("neon", mode === "night");
+  document.body.classList.toggle("neon-day", mode === "day");
   rememberLook();
-  const box = document.getElementById("neon");
-  if (box) box.checked = on;
+  const pick = document.getElementById("neon");
+  if (pick && pick.value !== mode) pick.value = mode;
 }
 
 function initNeon() {
   applyNeon();
   document.getElementById("neon")?.addEventListener("change", (event) => {
-    haptic(event.target.checked ? "success" : "light");
+    haptic(event.target.value ? "success" : "light");
     try {
-      localStorage.setItem(NEON_KEY, event.target.checked ? "1" : "");
+      localStorage.setItem(NEON_KEY, event.target.value);
     } catch {
       // Без памяти — до перезапуска.
     }

@@ -9709,3 +9709,86 @@ body.neon .wgrid-cell--parity {
   color: #fff;
 }
 
+
+/* ===== Неоновый день =====
+   Светлый фон, яркие розовый и бирюзовый, свечение — внутрь, как у ночного. */
+body.neon-day,
+body.neon-day[data-parity] {
+  --bg: #f4f5ff;
+  --card: #ffffff;
+  --surface: #ffffff;
+  --text: #14163a;
+  --muted: #6b6f96;
+  --accent: #ff1fae;
+  --accent-soft: rgba(255, 31, 174, 0.12);
+  --accent-text: #ffffff;
+  --line: rgba(0, 184, 217, 0.3);
+  --edge: rgba(20, 22, 58, 0.08);
+  --shadow-card: none;
+  --tg-theme-bg-color: #f4f5ff;
+  --tg-theme-secondary-bg-color: #ffffff;
+  --tg-theme-text-color: #14163a;
+  --tg-theme-hint-color: #6b6f96;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+body.neon-day::before {
+  background:
+    radial-gradient(90% 40% at 0% 0%, rgba(255, 31, 174, 0.14), transparent 60%),
+    radial-gradient(90% 40% at 100% 10%, rgba(0, 200, 235, 0.16), transparent 62%) !important;
+}
+
+body.neon-day .card {
+  background: #ffffff;
+  border: 1px solid rgba(20, 22, 58, 0.08);
+  border-left-width: 3px;
+  box-shadow: 0 6px 18px -12px rgba(80, 40, 160, 0.35);
+}
+
+body.neon-day .card--colored {
+  box-shadow: inset 6px 0 14px -8px var(--subject-color), 0 6px 18px -12px rgba(80, 40, 160, 0.35);
+}
+
+body.neon-day .card--now {
+  border-color: #00c2e6;
+  box-shadow:
+    0 0 0 1px rgba(0, 194, 230, 0.4),
+    inset 0 0 20px rgba(0, 194, 230, 0.18) !important;
+}
+
+body.neon-day .card--now .subject {
+  color: #0090ad;
+}
+
+body.neon-day .card--running::after {
+  box-shadow:
+    inset 0 0 0 2px rgba(0, 194, 230, 0.75),
+    inset 0 0 24px -2px rgba(0, 194, 230, 0.4);
+}
+
+body.neon-day .day.active {
+  background: radial-gradient(120% 90% at 50% 0%, #ff6bd0, #ff1fae 55%, #d1008a);
+  box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.45), 0 0 0 1px rgba(255, 31, 174, 0.5);
+}
+
+body.neon-day .room-badge {
+  background: rgba(0, 194, 230, 0.12);
+  color: #007f99;
+}
+
+body.neon-day .wgrid-cell {
+  background: color-mix(in srgb, var(--c) 14%, #ffffff);
+  color: #14163a;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--c) 70%, transparent), inset 0 0 12px color-mix(in srgb, var(--c) 30%, transparent);
+}
+
+body.neon-day .wgrid-cell b {
+  color: color-mix(in srgb, var(--c) 70%, #14163a);
+}
+
+body.neon-day .wgrid-cell--parity {
+  background:
+    repeating-linear-gradient(135deg, transparent 0 8px, color-mix(in srgb, var(--c) 12%, transparent) 8px 16px),
+    color-mix(in srgb, var(--c) 14%, #ffffff);
+}
