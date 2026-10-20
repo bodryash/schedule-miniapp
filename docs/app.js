@@ -2434,6 +2434,13 @@ function showWeek() {
     })
   );
 
+  document.getElementById("week-mode")?.replaceChildren(weekGridOn() ? t("Списком") : t("Сеткой"));
+  els.weekBody.classList.toggle("week-body--grid", weekGridOn());
+  if (weekGridOn()) {
+    els.weekBody.replaceChildren(renderWeekGrid(group));
+    return;
+  }
+
   const bells = new Map(data.bells.map((b) => [b.n, b]));
   const todayIso = isoDate(new Date());
   const nodes = [];
@@ -5609,6 +5616,8 @@ function initCustomLook() {
       // Без памяти — до перезапуска.
     }
     applyCardsStyle();
+    stackOpen = false;
+    applyStack();
   });
   const tilt = document.getElementById("parallax");
   if (tilt) {
@@ -5623,6 +5632,256 @@ function initCustomLook() {
     });
   }
   enableParallax(false);
+}
+
+/* ---------- Неделя сеткой ----------
+ * Все шесть дней сразу, как бумажное расписание: строки — пары, столбцы —
+ * дни. Цвет клетки — цвет предмета (свой или по названию). Тап — день.
+ */
+const WEEK_GRID_KEY = "schedule.weekGrid";
+const GRID_PALETTE = ["#3a7bff", "#8b5cf6", "#2ec27e", "#ff9f1c", "#ec4899", "#1fb5c9", "#ff5a5f", "#6366f1", "#14b8a6", "#f59e0b"];
+
+function weekGridOn() {
+  try {
+    return localStorage.getItem(WEEK_GRID_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function gridColor(subject) {
+  const own = subjectColor(subject);
+  if (own) return own;
+  let hash = 0;
+  for (const ch of subject) hash = (hash * 31 + ch.codePointAt(0)) >>> 0;
+  return GRID_PALETTE[hash % GRID_PALETTE.length];
+}
+
+function shortSubject(name) {
+  // В клетке шириной в шестую часть экрана помещается слов пять-шесть букв:
+  // режем каждое слово по слогу, а не посреди как придётся.
+  const words = name.replace(/[«»"(),:]/g, " ").split(/\s+/).filter((w) => w && !/^(и|в|с|на|для|по|к)$/i.test(w));
+  return words
+    .slice(0, 3)
+    .map((w) => (w.length > 6 ? w.slice(0, 5).replace(/[аеёиоуыэюяьъй]+$/i, "") + "." : w))
+    .join(" ");
+}
+
+function renderWeekGrid(group) {
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  const todayIso = isoDate(new Date());
+  const days = [];
+  let maxSlot = 0;
+  let minSlot = 99;
+  for (let day = 1; day <= 6; day++) {
+    const date = dateOfDay(day, selectedWeek);
+    const lessons = ownLessonsForDay(group, day, selectedWeek).filter((l) => !lessonCancelOn(l, isoDate(date)));
+    for (const l of lessons) {
+      maxSlot = Math.max(maxSlot, l.slot);
+      minSlot = Math.min(minSlot, l.slot);
+    }
+    days.push({ day, date, lessons });
+  }
+  const grid = el("div", "wgrid");
+  if (!maxSlot) {
+    grid.append(el("div", "week-empty", t("Пар нет")));
+    return grid;
+  }
+  grid.style.setProperty("--rows", String(maxSlot - minSlot + 1));
+  grid.append(el("div", "wgrid-corner"));
+  for (const { day, date } of days) {
+    const head = el("div", isoDate(date) === todayIso ? "wgrid-day wgrid-day--today" : "wgrid-day");
+    head.append(el("b", null, DAYS[day - 1].slice(0, 2)), el("span", null, String(date.getDate())));
+    grid.append(head);
+  }
+  const clock = new Date();
+  const nowMin = clock.getHours() * 60 + clock.getMinutes();
+  for (let slot = minSlot; slot <= maxSlot; slot++) {
+    const bell = bells.get(slot);
+    grid.append(el("div", "wgrid-time", bell ? bell.start : String(slot)));
+    for (const { day, date, lessons } of days) {
+      const here = lessons.filter((l) => l.slot === slot);
+      if (!here.length) {
+        grid.append(el("div", "wgrid-cell wgrid-cell--empty"));
+        continue;
+      }
+      const first = here[0];
+      const cell = el("button", "wgrid-cell");
+      cell.type = "button";
+      cell.style.setProperty("--c", gridColor(first.subject));
+      const time = timesOf(first, bells);
+      if (time && isoDate(date) === todayIso) {
+        const [sh, sm] = time.start.split(":").map(Number);
+        const [eh, em] = time.end.split(":").map(Number);
+        if (nowMin >= sh * 60 + sm && nowMin < eh * 60 + em) cell.classList.add("wgrid-cell--now");
+      }
+      const odd = here.length > 1 ? ` +${here.length - 1}` : "";
+      cell.append(el("b", null, shortSubject(tr(first.subject)) + odd));
+      if (first.room) cell.append(el("span", null, first.room.replace(/^ауд\.?\s*/i, "")));
+      if (first.week === "odd" || first.week === "even") cell.classList.add("wgrid-cell--parity");
+      cell.addEventListener("click", () => {
+        haptic("light");
+        selectedDay = day;
+        openTab("schedule");
+      });
+      grid.append(cell);
+    }
+  }
+  return grid;
+}
+
+function initWeekGrid() {
+  const button = document.getElementById("week-mode");
+  if (!button) return;
+  const label = () => {
+    button.textContent = weekGridOn() ? t("Списком") : t("Сеткой");
+  };
+  label();
+  button.addEventListener("click", () => {
+    haptic("select");
+    try {
+      localStorage.setItem(WEEK_GRID_KEY, weekGridOn() ? "" : "1");
+    } catch {
+      // Без памяти — до перезапуска.
+    }
+    label();
+    showWeek();
+  });
+}
+
+/* ---------- Стопка, как в Wallet ----------
+ * Карточки дня лежат стопкой: прошедшие — узкими полосками сверху, текущая
+ * (или ближайшая) — целиком, следующие выглядывают краем. Тап по стопке или
+ * свайп вверх — стопка раскрывается в обычный список, кнопка внизу собирает.
+ */
+let stackOpen = false;
+let stackChip = null;
+
+function stackMode() {
+  return document.body.dataset.cards === "stack";
+}
+
+function applyStack() {
+  const strip = els.lessons;
+  if (!strip) return;
+  const cards = [...strip.querySelectorAll(":scope > article.card")];
+  const mode = stackMode() && cards.length > 1;
+  const closed = mode && !stackOpen;
+  for (const card of cards) {
+    card.classList.remove("card--stack-past", "card--stack-top", "card--stack-next");
+  }
+  if (closed) {
+    const anchor =
+      cards.find((c) => c.classList.contains("card--now")) ||
+      cards.find((c) => !c.classList.contains("card--past") && !c.classList.contains("card--cancelled")) ||
+      cards[cards.length - 1];
+    const at = cards.indexOf(anchor);
+    cards.forEach((card, i) => {
+      const height = card.offsetHeight;
+      let pull = "";
+      if (i < at) {
+        card.classList.add("card--stack-past");
+        pull = `${-(height - 60)}px`;
+      } else if (i === at) {
+        card.classList.add("card--stack-top");
+      } else {
+        card.classList.add("card--stack-next");
+        if (i < cards.length - 1) pull = `${-(height - 62)}px`;
+      }
+      if (pull) card.style.setProperty("--stack-pull", pull);
+      else card.style.removeProperty("--stack-pull");
+    });
+  } else {
+    for (const card of cards) card.style.removeProperty("--stack-pull");
+  }
+  strip.classList.toggle("stack", closed);
+  strip.classList.toggle("stack--open", mode && stackOpen);
+  if (mode && stackOpen) {
+    if (!stackChip) {
+      stackChip = el("button", "chip stack-close", t("Собрать стопку"));
+      stackChip.type = "button";
+      stackChip.addEventListener("click", () => {
+        haptic("light");
+        stackOpen = false;
+        applyStack();
+        strip.scrollIntoView({ block: "start", behavior: "smooth" });
+      });
+    }
+    if (stackChip.parentNode !== strip) strip.append(stackChip);
+  } else {
+    stackChip?.remove();
+  }
+}
+
+function openStack() {
+  if (!els.lessons.classList.contains("stack")) return false;
+  haptic("select");
+  stackOpen = true;
+  applyStack();
+  return true;
+}
+
+function initStack() {
+  const strip = els.lessons;
+  if (!strip) return;
+  // Новый день на экране — снова стопкой.
+  new MutationObserver((records) => {
+    if (records.some((r) => [...r.addedNodes].some((n) => n !== stackChip))) {
+      stackOpen = false;
+      requestAnimationFrame(applyStack);
+    }
+  }).observe(strip, { childList: true });
+  // Тап по собранной стопке раскрывает её, а не открывает пару
+  // (кроме верхней, целиком видной карточки).
+  strip.addEventListener("click", (event) => {
+    if (!strip.classList.contains("stack")) return;
+    const card = event.target.closest("article.card");
+    if (card && card.classList.contains("card--stack-top")) return;
+    event.stopImmediatePropagation();
+    openStack();
+  }, true);
+  // Свайп вверх по стопке — раскрыть.
+  let startY = null;
+  strip.addEventListener("touchstart", (e) => {
+    startY = strip.classList.contains("stack") ? e.touches[0].clientY : null;
+  }, { passive: true });
+  strip.addEventListener("touchmove", (e) => {
+    if (startY != null && startY - e.touches[0].clientY > 36) {
+      startY = null;
+      openStack();
+    }
+  }, { passive: true });
+  strip.addEventListener("wheel", (e) => {
+    if (e.deltaY > 20) openStack();
+  }, { passive: true });
+}
+
+/* ---------- Неоновая ночь ---------- */
+const NEON_KEY = "schedule.neon";
+
+function applyNeon() {
+  let on = false;
+  try {
+    on = localStorage.getItem(NEON_KEY) === "1";
+  } catch {
+    on = false;
+  }
+  document.body.classList.toggle("neon", on);
+  const box = document.getElementById("neon");
+  if (box) box.checked = on;
+}
+
+function initNeon() {
+  applyNeon();
+  document.getElementById("neon")?.addEventListener("change", (event) => {
+    haptic(event.target.checked ? "success" : "light");
+    try {
+      localStorage.setItem(NEON_KEY, event.target.checked ? "1" : "");
+    } catch {
+      // Без памяти — до перезапуска.
+    }
+    applyNeon();
+  });
 }
 
 /* ---------- Фон на выбор ----------
@@ -8861,6 +9120,7 @@ function refreshNow() {
     const [animation] = bar.getAnimations();
     if (animation) animation.currentTime = current.elapsed * 60_000;
   }
+  if (stackMode() && !stackOpen) applyStack();
 }
 
 /**
@@ -9860,6 +10120,9 @@ async function init() {
   applyDecor();
   applyBackground();
   initCustomLook();
+  initWeekGrid();
+  initStack();
+  initNeon();
   document.getElementById("bg-pick")?.addEventListener("change", (event) => {
     haptic("select");
     try {

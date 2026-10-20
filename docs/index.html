@@ -328,11 +328,16 @@
           <option value="glass" data-i18n>Стекло</option>
           <option value="flat" data-i18n>Плоские</option>
           <option value="compact" data-i18n>Компактные</option>
+          <option value="stack" data-i18n>Стопкой, как в Wallet</option>
         </select>
       </label>
       <label class="check">
         <input id="parallax" type="checkbox">
         <span data-i18n>Объём при наклоне телефона</span>
+      </label>
+      <label class="check">
+        <input id="neon" type="checkbox">
+        <span data-i18n>Неоновая ночь</span>
       </label>
       <p class="hint" data-i18n>Цвет предмета — откройте пару и выберите цвет внизу.</p>
     </fieldset>
@@ -435,6 +440,7 @@
         </div>
       </div>
       <div class="date" id="week-range"></div>
+      <button class="chip week-mode" id="week-mode" type="button" data-i18n>Сеткой</button>
     </header>
     <nav class="days days--weeks" id="week-switch"></nav>
     <div id="week-body"></div>
