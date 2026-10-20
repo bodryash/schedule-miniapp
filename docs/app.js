@@ -1596,6 +1596,10 @@ function rememberLook() {
   lookTimer = setTimeout(async () => {
     await window.__cssReady;
     const style = getComputedStyle(document.body);
+    // То, что видно, когда страницу перетянули за край (пружина на iPhone), —
+    // того же цвета, что расписание, а не цвета Telegram.
+    const paint = style.backgroundColor && style.backgroundColor !== "rgba(0, 0, 0, 0)" ? style.backgroundColor : style.getPropertyValue("--bg").trim();
+    if (paint) document.documentElement.style.backgroundColor = paint;
     const cls = [...Object.values(THEMES), "neon"].filter((c) => document.body.classList.contains(c));
     const pick = (name, fallback) => style.getPropertyValue(name).trim() || fallback;
     try {
@@ -5837,6 +5841,44 @@ function applyStack() {
   stackChip?.remove();
 }
 
+/* Пасхалка: кто сильно тянет расписание за нижний край, находит там
+   зверька с напутствием. Каждый раз — новый. */
+const EGGS = [
+  ["🦦", "Тут живёт выдра. Пар дальше нет, честно"],
+  ["🐈", "Мяу. Дальше только сон"],
+  ["🦔", "Ёжик охраняет конец расписания"],
+  ["🐸", "Ква. Ты долистал до дна"],
+  ["🦉", "Сова одобряет: всё прочитано"],
+  ["🐧", "Пингвин тоже ищет, где кончаются пары"],
+  ["🦥", "Ленивец советует отдохнуть"],
+  ["🐙", "Осьминог держит расписание, чтобы не уехало"],
+];
+let eggNode = null;
+let eggShown = false;
+
+function pullEgg(dy) {
+  if (!eggNode) {
+    eggNode = el("div", "pull-egg");
+    eggNode.append(el("span", "pull-egg-face"), el("span", "pull-egg-text"));
+    document.body.append(eggNode);
+  }
+  const strength = Math.max(0, Math.min(1, (dy - 60) / 110));
+  if (strength > 0 && !eggShown) {
+    const [face, text] = EGGS[Math.floor(Math.random() * EGGS.length)];
+    eggNode.firstChild.textContent = face;
+    eggNode.lastChild.textContent = t(text);
+    eggShown = true;
+  }
+  if (!strength) eggShown = false;
+  eggNode.style.setProperty("--egg", strength.toFixed(3));
+  eggNode.classList.toggle("pull-egg--drag", strength > 0);
+  if (strength === 1 && !eggNode.dataset.buzzed) {
+    eggNode.dataset.buzzed = "1";
+    haptic("success");
+  }
+  if (!strength) delete eggNode.dataset.buzzed;
+}
+
 /** Меняем раскладку стопки так, чтобы карточки переехали плавно. */
 function flipStack(change, focus = null, keep = true) {
   const strip = els.lessons;
@@ -5857,15 +5899,27 @@ function flipStack(change, focus = null, keep = true) {
   }
   if (calm) return;
   const order = anchor ? cards.indexOf(anchor) : 0;
+  const screen = window.innerHeight;
   cards.forEach((card) => {
     const was = before.get(card);
-    const dy = was.top - card.getBoundingClientRect().top;
+    const now = card.getBoundingClientRect();
+    let dy = was.top - now.top;
     const to = getComputedStyle(card).transform;
-    const from = `translateY(${dy}px) ${was.transform === "none" ? "" : was.transform}`.trim();
     if (Math.abs(dy) < 1 && was.transform === to) return;
+    // Карточка была далеко за экраном: не тащим её через весь экран из
+    // ниоткуда, а начинаем чуть за краем и проявляем.
+    const far = was.top > screen + 40 || was.top + now.height < -40;
+    if (far) dy = Math.sign(dy) * Math.min(Math.abs(dy), 90);
+    const from = `translateY(${dy}px) ${was.transform === "none" ? "" : was.transform}`.trim();
     // Волна расходится от верхней карточки: ближние едут первыми.
     const delay = Math.min(Math.abs(cards.indexOf(card) - order) * 35, 200);
-    card.animate([{ transform: from }, { transform: to === "none" ? "none" : to }], {
+    const first = { transform: from };
+    const last = { transform: to === "none" ? "none" : to };
+    if (far) {
+      first.opacity = 0;
+      last.opacity = 1;
+    }
+    card.animate([first, last], {
       duration: 560,
       delay,
       easing: "cubic-bezier(0.22, 1.12, 0.36, 1)",
@@ -5875,9 +5929,9 @@ function flipStack(change, focus = null, keep = true) {
   // Перемены и окна проявляются, когда карточки уже почти на местах.
   if (!strip.classList.contains("stack")) {
     for (const node of strip.querySelectorAll(":scope > :not(article.card)")) {
-      node.animate([{ opacity: 0, transform: "scale(0.96)" }, { opacity: 1, transform: "none" }], {
-        duration: 320,
-        delay: 260,
+      node.animate([{ opacity: 0 }, { opacity: 1 }], {
+        duration: 420,
+        delay: 300,
         easing: "ease-out",
         fill: "backwards",
       });
@@ -5955,6 +6009,7 @@ function initStack() {
   document.addEventListener("touchmove", (e) => {
     if (startY == null) return;
     const dy = startY - e.touches[0].clientY;
+    if (fromBottom && atBottom()) pullEgg(dy);
     if (dy > 50 && fromBottom && atBottom()) {
       startY = null;
       flip(true);
@@ -5966,6 +6021,7 @@ function initStack() {
   }, { passive: true });
   document.addEventListener("touchend", () => {
     startY = null;
+    pullEgg(0);
     if (closeOnRelease) {
       closeOnRelease = false;
       setTimeout(() => flip(false), 90);

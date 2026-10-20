@@ -9719,3 +9719,39 @@ body.neon #lessons.stack > .card--stack-top {
     transition: opacity 200ms ease;
   }
 }
+
+/* ===== Пасхалка за нижним краем ===== */
+.pull-egg {
+  --egg: 0;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+  opacity: var(--egg);
+  transform: translateY(calc((1 - var(--egg)) * 40px)) scale(calc(0.8 + var(--egg) * 0.2));
+  transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.2, 1.3, 0.4, 1);
+}
+
+.pull-egg--drag {
+  transition: none;
+}
+
+.pull-egg-face {
+  font-size: 46px;
+  line-height: 1;
+  transform: rotate(calc((1 - var(--egg)) * -20deg));
+}
+
+.pull-egg-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+  padding: 0 30px;
+}
