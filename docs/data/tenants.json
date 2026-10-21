@@ -329,32 +329,6 @@
     "short": "Биофак"
   },
   {
-    "id": "mgimo-mb",
-    "university": "МГИМО",
-    "faculty": "Факультет международного бизнеса",
-    "path": "mgimo-mb",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 29
-    },
-    "short": "МБ"
-  },
-  {
-    "id": "mgimo-miep",
-    "university": "МГИМО",
-    "faculty": "Международный институт энергетической политики и дипломатии",
-    "path": "mgimo-miep",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 31
-    },
-    "short": "МИЭП"
-  },
-  {
     "id": "mgimo-eui",
     "university": "МГИМО",
     "faculty": "Евразийский учебный институт",
@@ -384,19 +358,6 @@
     "short": "РГУП"
   },
   {
-    "id": "mgimo-mo-dip",
-    "university": "МГИМО",
-    "faculty": "Факультет Международные отношения (Дип)",
-    "path": "mgimo-mo-dip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 55
-    },
-    "short": "МО (Дип)"
-  },
-  {
     "id": "mgimo-imar",
     "university": "МГИМО",
     "faculty": "Институт мировых аграрных рынков",
@@ -408,19 +369,6 @@
       "faculty": 52
     },
     "short": "ИМАР"
-  },
-  {
-    "id": "mgimo-mp-dip",
-    "university": "МГИМО",
-    "faculty": "Международно-правовой факультет (Дип)",
-    "path": "mgimo-mp-dip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 57
-    },
-    "short": "МП (Дип)"
   },
   {
     "id": "mgimo-up-dip",
@@ -457,6 +405,122 @@
     "short": "МЭО (Дип)"
   },
   {
+    "id": "mgimo-mag",
+    "university": "МГИМО",
+    "faculty": "Магистратуры",
+    "path": "mgimo-mag",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 32
+    }
+  },
+  {
+    "id": "mgimo-mo-en",
+    "university": "МГИМО",
+    "faculty": "Факультет международных отношений (на английском языке)",
+    "path": "mgimo-mo-en",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 41
+    },
+    "short": "МО (англ)"
+  },
+  {
+    "id": "msu-philos",
+    "university": "МГУ",
+    "faculty": "Философский факультет",
+    "path": "msu-philos",
+    "features": [],
+    "short": "Философский",
+    "source": {
+      "kind": "tt",
+      "base": "https://cacs.philos.msu.ru",
+      "faculty": "1"
+    }
+  },
+  {
+    "id": "mgimo-mj",
+    "university": "МГИМО",
+    "faculty": "Факультет международной журналистики",
+    "path": "mgimo-mj",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 26
+    },
+    "short": "МЖ"
+  },
+  {
+    "id": "msu-law",
+    "university": "МГУ",
+    "faculty": "Юридический факультет",
+    "path": "msu-law",
+    "features": [],
+    "short": "Юрфак",
+    "source": {
+      "kind": "tt",
+      "base": "https://cacs.law.msu.ru",
+      "faculty": "8,23"
+    }
+  },
+  {
+    "id": "mgimo-mb",
+    "university": "МГИМО",
+    "faculty": "Факультет международного бизнеса",
+    "path": "mgimo-mb",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 29
+    },
+    "short": "МБ"
+  },
+  {
+    "id": "mgimo-miep",
+    "university": "МГИМО",
+    "faculty": "Международный институт энергетической политики и дипломатии",
+    "path": "mgimo-miep",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 31
+    },
+    "short": "МИЭП"
+  },
+  {
+    "id": "mgimo-mo-dip",
+    "university": "МГИМО",
+    "faculty": "Факультет Международные отношения (Дип)",
+    "path": "mgimo-mo-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 55
+    },
+    "short": "МО (Дип)"
+  },
+  {
+    "id": "mgimo-mp-dip",
+    "university": "МГИМО",
+    "faculty": "Международно-правовой факультет (Дип)",
+    "path": "mgimo-mp-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 57
+    },
+    "short": "МП (Дип)"
+  },
+  {
     "id": "msu-vshga",
     "university": "МГУ",
     "faculty": "Высшая школа государственного аудита",
@@ -468,18 +532,6 @@
       "faculty": "3"
     },
     "short": "ВШГА"
-  },
-  {
-    "id": "mgimo-mag",
-    "university": "МГИМО",
-    "faculty": "Магистратуры",
-    "path": "mgimo-mag",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 32
-    }
   },
   {
     "id": "mgimo-mp",
@@ -534,32 +586,6 @@
     "short": "УП"
   },
   {
-    "id": "mgimo-mo-en",
-    "university": "МГИМО",
-    "faculty": "Факультет международных отношений (на английском языке)",
-    "path": "mgimo-mo-en",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 41
-    },
-    "short": "МО (англ)"
-  },
-  {
-    "id": "msu-philos",
-    "university": "МГУ",
-    "faculty": "Философский факультет",
-    "path": "msu-philos",
-    "features": [],
-    "short": "Философский",
-    "source": {
-      "kind": "tt",
-      "base": "https://cacs.philos.msu.ru",
-      "faculty": "1"
-    }
-  },
-  {
     "id": "msu-socio",
     "university": "МГУ",
     "faculty": "Социологический факультет",
@@ -598,31 +624,5 @@
       "faculty": 25
     },
     "short": "МЭО"
-  },
-  {
-    "id": "mgimo-mj",
-    "university": "МГИМО",
-    "faculty": "Факультет международной журналистики",
-    "path": "mgimo-mj",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 26
-    },
-    "short": "МЖ"
-  },
-  {
-    "id": "msu-law",
-    "university": "МГУ",
-    "faculty": "Юридический факультет",
-    "path": "msu-law",
-    "features": [],
-    "short": "Юрфак",
-    "source": {
-      "kind": "tt",
-      "base": "https://cacs.law.msu.ru",
-      "faculty": "8,23"
-    }
   }
 ]
