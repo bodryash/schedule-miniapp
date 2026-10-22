@@ -101,6 +101,60 @@ globalThis.SCHEDULE_SAVE_FILE = async (document, from, caption) => {
   }
 };
 
+/**
+ * Файл из Telegram. Через пересыльщик на Cloudflare длинное скачивание из
+ * России обрывается (соединение душат после ~16 КБ), поэтому качаем кусками
+ * по 12 КБ, каждый — отдельным соединением. Напрямую (без пересыльщика) —
+ * одним запросом.
+ */
+async function downloadTelegramFile(url, size) {
+  if (!TELEGRAM_BASE) {
+    const file = await fetch(url, { signal: AbortSignal.timeout(120000) });
+    if (!file.ok) throw new Error(`HTTP ${file.status}`);
+    return Buffer.from(await file.arrayBuffer());
+  }
+  const { request } = await import("node:https");
+  const target = new URL(TELEGRAM_BASE + url.slice(TELEGRAM_API.length));
+  const piece = (from, to) =>
+    new Promise((resolve, reject) => {
+      const req = request(
+        target,
+        { agent: false, headers: { range: `bytes=${from}-${to}` }, timeout: 20000 },
+        (res) => {
+          const chunks = [];
+          res.on("data", (chunk) => chunks.push(chunk));
+          res.on("end", () => {
+            if (res.statusCode !== 206 && res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}`));
+            const total = Number(String(res.headers["content-range"] || "").split("/")[1]) || null;
+            resolve({ body: Buffer.concat(chunks), total });
+          });
+          res.on("error", reject);
+        }
+      );
+      req.on("timeout", () => req.destroy(new Error("кусок не скачался за 20 с")));
+      req.on("error", reject);
+      req.end();
+    });
+  const STEP = 12 * 1024;
+  const parts = [];
+  let total = size || Infinity;
+  for (let from = 0; from < total; from += STEP) {
+    let got;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        got = await piece(from, from + STEP - 1);
+        break;
+      } catch (error) {
+        if (attempt >= 3) throw error;
+      }
+    }
+    parts.push(got.body);
+    if (got.total) total = got.total;
+    if (!got.body.length) break;
+  }
+  return Buffer.concat(parts);
+}
+
 async function saveFile(document, from, caption) {
   if (!document?.file_id || (document.file_size || 0) > 20 * 1024 * 1024) return;
   const t0 = Date.now();
@@ -112,11 +166,9 @@ async function saveFile(document, from, caption) {
   }
   if (!info.ok) throw new Error(`getFile: ${info.description || "не ok"}`);
   const t1 = Date.now();
-  let file, data;
+  let data;
   try {
-    file = await fetch(`https://api.telegram.org/file/bot${env.BOT_TOKEN}/${info.result.file_path}`, { signal: AbortSignal.timeout(120000) });
-    if (!file.ok) throw new Error(`HTTP ${file.status}`);
-    data = Buffer.from(await file.arrayBuffer());
+    data = await downloadTelegramFile(`https://api.telegram.org/file/bot${env.BOT_TOKEN}/${info.result.file_path}`, document.file_size || info.result.file_size || 0);
   } catch (error) {
     throw new Error(`скачивание ${document.file_size || "?"} байт за ${Date.now() - t1} мс: ${error.message}`);
   }

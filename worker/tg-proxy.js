@@ -24,6 +24,24 @@ export default {
       headers: { "content-type": request.headers.get("content-type") || "application/json" },
     };
     if (request.method !== "GET" && request.method !== "HEAD") init.body = await request.arrayBuffer();
+    // Файлы сервер качает кусками (Range): длинное соединение до Cloudflare из
+    // России душат после первых ~16 КБ. Отдаём нужный кусок файла.
+    const range = request.headers.get("range");
+    if (range && url.pathname.startsWith("/file/")) {
+      const match = /^bytes=(\d+)-(\d+)$/.exec(range);
+      const full = await fetch(target);
+      if (!full.ok || !match) return new Response(full.body, { status: full.status });
+      const bytes = new Uint8Array(await full.arrayBuffer());
+      const from = Number(match[1]);
+      const to = Math.min(Number(match[2]), bytes.length - 1);
+      return new Response(bytes.slice(from, to + 1), {
+        status: 206,
+        headers: {
+          "content-type": "application/octet-stream",
+          "content-range": `bytes ${from}-${to}/${bytes.length}`,
+        },
+      });
+    }
     const response = await fetch(target, init);
     return new Response(response.body, {
       status: response.status,
