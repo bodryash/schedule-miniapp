@@ -624,5 +624,13 @@
       "base": "http://ccs2.hist.msu.ru",
       "faculty": "all"
     }
+  },
+  {
+    "id": "msu-vshp",
+    "university": "МГУ",
+    "faculty": "Высшая школа перевода",
+    "path": "msu-vshp",
+    "features": [],
+    "short": "ВШП"
   }
 ]
