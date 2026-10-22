@@ -4098,7 +4098,28 @@ ${invite}`,
         (document.file_name || "").toLowerCase().endsWith(".pdf");
       const watched = owner ? null : await watchedChat(env, message.chat.id).catch(() => null);
 
-      if (watched) {
+      // Владелец переслал боту чужой файл (расписание от студента) — это не
+      // обновление ФГП: кладём во входящие от имени того, кто прислал.
+      const origin = message.forward_origin;
+      const forwardedFrom = owner
+        ? origin?.sender_user ||
+          message.forward_from ||
+          (origin?.sender_user_name || message.forward_sender_name
+            ? { first_name: origin?.sender_user_name || message.forward_sender_name }
+            : origin || message.forward_date
+              ? { first_name: "переслано" }
+              : null)
+        : null;
+      if (forwardedFrom && globalThis.SCHEDULE_SAVE_FILE) {
+        let saved = true;
+        await Promise.resolve(globalThis.SCHEDULE_SAVE_FILE(document, forwardedFrom, message.caption || "")).catch(() => {
+          saved = false;
+        });
+        await callTelegram(env.BOT_TOKEN, "sendMessage", {
+          chat_id: message.chat.id,
+          text: saved ? `Сохранил во входящие: ${document.file_name || "файл"}` : "Не смог сохранить файл — подробности в журнале сервера.",
+        }).catch(() => {});
+      } else if (watched) {
         // Чат курса: в сам чат не отвечаем ни при каких условиях.
         if (pdf) await offerUpdate(env, message, document);
       } else if (message.chat.type === "private") {

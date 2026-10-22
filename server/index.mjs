@@ -92,11 +92,21 @@ const env = {
 // папку рядом с базой: файл и рядом — кто и когда прислал.
 const INBOX = join(dirname(DB_PATH), "inbox");
 globalThis.SCHEDULE_SAVE_FILE = async (document, from, caption) => {
+  // Ошибку сохранения не глотаем молча — иначе файлы пропадают незаметно.
+  try {
+    return await saveFile(document, from, caption);
+  } catch (error) {
+    console.error("Файл во входящие не сохранился:", document?.file_name || "", error);
+    throw error;
+  }
+};
+
+async function saveFile(document, from, caption) {
   if (!document?.file_id || (document.file_size || 0) > 20 * 1024 * 1024) return;
   const info = await (await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/getFile?file_id=${encodeURIComponent(document.file_id)}`, { signal: AbortSignal.timeout(15000) })).json();
-  if (!info.ok) return;
+  if (!info.ok) throw new Error(`getFile: ${info.description || "не ok"}`);
   const file = await fetch(`https://api.telegram.org/file/bot${env.BOT_TOKEN}/${info.result.file_path}`, { signal: AbortSignal.timeout(60000) });
-  if (!file.ok) return;
+  if (!file.ok) throw new Error(`скачивание: HTTP ${file.status}`);
   mkdirSync(INBOX, { recursive: true });
   // Имя файла — чужое: оставляем только безопасные знаки.
   const safe = String(document.file_name || "file").replace(/[^\p{L}\p{N}._ -]/gu, "_").slice(-80);
@@ -110,7 +120,7 @@ globalThis.SCHEDULE_SAVE_FILE = async (document, from, caption) => {
     join(INBOX, `${stamp}_${safe}.json`),
     JSON.stringify({ at: new Date().toISOString(), from: { id: from?.id, name: [from?.first_name, from?.last_name].filter(Boolean).join(" "), username: from?.username || "" }, caption, name: document.file_name, size: document.file_size }, null, 2)
   );
-};
+}
 
 // Слова, которые студенты пишут боту: одной строкой на сообщение.
 globalThis.SCHEDULE_SAVE_NOTE = async (from, text, withFile) => {
