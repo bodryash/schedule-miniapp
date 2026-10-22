@@ -51,6 +51,29 @@ jobs:
         id: check
         run: python tools/check.py schedule.pdf
 
+      # Второй предохранитель: 22.10.2026 боту переслали PDF другого вуза,
+      # разбор нашёл в нём 0 групп ФГП — и пустое расписание опубликовалось.
+      # Пусто или групп стало заметно меньше — это не расписание ФГП.
+      - name: Не публиковать пустое или урезанное
+        run: |
+          python - <<'PY'
+          import json, sys
+          new = json.load(open("docs/data/schedule.json", encoding="utf-8"))
+          try:
+              old = json.load(open("/tmp/before.json", encoding="utf-8"))
+          except Exception:
+              old = {}
+          n_new, n_old = len(new.get("groups", [])), len(old.get("groups", []))
+          l_new, l_old = len(new.get("lessons", [])), len(old.get("lessons", []))
+          print(f"групп {n_old} → {n_new}, пар {l_old} → {l_new}")
+          if n_new == 0 or l_new == 0:
+              sys.exit("В файле не нашлось групп ФГП — похоже, это не расписание ФГП. Не публикую.")
+          if n_old and n_new < n_old * 0.8:
+              sys.exit(f"Групп стало заметно меньше ({n_old} → {n_new}) — не публикую, проверьте файл.")
+          if l_old and l_new < l_old * 0.5:
+              sys.exit(f"Пар стало вдвое меньше ({l_old} → {l_new}) — не публикую, проверьте файл.")
+          PY
+
       - name: Что изменилось
         id: diff
         run: |
