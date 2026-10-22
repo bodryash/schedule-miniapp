@@ -329,19 +329,6 @@
     "short": "Биофак"
   },
   {
-    "id": "mgimo-eui",
-    "university": "МГИМО",
-    "faculty": "Евразийский учебный институт",
-    "path": "mgimo-eui",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 34
-    },
-    "short": "ЕУИ"
-  },
-  {
     "id": "msu-ffl",
     "university": "МГУ",
     "faculty": "Факультет иностранных языков и регионоведения",
@@ -356,19 +343,6 @@
     "path": "rgup-jur",
     "features": [],
     "short": "РГУП"
-  },
-  {
-    "id": "mgimo-imar",
-    "university": "МГИМО",
-    "faculty": "Институт мировых аграрных рынков",
-    "path": "mgimo-imar",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 52
-    },
-    "short": "ИМАР"
   },
   {
     "id": "mgimo-up-dip",
@@ -430,19 +404,6 @@
     "short": "МО (англ)"
   },
   {
-    "id": "msu-philos",
-    "university": "МГУ",
-    "faculty": "Философский факультет",
-    "path": "msu-philos",
-    "features": [],
-    "short": "Философский",
-    "source": {
-      "kind": "tt",
-      "base": "https://cacs.philos.msu.ru",
-      "faculty": "1"
-    }
-  },
-  {
     "id": "mgimo-mj",
     "university": "МГИМО",
     "faculty": "Факультет международной журналистики",
@@ -454,19 +415,6 @@
       "faculty": 26
     },
     "short": "МЖ"
-  },
-  {
-    "id": "msu-law",
-    "university": "МГУ",
-    "faculty": "Юридический факультет",
-    "path": "msu-law",
-    "features": [],
-    "short": "Юрфак",
-    "source": {
-      "kind": "tt",
-      "base": "https://cacs.law.msu.ru",
-      "faculty": "8,23"
-    }
   },
   {
     "id": "mgimo-mb",
@@ -519,6 +467,85 @@
       "faculty": 57
     },
     "short": "МП (Дип)"
+  },
+  {
+    "id": "msu-socio",
+    "university": "МГУ",
+    "faculty": "Социологический факультет",
+    "path": "msu-socio",
+    "features": [],
+    "short": "Социофак",
+    "source": {
+      "kind": "hist",
+      "base": "http://cacs.socio.msu.ru",
+      "faculty": "all",
+      "entry": "aID=3"
+    }
+  },
+  {
+    "id": "mgimo-meo",
+    "university": "МГИМО",
+    "faculty": "Факультет международных экономических отношений",
+    "path": "mgimo-meo",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 25
+    },
+    "short": "МЭО"
+  },
+  {
+    "id": "mgimo-eui",
+    "university": "МГИМО",
+    "faculty": "Евразийский учебный институт",
+    "path": "mgimo-eui",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 34
+    },
+    "short": "ЕУИ"
+  },
+  {
+    "id": "mgimo-imar",
+    "university": "МГИМО",
+    "faculty": "Институт мировых аграрных рынков",
+    "path": "mgimo-imar",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 52
+    },
+    "short": "ИМАР"
+  },
+  {
+    "id": "msu-philos",
+    "university": "МГУ",
+    "faculty": "Философский факультет",
+    "path": "msu-philos",
+    "features": [],
+    "short": "Философский",
+    "source": {
+      "kind": "tt",
+      "base": "https://cacs.philos.msu.ru",
+      "faculty": "1"
+    }
+  },
+  {
+    "id": "msu-law",
+    "university": "МГУ",
+    "faculty": "Юридический факультет",
+    "path": "msu-law",
+    "features": [],
+    "short": "Юрфак",
+    "source": {
+      "kind": "tt",
+      "base": "https://cacs.law.msu.ru",
+      "faculty": "8,23"
+    }
   },
   {
     "id": "msu-vshga",
@@ -586,20 +613,6 @@
     "short": "УП"
   },
   {
-    "id": "msu-socio",
-    "university": "МГУ",
-    "faculty": "Социологический факультет",
-    "path": "msu-socio",
-    "features": [],
-    "short": "Социофак",
-    "source": {
-      "kind": "hist",
-      "base": "http://cacs.socio.msu.ru",
-      "faculty": "all",
-      "entry": "aID=3"
-    }
-  },
-  {
     "id": "msu-hist",
     "university": "МГУ",
     "faculty": "Исторический факультет",
@@ -611,18 +624,5 @@
       "base": "http://ccs2.hist.msu.ru",
       "faculty": "all"
     }
-  },
-  {
-    "id": "mgimo-meo",
-    "university": "МГИМО",
-    "faculty": "Факультет международных экономических отношений",
-    "path": "mgimo-meo",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 25
-    },
-    "short": "МЭО"
   }
 ]
