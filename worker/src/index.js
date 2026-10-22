@@ -4085,6 +4085,30 @@ ${invite}`,
       }
     }
 
+    // Владелец переслал боту чужое фото (расписание-картинку) — во входящие
+    // от имени того, кто прислал. Без этого бот на такое молчал.
+    if (
+      message &&
+      message.chat.type === "private" &&
+      String(message.chat.id) === String(env.OWNER_ID) &&
+      message.photo?.length &&
+      (message.forward_origin || message.forward_from || message.forward_date) &&
+      globalThis.SCHEDULE_SAVE_FILE
+    ) {
+      const origin = message.forward_origin;
+      const from = origin?.sender_user || message.forward_from || { first_name: origin?.sender_user_name || message.forward_sender_name || "переслано" };
+      let saved = true;
+      await Promise.resolve(
+        globalThis.SCHEDULE_SAVE_FILE({ ...message.photo.at(-1), file_name: "photo.jpg" }, from, message.caption || "")
+      ).catch(() => {
+        saved = false;
+      });
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: saved ? "Сохранил фото во входящие." : "Не смог сохранить фото — подробности в журнале сервера.",
+      }).catch(() => {});
+    }
+
     // Владелец прислал видео, гифку, фото или файл с подписью «/broadcast …» —
     // это рассылка с вложением, а не расписание на обновление.
     const castMedia =

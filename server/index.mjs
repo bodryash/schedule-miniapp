@@ -255,6 +255,17 @@ const server = createServer(async (req, res) => {
     // скачивание файла) Telegram считает ошибкой, копит очередь и шлёт
     // те же сообщения заново.
     const fromTelegram = req.method === "POST" && req.headers["x-telegram-bot-api-secret-token"];
+    // Временно: видно, что приходит от Telegram (тип сообщения, без текста).
+    if (fromTelegram) {
+      try {
+        const update = JSON.parse(Buffer.from(body || "").toString("utf8"));
+        const m = update.message || update.edited_message || {};
+        const kind = m.document ? `документ ${m.document.mime_type || ""}` : m.photo ? "фото" : m.text ? "текст" : Object.keys(update).filter((k) => k !== "update_id").join(",");
+        console.log(`TG ${kind}${m.forward_origin || m.forward_date ? " (пересланное)" : ""} от ${m.chat?.id === Number(env.OWNER_ID) ? "владельца" : "человека"}`);
+      } catch {
+        // не JSON — пропускаем
+      }
+    }
     const handling = worker.fetch(request, env, ctx);
     let response;
     if (fromTelegram) {
