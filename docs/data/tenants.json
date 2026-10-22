@@ -632,5 +632,13 @@
     "path": "msu-vshp",
     "features": [],
     "short": "ВШП"
+  },
+  {
+    "id": "mpei-inei",
+    "university": "НИУ «МЭИ»",
+    "faculty": "Инженерно-экономический институт",
+    "path": "mpei-inei",
+    "features": [],
+    "short": "ИнЭИ"
   }
 ]
