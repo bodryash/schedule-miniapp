@@ -240,7 +240,25 @@ const server = createServer(async (req, res) => {
     const body = req.method === "GET" || req.method === "HEAD" ? undefined : await readBody(req);
     const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost";
     const request = new Request(`https://${host}${req.url}`, { method: req.method, headers: req.headers, body });
-    const response = await worker.fetch(request, env, ctx);
+    // Сообщение от Telegram отвечаем «принято» не дольше чем через 5 с, а
+    // разбор доживает в фоне: иначе медленный ответ (сеть до Telegram,
+    // скачивание файла) Telegram считает ошибкой, копит очередь и шлёт
+    // те же сообщения заново.
+    const fromTelegram = req.method === "POST" && req.headers["x-telegram-bot-api-secret-token"];
+    const handling = worker.fetch(request, env, ctx);
+    let response;
+    if (fromTelegram) {
+      const late = Symbol("late");
+      const first = await Promise.race([handling, new Promise((resolve) => setTimeout(() => resolve(late), 5000))]);
+      if (first === late) {
+        handling.catch((error) => console.error("Сообщение Telegram разбиралось с ошибкой:", error));
+        response = new Response("ok");
+      } else {
+        response = first;
+      }
+    } else {
+      response = await handling;
+    }
 
     const headers = {};
     response.headers.forEach((value, key) => (headers[key] = value));
