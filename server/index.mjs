@@ -26,6 +26,22 @@ globalThis.SCHEDULE_READ_DATA = (path) => {
     return null;
   }
 };
+// Обход блокировки: с 22.10.2026 сервер не может подключиться к
+// api.telegram.org. Если задан TELEGRAM_API_BASE (наш пересыльщик на
+// Cloudflare, worker/tg-proxy.js), все запросы к Telegram идут через него.
+const TELEGRAM_API = "https://api.telegram.org";
+const TELEGRAM_BASE = (process.env.TELEGRAM_API_BASE || "").replace(/\/+$/, "");
+if (TELEGRAM_BASE) {
+  const direct = globalThis.fetch;
+  globalThis.fetch = (input, init) => {
+    if (typeof input === "string" && input.startsWith(`${TELEGRAM_API}/`)) {
+      input = TELEGRAM_BASE + input.slice(TELEGRAM_API.length);
+    } else if (input instanceof URL && input.origin === TELEGRAM_API) {
+      input = TELEGRAM_BASE + input.pathname + input.search;
+    }
+    return direct(input, init);
+  };
+}
 const { default: worker } = await import("../worker/src/index.js");
 const PORT = Number(process.env.PORT || 8787);
 const DB_PATH = process.env.DB_PATH || join(here, "..", "data", "schedule.sqlite");
