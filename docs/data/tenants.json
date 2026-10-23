@@ -640,5 +640,13 @@
       "base": "http://ccs2.hist.msu.ru",
       "faculty": "all"
     }
+  },
+  {
+    "id": "marhi",
+    "university": "МАРХИ",
+    "faculty": "Московский архитектурный институт",
+    "path": "marhi",
+    "features": [],
+    "short": "МАРХИ"
   }
 ]
