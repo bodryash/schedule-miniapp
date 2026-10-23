@@ -422,6 +422,8 @@ function applyCancels() {
   }
   refreshNow();
   refreshNext();
+  renderRibbon();
+  renderNowCard();
 }
 
 /* ---------- Домашка ---------- */
@@ -1487,27 +1489,26 @@ function volunteerOff() {
 // их выдают. МГУ — только тем, у кого факультет МГУ.
 const COLOR_KEY = "schedule.colorTheme";
 const MSU_THEME_KEY = "schedule.msuTheme";
+// Оформление одно на всех — меняется только цвет акцента. МГУ — особая
+// тема для тех, у кого факультет МГУ.
 const COLOR_THEMES = [
-  ["", "Обычная", ["var(--accent)", "var(--card)"]],
-  ["ocean", "Океан", ["#0ea5e9", "#2563eb"]],
-  ["sunset", "Закат", ["#f97316", "#db2777"]],
-  ["mint", "Мята", ["#10b981", "#0d9488"]],
-  ["lavender", "Лаванда", ["#8b5cf6", "#c026d3"]],
-  ["graphite", "Графит", ["#8291a8", "#5b6b82"]],
-  ["cherry", "Вишня", ["#e11d48", "#be123c"]],
-  ["neon", "Неон ночь", ["#ff2bd6", "#07080f"]],
-  ["neon-day", "Неон день", ["#ff1fae", "#e9f9ff"]],
+  ["", "Синий", ["#2ea6ff", "#2ea6ff"]],
+  ["ocean", "Бирюза", ["#0ea5e9", "#0ea5e9"]],
+  ["mint", "Мята", ["#10b981", "#10b981"]],
+  ["sunset", "Закат", ["#f97316", "#f97316"]],
+  ["lavender", "Лаванда", ["#8b5cf6", "#8b5cf6"]],
+  ["cherry", "Вишня", ["#e11d48", "#e11d48"]],
   ["msu", "МГУ", ["#c9a227", "#0b1733"]],
 ];
+const COLOR_IDS = new Set(COLOR_THEMES.map(([id]) => id));
 
 function colorTheme() {
   try {
     const saved = localStorage.getItem(COLOR_KEY);
-    if (saved !== null) return saved;
+    // Неон и графит убрали — у кого были, видят обычное оформление.
+    if (saved !== null) return COLOR_IDS.has(saved) ? saved : "";
     // Раньше неон и МГУ включались отдельно — переносим их выбор.
     const neon = localStorage.getItem("schedule.neon");
-    if (neon === "1" || neon === "night") return "neon";
-    if (neon === "day") return "neon-day";
     if (localStorage.getItem(MSU_THEME_KEY) === "1") return "msu";
   } catch {
     // Без памяти — обычная.
@@ -5051,7 +5052,7 @@ function fillDigits() {
     });
     colors.append(chip);
   }
-  nodes.push(el("div", "profiles-title profiles-title--next", t("Цветовая тема")), colors);
+  nodes.push(el("div", "profiles-title profiles-title--next", t("Цвет акцента")), colors);
   if (grantedTheme && !(grantedTheme === "volunteer" && volunteerOff())) {
     nodes.push(el("p", "hint", t("Сейчас надета выданная тема — она сильнее. Выбранная включится, когда её снимут.")));
   }
@@ -5679,7 +5680,8 @@ const CARDS_KEY = "schedule.cards";
 function applyCardsStyle() {
   let style = "";
   try {
-    style = localStorage.getItem(CARDS_KEY) || "";
+    // Виды карточек убраны: оформление одно на всех.
+    style = "";
     // Стопку «как в Wallet» убрали — кто её выбрал, видит обычные карточки.
     if (style === "stack") style = "";
   } catch {
@@ -5699,6 +5701,8 @@ let parallaxBound = false;
 let parallaxFrame = 0;
 
 function parallaxOn() {
+  // Параллакс убран вместе с фонами на выбор.
+  if (true) return false;
   try {
     return localStorage.getItem(PARALLAX_KEY) === "on";
   } catch {
@@ -5903,6 +5907,122 @@ function initNeon() {
   applyTheme();
 }
 
+/* ---------- Лента дня ----------
+ * Под датой — тонкая полоса дня: пары отрезками, точка «сейчас» бежит по
+ * ней. Прошедшие пары бледнеют, идущая подсвечена.
+ */
+function renderRibbon() {
+  const box = document.getElementById("ribbon");
+  if (!box || !data) return;
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  const spans = new Map();
+  for (const lesson of visible || []) {
+    if (lessonCancel(lesson)) continue;
+    const time = timesOf(lesson, bells);
+    if (!time) continue;
+    const start = minutes(time.start);
+    const end = minutes(time.end);
+    const known = spans.get(start);
+    if (!known || end > known.end) spans.set(start, { start, end });
+  }
+  const list = [...spans.values()].sort((a, b) => a.start - b.start);
+  if (!list.length) {
+    box.hidden = true;
+    return;
+  }
+  const from = list[0].start;
+  const to = Math.max(...list.map((s) => s.end));
+  const width = Math.max(1, to - from);
+  const today = isoDate(dateOfDay(selectedDay)) === isoDate(new Date());
+  const clock = new Date();
+  const now = clock.getHours() * 60 + clock.getMinutes() + clock.getSeconds() / 60;
+  const track = el("div", "ribbon-track");
+  for (const span of list) {
+    const piece = el("span", "ribbon-seg");
+    piece.style.left = `${((span.start - from) / width) * 100}%`;
+    piece.style.width = `${((span.end - span.start) / width) * 100}%`;
+    if (today && now >= span.end) piece.classList.add("ribbon-seg--past");
+    if (today && now >= span.start && now < span.end) piece.classList.add("ribbon-seg--now");
+    track.append(piece);
+  }
+  if (today && now >= from - 60 && now <= to) {
+    const dot = el("span", "ribbon-dot");
+    dot.style.left = `${Math.min(100, Math.max(0, ((now - from) / width) * 100))}%`;
+    track.append(dot);
+  }
+  const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(Math.round(m % 60)).padStart(2, "0")}`;
+  box.replaceChildren(el("span", "ribbon-time", hhmm(from)), track, el("span", "ribbon-time", hhmm(to)));
+  box.hidden = false;
+}
+
+/* ---------- Карточка «Сейчас» ----------
+ * Сверху дня — крупно то, что важно в эту минуту: идущая пара с таймером до
+ * конца или ближайшая — с таймером до начала. Нажатие открывает пару.
+ */
+function renderNowCard() {
+  const box = document.getElementById("nowcard");
+  if (!box || !data) return;
+  const running = currentLesson();
+  const upcoming = running ? null : nextLesson();
+  const cards = [...els.lessons.querySelectorAll("article.card")];
+  let card = null;
+  let mode = "";
+  let left = 0;
+  let part = 0;
+  if (running) {
+    card = cards.find((c) => c.classList.contains("card--now")) || null;
+    mode = "now";
+    left = running.left;
+    part = Math.min(1, running.elapsed / Math.max(1, running.total));
+  } else if (upcoming && upcoming.left <= 120) {
+    card = cards.find((c) => c.dataset.start && minutes(c.dataset.start) === upcoming.start) || null;
+    mode = "next";
+    left = upcoming.left;
+  }
+  if (!card) {
+    box.hidden = true;
+    els.next.classList.remove("next--covered");
+    return;
+  }
+  const subject = card.querySelector(".subject")?.textContent.trim() || "";
+  const room = card.querySelector(".room-badge")?.textContent.replace(/\s+/g, " ").trim() || "";
+  const leftText = humanLeft(left);
+  const label = mode === "now" ? t("Идёт сейчас") : t("Дальше");
+  const until = mode === "now" ? t("до конца") : t("до начала");
+  const key = `${mode}|${subject}|${room}|${leftText}|${Math.round(part * 100)}`;
+  if (box.dataset.key !== key) {
+    box.dataset.key = key;
+    const head = el("div", "nowcard-head");
+    head.append(el("span", "nowcard-label", label), el("span", "nowcard-room", room));
+    const timer = el("div", "nowcard-timer");
+    timer.append(el("b", null, leftText), el("span", null, until));
+    const nodes = [head, el("div", "nowcard-subject", subject), timer];
+    if (mode === "now") {
+      const bar = el("div", "nowcard-bar");
+      const fill = el("i");
+      fill.style.width = `${(part * 100).toFixed(1)}%`;
+      bar.append(fill);
+      nodes.push(bar);
+    }
+    box.replaceChildren(...nodes);
+    box.classList.toggle("nowcard--next", mode === "next");
+  }
+  box._card = card;
+  box.hidden = false;
+  // Строка «через N мин» под днями дублирует карточку — прячем, пока она есть.
+  els.next.classList.add("next--covered");
+}
+
+function initNowCard() {
+  const box = document.getElementById("nowcard");
+  box?.addEventListener("click", () => {
+    const card = box._card;
+    if (!card || !document.body.contains(card)) return;
+    haptic("light");
+    openLessonView(card);
+  });
+}
+
 /* ---------- Фон на выбор ----------
  * Живой градиент, узор или небо по времени суток на весь экран. Выбор
  * хранится только в памяти телефона. Слой фона лежит под содержимым и
@@ -5920,7 +6040,8 @@ function bgChoice() {
 }
 
 function applyBackground() {
-  const choice = bgChoice();
+  // Фоны на выбор убраны: оформление одно. Небо по времени суток — галочкой.
+  const choice = "";
   const [kind, variant = ""] = choice.split(":");
   document.body.dataset.bg = kind || "";
   document.body.dataset.bgVariant = variant;
@@ -9144,6 +9265,8 @@ function refreshNow() {
     const [animation] = bar.getAnimations();
     if (animation) animation.currentTime = current.elapsed * 60_000;
   }
+  renderRibbon();
+  renderNowCard();
 }
 
 /**
@@ -10146,6 +10269,7 @@ async function init() {
   applyBackground();
   initCustomLook();
   initOverscroll();
+  initNowCard();
   initNeon();
   document.getElementById("bg-pick")?.addEventListener("change", (event) => {
     haptic("select");
