@@ -5926,7 +5926,15 @@ function renderRibbon() {
     const known = spans.get(start);
     if (!known || end > known.end) spans.set(start, { start, end });
   }
-  const list = [...spans.values()].sort((a, b) => a.start - b.start);
+  // Параллельные и пересекающиеся пары (языки по подгруппам, РКИ 8:00–10:40
+  // поверх английского 9:00–10:30) сливаем в один отрезок — иначе они
+  // рисовались друг на друге.
+  const list = [];
+  for (const span of [...spans.values()].sort((a, b) => a.start - b.start)) {
+    const last = list[list.length - 1];
+    if (last && span.start <= last.end) last.end = Math.max(last.end, span.end);
+    else list.push({ ...span });
+  }
   if (!list.length) {
     box.hidden = true;
     return;

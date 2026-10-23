@@ -10312,3 +10312,21 @@ body:not([class*="tint-"]):not(.glam):not(.glam-noir):not(.champion):not(.volunt
 @media (prefers-reduced-motion: reduce) {
   .nowcard { animation: none; }
 }
+
+/* Лента дня — с воздухом до строки «до конца семестра». */
+.ribbon {
+  margin: 10px 0 8px;
+}
+
+/* Небо без солнца и луны — только краски неба, облака и звёзды. */
+.sky-body {
+  display: none !important;
+}
+
+.sky-glow {
+  background: none !important;
+}
+
+body[data-daypart="evening"] .sky-glow {
+  background: radial-gradient(70% 30% at 70% 100%, rgba(255, 150, 80, 0.55), transparent 70%) !important;
+}
