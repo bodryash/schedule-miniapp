@@ -379,18 +379,6 @@
     "short": "МЭО (Дип)"
   },
   {
-    "id": "mgimo-mag",
-    "university": "МГИМО",
-    "faculty": "Магистратуры",
-    "path": "mgimo-mag",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 32
-    }
-  },
-  {
     "id": "mgimo-mo-en",
     "university": "МГИМО",
     "faculty": "Факультет международных отношений (на английском языке)",
@@ -402,45 +390,6 @@
       "faculty": 41
     },
     "short": "МО (англ)"
-  },
-  {
-    "id": "mgimo-mj",
-    "university": "МГИМО",
-    "faculty": "Факультет международной журналистики",
-    "path": "mgimo-mj",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 26
-    },
-    "short": "МЖ"
-  },
-  {
-    "id": "mgimo-mb",
-    "university": "МГИМО",
-    "faculty": "Факультет международного бизнеса",
-    "path": "mgimo-mb",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 29
-    },
-    "short": "МБ"
-  },
-  {
-    "id": "mgimo-miep",
-    "university": "МГИМО",
-    "faculty": "Международный институт энергетической политики и дипломатии",
-    "path": "mgimo-miep",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 31
-    },
-    "short": "МИЭП"
   },
   {
     "id": "mgimo-mo-dip",
@@ -481,6 +430,73 @@
       "faculty": "all",
       "entry": "aID=3"
     }
+  },
+  {
+    "id": "msu-vshp",
+    "university": "МГУ",
+    "faculty": "Высшая школа перевода",
+    "path": "msu-vshp",
+    "features": [],
+    "short": "ВШП"
+  },
+  {
+    "id": "mpei-inei",
+    "university": "НИУ «МЭИ»",
+    "faculty": "Инженерно-экономический институт",
+    "path": "mpei-inei",
+    "features": [],
+    "short": "ИнЭИ"
+  },
+  {
+    "id": "mgimo-mag",
+    "university": "МГИМО",
+    "faculty": "Магистратуры",
+    "path": "mgimo-mag",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 32
+    }
+  },
+  {
+    "id": "mgimo-mj",
+    "university": "МГИМО",
+    "faculty": "Факультет международной журналистики",
+    "path": "mgimo-mj",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 26
+    },
+    "short": "МЖ"
+  },
+  {
+    "id": "mgimo-mb",
+    "university": "МГИМО",
+    "faculty": "Факультет международного бизнеса",
+    "path": "mgimo-mb",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 29
+    },
+    "short": "МБ"
+  },
+  {
+    "id": "mgimo-miep",
+    "university": "МГИМО",
+    "faculty": "Международный институт энергетической политики и дипломатии",
+    "path": "mgimo-miep",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 31
+    },
+    "short": "МИЭП"
   },
   {
     "id": "mgimo-meo",
@@ -624,21 +640,5 @@
       "base": "http://ccs2.hist.msu.ru",
       "faculty": "all"
     }
-  },
-  {
-    "id": "msu-vshp",
-    "university": "МГУ",
-    "faculty": "Высшая школа перевода",
-    "path": "msu-vshp",
-    "features": [],
-    "short": "ВШП"
-  },
-  {
-    "id": "mpei-inei",
-    "university": "НИУ «МЭИ»",
-    "faculty": "Инженерно-экономический институт",
-    "path": "mpei-inei",
-    "features": [],
-    "short": "ИнЭИ"
   }
 ]
