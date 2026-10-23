@@ -326,7 +326,8 @@ const server = createServer(async (req, res) => {
         const update = JSON.parse(Buffer.from(body || "").toString("utf8"));
         const m = update.message || update.edited_message || {};
         const kind = m.document ? `документ ${m.document.mime_type || ""}` : m.photo ? "фото" : m.text ? "текст" : Object.keys(update).filter((k) => k !== "update_id").join(",");
-        console.log(`TG ${kind}${m.forward_origin || m.forward_date ? " (пересланное)" : ""} от ${m.chat?.id === Number(env.OWNER_ID) ? "владельца" : "человека"}`);
+        const where = m.chat ? (m.chat.type === "private" ? "в личке" : `в чате ${m.chat.type} «${m.chat.title || ""}» (${m.chat.id})`) : "";
+        console.log(`TG ${kind}${m.forward_origin || m.forward_date ? " (пересланное)" : ""} от ${m.from?.id === Number(env.OWNER_ID) ? "владельца" : `${m.from?.id || "?"}`} ${where}`);
       } catch {
         // не JSON — пропускаем
       }
