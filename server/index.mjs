@@ -131,14 +131,20 @@ async function downloadTelegramFile(url, size) {
           res.on("error", reject);
         }
       );
-      req.on("timeout", () => req.destroy(new Error("кусок не скачался за 20 с")));
+      req.on("timeout", () => req.destroy(new Error("кусок: соединение молчит 20 с")));
+      // Жёсткий предел: соединение могут не рвать, а еле-еле цедить данные —
+      // тогда timeout выше не срабатывает, и скачивание висело бесконечно.
+      const hard = setTimeout(() => req.destroy(new Error("кусок не скачался за 25 с")), 25000);
+      req.on("close", () => clearTimeout(hard));
       req.on("error", reject);
       req.end();
     });
   const STEP = 12 * 1024;
   const parts = [];
   let total = size || Infinity;
+  const deadline = Date.now() + 10 * 60 * 1000;
   for (let from = 0; from < total; from += STEP) {
+    if (Date.now() > deadline) throw new Error(`не уложились в 10 минут, скачано ${from} из ${total} байт`);
     let got;
     for (let attempt = 1; ; attempt++) {
       try {
@@ -181,6 +187,7 @@ async function saveFile(document, from, caption) {
   const mark = String(document.file_unique_id || Math.random().toString(36).slice(2, 8)).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40);
   const stamp = `${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}_${mark}`;
   writeFileSync(join(INBOX, `${stamp}_${safe}`), data);
+  console.log(`Файл сохранён во входящие: ${stamp}_${safe} (${data.length} байт, ${Date.now() - t0} мс)`);
   writeFileSync(
     join(INBOX, `${stamp}_${safe}.json`),
     JSON.stringify({ at: new Date().toISOString(), from: { id: from?.id, name: [from?.first_name, from?.last_name].filter(Boolean).join(" "), username: from?.username || "" }, caption, name: document.file_name, size: document.file_size }, null, 2)
