@@ -5917,8 +5917,13 @@ function renderRibbon() {
   if (!box || !data) return;
   const bells = new Map(data.bells.map((b) => [b.n, b]));
   const spans = new Map();
-  for (const lesson of visible || []) {
-    if (lessonCancel(lesson)) continue;
+  // Пары именно выбранного дня: список «visible» в выходной не обновляется
+  // и хранил пары прошлого дня — лента показывала их и в выходные.
+  const group = activeGroup();
+  const date = isoDate(dateOfDay(selectedDay, selectedWeek));
+  const dayLessons = group && selectedDay <= 6 ? ownLessonsForDay(group, selectedDay, selectedWeek) : [];
+  for (const lesson of dayLessons) {
+    if (lessonCancelOn(lesson, date)) continue;
     const time = timesOf(lesson, bells);
     if (!time) continue;
     const start = minutes(time.start);
@@ -6023,6 +6028,12 @@ function renderNowCard() {
 }
 
 function initNowCard() {
+  // Сменили день (в том числе на выходной, где пар нет и список не
+  // перерисовывается обычным путём) — лента и карточка тоже обновляются.
+  new MutationObserver(() => {
+    renderRibbon();
+    renderNowCard();
+  }).observe(els.lessons, { childList: true });
   const box = document.getElementById("nowcard");
   box?.addEventListener("click", () => {
     const card = box._card;
@@ -9678,7 +9689,8 @@ function renderHello() {
     }
     return line;
   };
-  box.replaceChildren(words(title, "splash-hello-title"), ...(wish ? [words(wish, "splash-hello-wish")] : []));
+  // На заставке — только приветствие и дата, без пожелания.
+  box.replaceChildren(words(title, "splash-hello-title"));
 }
 
 /** Надпись от владельца пришла — запоминаем; если заставка ещё на экране, меняем сразу. */
