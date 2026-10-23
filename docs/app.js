@@ -5038,11 +5038,16 @@ function fillDigits() {
       haptic(id ? "success" : "light");
       try {
         localStorage.setItem(COLOR_KEY, id);
+        // Примерка темы владельцем (блок «Темы — видите только вы») сильнее
+        // любого выбора, и плитки у него «не работали». Выбрал плитку — примерку
+        // снимаем.
+        localStorage.removeItem(OWNER_THEME_KEY);
       } catch {
         // Не сохранилось — выбор проживёт до закрытия.
       }
       applyTheme();
       fillDigits();
+      fillOwnerThemes();
     });
     colors.append(chip);
   }
