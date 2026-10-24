@@ -6281,8 +6281,19 @@ function renderPolls() {
         button.type = "button";
         button.disabled = poll.closed;
         const fill = el("i", "poll-fill");
-        fill.style.width = voted || poll.closed || notices.canEdit ? `${share}%` : "0%";
-        button.append(fill, el("span", "poll-label", option), el("span", "poll-share", voted || poll.closed || notices.canEdit ? `${share}%` : ""));
+        const shown = voted || poll.closed || notices.canEdit;
+        const target = shown ? share : 0;
+        // Плавно: полоса и число едут от прежнего значения к новому.
+        const key = `${poll.id}|${i}`;
+        const from = pollShares.has(key) ? pollShares.get(key) : 0;
+        pollShares.set(key, target);
+        fill.style.width = `${from}%`;
+        const label = el("span", "poll-share", shown ? `${from}%` : "");
+        button.append(fill, el("span", "poll-label", option), label);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          fill.style.width = `${target}%`;
+        }));
+        if (shown && from !== target) countTo(label, from, target);
         button.addEventListener("click", () => votePollChoice(poll, poll.mine === i ? null : i));
         card.append(button);
       });
@@ -6303,6 +6314,20 @@ function renderPolls() {
       return card;
     })
   );
+}
+
+const pollShares = new Map();
+
+/** Число процентов бежит от старого к новому за полсекунды. */
+function countTo(node, from, to) {
+  const start = performance.now();
+  const step = (now) => {
+    const k = Math.min(1, (now - start) / 500);
+    const eased = 1 - Math.pow(1 - k, 3);
+    node.textContent = `${Math.round(from + (to - from) * eased)}%`;
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 async function votePollChoice(poll, choice) {

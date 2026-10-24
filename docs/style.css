@@ -10802,3 +10802,16 @@ body[data-daypart="evening"] .sky-glow {
   line-height: 1;
   cursor: pointer;
 }
+
+/* Полоса варианта опроса — плавно, с лёгкой пружинкой. */
+.poll-fill {
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.poll-option {
+  transition: box-shadow 0.25s ease, transform 0.15s ease;
+}
+
+.poll-option:active {
+  transform: scale(0.98);
+}
