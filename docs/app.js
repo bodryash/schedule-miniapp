@@ -6771,6 +6771,18 @@ function openLessonView(card) {
     openNote(card);
   });
   sections.push(viewSection(t("Моя заметка"), mine ? el("div", "lv-text", mine) : null, pen));
+  // «Важно для меня» — теперь только здесь, со звёздочек на карточках убрали.
+  const day = dateOfDay(selectedDay);
+  const star = el("button", "lv-action lv-action--soft", isMine(subject, day) ? t("★ Важно для меня — снять") : t("☆ Отметить как важное"));
+  star.type = "button";
+  star.addEventListener("click", () => {
+    toggleMine(subject, day);
+    const on = isMine(subject, day);
+    haptic(on ? "success" : "light");
+    star.textContent = on ? t("★ Важно для меня — снять") : t("☆ Отметить как важное");
+    applyMine();
+  });
+  sections.push(viewSection(t("Важно для меня"), star));
   sections.push(viewSection(t("Фото доски"), boardPhotos(card)));
   sections.push(viewSection(t("Цвет предмета"), subjectColorPicker(subject)));
 

@@ -10555,3 +10555,11 @@ body[data-daypart="evening"] .sky-glow {
   display: flex;
   gap: 12px;
 }
+
+/* Карандаш заметки и звёздочка «важно» — только в окне пары, не на карточках. */
+#lessons .note-pen,
+#lessons .mine-star,
+.lv-head .note-pen,
+.lv-head .mine-star {
+  display: none !important;
+}
