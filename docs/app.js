@@ -6172,8 +6172,20 @@ function openDeadline(item = null) {
   document.getElementById("dl-for-group").checked = Boolean(item?.shared);
   document.getElementById("dl-delete").hidden = !item;
   document.getElementById("dl-error").hidden = true;
+  syncDeadlineSheet();
   sheet.hidden = false;
   document.body.classList.add("sheet-open");
+}
+
+/** Подпись под заголовком и выбранная кнопка срока — по текущим полям. */
+function syncDeadlineSheet() {
+  const shared = dlEditing ? dlEditing.shared : document.getElementById("dl-for-group").checked;
+  document.getElementById("dl-sub").textContent = shared ? t("Для группы — увидят все") : t("Личный — видите только вы");
+  const value = document.getElementById("dl-date").value;
+  for (const chip of document.querySelectorAll("#dl-chips .dl-chip")) {
+    const day = isoDate(new Date(Date.now() + Number(chip.dataset.days) * 86400000));
+    chip.classList.toggle("dl-chip--on", day === value);
+  }
 }
 
 function closeDeadline() {
@@ -6236,6 +6248,15 @@ function initDeadlines() {
   document.getElementById("dl-sheet")?.addEventListener("click", (event) => {
     if (event.target.id === "dl-sheet") closeDeadline();
   });
+  for (const chip of document.querySelectorAll("#dl-chips .dl-chip")) {
+    chip.addEventListener("click", () => {
+      haptic("select");
+      document.getElementById("dl-date").value = isoDate(new Date(Date.now() + Number(chip.dataset.days) * 86400000));
+      syncDeadlineSheet();
+    });
+  }
+  document.getElementById("dl-date")?.addEventListener("change", syncDeadlineSheet);
+  document.getElementById("dl-for-group")?.addEventListener("change", syncDeadlineSheet);
 }
 
 /* ---------- Опросы старосты ---------- */
