@@ -230,6 +230,10 @@ async function loadNotices(group) {
     notices.homework = body.homework || [];
     notices.canEdit = Boolean(body.canEdit);
     notices.canComment = Boolean(body.canComment);
+    notices.deadlines = body.deadlines || [];
+    notices.polls = body.polls || [];
+    renderPolls();
+    if (tab === "deadlines") renderDeadlines();
     mergeCommentCounts(weekRange(selectedWeek), body.comments);
     renderNotices(true);
     if (tab === "week") showWeek();
@@ -1329,12 +1333,11 @@ async function sendReminderSettings() {
     group: group.id,
     morning: Boolean(prefs?.remindMorning),
     before: prefs?.remindBefore ? 15 : 0,
-    // Будильника перед первой парой больше нет. Ноль шлём всегда: у тех, кто
-    // успел его включить, он так выключится и на сервере.
-    wake: 0,
+    // «Пора выходить»: за время дороги до начала первой пары.
+    wake: prefs?.remindWake ? wakeLead() : 0,
     // Отмены, замены и изменения на сайте вуза — по умолчанию включены.
     changes: prefs?.remindChanges !== false,
-    plan: prefs?.remindMorning || prefs?.remindBefore ? reminderPlan() : [],
+    plan: prefs?.remindMorning || prefs?.remindBefore || prefs?.remindWake ? reminderPlan() : [],
   };
   fetch(REMIND_URL, { method: "POST", body: JSON.stringify(body) }).catch(() => {
     // Не дошло — отправим при следующем открытии.
@@ -1417,10 +1420,10 @@ function renderRemindAsk() {
   box.append(text, buttons);
 }
 
-/** За сколько минут до первой пары будить: по умолчанию за два часа. */
+/** Сколько ехать до вуза — за столько до первой пары «Пора выходить». */
 function wakeLead() {
   const lead = Number(prefs?.remindWakeLead);
-  return [30, 60, 90, 120, 150, 180].includes(lead) ? lead : 120;
+  return [15, 20, 30, 40, 50, 60, 75, 90, 120].includes(lead) ? lead : 40;
 }
 
 function fillReminders() {
@@ -1448,7 +1451,7 @@ function initReminders() {
       remindBefore: before,
       remindWake: wake,
       remindChanges: els.remindChanges ? els.remindChanges.checked : prefs?.remindChanges,
-      remindWakeLead: Number(els.remindWakeLead?.value) || 120,
+      remindWakeLead: Number(els.remindWakeLead?.value) || 40,
       // Выключили всё — значит, вопрос снова открыт: предложение вернётся.
       remindAsked: morning || before || wake ? true : false,
     };
@@ -6043,6 +6046,453 @@ function initNowCard() {
   });
 }
 
+/* ---------- Дедлайны ----------
+ * Общие дедлайны группы (вносит староста, хранятся на сервере) и личные
+ * (только в этом телефоне). «Сдано» — личная отметка, тоже в телефоне.
+ */
+const DEADLINE_URL = `${API_URL}/deadline`;
+const POLL_URL = `${API_URL}/poll`;
+const POLL_VOTE_URL = `${API_URL}/poll/vote`;
+let dlEditing = null;
+
+function personalKey() {
+  return `schedule.deadlines.${activeGroup()?.id || ""}`;
+}
+
+function readLocal(key, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || "null") ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLocal(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Без памяти — до перезапуска.
+  }
+}
+
+function allDeadlines() {
+  const group = (notices.deadlines || []).map((d) => ({ ...d, key: `g${d.id}`, shared: true }));
+  const mine = readLocal(personalKey(), []).map((d) => ({ ...d, key: `p${d.id}`, shared: false }));
+  return [...group, ...mine];
+}
+
+function dueDate(due) {
+  const [day, time] = String(due).split("T");
+  return new Date(`${day}T${time || "23:59"}:00`);
+}
+
+function dueLabel(due) {
+  const at = dueDate(due);
+  const now = new Date();
+  const days = Math.round((new Date(at.toDateString()) - new Date(now.toDateString())) / 86400000);
+  const time = String(due).includes("T") ? ` ${String(due).slice(11, 16)}` : "";
+  if (at < now) return { text: t("просрочено"), cls: "dl-when--late" };
+  if (days === 0) return { text: t("сегодня") + time, cls: "dl-when--soon" };
+  if (days === 1) return { text: t("завтра") + time, cls: "dl-when--soon" };
+  if (days < 7) return { text: t("через {n} дн.", { n: days }) + time, cls: "" };
+  return { text: SHORT_DATE.format(at) + time, cls: "" };
+}
+
+function renderDeadlines() {
+  const body = document.getElementById("dl-body");
+  if (!body) return;
+  const group = activeGroup();
+  document.getElementById("dl-group").textContent = group ? (group.teacher ? group.title : t("Группа {g}", { g: group.title })) : "";
+  const done = new Set(readLocal("schedule.deadlinesDone", []));
+  const list = allDeadlines().sort((a, b) => {
+    const da = done.has(a.key);
+    const db = done.has(b.key);
+    if (da !== db) return da ? 1 : -1;
+    return dueDate(a.due) - dueDate(b.due);
+  });
+  if (!list.length) {
+    const empty = el("div", "dl-empty");
+    empty.append(
+      el("div", "dl-empty-icon", "📌"),
+      el("p", null, t("Дедлайнов пока нет")),
+      el("p", "hint", notices.canEdit ? t("Добавьте свой или общий для группы — кнопкой ＋ сверху.") : t("Добавьте свой — кнопкой ＋ сверху. Общие для группы вносит староста."))
+    );
+    body.replaceChildren(empty);
+    return;
+  }
+  body.replaceChildren(
+    ...list.map((d) => {
+      const isDone = done.has(d.key);
+      const row = el("div", `dl-item${isDone ? " dl-item--done" : ""}`);
+      const check = el("button", "dl-check", isDone ? "✓" : "");
+      check.type = "button";
+      check.setAttribute("aria-label", t("Сдано"));
+      check.addEventListener("click", (event) => {
+        event.stopPropagation();
+        haptic(isDone ? "light" : "success");
+        if (isDone) done.delete(d.key);
+        else done.add(d.key);
+        writeLocal("schedule.deadlinesDone", [...done]);
+        renderDeadlines();
+      });
+      const text = el("div", "dl-text");
+      text.append(el("div", "dl-title", d.title));
+      const meta = [d.subject ? tr(d.subject) : "", d.shared ? t("для группы") : t("личное")].filter(Boolean).join(" · ");
+      text.append(el("div", "dl-meta", meta));
+      const when = dueLabel(d.due);
+      row.append(check, text, el("div", `dl-when ${isDone ? "" : when.cls}`, isDone ? t("сдано") : when.text));
+      if (!d.shared || notices.canEdit) {
+        row.addEventListener("click", () => openDeadline(d));
+      }
+      return row;
+    })
+  );
+}
+
+function groupSubjects() {
+  const group = activeGroup();
+  if (!group || !data) return [];
+  return [...new Set(data.lessons.filter((l) => l.group === group.id).map((l) => l.subject))].sort((a, b) => a.localeCompare(b, "ru"));
+}
+
+function openDeadline(item = null) {
+  dlEditing = item;
+  const sheet = document.getElementById("dl-sheet");
+  document.getElementById("dl-title-head").textContent = item ? t("Дедлайн") : t("Новый дедлайн");
+  document.getElementById("dl-title").value = item?.title || "";
+  const subject = document.getElementById("dl-subject");
+  subject.replaceChildren(new Option(t("— без предмета —"), ""), ...groupSubjects().map((s) => new Option(tr(s), s)));
+  subject.value = item?.subject || "";
+  const [day, time] = String(item?.due || "").split("T");
+  const tomorrow = new Date(Date.now() + 86400000);
+  document.getElementById("dl-date").value = day || isoDate(tomorrow);
+  document.getElementById("dl-time").value = time || "";
+  const groupRow = document.getElementById("dl-group-row");
+  groupRow.hidden = !notices.canEdit || Boolean(item);
+  document.getElementById("dl-for-group").checked = Boolean(item?.shared);
+  document.getElementById("dl-delete").hidden = !item;
+  document.getElementById("dl-error").hidden = true;
+  sheet.hidden = false;
+  document.body.classList.add("sheet-open");
+}
+
+function closeDeadline() {
+  document.getElementById("dl-sheet").hidden = true;
+  document.body.classList.remove("sheet-open");
+}
+
+async function sendDeadline(payload) {
+  const group = activeGroup();
+  const res = await fetch(DEADLINE_URL, {
+    method: "POST",
+    body: JSON.stringify({ initData: tg?.initData || "", group: group.id, ...payload }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!body.ok) throw new Error(body.error || "error");
+  notices.deadlines = body.deadlines || [];
+}
+
+async function saveDeadlineForm(remove = false) {
+  const error = document.getElementById("dl-error");
+  const title = document.getElementById("dl-title").value.trim();
+  const subject = document.getElementById("dl-subject").value;
+  const day = document.getElementById("dl-date").value;
+  const time = document.getElementById("dl-time").value;
+  const due = time ? `${day}T${time}` : day;
+  const shared = dlEditing ? dlEditing.shared : document.getElementById("dl-for-group").checked;
+  if (!remove && (!title || !day)) {
+    error.textContent = t("Напишите, что сдать, и выберите срок.");
+    error.hidden = false;
+    return;
+  }
+  try {
+    if (shared) {
+      await sendDeadline(remove ? { remove: dlEditing.id } : { id: dlEditing?.id, title, subject, due });
+    } else {
+      const list = readLocal(personalKey(), []);
+      const rest = list.filter((d) => d.id !== dlEditing?.id);
+      if (!remove) rest.push({ id: dlEditing?.id || Date.now(), title, subject, due });
+      writeLocal(personalKey(), rest);
+    }
+  } catch {
+    error.textContent = t("Не получилось сохранить — проверьте интернет.");
+    error.hidden = false;
+    return;
+  }
+  haptic("success");
+  closeDeadline();
+  renderDeadlines();
+}
+
+function showDeadlines() {
+  renderDeadlines();
+}
+
+function initDeadlines() {
+  document.getElementById("dl-add")?.addEventListener("click", () => openDeadline());
+  document.getElementById("dl-cancel")?.addEventListener("click", closeDeadline);
+  document.getElementById("dl-save")?.addEventListener("click", () => saveDeadlineForm(false));
+  document.getElementById("dl-delete")?.addEventListener("click", () => saveDeadlineForm(true));
+  document.getElementById("dl-sheet")?.addEventListener("click", (event) => {
+    if (event.target.id === "dl-sheet") closeDeadline();
+  });
+}
+
+/* ---------- Опросы старосты ---------- */
+function renderPolls() {
+  const box = document.getElementById("polls");
+  const menuPoll = document.getElementById("menu-poll");
+  if (menuPoll) menuPoll.hidden = !notices.canEdit;
+  if (!box) return;
+  const polls = notices.polls || [];
+  box.replaceChildren(
+    ...polls.map((poll) => {
+      const card = el("div", `poll${poll.closed ? " poll--closed" : ""}`);
+      const total = poll.votes.reduce((a, b) => a + b, 0);
+      const voted = poll.mine !== null && poll.mine !== undefined;
+      const head = el("div", "poll-head");
+      head.append(el("span", "poll-tag", poll.closed ? t("Опрос завершён") : t("Опрос группы")), el("span", "poll-total", t("голосов: {n}", { n: total })));
+      card.append(head, el("div", "poll-question", poll.question));
+      poll.options.forEach((option, i) => {
+        const share = total ? Math.round((poll.votes[i] / total) * 100) : 0;
+        const button = el("button", `poll-option${poll.mine === i ? " poll-option--mine" : ""}`);
+        button.type = "button";
+        button.disabled = poll.closed;
+        const fill = el("i", "poll-fill");
+        fill.style.width = voted || poll.closed || notices.canEdit ? `${share}%` : "0%";
+        button.append(fill, el("span", "poll-label", option), el("span", "poll-share", voted || poll.closed || notices.canEdit ? `${share}%` : ""));
+        button.addEventListener("click", () => votePollChoice(poll, poll.mine === i ? null : i));
+        card.append(button);
+      });
+      if (notices.canEdit) {
+        const tools = el("div", "poll-tools");
+        if (!poll.closed) {
+          const close = el("button", "ghost", t("Завершить"));
+          close.type = "button";
+          close.addEventListener("click", () => managePoll({ close: poll.id }));
+          tools.append(close);
+        }
+        const remove = el("button", "ghost", t("Удалить"));
+        remove.type = "button";
+        remove.addEventListener("click", () => managePoll({ remove: poll.id }));
+        tools.append(remove);
+        card.append(tools);
+      }
+      return card;
+    })
+  );
+}
+
+async function votePollChoice(poll, choice) {
+  if (!tg?.initData) return;
+  haptic("select");
+  try {
+    const res = await fetch(POLL_VOTE_URL, {
+      method: "POST",
+      body: JSON.stringify({ initData: tg.initData, group: activeGroup().id, poll: poll.id, choice }),
+    });
+    const body = await res.json();
+    if (body.ok) {
+      notices.polls = body.polls || [];
+      renderPolls();
+    }
+  } catch {
+    // Не дошло — попробуют ещё раз.
+  }
+}
+
+async function managePoll(payload) {
+  try {
+    const res = await fetch(POLL_URL, {
+      method: "POST",
+      body: JSON.stringify({ initData: tg?.initData || "", group: activeGroup().id, ...payload }),
+    });
+    const body = await res.json();
+    if (!body.ok) throw new Error(body.error);
+    notices.polls = body.polls || [];
+    renderPolls();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function pollOptionInput(value = "") {
+  const input = el("input");
+  input.type = "text";
+  input.maxLength = 80;
+  input.className = "poll-option-input";
+  input.placeholder = t("Вариант ответа");
+  input.value = value;
+  return input;
+}
+
+function openPollSheet() {
+  document.getElementById("poll-question").value = "";
+  document.getElementById("poll-options").replaceChildren(pollOptionInput(t("Буду")), pollOptionInput(t("Не буду")));
+  document.getElementById("poll-error").hidden = true;
+  document.getElementById("poll-sheet").hidden = false;
+  document.body.classList.add("sheet-open");
+}
+
+function closePollSheet() {
+  document.getElementById("poll-sheet").hidden = true;
+  document.body.classList.remove("sheet-open");
+}
+
+function initPolls() {
+  document.getElementById("poll-more")?.addEventListener("click", () => {
+    const box = document.getElementById("poll-options");
+    if (box.children.length < 6) box.append(pollOptionInput());
+  });
+  document.getElementById("poll-cancel")?.addEventListener("click", closePollSheet);
+  document.getElementById("poll-sheet")?.addEventListener("click", (event) => {
+    if (event.target.id === "poll-sheet") closePollSheet();
+  });
+  document.getElementById("poll-save")?.addEventListener("click", async () => {
+    const question = document.getElementById("poll-question").value.trim();
+    const options = [...document.querySelectorAll(".poll-option-input")].map((i) => i.value.trim()).filter(Boolean);
+    const error = document.getElementById("poll-error");
+    if (!question || options.length < 2) {
+      error.textContent = t("Нужен вопрос и хотя бы два варианта.");
+      error.hidden = false;
+      return;
+    }
+    const ok = await managePoll({ question, options });
+    if (!ok) {
+      error.textContent = t("Не получилось опубликовать — проверьте интернет.");
+      error.hidden = false;
+      return;
+    }
+    haptic("success");
+    closePollSheet();
+    openTab("schedule");
+  });
+}
+
+/* ---------- Фото доски ----------
+ * Фото привязаны к паре и дате и хранятся только в этом телефоне (IndexedDB).
+ * На сервер ничего не уходит.
+ */
+const PHOTO_DB = "schedule-photos";
+let photoViewing = null;
+
+function photoDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(PHOTO_DB, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("photos", { keyPath: "id", autoIncrement: true }).createIndex("lesson", "lesson");
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function photoStore(mode) {
+  const db = await photoDb();
+  return db.transaction("photos", mode).objectStore("photos");
+}
+
+async function photosFor(lesson) {
+  try {
+    const store = await photoStore("readonly");
+    return await new Promise((resolve) => {
+      const req = store.index("lesson").getAll(lesson);
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  } catch {
+    return [];
+  }
+}
+
+/** Ужимаем фото до 1600 px по длинной стороне — память телефона не резиновая. */
+function shrinkPhoto(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((blob) => resolve(blob || file), "image/jpeg", 0.82);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+    img.src = url;
+  });
+}
+
+function boardPhotos(card) {
+  const lesson = `${activeGroup()?.id || ""}|${card.dataset.subject}|${isoDate(dateOfDay(selectedDay))}`;
+  const box = el("div", "board");
+  const strip = el("div", "board-strip");
+  const input = el("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.hidden = true;
+  const add = el("button", "lv-action", t("📷 Добавить фото"));
+  add.type = "button";
+  add.addEventListener("click", () => input.click());
+  const fill = async () => {
+    const photos = await photosFor(lesson);
+    strip.replaceChildren(
+      ...photos.map((p) => {
+        const url = URL.createObjectURL(p.blob);
+        const thumb = el("button", "board-thumb");
+        thumb.type = "button";
+        thumb.style.backgroundImage = `url(${url})`;
+        thumb.addEventListener("click", () => openPhoto(p, url, fill));
+        return thumb;
+      })
+    );
+    strip.hidden = !photos.length;
+  };
+  input.addEventListener("change", async () => {
+    for (const file of input.files || []) {
+      const blob = await shrinkPhoto(file);
+      try {
+        const store = await photoStore("readwrite");
+        store.add({ lesson, blob, added: Date.now() });
+      } catch {
+        // Без хранилища (приватный режим) — фото не сохранится.
+      }
+    }
+    input.value = "";
+    haptic("success");
+    setTimeout(fill, 150);
+  });
+  box.append(strip, add, input, el("p", "hint", t("Фото хранятся только в вашем телефоне.")));
+  fill();
+  return box;
+}
+
+function openPhoto(photo, url, refresh) {
+  photoViewing = { photo, refresh };
+  document.getElementById("photo-img").src = url;
+  document.getElementById("photo-view").hidden = false;
+}
+
+function initPhotos() {
+  document.getElementById("photo-close")?.addEventListener("click", () => {
+    document.getElementById("photo-view").hidden = true;
+  });
+  document.getElementById("photo-delete")?.addEventListener("click", async () => {
+    if (!photoViewing) return;
+    try {
+      const store = await photoStore("readwrite");
+      store.delete(photoViewing.photo.id);
+    } catch {
+      // нечего удалять
+    }
+    document.getElementById("photo-view").hidden = true;
+    setTimeout(() => photoViewing?.refresh(), 150);
+  });
+}
+
 /* ---------- Фон на выбор ----------
  * Живой градиент, узор или небо по времени суток на весь экран. Выбор
  * хранится только в памяти телефона. Слой фона лежит под содержимым и
@@ -6321,6 +6771,7 @@ function openLessonView(card) {
     openNote(card);
   });
   sections.push(viewSection(t("Моя заметка"), mine ? el("div", "lv-text", mine) : null, pen));
+  sections.push(viewSection(t("Фото доски"), boardPhotos(card)));
   sections.push(viewSection(t("Цвет предмета"), subjectColorPicker(subject)));
 
   const rest = el("div", "lv-sections");
@@ -7012,6 +7463,7 @@ function showPicker() {
   els.schedule.hidden = true;
   els.week.hidden = true;
   if (els.queues) els.queues.hidden = true;
+  document.getElementById("deadlines").hidden = true;
   els.search.hidden = true;
   els.free.hidden = true;
   if (els.tabs) els.tabs.hidden = true;
@@ -7037,7 +7489,7 @@ function showPicker() {
 // переключает полоса снизу, свободные аудитории остаются внутри расписания.
 let tab = "schedule";
 
-const TAB_ORDER = ["schedule", "week", "queues", "search"];
+const TAB_ORDER = ["schedule", "week", "deadlines", "search", "queues"];
 
 /**
  * Подложка выбранного раздела переезжает к нему, а не появляется на новом
@@ -7078,6 +7530,8 @@ function moveDrop(name, animate = true) {
   pinTabs();
   const drop = els.tabsDrop;
   const button = els.tabs?.querySelector(`.tab[data-tab="${name}"]`);
+  // Очереди переехали в меню — у них нет кнопки внизу, капля прячется.
+  if (drop && !button) drop.classList.remove("tabs-drop--on");
   if (!drop || !button || els.tabs.hidden) return;
   if (!animate) drop.classList.add("tabs-drop--still");
   drop.style.width = `${button.offsetWidth}px`;
@@ -7107,6 +7561,7 @@ function openTab(name) {
   els.picker.hidden = true;
   els.week.hidden = name !== "week";
   if (els.queues) els.queues.hidden = name !== "queues";
+  document.getElementById("deadlines").hidden = name !== "deadlines";
   els.schedule.hidden = name !== "schedule";
   els.search.hidden = name !== "search";
   if (els.tabs) {
@@ -7119,7 +7574,7 @@ function openTab(name) {
     setTimeout(pinTabs, 400);
   }
   window.scrollTo(0, 0);
-  const screen = { schedule: els.schedule, week: els.week, queues: els.queues, search: els.search }[name];
+  const screen = { schedule: els.schedule, week: els.week, queues: els.queues, search: els.search, deadlines: document.getElementById("deadlines") }[name];
   if (screen && from) {
     screen.style.setProperty("--slide-from", `${from > 0 ? 16 : -16}px`);
     screen.classList.remove("screen-slide");
@@ -7129,6 +7584,7 @@ function openTab(name) {
   if (name !== "week") document.body.dataset.parity = weekParity(data.weeks) || "none";
   if (name === "week") showWeek();
   if (name === "queues") showQueues();
+  if (name === "deadlines") showDeadlines();
   if (name === "schedule") showSchedule();
   if (name === "search") showSearch();
 }
@@ -8674,6 +9130,8 @@ function initMenu() {
     pop.hidden = true;
     if (item.dataset.menu === "invite") inviteGroup(item);
     if (item.dataset.menu === "rooms") showFree();
+    if (item.dataset.menu === "queues") openTab("queues");
+    if (item.dataset.menu === "poll") openPollSheet();
     if (item.dataset.menu === "calendar") openCalendar();
     if (item.dataset.menu === "exams") openExams();
     if (item.dataset.menu === "settings") showPicker();
@@ -10291,6 +10749,9 @@ async function init() {
   initCustomLook();
   initOverscroll();
   initNowCard();
+  initDeadlines();
+  initPolls();
+  initPhotos();
   initNeon();
   document.getElementById("bg-pick")?.addEventListener("change", (event) => {
     haptic("select");
