@@ -2415,6 +2415,9 @@ async function forgetUser(env, userId) {
     run("DELETE FROM greetings WHERE target = ?", `user:${id}`),
     run("DELETE FROM notices WHERE grp = ?", `user:${id}`),
     run("UPDATE homework SET author = 0 WHERE author = ?", id),
+    run("DELETE FROM poll_votes WHERE tg_id = ?", id),
+    run("UPDATE polls SET author = 0 WHERE author = ?", id),
+    run("UPDATE deadlines SET author = 0 WHERE author = ?", id),
     run("UPDATE queues SET author = 0 WHERE author = ?", id),
   ]);
   return results.reduce((sum, r) => sum + (r.meta?.changes || 0), 0);
