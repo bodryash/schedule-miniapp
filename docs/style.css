@@ -10333,7 +10333,31 @@ body[data-daypart="evening"] .sky-glow {
 
 /* ===== Дедлайны ===== */
 #dl-body {
-  padding: 4px 0 120px;
+  padding: 4px 0 8px;
+}
+
+/* Добавить — крупно посередине под списком. */
+.dl-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px auto 130px;
+  padding: 13px 26px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent, #fff);
+  font: inherit;
+  font-weight: 700;
+  font-size: 15px;
+  box-shadow: 0 10px 22px -12px color-mix(in srgb, var(--accent) 80%, transparent);
+  cursor: pointer;
+}
+
+.dl-add span:first-child {
+  font-size: 20px;
+  line-height: 1;
 }
 
 .dl-item {
