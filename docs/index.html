@@ -496,14 +496,18 @@
   </div>
 
   <div id="poll-sheet" class="sheet-backdrop sheet-backdrop--input" hidden>
-    <div class="sheet" role="dialog" aria-modal="true">
-      <h2 data-i18n>Опрос группе</h2>
-      <label>
-        <span data-i18n>Вопрос</span>
-        <input id="poll-question" type="text" maxlength="200" placeholder="Кто будет на паре в пятницу?">
-      </label>
+    <div class="sheet poll-sheet" role="dialog" aria-modal="true" aria-labelledby="poll-head">
+      <div class="poll-sheet-head">
+        <span class="poll-sheet-icon">📊</span>
+        <div>
+          <h2 id="poll-head" data-i18n>Опрос группе</h2>
+          <p class="poll-sheet-sub" data-i18n>Увидит вся группа. Кто как ответил — никто не узнает.</p>
+        </div>
+      </div>
+      <textarea id="poll-question" class="poll-field poll-question" rows="2" maxlength="200" placeholder="О чём спросить группу?"></textarea>
+      <div class="poll-sheet-label" data-i18n>Варианты ответа</div>
       <div id="poll-options"></div>
-      <button id="poll-more" class="ghost" type="button" data-i18n>＋ Вариант</button>
+      <button id="poll-more" class="poll-more" type="button"><span>＋</span><span data-i18n>Добавить вариант</span></button>
       <p class="error" id="poll-error" hidden></p>
       <button id="poll-save" class="primary" type="button" data-i18n>Опубликовать</button>
       <div class="sheet-actions">

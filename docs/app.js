@@ -6318,18 +6318,36 @@ async function managePoll(payload) {
 }
 
 function pollOptionInput(value = "") {
+  // Строка варианта: кружок, поле и крестик (крестик — когда вариантов больше двух).
+  const row = el("div", "poll-row");
   const input = el("input");
   input.type = "text";
   input.maxLength = 80;
-  input.className = "poll-option-input";
+  input.className = "poll-field poll-option-input";
   input.placeholder = t("Вариант ответа");
   input.value = value;
-  return input;
+  const remove = el("button", "poll-remove", "×");
+  remove.type = "button";
+  remove.setAttribute("aria-label", t("Удалить"));
+  remove.addEventListener("click", () => {
+    row.remove();
+    syncPollRows();
+  });
+  row.append(el("span", "poll-dot"), input, remove);
+  return row;
+}
+
+function syncPollRows() {
+  const rows = [...document.querySelectorAll("#poll-options .poll-row")];
+  rows.forEach((row) => row.classList.toggle("poll-row--fixed", rows.length <= 2));
+  const more = document.getElementById("poll-more");
+  if (more) more.hidden = rows.length >= 6;
 }
 
 function openPollSheet() {
   document.getElementById("poll-question").value = "";
   document.getElementById("poll-options").replaceChildren(pollOptionInput(t("Буду")), pollOptionInput(t("Не буду")));
+  syncPollRows();
   document.getElementById("poll-error").hidden = true;
   document.getElementById("poll-sheet").hidden = false;
   document.body.classList.add("sheet-open");
@@ -6343,7 +6361,12 @@ function closePollSheet() {
 function initPolls() {
   document.getElementById("poll-more")?.addEventListener("click", () => {
     const box = document.getElementById("poll-options");
-    if (box.children.length < 6) box.append(pollOptionInput());
+    if (box.children.length < 6) {
+      const row = pollOptionInput();
+      box.append(row);
+      syncPollRows();
+      row.querySelector("input").focus();
+    }
   });
   document.getElementById("poll-cancel")?.addEventListener("click", closePollSheet);
   document.getElementById("poll-sheet")?.addEventListener("click", (event) => {
