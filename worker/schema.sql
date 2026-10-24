@@ -459,3 +459,35 @@ CREATE TABLE IF NOT EXISTS plan_hash (
   hash TEXT NOT NULL,
   PRIMARY KEY (grp, day)
 );
+
+-- Дедлайны группы: что и к какому сроку сдать. Вносят староста и владелец.
+CREATE TABLE IF NOT EXISTS deadlines (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  grp     TEXT NOT NULL,
+  title   TEXT NOT NULL,
+  subject TEXT NOT NULL DEFAULT '',
+  due     TEXT NOT NULL,            -- 2026-11-03 или 2026-11-03T18:00
+  author  INTEGER NOT NULL DEFAULT 0,
+  created TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS deadlines_grp ON deadlines (grp, due);
+
+-- Опросы старосты в группе и голоса.
+CREATE TABLE IF NOT EXISTS polls (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  grp      TEXT NOT NULL,
+  question TEXT NOT NULL,
+  options  TEXT NOT NULL,           -- JSON-массив строк
+  author   INTEGER NOT NULL DEFAULT 0,
+  created  TEXT NOT NULL,
+  closed   INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS polls_grp ON polls (grp, closed);
+
+CREATE TABLE IF NOT EXISTS poll_votes (
+  poll_id INTEGER NOT NULL,
+  tg_id   INTEGER NOT NULL,
+  choice  INTEGER NOT NULL,
+  voted   TEXT NOT NULL,
+  PRIMARY KEY (poll_id, tg_id)
+);
