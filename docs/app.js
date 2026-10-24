@@ -6115,7 +6115,7 @@ function renderDeadlines() {
     empty.append(
       el("div", "dl-empty-icon", "📌"),
       el("p", null, t("Дедлайнов пока нет")),
-      el("p", "hint", notices.canEdit ? t("Добавьте свой или общий для группы — кнопкой ＋ сверху.") : t("Добавьте свой — кнопкой ＋ сверху. Общие для группы вносит староста."))
+      el("p", "hint", notices.canEdit ? t("Добавьте свой или общий для группы — кнопкой ниже.") : t("Добавьте свой — кнопкой ниже. Общие для группы вносит староста."))
     );
     body.replaceChildren(empty);
     return;
