@@ -10762,3 +10762,23 @@ body[data-daypart="evening"] .sky-glow {
 #poll-sheet .poll-question {
   min-height: 60px;
 }
+
+/* iPhone: поля даты и времени имеют свою минимальную ширину и вылезали за
+   край окна. Обнуляем её и даём сетке права сжимать колонки. */
+.dl-when-row {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+}
+
+.dl-when-row input {
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: left;
+}
+
+.dl-when-row input::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+}
