@@ -6188,9 +6188,19 @@ function syncDeadlineSheet() {
   }
 }
 
-function closeDeadline() {
-  document.getElementById("dl-sheet").hidden = true;
+/** Окно уезжает вниз, затемнение тает — как у остальных окон. */
+function slideSheetAway(sheet) {
+  if (!sheet || sheet.hidden || sheet.classList.contains("sheet-backdrop--out")) return;
+  sheet.classList.add("sheet-backdrop--out");
+  setTimeout(() => {
+    sheet.hidden = true;
+    sheet.classList.remove("sheet-backdrop--out");
+  }, 300);
   document.body.classList.remove("sheet-open");
+}
+
+function closeDeadline() {
+  slideSheetAway(document.getElementById("dl-sheet"));
 }
 
 async function sendDeadline(payload) {
@@ -6307,7 +6317,17 @@ function renderPolls() {
         }
         const remove = el("button", "ghost", t("Удалить"));
         remove.type = "button";
-        remove.addEventListener("click", () => managePoll({ remove: poll.id }));
+        remove.addEventListener("click", () => {
+          haptic("light");
+          const height = card.offsetHeight;
+          card.animate(
+            [
+              { opacity: 1, transform: "none", height: `${height}px`, marginBottom: "12px" },
+              { opacity: 0, transform: "scale(0.96)", height: "0px", marginBottom: "0px", paddingTop: "0px", paddingBottom: "0px" },
+            ],
+            { duration: 320, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "forwards" }
+          ).finished.then(() => managePoll({ remove: poll.id }), () => managePoll({ remove: poll.id }));
+        });
         tools.append(remove);
         card.append(tools);
       }
@@ -6401,8 +6421,7 @@ function openPollSheet() {
 }
 
 function closePollSheet() {
-  document.getElementById("poll-sheet").hidden = true;
-  document.body.classList.remove("sheet-open");
+  slideSheetAway(document.getElementById("poll-sheet"));
 }
 
 function initPolls() {
