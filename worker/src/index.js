@@ -858,6 +858,149 @@ async function saveHomework(env, body) {
   return { ok: true, day, homework: await groupHomework(env, groupId, { from: day, to: day }) };
 }
 
+/* ---------- Дедлайны и опросы группы ---------- */
+
+const DEADLINE_DUE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/;
+
+async function groupDeadlines(env, groupId) {
+  if (!env.STATS || !groupId) return [];
+  // Прошедшие держим ещё три дня — чтобы было видно «просрочено».
+  const since = iso(addDays(today(), -3));
+  const { results = [] } = await env.STATS.prepare(
+    "SELECT id, title, subject, due FROM deadlines WHERE grp = ? AND substr(due, 1, 10) >= ? ORDER BY due LIMIT 100"
+  )
+    .bind(groupId, since)
+    .all();
+  return results;
+}
+
+async function saveDeadline(env, body) {
+  const groupId = String(body.group || "");
+  const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+  if (!user?.id) return { ok: false, error: "unauthorized" };
+  if (!(await canEditHomework(env, body.initData, groupId))) return { ok: false, error: "forbidden" };
+  if (body.remove) {
+    await env.STATS.prepare("DELETE FROM deadlines WHERE id = ? AND grp = ?").bind(Number(body.remove) || 0, groupId).run();
+  } else {
+    const title = String(body.title || "").trim().slice(0, 140);
+    const subject = String(body.subject || "").trim().slice(0, 200);
+    const due = String(body.due || "");
+    if (!title || !DEADLINE_DUE.test(due)) return { ok: false, error: "bad request" };
+    if (body.id) {
+      await env.STATS.prepare("UPDATE deadlines SET title = ?, subject = ?, due = ? WHERE id = ? AND grp = ?")
+        .bind(title, subject, due, Number(body.id) || 0, groupId)
+        .run();
+    } else {
+      await env.STATS.prepare("INSERT INTO deadlines (grp, title, subject, due, author, created) VALUES (?, ?, ?, ?, ?, ?)")
+        .bind(groupId, title, subject, due, user.id, new Date().toISOString())
+        .run();
+    }
+  }
+  return { ok: true, deadlines: await groupDeadlines(env, groupId) };
+}
+
+async function groupPolls(env, groupId, userId) {
+  if (!env.STATS || !groupId) return [];
+  // Открытые и закрытые за последние двое суток — чтобы итоги ещё повисели.
+  const since = new Date(Date.now() - 2 * 86400000).toISOString();
+  const { results: polls = [] } = await env.STATS.prepare(
+    "SELECT id, question, options, closed, created FROM polls WHERE grp = ? AND (closed = 0 OR created >= ?) ORDER BY id DESC LIMIT 10"
+  )
+    .bind(groupId, since)
+    .all();
+  if (!polls.length) return [];
+  const ids = polls.map((p) => p.id);
+  const marks = ids.map(() => "?").join(",");
+  const { results: counts = [] } = await env.STATS.prepare(
+    `SELECT poll_id, choice, COUNT(*) AS n FROM poll_votes WHERE poll_id IN (${marks}) GROUP BY poll_id, choice`
+  )
+    .bind(...ids)
+    .all();
+  const { results: mine = [] } = userId
+    ? await env.STATS.prepare(`SELECT poll_id, choice FROM poll_votes WHERE tg_id = ? AND poll_id IN (${marks})`)
+        .bind(userId, ...ids)
+        .all()
+    : { results: [] };
+  return polls.map((p) => {
+    let options = [];
+    try {
+      options = JSON.parse(p.options);
+    } catch {
+      options = [];
+    }
+    const votes = options.map((_, i) => counts.find((c) => c.poll_id === p.id && c.choice === i)?.n || 0);
+    const my = mine.find((m) => m.poll_id === p.id);
+    return { id: p.id, question: p.question, options, votes, closed: Boolean(p.closed), mine: my ? my.choice : null };
+  });
+}
+
+async function savePoll(env, body) {
+  const groupId = String(body.group || "");
+  const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+  if (!user?.id) return { ok: false, error: "unauthorized" };
+  if (!(await canEditHomework(env, body.initData, groupId))) return { ok: false, error: "forbidden" };
+  if (body.close) {
+    await env.STATS.prepare("UPDATE polls SET closed = 1 WHERE id = ? AND grp = ?").bind(Number(body.close) || 0, groupId).run();
+  } else if (body.remove) {
+    const id = Number(body.remove) || 0;
+    await env.STATS.prepare("DELETE FROM poll_votes WHERE poll_id = ? AND poll_id IN (SELECT id FROM polls WHERE grp = ?)").bind(id, groupId).run();
+    await env.STATS.prepare("DELETE FROM polls WHERE id = ? AND grp = ?").bind(id, groupId).run();
+  } else {
+    const question = String(body.question || "").trim().slice(0, 200);
+    const options = (Array.isArray(body.options) ? body.options : [])
+      .map((o) => String(o || "").trim().slice(0, 80))
+      .filter(Boolean)
+      .slice(0, 6);
+    if (!question || options.length < 2) return { ok: false, error: "bad request" };
+    await env.STATS.prepare("INSERT INTO polls (grp, question, options, author, created) VALUES (?, ?, ?, ?, ?)")
+      .bind(groupId, question, JSON.stringify(options), user.id, new Date().toISOString())
+      .run();
+  }
+  return { ok: true, polls: await groupPolls(env, groupId, user.id) };
+}
+
+async function votePoll(env, body) {
+  const groupId = String(body.group || "");
+  const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+  if (!user?.id) return { ok: false, error: "unauthorized" };
+  const poll = await env.STATS.prepare("SELECT id, options, closed FROM polls WHERE id = ? AND grp = ?")
+    .bind(Number(body.poll) || 0, groupId)
+    .first();
+  if (!poll || poll.closed) return { ok: false, error: "closed" };
+  const count = (() => {
+    try {
+      return JSON.parse(poll.options).length;
+    } catch {
+      return 0;
+    }
+  })();
+  const choice = Number(body.choice);
+  if (body.choice === null || body.choice === undefined) {
+    await env.STATS.prepare("DELETE FROM poll_votes WHERE poll_id = ? AND tg_id = ?").bind(poll.id, user.id).run();
+  } else if (Number.isInteger(choice) && choice >= 0 && choice < count) {
+    await env.STATS.prepare(
+      `INSERT INTO poll_votes (poll_id, tg_id, choice, voted) VALUES (?, ?, ?, ?)
+       ON CONFLICT(poll_id, tg_id) DO UPDATE SET choice = excluded.choice, voted = excluded.voted`
+    )
+      .bind(poll.id, user.id, choice, new Date().toISOString())
+      .run();
+  } else {
+    return { ok: false, error: "bad choice" };
+  }
+  return { ok: true, polls: await groupPolls(env, groupId, user.id) };
+}
+
+function jsonReply(result) {
+  return new Response(JSON.stringify(result), {
+    status: result.ok ? 200 : 400,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "access-control-allow-origin": "*",
+      "cache-control": "no-store",
+    },
+  });
+}
+
 /** «@ivanov» или числовой id → человек из тех, кто писал боту или открывал приложение. */
 async function findPerson(env, token) {
   const raw = String(token || "").trim();
@@ -1532,7 +1675,7 @@ async function saveReminders(env, body) {
   // План приходит в местном времени вуза: запоминаем, на сколько часов он
   // впереди Москвы, чтобы напоминать по его часам, а не по московским.
   const shift = await shiftOf(body.group);
-  // «Будильник» перед первой парой: от получаса до четырёх часов, 0 — выключен.
+  // «Пора выходить» перед первой парой: время дороги, до четырёх часов; 0 — выключено.
   const wake = Math.min(240, Math.max(0, Math.round(Number(body.wake) || 0)));
   // Уведомления об изменениях: старые версии приложения поля не шлют — включены.
   const changes = body.changes === false || body.changes === 0 ? 0 : 1;
@@ -1719,13 +1862,37 @@ async function dueReminders(env, now, shift, limit) {
         tg_id: row.tg_id,
         key: `${now.day}|wake`,
         text: [
-          `⏰ Пора вставать: первая пара в ${row.start}, через ${span}`,
+          `🚶 Пора выходить: первая пара в ${row.start}, через ${span}`,
           escape(row.subjects || ""),
           row.room ? `📍 ${escape(row.room)}` : "",
           row.pairs > 1 ? `Всего сегодня занятий: ${row.pairs}.` : "",
         ]
           .filter(Boolean)
           .join("\n"),
+      });
+    }
+  }
+
+  // Дедлайны группы на завтра — вечером накануне, тем, у кого включены
+  // напоминания (любые) и выбрана эта группа.
+  const dlRoom = limit - outgoing.length;
+  if (dlRoom > 0 && now.minutes >= 18 * 60 && now.minutes < 22 * 60) {
+    const tomorrow = iso(addDays(new Date(`${now.day}T12:00:00Z`), 1));
+    const { results: due = [] } = await env.STATS.prepare(
+      `SELECT r.tg_id, d.id, d.title, d.subject, d.due FROM deadlines d
+       JOIN reminders r ON r.grp = d.grp AND r.shift = ?1 AND (r.morning = 1 OR r.before > 0 OR r.wake > 0 OR r.changes = 1)
+       WHERE substr(d.due, 1, 10) = ?2
+         AND NOT EXISTS (SELECT 1 FROM reminder_sent s WHERE s.tg_id = r.tg_id AND s.key = ?3 || d.id)
+       LIMIT ?4`
+    )
+      .bind(shift, tomorrow, `${now.day}|dl|`, dlRoom)
+      .all();
+    for (const row of due) {
+      const time = row.due.length > 10 ? ` до ${row.due.slice(11)}` : "";
+      outgoing.push({
+        tg_id: row.tg_id,
+        key: `${now.day}|dl|${row.id}`,
+        text: [`📌 Завтра${time} срок: ${escape(row.title)}`, row.subject ? escape(row.subject) : ""].filter(Boolean).join("\n"),
       });
     }
   }
@@ -3509,20 +3676,22 @@ export default {
           },
         });
       }
-      const [notices, cancels, changes, homework, canEdit, commenter] = await Promise.all([
+      const [notices, cancels, changes, homework, canEdit, commenter, deadlines, polls] = await Promise.all([
         activeNotices(env, group, user?.id).catch(() => []),
         activeCancels(env, group).catch(() => []),
         activeChanges(env, group).catch(() => []),
         groupHomework(env, group.id, range).catch(() => []),
         user ? canEditHomework(env, initData, group.id).catch(() => false) : false,
         user ? canComment(env, user, group.id).catch(() => false) : false,
+        groupDeadlines(env, group.id).catch(() => []),
+        groupPolls(env, group.id, user?.id).catch(() => []),
       ]);
       // Счётчики комментариев — только своей группе: чужим они ни к чему.
       const comments = commenter ? await commentCounts(env, group.id, range).catch(() => []) : [];
       const theme = await themeFor(env, user?.id, group).catch(() => "");
       const important = await importantList(env).catch(() => []);
       const hello = await helloFor(env, user?.id, group).catch(() => "");
-      const payload = { notices, cancels, changes, theme, hello, important, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments };
+      const payload = { notices, cancels, changes, theme, hello, important, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments, deadlines, polls };
       return new Response(JSON.stringify(payload), {
         headers: {
           "content-type": "application/json; charset=utf-8",
@@ -3693,6 +3862,19 @@ export default {
           "cache-control": "no-store",
         },
       });
+    }
+
+    // Дедлайны и опросы группы: правят староста и владелец, голосует любой.
+    if (request.method === "POST" && ["/deadline", "/poll", "/poll/vote"].includes(url.pathname)) {
+      let result;
+      try {
+        const body = JSON.parse(await request.text());
+        result =
+          url.pathname === "/deadline" ? await saveDeadline(env, body) : url.pathname === "/poll" ? await savePoll(env, body) : await votePoll(env, body);
+      } catch {
+        result = { ok: false, error: "bad request" };
+      }
+      return jsonReply(result);
     }
 
     if (url.pathname === "/homework" && request.method === "POST") {
