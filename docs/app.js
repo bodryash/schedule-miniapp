@@ -6368,7 +6368,7 @@ function syncPollRows() {
 
 function openPollSheet() {
   document.getElementById("poll-question").value = "";
-  document.getElementById("poll-options").replaceChildren(pollOptionInput(t("Буду")), pollOptionInput(t("Не буду")));
+  document.getElementById("poll-options").replaceChildren(pollOptionInput(), pollOptionInput());
   syncPollRows();
   document.getElementById("poll-error").hidden = true;
   document.getElementById("poll-sheet").hidden = false;
