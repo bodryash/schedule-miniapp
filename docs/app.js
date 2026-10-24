@@ -6243,6 +6243,7 @@ function showDeadlines() {
 function initDeadlines() {
   document.getElementById("dl-add")?.addEventListener("click", () => openDeadline());
   document.getElementById("dl-cancel")?.addEventListener("click", closeDeadline);
+  document.getElementById("dl-x")?.addEventListener("click", closeDeadline);
   document.getElementById("dl-save")?.addEventListener("click", () => saveDeadlineForm(false));
   document.getElementById("dl-delete")?.addEventListener("click", () => saveDeadlineForm(true));
   document.getElementById("dl-sheet")?.addEventListener("click", (event) => {
@@ -6390,6 +6391,7 @@ function initPolls() {
     }
   });
   document.getElementById("poll-cancel")?.addEventListener("click", closePollSheet);
+  document.getElementById("poll-x")?.addEventListener("click", closePollSheet);
   document.getElementById("poll-sheet")?.addEventListener("click", (event) => {
     if (event.target.id === "poll-sheet") closePollSheet();
   });

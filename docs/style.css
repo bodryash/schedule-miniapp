@@ -10782,3 +10782,23 @@ body[data-daypart="evening"] .sky-glow {
   text-align: left;
   margin: 0;
 }
+
+/* Крестик в шапке окон дедлайна и опроса. */
+.poll-sheet-head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.sheet-x {
+  flex: none;
+  align-self: flex-start;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  color: color-mix(in srgb, var(--muted) 62%, var(--text));
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
