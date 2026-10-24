@@ -648,5 +648,13 @@
       "faculty": 28
     },
     "short": "ИМТУР"
+  },
+  {
+    "id": "mephi-fbiuks",
+    "university": "НИЯУ МИФИ",
+    "faculty": "Факультет бизнес-информатики и управления комплексными системами",
+    "path": "mephi-fbiuks",
+    "features": [],
+    "short": "ФБИУКС"
   }
 ]
