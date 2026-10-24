@@ -6320,6 +6320,7 @@ function renderPolls() {
         remove.addEventListener("click", () => {
           haptic("light");
           const height = card.offsetHeight;
+          card.style.overflow = "hidden";
           card.animate(
             [
               { opacity: 1, transform: "none", height: `${height}px`, marginBottom: "12px" },
