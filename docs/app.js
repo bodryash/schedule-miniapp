@@ -6443,7 +6443,7 @@ function initFlash() {
  * контрольная). Группы — по курсу факультета, предмет — по началу названия.
  */
 const SPECIALS = [
-  { tenant: "msu-fgp", course: 3, date: "2026-10-27", subject: /английский/i, title: "Midterm", kind: "Английский язык", part: "Устная часть", icon: "🎤", decks: ["fgp-lsp-10"] },
+  { tenant: "msu-fgp", course: 3, date: "2026-10-27", subject: /английский/i, title: "Midterm", kind: "Английский язык", part: "Устная часть", icon: "🎤", decks: ["fgp-lsp-10", "fgp-lsp-1"] },
   { tenant: "msu-fgp", course: 3, date: "2026-10-28", subject: /английский/i, title: "Midterm", kind: "Английский язык", part: "Письменная часть · изложение", icon: "✍️" },
 ];
 
