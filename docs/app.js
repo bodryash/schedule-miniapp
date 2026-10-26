@@ -6030,10 +6030,46 @@ function renderNowCard() {
   els.next.classList.add("next--covered");
 }
 
+/* ---------- Особые дни: экзамен вместо обычных пар ----------
+ * Вместо нескольких пар одного предмета — одна большая плашка (мидтерм,
+ * контрольная). Группы — по курсу факультета, предмет — по началу названия.
+ */
+const SPECIALS = [
+  { tenant: "msu-fgp", course: 3, date: "2026-10-27", subject: /английский/i, title: "Midterm", kind: "Английский язык", part: "Устная часть", icon: "🎤" },
+  { tenant: "msu-fgp", course: 3, date: "2026-10-28", subject: /английский/i, title: "Midterm", kind: "Английский язык", part: "Письменная часть · изложение", icon: "✍️" },
+];
+
+function applySpecials() {
+  const group = activeGroup();
+  if (!group || group.teacher || !els.lessons) return;
+  const day = isoDate(dateOfDay(selectedDay));
+  const rule = SPECIALS.find((r) => r.tenant === tenant().id && Number(group.course) === r.course && r.date === day);
+  if (!rule || els.lessons.querySelector(".special")) return;
+  const cards = [...els.lessons.querySelectorAll(":scope > article.card")].filter((c) => rule.subject.test(c.dataset.subject || ""));
+  if (!cards.length) return;
+  const start = cards.map((c) => c.dataset.start).filter(Boolean).sort()[0] || "";
+  const end = cards.map((c) => c.dataset.end).filter(Boolean).sort().at(-1) || "";
+  const box = el("div", "special");
+  const head = el("div", "special-head");
+  head.append(el("span", "special-badge", rule.kind), el("span", "special-time", start && end ? `${start} – ${end}` : ""));
+  const title = el("div", "special-title");
+  title.append(el("span", "special-icon", rule.icon), el("span", null, rule.title));
+  box.append(head, title, el("div", "special-part", rule.part), el("div", "special-luck", "Удачи! 🍀"));
+  for (let i = 0; i < 6; i++) box.append(el("i", `special-spark special-spark--${i + 1}`));
+  cards[0].before(box);
+  for (const card of cards) {
+    // Перемена между скрытыми парами тоже не нужна.
+    const next = card.nextElementSibling;
+    if (next?.classList.contains("gap") && cards.includes(next.nextElementSibling)) next.remove();
+    card.remove();
+  }
+}
+
 function initNowCard() {
   // Сменили день (в том числе на выходной, где пар нет и список не
   // перерисовывается обычным путём) — лента и карточка тоже обновляются.
   new MutationObserver(() => {
+    applySpecials();
     renderRibbon();
     renderNowCard();
   }).observe(els.lessons, { childList: true });

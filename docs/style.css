@@ -10815,3 +10815,105 @@ body[data-daypart="evening"] .sky-glow {
 .poll-option:active {
   transform: scale(0.98);
 }
+
+/* ===== Особый день: большая плашка экзамена ===== */
+.special {
+  position: relative;
+  overflow: hidden;
+  margin: 0 0 12px;
+  padding: 18px 18px 20px;
+  border-radius: 26px;
+  color: #fff;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, 0.28), transparent 55%),
+    linear-gradient(140deg, #6d4dff 0%, #b14bff 45%, #ff5fa2 100%);
+  box-shadow: 0 22px 40px -22px rgba(124, 77, 255, 0.9);
+  animation: special-in 0.7s cubic-bezier(0.2, 1.2, 0.4, 1) both;
+}
+
+.special-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.special-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  letter-spacing: 0.02em;
+}
+
+.special-time {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;
+}
+
+.special-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  font-family: "Unbounded", var(--head-font, system-ui), sans-serif;
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-shadow: 0 6px 18px rgba(60, 20, 120, 0.35);
+}
+
+.special-icon {
+  font-size: 34px;
+  animation: special-bob 2.6s ease-in-out infinite;
+}
+
+.special-part {
+  margin-top: 10px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.special-luck {
+  margin-top: 4px;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.special-spark {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0.7;
+  animation: special-twinkle 2.4s ease-in-out infinite;
+}
+
+.special-spark--1 { top: 18%; right: 14%; }
+.special-spark--2 { top: 46%; right: 8%; width: 4px; height: 4px; animation-delay: 0.6s; }
+.special-spark--3 { top: 70%; right: 22%; width: 5px; height: 5px; animation-delay: 1.1s; }
+.special-spark--4 { top: 30%; right: 30%; width: 3px; height: 3px; animation-delay: 1.6s; }
+.special-spark--5 { bottom: 12%; right: 6%; width: 4px; height: 4px; animation-delay: 0.3s; }
+.special-spark--6 { top: 10%; right: 42%; width: 3px; height: 3px; animation-delay: 2s; }
+
+@keyframes special-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes special-bob {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50% { transform: translateY(-4px) rotate(6deg); }
+}
+
+@keyframes special-twinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.6); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .special, .special-icon, .special-spark { animation: none; }
+}
