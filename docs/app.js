@@ -6030,12 +6030,293 @@ function renderNowCard() {
   els.next.classList.add("next--covered");
 }
 
+/* ---------- Карточки: учить выражения к экзамену ----------
+ * Колоды: готовые (data/decks/*.json) и свои — из загруженного .docx/.txt,
+ * разбираются прямо в телефоне и хранятся только в нём. Строка файла
+ * «1. expression — перевод» становится карточкой. Прогресс — в телефоне.
+ */
+const FLASH_MINE_KEY = "schedule.decks";
+let flash = { decks: [], deck: null, queue: [], known: new Set(), flipped: false, reverse: false, builtin: [] };
+
+function flashEl(id) {
+  return document.getElementById(id);
+}
+
+function myDecks() {
+  return readLocal(FLASH_MINE_KEY, []);
+}
+
+function knownKey(deckId) {
+  return `schedule.cardsKnown.${deckId}`;
+}
+
+/** Строки «1. a — b», «a — b», «a - b», «a<таб>b» → карточки. */
+function parseCards(lines) {
+  const cards = [];
+  for (const raw of lines) {
+    const line = raw.replace(/^\s*\d+[.)]\s*/, "").trim();
+    if (!line) continue;
+    const m = line.match(/^(.+?)\s+[—–-]\s+(.+)$/) || line.match(/^(.+?)\t+(.+)$/);
+    if (m) cards.push({ front: m[1].trim(), back: m[2].trim().replace(/\.$/, "") });
+  }
+  return cards;
+}
+
+/** .docx — это zip: достаём word/document.xml без сторонних библиотек. */
+async function docxText(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const view = new DataView(buffer);
+  // Конец центрального каталога — с конца файла.
+  let eocd = -1;
+  for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 66000); i--) {
+    if (view.getUint32(i, true) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd < 0) throw new Error("not zip");
+  let ptr = view.getUint32(eocd + 16, true);
+  const count = view.getUint16(eocd + 10, true);
+  for (let n = 0; n < count; n++) {
+    const method = view.getUint16(ptr + 10, true);
+    const size = view.getUint32(ptr + 20, true);
+    const nameLen = view.getUint16(ptr + 28, true);
+    const extraLen = view.getUint16(ptr + 30, true);
+    const commentLen = view.getUint16(ptr + 32, true);
+    const local = view.getUint32(ptr + 42, true);
+    const name = new TextDecoder().decode(bytes.subarray(ptr + 46, ptr + 46 + nameLen));
+    if (name === "word/document.xml") {
+      const start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
+      const data = bytes.subarray(start, start + size);
+      let xml;
+      if (method === 0) xml = new TextDecoder().decode(data);
+      else {
+        const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+        xml = await new Response(stream).text();
+      }
+      const doc = new DOMParser().parseFromString(xml, "application/xml");
+      const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+      return [...doc.getElementsByTagNameNS(W, "p")].map((p) =>
+        [...p.getElementsByTagNameNS(W, "*")].map((node) => (node.localName === "t" ? node.textContent : node.localName === "tab" ? "\t" : "")).join("")
+      );
+    }
+    ptr += 46 + nameLen + extraLen + commentLen;
+  }
+  throw new Error("no document");
+}
+
+async function loadBuiltinDecks(ids) {
+  const out = [];
+  for (const id of ids || []) {
+    try {
+      const res = await fetch(`data/decks/${id}.json?v=${window.__v || ""}`);
+      if (res.ok) out.push(await res.json());
+    } catch {
+      // нет сети — без готовой колоды
+    }
+  }
+  return out;
+}
+
+async function openFlash(ids = []) {
+  flash.builtin = await loadBuiltinDecks(ids);
+  flashEl("flash").hidden = false;
+  document.body.classList.add("sheet-open");
+  showDeckList();
+}
+
+function closeFlash() {
+  const box = flashEl("flash");
+  box.classList.add("flash--out");
+  setTimeout(() => {
+    box.hidden = true;
+    box.classList.remove("flash--out");
+  }, 260);
+  document.body.classList.remove("sheet-open");
+}
+
+function showDeckList() {
+  flash.deck = null;
+  flashEl("flash-title").textContent = t("Карточки");
+  flashEl("flash-back").style.visibility = "hidden";
+  const body = flashEl("flash-body");
+  const decks = [...flash.builtin.map((d) => ({ ...d, builtin: true })), ...myDecks()];
+  const list = el("div", "deck-list");
+  for (const deck of decks) {
+    const known = readLocal(knownKey(deck.id), []).length;
+    const item = el("button", "deck");
+    item.type = "button";
+    const share = deck.cards.length ? known / deck.cards.length : 0;
+    const ring = el("span", "deck-ring");
+    ring.style.setProperty("--p", share.toFixed(3));
+    ring.append(el("b", null, `${Math.round(share * 100)}%`));
+    const text = el("span", "deck-text");
+    text.append(el("b", null, deck.title), el("span", null, `${t("выучено {k} из {n}", { k: known, n: deck.cards.length })}${deck.builtin ? "" : " · " + t("мой файл")}`));
+    item.append(ring, text);
+    item.addEventListener("click", () => startDeck(deck));
+    list.append(item);
+    if (!deck.builtin) {
+      const remove = el("button", "deck-remove", "×");
+      remove.type = "button";
+      remove.setAttribute("aria-label", t("Удалить"));
+      remove.addEventListener("click", (event) => {
+        event.stopPropagation();
+        writeLocal(FLASH_MINE_KEY, myDecks().filter((d) => d.id !== deck.id));
+        showDeckList();
+      });
+      item.append(remove);
+    }
+  }
+  const upload = el("button", "deck-upload");
+  upload.type = "button";
+  upload.append(el("span", null, "＋"), el("span", null, t("Загрузить свой файл (.docx, .txt)")));
+  upload.addEventListener("click", () => flashEl("flash-file").click());
+  const hint = el("p", "hint", t("Каждая строка вида «expression — перевод» станет карточкой. Файл остаётся только в вашем телефоне."));
+  body.replaceChildren(list, upload, hint);
+}
+
+function startDeck(deck) {
+  flash.deck = deck;
+  flash.known = new Set(readLocal(knownKey(deck.id), []));
+  const order = deck.cards.map((_, i) => i).filter((i) => !flash.known.has(i));
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  flash.queue = order;
+  flash.flipped = false;
+  flashEl("flash-title").textContent = deck.title;
+  flashEl("flash-back").style.visibility = "visible";
+  haptic("light");
+  showCard();
+}
+
+function showCard() {
+  const deck = flash.deck;
+  const body = flashEl("flash-body");
+  const total = deck.cards.length;
+  const progress = el("div", "flash-progress");
+  const fill = el("i");
+  fill.style.width = `${(flash.known.size / total) * 100}%`;
+  progress.append(fill);
+  const stats = el("div", "flash-stats");
+  stats.append(el("span", null, t("выучено {k} из {n}", { k: flash.known.size, n: total })), el("span", null, t("осталось {n}", { n: flash.queue.length })));
+
+  if (!flash.queue.length) {
+    const done = el("div", "flash-done");
+    done.append(el("div", "flash-done-icon", "🎉"), el("h3", null, t("Все карточки выучены!")), el("p", "hint", t("Отличная подготовка. Можно пройти ещё раз для закрепления.")));
+    const again = el("button", "primary", t("Пройти заново"));
+    again.type = "button";
+    again.addEventListener("click", () => {
+      writeLocal(knownKey(deck.id), []);
+      startDeck(deck);
+    });
+    done.append(again);
+    body.replaceChildren(progress, stats, done);
+    haptic("success");
+    return;
+  }
+
+  const index = flash.queue[0];
+  const card = deck.cards[index];
+  const front = flash.reverse ? card.back : card.front;
+  const back = flash.reverse ? card.front : card.back;
+  const scene = el("div", "flash-scene");
+  const inner = el("div", `flash-card${flash.flipped ? " flash-card--flipped" : ""}`);
+  const faceA = el("div", "flash-face flash-face--front");
+  faceA.append(el("span", "flash-lang", flash.reverse ? "RU" : "EN"), el("div", "flash-word", front), el("span", "flash-tip", t("нажмите, чтобы перевернуть")));
+  const faceB = el("div", "flash-face flash-face--back");
+  faceB.append(el("span", "flash-lang", flash.reverse ? "EN" : "RU"), el("div", "flash-word flash-word--small", front), el("div", "flash-answer", back));
+  inner.append(faceA, faceB);
+  scene.append(inner);
+  scene.addEventListener("click", () => {
+    flash.flipped = !flash.flipped;
+    inner.classList.toggle("flash-card--flipped", flash.flipped);
+    haptic("select");
+  });
+  // Свайп: вправо — знаю, влево — ещё раз.
+  let startX = null;
+  scene.addEventListener("pointerdown", (e) => {
+    startX = e.clientX;
+  });
+  scene.addEventListener("pointermove", (e) => {
+    if (startX === null) return;
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) > 8) inner.style.transform = `translateX(${dx}px) rotate(${dx / 20}deg)${flash.flipped ? " rotateY(180deg)" : ""}`;
+  });
+  scene.addEventListener("pointerup", (e) => {
+    if (startX === null) return;
+    const dx = e.clientX - startX;
+    startX = null;
+    inner.style.transform = "";
+    if (dx > 90) answer(true, inner, 1);
+    else if (dx < -90) answer(false, inner, -1);
+  });
+
+  const buttons = el("div", "flash-buttons");
+  const again = el("button", "flash-btn flash-btn--again", t("Ещё раз"));
+  again.type = "button";
+  again.addEventListener("click", () => answer(false, inner, -1));
+  const know = el("button", "flash-btn flash-btn--know", t("Знаю"));
+  know.type = "button";
+  know.addEventListener("click", () => answer(true, inner, 1));
+  buttons.append(again, know);
+
+  const swap = el("button", "flash-swap", flash.reverse ? t("RU → EN · сменить") : t("EN → RU · сменить"));
+  swap.type = "button";
+  swap.addEventListener("click", () => {
+    flash.reverse = !flash.reverse;
+    flash.flipped = false;
+    showCard();
+  });
+  body.replaceChildren(progress, stats, scene, buttons, swap);
+}
+
+function answer(known, inner, dir) {
+  const index = flash.queue.shift();
+  if (known) {
+    flash.known.add(index);
+    writeLocal(knownKey(flash.deck.id), [...flash.known]);
+    haptic("success");
+  } else {
+    // Трудную карточку вернём через несколько других.
+    flash.queue.splice(Math.min(flash.queue.length, 4 + Math.floor(Math.random() * 3)), 0, index);
+    haptic("light");
+  }
+  flash.flipped = false;
+  inner.animate(
+    [{ transform: inner.style.transform || "none", opacity: 1 }, { transform: `translateX(${dir * 420}px) rotate(${dir * 18}deg)`, opacity: 0 }],
+    { duration: 260, easing: "ease-in" }
+  ).finished.then(showCard, showCard);
+}
+
+function initFlash() {
+  flashEl("flash-close")?.addEventListener("click", closeFlash);
+  flashEl("flash-back")?.addEventListener("click", showDeckList);
+  flashEl("flash-file")?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const lines = /\.docx$/i.test(file.name) ? await docxText(await file.arrayBuffer()) : (await file.text()).split(/\r?\n/);
+      const cards = parseCards(lines);
+      if (!cards.length) throw new Error("empty");
+      const deck = { id: `my-${Date.now()}`, title: file.name.replace(/\.(docx|txt)$/i, ""), cards };
+      writeLocal(FLASH_MINE_KEY, [...myDecks(), deck]);
+      haptic("success");
+      showDeckList();
+    } catch {
+      tg?.showAlert?.(t("Не нашёл в файле карточек. Нужны строки вида «expression — перевод»."));
+    }
+  });
+}
+
 /* ---------- Особые дни: экзамен вместо обычных пар ----------
  * Вместо нескольких пар одного предмета — одна большая плашка (мидтерм,
  * контрольная). Группы — по курсу факультета, предмет — по началу названия.
  */
 const SPECIALS = [
-  { tenant: "msu-fgp", course: 3, date: "2026-10-27", subject: /английский/i, title: "Midterm", kind: "Английский язык", part: "Устная часть", icon: "🎤" },
+  { tenant: "msu-fgp", course: 3, date: "2026-10-27", subject: /английский/i, title: "Midterm", kind: "Английский язык", part: "Устная часть", icon: "🎤", decks: ["fgp-lsp-10"] },
   { tenant: "msu-fgp", course: 3, date: "2026-10-28", subject: /английский/i, title: "Midterm", kind: "Английский язык", part: "Письменная часть · изложение", icon: "✍️" },
 ];
 
@@ -6055,6 +6336,18 @@ function applySpecials() {
   const title = el("div", "special-title");
   title.append(el("span", "special-icon", rule.icon), el("span", null, rule.title));
   box.append(head, title, el("div", "special-part", rule.part), el("div", "special-luck", "Удачи! 🍀"));
+  if (rule.decks) {
+    const study = el("button", "special-study", t("🃏 Учить выражения"));
+    study.type = "button";
+    study.addEventListener("click", (event) => {
+      event.stopPropagation();
+      haptic("light");
+      openFlash(rule.decks);
+    });
+    box.append(study);
+    box.addEventListener("click", () => openFlash(rule.decks));
+    box.classList.add("special--tap");
+  }
   for (let i = 0; i < 6; i++) box.append(el("i", `special-spark special-spark--${i + 1}`));
   cards[0].before(box);
   for (const card of cards) {
@@ -10891,6 +11184,7 @@ async function init() {
   initDeadlines();
   initPolls();
   initPhotos();
+  initFlash();
   initNeon();
   document.getElementById("bg-pick")?.addEventListener("change", (event) => {
     haptic("select");
