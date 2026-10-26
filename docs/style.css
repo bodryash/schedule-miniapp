@@ -11126,6 +11126,7 @@ body[data-daypart="evening"] .sky-glow {
 }
 
 .flash-scene {
+  position: relative;
   flex: 1;
   min-height: 260px;
   max-height: 420px;
@@ -11266,4 +11267,43 @@ body[data-daypart="evening"] .sky-glow {
 
 .flash-done-icon {
   font-size: 56px;
+}
+
+.deck-fav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -4px 0 0 68px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: color-mix(in srgb, #f59f00 16%, transparent);
+  color: color-mix(in srgb, #e67700 80%, var(--text));
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.flash-star {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+
+.flash-star--on {
+  background: #fcc419;
+  color: #5c3c00;
 }

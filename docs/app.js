@@ -6050,6 +6050,10 @@ function knownKey(deckId) {
   return `schedule.cardsKnown.${deckId}`;
 }
 
+function favKey(deckId) {
+  return `schedule.cardsFav.${deckId}`;
+}
+
 /** Строки «1. a — b», «a — b», «a - b», «a<таб>b» → карточки. */
 function parseCards(lines) {
   const cards = [];
@@ -6155,6 +6159,14 @@ function showDeckList() {
     item.append(ring, text);
     item.addEventListener("click", () => startDeck(deck));
     list.append(item);
+    const favs = readLocal(favKey(deck.id), []).filter((i) => i < deck.cards.length);
+    if (favs.length) {
+      const fav = el("button", "deck-fav");
+      fav.type = "button";
+      fav.append(el("span", null, "★"), el("span", null, t("Только избранные · {n}", { n: favs.length })));
+      fav.addEventListener("click", () => startDeck(deck, true));
+      list.append(fav);
+    }
     if (!deck.builtin) {
       const remove = el("button", "deck-remove", "×");
       remove.type = "button";
@@ -6175,17 +6187,21 @@ function showDeckList() {
   body.replaceChildren(list, upload, hint);
 }
 
-function startDeck(deck) {
+function startDeck(deck, favOnly = false) {
   flash.deck = deck;
+  flash.favOnly = favOnly;
+  flash.fav = new Set(readLocal(favKey(deck.id), []));
   flash.known = new Set(readLocal(knownKey(deck.id), []));
-  const order = deck.cards.map((_, i) => i).filter((i) => !flash.known.has(i));
+  // В избранном прогоняем все отмеченные, даже уже выученные.
+  const order = favOnly ? [...flash.fav].filter((i) => i < deck.cards.length) : deck.cards.map((_, i) => i).filter((i) => !flash.known.has(i));
+  flash.total = order.length;
   for (let i = order.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [order[i], order[j]] = [order[j], order[i]];
   }
   flash.queue = order;
   flash.flipped = false;
-  flashEl("flash-title").textContent = deck.title;
+  flashEl("flash-title").textContent = favOnly ? `★ ${deck.title}` : deck.title;
   flashEl("flash-back").style.visibility = "visible";
   haptic("light");
   showCard();
@@ -6194,22 +6210,23 @@ function startDeck(deck) {
 function showCard() {
   const deck = flash.deck;
   const body = flashEl("flash-body");
-  const total = deck.cards.length;
+  const total = flash.favOnly ? flash.total : deck.cards.length;
+  const passed = flash.favOnly ? total - new Set(flash.queue).size : flash.known.size;
   const progress = el("div", "flash-progress");
   const fill = el("i");
-  fill.style.width = `${(flash.known.size / total) * 100}%`;
+  fill.style.width = `${total ? (passed / total) * 100 : 0}%`;
   progress.append(fill);
   const stats = el("div", "flash-stats");
-  stats.append(el("span", null, t("выучено {k} из {n}", { k: flash.known.size, n: total })), el("span", null, t("осталось {n}", { n: flash.queue.length })));
+  stats.append(el("span", null, t(flash.favOnly ? "избранных пройдено {k} из {n}" : "выучено {k} из {n}", { k: passed, n: total })), el("span", null, t("осталось {n}", { n: flash.queue.length })));
 
   if (!flash.queue.length) {
     const done = el("div", "flash-done");
-    done.append(el("div", "flash-done-icon", "🎉"), el("h3", null, t("Все карточки выучены!")), el("p", "hint", t("Отличная подготовка. Можно пройти ещё раз для закрепления.")));
+    done.append(el("div", "flash-done-icon", "🎉"), el("h3", null, t(flash.favOnly ? "Избранные пройдены!" : "Все карточки выучены!")), el("p", "hint", t("Отличная подготовка. Можно пройти ещё раз для закрепления.")));
     const again = el("button", "primary", t("Пройти заново"));
     again.type = "button";
     again.addEventListener("click", () => {
-      writeLocal(knownKey(deck.id), []);
-      startDeck(deck);
+      if (!flash.favOnly) writeLocal(knownKey(deck.id), []);
+      startDeck(deck, flash.favOnly);
     });
     done.append(again);
     body.replaceChildren(progress, stats, done);
@@ -6228,7 +6245,22 @@ function showCard() {
   const faceB = el("div", "flash-face flash-face--back");
   faceB.append(el("span", "flash-lang", flash.reverse ? "EN" : "RU"), el("div", "flash-word flash-word--small", front), el("div", "flash-answer", back));
   inner.append(faceA, faceB);
-  scene.append(inner);
+  const star = el("button", `flash-star${flash.fav.has(index) ? " flash-star--on" : ""}`, flash.fav.has(index) ? "★" : "☆");
+  star.type = "button";
+  star.setAttribute("aria-label", t("В избранное"));
+  star.addEventListener("pointerdown", (e) => e.stopPropagation());
+  star.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (flash.fav.has(index)) flash.fav.delete(index);
+    else flash.fav.add(index);
+    writeLocal(favKey(deck.id), [...flash.fav]);
+    const on = flash.fav.has(index);
+    star.textContent = on ? "★" : "☆";
+    star.classList.toggle("flash-star--on", on);
+    star.animate([{ transform: "scale(1)" }, { transform: "scale(1.35)" }, { transform: "scale(1)" }], { duration: 260, easing: "ease-out" });
+    haptic(on ? "success" : "light");
+  });
+  scene.append(inner, star);
   scene.addEventListener("click", () => {
     flash.flipped = !flash.flipped;
     inner.classList.toggle("flash-card--flipped", flash.flipped);
@@ -6277,6 +6309,7 @@ function answer(known, inner, dir) {
   if (known) {
     flash.known.add(index);
     writeLocal(knownKey(flash.deck.id), [...flash.known]);
+    if (flash.favOnly) flash.queue = flash.queue.filter((i) => i !== index);
     haptic("success");
   } else {
     // Трудную карточку вернём через несколько других.
