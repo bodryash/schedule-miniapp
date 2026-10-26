@@ -6164,6 +6164,31 @@ async function pdfText(buffer) {
   return lines;
 }
 
+/** Скриншоты: распознаём текст прямо в телефоне (tesseract.js), картинки никуда не уходят. */
+async function imageText(images) {
+  if (!window.Tesseract) {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.append(script);
+    });
+  }
+  const worker = await window.Tesseract.createWorker(["eng", "rus"]);
+  const lines = [];
+  try {
+    for (const image of images) {
+      const { data } = await worker.recognize(image);
+      // OCR часто читает тире как «-», «–» или «_» — приводим к одному виду.
+      lines.push(...data.text.split("\n").map((line) => line.replace(/\s[-–_~]{1,2}\s/, " — ").trim()));
+    }
+  } finally {
+    await worker.terminate();
+  }
+  return lines;
+}
+
 async function loadBuiltinDecks(ids) {
   const out = [];
   for (const id of ids || []) {
@@ -6236,7 +6261,7 @@ function showDeckList() {
   }
   const upload = el("button", "deck-upload");
   upload.type = "button";
-  upload.append(el("span", null, "＋"), el("span", null, t("Загрузить свой файл (.docx, .xlsx, .pdf, .txt)")));
+  upload.append(el("span", null, "＋"), el("span", null, t("Загрузить файл или скрины (.docx, .xlsx, .pdf, .txt, фото)")));
   upload.addEventListener("click", () => flashEl("flash-file").click());
   const hint = el("p", "hint", t("Каждая строка вида «expression — перевод» станет карточкой. Файл остаётся только в вашем телефоне."));
   body.replaceChildren(list, upload, hint);
@@ -6382,11 +6407,17 @@ function initFlash() {
   flashEl("flash-close")?.addEventListener("click", closeFlash);
   flashEl("flash-back")?.addEventListener("click", showDeckList);
   flashEl("flash-file")?.addEventListener("change", async (event) => {
-    const file = event.target.files?.[0];
+    const files = [...(event.target.files || [])];
     event.target.value = "";
+    const file = files[0];
     if (!file) return;
+    const images = files.filter((f) => f.type.startsWith("image/"));
+    const button = document.querySelector(".deck-upload span:last-child");
     try {
-      const lines = /\.docx$/i.test(file.name)
+      if (images.length && button) button.textContent = t("Распознаю текст на скринах…");
+      const lines = images.length
+        ? await imageText(images)
+        : /\.docx$/i.test(file.name)
         ? await docxText(await file.arrayBuffer())
         : /\.xlsx$/i.test(file.name)
           ? await xlsxText(await file.arrayBuffer())
@@ -6395,11 +6426,13 @@ function initFlash() {
           : (await file.text()).split(/\r?\n/);
       const cards = parseCards(lines);
       if (!cards.length) throw new Error("empty");
-      const deck = { id: `my-${Date.now()}`, title: file.name.replace(/\.(docx|xlsx|txt|pdf)$/i, ""), cards };
+      const title = images.length ? t("Скрины · {d}", { d: new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) }) : file.name.replace(/\.(docx|xlsx|txt|pdf)$/i, "");
+      const deck = { id: `my-${Date.now()}`, title, cards };
       writeLocal(FLASH_MINE_KEY, [...myDecks(), deck]);
       haptic("success");
       showDeckList();
     } catch {
+      showDeckList();
       tg?.showAlert?.(t("Не нашёл в файле карточек. Нужны строки вида «expression — перевод»."));
     }
   });
