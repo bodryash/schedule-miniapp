@@ -6109,6 +6109,37 @@ async function docxText(buffer) {
   throw new Error("no document");
 }
 
+/** PDF: текст по строкам через pdf.js, библиотека грузится только при первом PDF. */
+async function pdfText(buffer) {
+  if (!window.pdfjsLib) {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.append(script);
+    });
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+  const pdf = await window.pdfjsLib.getDocument({ data: buffer }).promise;
+  const lines = [];
+  for (let n = 1; n <= pdf.numPages; n++) {
+    const content = await (await pdf.getPage(n)).getTextContent();
+    // Кусочки текста на одной высоте — одна строка.
+    const rows = new Map();
+    for (const item of content.items) {
+      if (!item.str) continue;
+      const y = Math.round(item.transform[5] / 2) * 2;
+      if (!rows.has(y)) rows.set(y, []);
+      rows.get(y).push(item);
+    }
+    for (const y of [...rows.keys()].sort((a, b) => b - a)) {
+      lines.push(rows.get(y).sort((a, b) => a.transform[4] - b.transform[4]).map((i) => i.str).join(" ").replace(/\s+/g, " "));
+    }
+  }
+  return lines;
+}
+
 async function loadBuiltinDecks(ids) {
   const out = [];
   for (const id of ids || []) {
@@ -6181,7 +6212,7 @@ function showDeckList() {
   }
   const upload = el("button", "deck-upload");
   upload.type = "button";
-  upload.append(el("span", null, "＋"), el("span", null, t("Загрузить свой файл (.docx, .txt)")));
+  upload.append(el("span", null, "＋"), el("span", null, t("Загрузить свой файл (.docx, .pdf, .txt)")));
   upload.addEventListener("click", () => flashEl("flash-file").click());
   const hint = el("p", "hint", t("Каждая строка вида «expression — перевод» станет карточкой. Файл остаётся только в вашем телефоне."));
   body.replaceChildren(list, upload, hint);
@@ -6331,10 +6362,14 @@ function initFlash() {
     event.target.value = "";
     if (!file) return;
     try {
-      const lines = /\.docx$/i.test(file.name) ? await docxText(await file.arrayBuffer()) : (await file.text()).split(/\r?\n/);
+      const lines = /\.docx$/i.test(file.name)
+        ? await docxText(await file.arrayBuffer())
+        : /\.pdf$/i.test(file.name)
+          ? await pdfText(await file.arrayBuffer())
+          : (await file.text()).split(/\r?\n/);
       const cards = parseCards(lines);
       if (!cards.length) throw new Error("empty");
-      const deck = { id: `my-${Date.now()}`, title: file.name.replace(/\.(docx|txt)$/i, ""), cards };
+      const deck = { id: `my-${Date.now()}`, title: file.name.replace(/\.(docx|txt|pdf)$/i, ""), cards };
       writeLocal(FLASH_MINE_KEY, [...myDecks(), deck]);
       haptic("success");
       showDeckList();
