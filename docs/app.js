@@ -6254,7 +6254,7 @@ function showCard() {
   });
 
   const buttons = el("div", "flash-buttons");
-  const again = el("button", "flash-btn flash-btn--again", t("Ещё раз"));
+  const again = el("button", "flash-btn flash-btn--again", t("Следующая"));
   again.type = "button";
   again.addEventListener("click", () => answer(false, inner, -1));
   const know = el("button", "flash-btn flash-btn--know", t("Знаю"));
