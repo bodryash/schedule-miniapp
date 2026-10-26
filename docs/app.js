@@ -6066,8 +6066,8 @@ function parseCards(lines) {
   return cards;
 }
 
-/** .docx — это zip: достаём word/document.xml без сторонних библиотек. */
-async function docxText(buffer) {
+/** .docx и .xlsx — это zip: достаём нужный xml без сторонних библиотек. */
+async function zipXml(buffer, wanted) {
   const bytes = new Uint8Array(buffer);
   const view = new DataView(buffer);
   // Конец центрального каталога — с конца файла.
@@ -6089,7 +6089,7 @@ async function docxText(buffer) {
     const commentLen = view.getUint16(ptr + 32, true);
     const local = view.getUint32(ptr + 42, true);
     const name = new TextDecoder().decode(bytes.subarray(ptr + 46, ptr + 46 + nameLen));
-    if (name === "word/document.xml") {
+    if (name === wanted) {
       const start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
       const data = bytes.subarray(start, start + size);
       let xml;
@@ -6098,15 +6098,39 @@ async function docxText(buffer) {
         const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
         xml = await new Response(stream).text();
       }
-      const doc = new DOMParser().parseFromString(xml, "application/xml");
-      const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
-      return [...doc.getElementsByTagNameNS(W, "p")].map((p) =>
-        [...p.getElementsByTagNameNS(W, "*")].map((node) => (node.localName === "t" ? node.textContent : node.localName === "tab" ? "\t" : "")).join("")
-      );
+      return new DOMParser().parseFromString(xml, "application/xml");
     }
     ptr += 46 + nameLen + extraLen + commentLen;
   }
-  throw new Error("no document");
+  return null;
+}
+
+async function docxText(buffer) {
+  const doc = await zipXml(buffer, "word/document.xml");
+  if (!doc) throw new Error("no document");
+  const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+  return [...doc.getElementsByTagNameNS(W, "p")].map((p) =>
+    [...p.getElementsByTagNameNS(W, "*")].map((node) => (node.localName === "t" ? node.textContent : node.localName === "tab" ? "\t" : "")).join("")
+  );
+}
+
+/** Первый лист .xlsx: каждая строка таблицы — ячейки через таб («слово<таб>перевод»). */
+async function xlsxText(buffer) {
+  const sheet = await zipXml(buffer, "xl/worksheets/sheet1.xml");
+  if (!sheet) throw new Error("no sheet");
+  const shared = await zipXml(buffer, "xl/sharedStrings.xml");
+  const strings = shared ? [...shared.getElementsByTagName("si")].map((si) => [...si.getElementsByTagName("t")].map((t) => t.textContent).join("")) : [];
+  return [...sheet.getElementsByTagName("row")].map((row) =>
+    [...row.getElementsByTagName("c")]
+      .map((c) => {
+        const type = c.getAttribute("t");
+        if (type === "inlineStr") return [...c.getElementsByTagName("t")].map((t) => t.textContent).join("");
+        const v = c.getElementsByTagName("v")[0]?.textContent ?? "";
+        return type === "s" ? strings[+v] ?? "" : v;
+      })
+      .filter((cell) => cell.trim())
+      .join("\t")
+  );
 }
 
 /** PDF: текст по строкам через pdf.js, библиотека грузится только при первом PDF. */
@@ -6212,7 +6236,7 @@ function showDeckList() {
   }
   const upload = el("button", "deck-upload");
   upload.type = "button";
-  upload.append(el("span", null, "＋"), el("span", null, t("Загрузить свой файл (.docx, .pdf, .txt)")));
+  upload.append(el("span", null, "＋"), el("span", null, t("Загрузить свой файл (.docx, .xlsx, .pdf, .txt)")));
   upload.addEventListener("click", () => flashEl("flash-file").click());
   const hint = el("p", "hint", t("Каждая строка вида «expression — перевод» станет карточкой. Файл остаётся только в вашем телефоне."));
   body.replaceChildren(list, upload, hint);
@@ -6364,12 +6388,14 @@ function initFlash() {
     try {
       const lines = /\.docx$/i.test(file.name)
         ? await docxText(await file.arrayBuffer())
+        : /\.xlsx$/i.test(file.name)
+          ? await xlsxText(await file.arrayBuffer())
         : /\.pdf$/i.test(file.name)
           ? await pdfText(await file.arrayBuffer())
           : (await file.text()).split(/\r?\n/);
       const cards = parseCards(lines);
       if (!cards.length) throw new Error("empty");
-      const deck = { id: `my-${Date.now()}`, title: file.name.replace(/\.(docx|txt|pdf)$/i, ""), cards };
+      const deck = { id: `my-${Date.now()}`, title: file.name.replace(/\.(docx|xlsx|txt|pdf)$/i, ""), cards };
       writeLocal(FLASH_MINE_KEY, [...myDecks(), deck]);
       haptic("success");
       showDeckList();
