@@ -72,19 +72,6 @@
     "features": []
   },
   {
-    "id": "mgimo-imip",
-    "university": "МГИМО",
-    "faculty": "Институт маркетинга и предпринимательства",
-    "path": "mgimo-imip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 49
-    },
-    "short": "ИМиП"
-  },
-  {
     "id": "samgmu-ikm-lech",
     "university": "СамГМУ",
     "faculty": "Институт клинической медицины — Лечебное дело",
@@ -366,19 +353,6 @@
     "tz": 5
   },
   {
-    "id": "mgimo-meo-dip",
-    "university": "МГИМО",
-    "faculty": "Факультет международных экономических отношений (Дип)",
-    "path": "mgimo-meo-dip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 53
-    },
-    "short": "МЭО (Дип)"
-  },
-  {
     "id": "msu-vshp",
     "university": "МГУ",
     "faculty": "Высшая школа перевода",
@@ -407,6 +381,61 @@
     }
   },
   {
+    "id": "marhi",
+    "university": "МАРХИ",
+    "faculty": "Московский архитектурный институт",
+    "path": "marhi",
+    "features": [],
+    "short": "МАРХИ"
+  },
+  {
+    "id": "mgimo-mp-dip",
+    "university": "МГИМО",
+    "faculty": "Международно-правовой факультет (Дип)",
+    "path": "mgimo-mp-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 57
+    },
+    "short": "МП (Дип)"
+  },
+  {
+    "id": "mephi-fbiuks",
+    "university": "НИЯУ МИФИ",
+    "faculty": "Факультет бизнес-информатики и управления комплексными системами",
+    "path": "mephi-fbiuks",
+    "features": [],
+    "short": "ФБИУКС"
+  },
+  {
+    "id": "mgimo-imip",
+    "university": "МГИМО",
+    "faculty": "Институт маркетинга и предпринимательства",
+    "path": "mgimo-imip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 49
+    },
+    "short": "ИМиП"
+  },
+  {
+    "id": "mgimo-meo-dip",
+    "university": "МГИМО",
+    "faculty": "Факультет международных экономических отношений (Дип)",
+    "path": "mgimo-meo-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 53
+    },
+    "short": "МЭО (Дип)"
+  },
+  {
     "id": "mgimo-meo",
     "university": "МГИМО",
     "faculty": "Факультет международных экономических отношений",
@@ -433,14 +462,6 @@
     }
   },
   {
-    "id": "marhi",
-    "university": "МАРХИ",
-    "faculty": "Московский архитектурный институт",
-    "path": "marhi",
-    "features": [],
-    "short": "МАРХИ"
-  },
-  {
     "id": "mgimo-mo-dip",
     "university": "МГИМО",
     "faculty": "Факультет Международные отношения (Дип)",
@@ -454,19 +475,6 @@
     "short": "МО (Дип)"
   },
   {
-    "id": "mgimo-mp-dip",
-    "university": "МГИМО",
-    "faculty": "Международно-правовой факультет (Дип)",
-    "path": "mgimo-mp-dip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 57
-    },
-    "short": "МП (Дип)"
-  },
-  {
     "id": "mgimo-eui",
     "university": "МГИМО",
     "faculty": "Евразийский учебный институт",
@@ -478,14 +486,6 @@
       "faculty": 34
     },
     "short": "ЕУИ"
-  },
-  {
-    "id": "mephi-fbiuks",
-    "university": "НИЯУ МИФИ",
-    "faculty": "Факультет бизнес-информатики и управления комплексными системами",
-    "path": "mephi-fbiuks",
-    "features": [],
-    "short": "ФБИУКС"
   },
   {
     "id": "mgimo-mo",
