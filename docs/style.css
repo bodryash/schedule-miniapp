@@ -11457,7 +11457,7 @@ body[data-bg="mesh"][data-tone="dark"] .bg-blob {
    по верхнему краю — тонкий блик, как у стекла в iOS. */
 /* Без backdrop-filter: размытие под каждой карточкой — главный тормоз при
    прокрутке. Стекло рисуем плотной полупрозрачной заливкой и бликом. */
-body:not(.neon):not(.neon-day) #lessons .card {
+body:not(.neon):not(.neon-day) :is(:is(#lessons, .slide-ghost) > .card, .card.lv-head) {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 40%),
     color-mix(in srgb, var(--card) 78%, transparent);
@@ -11470,7 +11470,7 @@ body:not(.neon):not(.neon-day) #lessons .card {
     0 12px 32px -14px rgba(20, 24, 50, 0.22);
 }
 
-body[data-tone="dark"]:not(.neon):not(.neon-day) #lessons .card {
+body[data-tone="dark"]:not(.neon):not(.neon-day) :is(:is(#lessons, .slide-ghost) > .card, .card.lv-head) {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 40%),
     color-mix(in srgb, var(--card) 80%, transparent);
@@ -11480,7 +11480,7 @@ body[data-tone="dark"]:not(.neon):not(.neon-day) #lessons .card {
     0 14px 34px -14px rgba(0, 0, 0, 0.6);
 }
 
-body:not(.neon):not(.neon-day) #lessons .card--past {
+body:not(.neon):not(.neon-day) :is(:is(:is(#lessons, .slide-ghost) > .card, .card.lv-head)--past, .card--past.lv-head) {
   background: color-mix(in srgb, var(--card) 55%, transparent);
 }
 
@@ -11558,20 +11558,20 @@ body:not(.neon):not(.neon-day) #lessons .card--past {
 }
 
 /* Плитки дней — стеклянные таблетки; выбранная — капля акцента. */
-body:not(.neon):not(.neon-day) #days .day {
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--card) 62%, transparent);
+body:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .day {
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--card) 34%, transparent);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    inset 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent);
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 7%, transparent);
 }
 
-body:not(.neon):not(.neon-day) #days .day.active {
+body:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .day.active {
   background: transparent;
   box-shadow: none;
 }
 
-body:not(.neon):not(.neon-day) #days .days-drop {
+body:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .days-drop {
   border-radius: 20px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #fff), color-mix(in srgb, var(--accent) 92%, #000));
   box-shadow:
@@ -11580,7 +11580,7 @@ body:not(.neon):not(.neon-day) #days .days-drop {
 }
 
 body[data-tone="dark"] #menu.icon,
-body[data-tone="dark"]:not(.neon):not(.neon-day) #days .day {
+body[data-tone="dark"]:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .day {
   background: color-mix(in srgb, var(--card) 70%, transparent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }

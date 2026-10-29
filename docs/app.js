@@ -7446,6 +7446,9 @@ function openLessonView(card) {
   );
   const from = surfaceFrame(r, panel, radius);
   surface.animate([from, { transform: "none", borderRadius: `${PANEL_RADIUS}px` }], timing);
+  // Стеклянная карточка не «защёлкивается» в залитое окно: подложка
+  // проявляется поверх неё за первую треть полёта.
+  surface.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS * 0.35, easing: "ease-out", fill: "backwards" });
   dim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS * 0.7, easing: "ease-out" });
   for (const [i, part] of [bar, rest].entries()) {
     part.animate([{ opacity: 0, transform: "translateY(22px) scale(0.98)", filter: "blur(4px)" }, { opacity: 1, transform: "none", filter: "blur(0px)" }], {
@@ -7566,6 +7569,9 @@ function closeLessonView(instant = false) {
   group.style.transform = "";
   const start = { transform: `translate(0px, ${shift}px)`, borderRadius: `${PANEL_RADIUS}px` };
   surface.animate([start, surfaceFrame(r, panel, radius)], timing);
+  // На подлёте подложка тает и под ней уже видна стеклянная карточка —
+  // окно перетекает в неё, а не подменяется в последний кадр.
+  surface.animate([{ opacity: 1 }, { opacity: 1, offset: 0.45 }, { opacity: 0 }], { duration: CLOSE_MS, easing: "ease-in-out", fill: "forwards" });
   scroller.animate([
     { opacity: 1, transform: `translateY(${shift}px)`, filter: "blur(0px)" },
     { opacity: 0, transform: `translateY(${shift + 14}px) scale(0.97)`, filter: "blur(4px)" },
