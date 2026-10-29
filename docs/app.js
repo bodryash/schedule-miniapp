@@ -7118,8 +7118,9 @@ function bgChoice() {
 }
 
 function applyBackground() {
-  // Фоны на выбор убраны: оформление одно. Небо по времени суток — галочкой.
-  const choice = "";
+  // Фоны на выбор убраны: оформление одно — живой градиент в тон акцента,
+  // как обои у iPhone. Небо по времени суток — галочкой, поверх.
+  const choice = "mesh";
   const [kind, variant = ""] = choice.split(":");
   document.body.dataset.bg = kind || "";
   document.body.dataset.bgVariant = variant;
