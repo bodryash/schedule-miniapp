@@ -369,18 +369,6 @@
     "short": "ИнЭИ"
   },
   {
-    "id": "mgimo-mag",
-    "university": "МГИМО",
-    "faculty": "Магистратуры",
-    "path": "mgimo-mag",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 32
-    }
-  },
-  {
     "id": "marhi",
     "university": "МАРХИ",
     "faculty": "Московский архитектурный институт",
@@ -423,19 +411,6 @@
     "short": "ИМиП"
   },
   {
-    "id": "mgimo-meo-dip",
-    "university": "МГИМО",
-    "faculty": "Факультет международных экономических отношений (Дип)",
-    "path": "mgimo-meo-dip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 53
-    },
-    "short": "МЭО (Дип)"
-  },
-  {
     "id": "mgimo-meo",
     "university": "МГИМО",
     "faculty": "Факультет международных экономических отношений",
@@ -449,32 +424,6 @@
     "short": "МЭО"
   },
   {
-    "id": "msu-hist",
-    "university": "МГУ",
-    "faculty": "Исторический факультет",
-    "path": "msu-hist",
-    "features": [],
-    "short": "Истфак",
-    "source": {
-      "kind": "hist",
-      "base": "http://ccs2.hist.msu.ru",
-      "faculty": "all"
-    }
-  },
-  {
-    "id": "mgimo-mo-dip",
-    "university": "МГИМО",
-    "faculty": "Факультет Международные отношения (Дип)",
-    "path": "mgimo-mo-dip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 55
-    },
-    "short": "МО (Дип)"
-  },
-  {
     "id": "mgimo-eui",
     "university": "МГИМО",
     "faculty": "Евразийский учебный институт",
@@ -486,19 +435,6 @@
       "faculty": 34
     },
     "short": "ЕУИ"
-  },
-  {
-    "id": "mgimo-mo",
-    "university": "МГИМО",
-    "faculty": "Факультет международных отношений",
-    "path": "mgimo-mo",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 24
-    },
-    "short": "МО"
   },
   {
     "id": "mgimo-up",
@@ -539,6 +475,70 @@
       "faculty": 52
     },
     "short": "ИМАР"
+  },
+  {
+    "id": "mgimo-mag",
+    "university": "МГИМО",
+    "faculty": "Магистратуры",
+    "path": "mgimo-mag",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 32
+    }
+  },
+  {
+    "id": "mgimo-meo-dip",
+    "university": "МГИМО",
+    "faculty": "Факультет международных экономических отношений (Дип)",
+    "path": "mgimo-meo-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 53
+    },
+    "short": "МЭО (Дип)"
+  },
+  {
+    "id": "msu-hist",
+    "university": "МГУ",
+    "faculty": "Исторический факультет",
+    "path": "msu-hist",
+    "features": [],
+    "short": "Истфак",
+    "source": {
+      "kind": "hist",
+      "base": "http://ccs2.hist.msu.ru",
+      "faculty": "all"
+    }
+  },
+  {
+    "id": "mgimo-mo-dip",
+    "university": "МГИМО",
+    "faculty": "Факультет Международные отношения (Дип)",
+    "path": "mgimo-mo-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 55
+    },
+    "short": "МО (Дип)"
+  },
+  {
+    "id": "mgimo-mo",
+    "university": "МГИМО",
+    "faculty": "Факультет международных отношений",
+    "path": "mgimo-mo",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 24
+    },
+    "short": "МО"
   },
   {
     "id": "mgimo-mo-en",
