@@ -221,9 +221,8 @@
             document.body.dataset.returning = "1";
           }
         } catch (e) {}
-        // Каждый раз немного по-разному: четыре вида появления и ухода.
-        var intros = ["spread", "drop", "blur", "rise"];
-        document.getElementById("splash").dataset.intro = intros[Math.floor(Math.random() * intros.length)];
+        // Одно появление и уход: заставка расходится, как туман.
+        document.getElementById("splash").dataset.intro = "blur";
         var day = new Date();
         var locale = { ru: "ru-RU", en: "en-GB", zh: "zh-CN", ko: "ko-KR" }[window.__lang] || "ru-RU";
         var text = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(day);

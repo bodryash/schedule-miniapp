@@ -9621,7 +9621,7 @@ body.neon .wgrid-cell--parity {
   box-shadow: none;
 }
 
-.splash[data-intro="blur"]:not(.splash--free).splash--gone {
+.splash[data-intro="blur"].splash--gone {
   animation: splash-blur-out 560ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
   box-shadow: none;
 }
@@ -9631,7 +9631,7 @@ body.neon .wgrid-cell--parity {
   box-shadow: none;
 }
 
-.splash[data-intro="blur"]:not(.splash--free).splash--gone > *,
+.splash[data-intro="blur"].splash--gone > *,
 .splash[data-intro="rise"]:not(.splash--free).splash--gone > * {
   transform: scale(0.92);
 }
