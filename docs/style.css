@@ -11455,10 +11455,12 @@ body[data-bg="mesh"][data-tone="dark"] .bg-blob {
 
 /* Стекло: карточка пропускает фон, размывает его и чуть насыщает цвет;
    по верхнему краю — тонкий блик, как у стекла в iOS. */
+/* Без backdrop-filter: размытие под каждой карточкой — главный тормоз при
+   прокрутке. Стекло рисуем плотной полупрозрачной заливкой и бликом. */
 body:not(.neon):not(.neon-day) #lessons .card {
-  background: color-mix(in srgb, var(--card) 58%, transparent);
-  -webkit-backdrop-filter: blur(26px) saturate(180%);
-  backdrop-filter: blur(26px) saturate(180%);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 40%),
+    color-mix(in srgb, var(--card) 78%, transparent);
   border: 0;
   border-radius: 26px;
   box-shadow:
@@ -11469,7 +11471,9 @@ body:not(.neon):not(.neon-day) #lessons .card {
 }
 
 body[data-tone="dark"]:not(.neon):not(.neon-day) #lessons .card {
-  background: color-mix(in srgb, var(--card) 52%, transparent);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 40%),
+    color-mix(in srgb, var(--card) 80%, transparent);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
     inset 0 0 0 1px rgba(255, 255, 255, 0.07),
@@ -11477,5 +11481,106 @@ body[data-tone="dark"]:not(.neon):not(.neon-day) #lessons .card {
 }
 
 body:not(.neon):not(.neon-day) #lessons .card--past {
-  background: color-mix(in srgb, var(--card) 36%, transparent);
+  background: color-mix(in srgb, var(--card) 55%, transparent);
+}
+
+/* Фон: слой отдельно от страницы, перерисовка пятен не трогает остальное. */
+.bg-layer {
+  contain: strict;
+}
+
+.bg-blob {
+  backface-visibility: hidden;
+}
+
+/* Свечение выбранной плитки не упирается в край прокручиваемой полосы. */
+#week-switch,
+#days {
+  padding-top: 14px;
+  margin-top: -10px;
+}
+
+#week-switch {
+  padding-bottom: 28px;
+  margin-bottom: -12px;
+}
+
+/* Поиск — стеклянная строка с лупой, как в iOS. */
+#query {
+  height: 46px;
+  padding: 0 16px 0 42px;
+  border: 0;
+  border-radius: 16px;
+  background:
+    no-repeat 14px 50% / 18px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='M16 16l4.5 4.5'/%3E%3C/svg%3E"),
+    color-mix(in srgb, var(--card) 72%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent),
+    0 8px 24px -14px rgba(20, 24, 50, 0.3);
+  color: var(--text);
+  font-size: 16px;
+  transition: box-shadow 200ms ease;
+}
+
+#query:focus {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent),
+    0 8px 24px -14px rgba(20, 24, 50, 0.3);
+}
+
+/* Кнопка меню — стеклянная пуговица с тенью, а не серый круг. */
+#menu.icon {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.1)),
+    color-mix(in srgb, var(--card) 70%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent),
+    0 6px 18px -8px rgba(20, 24, 50, 0.35);
+  color: var(--text);
+  transition: transform 160ms ease;
+}
+
+#menu.icon:active {
+  transform: scale(0.9);
+}
+
+#menu.icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Плитки дней — стеклянные таблетки; выбранная — капля акцента. */
+body:not(.neon):not(.neon-day) #days .day {
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--card) 62%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+body:not(.neon):not(.neon-day) #days .day.active {
+  background: transparent;
+  box-shadow: none;
+}
+
+body:not(.neon):not(.neon-day) #days .days-drop {
+  border-radius: 20px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #fff), color-mix(in srgb, var(--accent) 92%, #000));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 10px 22px -10px var(--accent);
+}
+
+body[data-tone="dark"] #menu.icon,
+body[data-tone="dark"]:not(.neon):not(.neon-day) #days .day {
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
