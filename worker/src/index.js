@@ -254,6 +254,17 @@ const AUDIENCE_EXCEPT_SQL = AUDIENCE_SQL.replace(/END = \?$/, "END != ?");
  * Возвращает [запрос, ...значения для bind].
  */
 function audienceQuery(audience) {
+  // «u:123» — один человек.
+  if (audience.startsWith("u:")) return ["SELECT id FROM users WHERE id = ?", Number(audience.slice(2))];
+  // «g:msu-fgp-группа|…» — точные группы (одна группа или весь курс), как
+  // они записаны в people.grp: у ФГП без префикса, у остальных «факультет/группа».
+  if (audience.startsWith("g:")) {
+    const keys = audience.slice(2).split("|").filter(Boolean);
+    return [
+      `SELECT DISTINCT u.id FROM users u JOIN people p ON p.tg_id = u.id WHERE p.grp IN (${keys.map(() => "?").join(", ") || "''"})`,
+      ...keys,
+    ];
+  }
   if (audience.startsWith("in:")) {
     const ids = audience.slice(3).split(",").filter(Boolean);
     const sql = AUDIENCE_SQL.replace(/END = \?$/, `END IN (${ids.map(() => "?").join(", ")})`);
@@ -261,6 +272,17 @@ function audienceQuery(audience) {
   }
   return audience.startsWith("!") ? [AUDIENCE_EXCEPT_SQL, audience.slice(1)] : [AUDIENCE_SQL, audience];
 }
+
+/** Группы факультета из его groups.json: [{ id, course, level }]. */
+async function tenantGroups(tenant) {
+  const path = tenant.id === "msu-fgp" ? "data/groups.json" : `data/${tenant.path || tenant.id}/groups.json`;
+  const response = await fetch(`${WEB_APP_URL}${path}`);
+  if (!response.ok) throw new Error(`groups ${response.status}`);
+  return response.json();
+}
+
+/** Как группа записана у людей: у ФГП — просто номер, у остальных — с факультетом. */
+const groupKey = (tenant, group) => (tenant.id === "msu-fgp" ? group : `${tenant.id}/${group}`);
 
 /** «#фгп», «#msu-fgp», «#Филфак» → факультет. Регистр и пробелы не важны. */
 async function findAudience(word) {
@@ -306,8 +328,9 @@ function sendCast(env, chatId, job, markup) {
 /** Готовит черновик рассылки и показывает его с кнопками подтверждения. */
 async function draftBroadcast(env, chatId, text, { button = false, audience = null, media = null } = {}) {
   const key = audience ? `${audience.except ? "!" : ""}${audience.id}` : "";
+  const [audSql, ...audArgs] = audience ? audienceQuery(key) : [];
   const { count } = audience
-    ? await env.STATS.prepare(`SELECT COUNT(*) AS count FROM (${audienceQuery(key)[0]})`).bind(...audienceQuery(key).slice(1)).first()
+    ? await env.STATS.prepare(`SELECT COUNT(*) AS count FROM (${audSql})`).bind(...audArgs).first()
     : await env.STATS.prepare("SELECT COUNT(*) AS count FROM users").first();
 
   const draft = await env.STATS.prepare(
@@ -331,7 +354,9 @@ async function draftBroadcast(env, chatId, text, { button = false, audience = nu
   }
 
   const extra = button ? "\n(с кнопкой «📅 Открыть расписание»)" : "";
-  const whom = audience?.except
+  const whom = audience?.label
+    ? `${audience.label}: ${count} получателям.`
+    : audience?.except
     ? `Всем, КРОМЕ ${audience.university} · ${audience.short || audience.faculty}: ${count} получателям — тем, у кого выбрана группа на другом факультете.`
     : audience
     ? `Только ${audience.university} · ${audience.short || audience.faculty}: ${count} получателям — тем, кто выбрал там группу.`
@@ -4408,12 +4433,36 @@ ${invite}`,
             "Одному факультету — с решёткой впереди: /broadcast #фгп Завтра занятий нет.",
             "Всем, кроме факультета — с минусом: /broadcast #-фгп Новая функция для вас.",
             "Всему вузу: /broadcast #вуз:мгу Текст — всем факультетам МГУ.",
+            "Одной группе: /broadcast #фгп гр:301 Текст.",
+            "Курсу: /broadcast #фгп курс:3 Текст (магистратура — маг:1).",
+            "Одному человеку: /broadcast @ник Текст или /broadcast id:123456 Текст.",
             "После решётки — короткое название или id факультета из /faculties.",
             "",
             "С видео, гифкой или фото — пришлите его боту, а команду и текст впишите в подпись.",
           ].join("\n"),
         });
       } else {
+        // «@ник Текст» или «id:123 Текст» — одному человеку.
+        const person = body.match(castMedia ? /^(@\w{3,}|id:\d+)(?:\s+([\s\S]+))?$/ : /^(@\w{3,}|id:\d+)\s+([\s\S]+)$/);
+        if (person) {
+          const handle = person[1];
+          const row = handle.startsWith("id:")
+            ? await env.STATS.prepare("SELECT id, name, username FROM users WHERE id = ?").bind(Number(handle.slice(3))).first()
+            : await env.STATS.prepare("SELECT id, name, username FROM users WHERE lower(username) = ?").bind(handle.slice(1).toLowerCase()).first();
+          if (!row) {
+            await callTelegram(env.BOT_TOKEN, "sendMessage", {
+              chat_id: message.chat.id,
+              text: `Не нашёл ${handle} среди тех, кто писал боту: написать первым бот может только им. Ничего не отправлено.`,
+            });
+          } else {
+            const who = [row.name, row.username ? `@${row.username}` : "", `id ${row.id}`].filter(Boolean).join(" · ");
+            await draftBroadcast(env, message.chat.id, (person[2] || "").trim(), {
+              audience: { id: `u:${row.id}`, label: `Одному человеку: ${who}.` },
+              media: castMedia,
+            });
+          }
+          return new Response("ok");
+        }
         // «#фгп Текст» — только одному факультету. С вложением текста после
         // решётки может и не быть: «#фгп» и видео.
         const tag = body.match(castMedia ? /^#(\S+)(?:\s+([\s\S]+))?$/ : /^#(\S+)\s+([\s\S]+)$/);
@@ -4428,8 +4477,43 @@ ${invite}`,
         } else if (tag) {
           found = await findAudience(except ? tag[1].slice(1) : tag[1]);
         }
-        const audience = found ? { ...found, except } : null;
-        const words = audience ? (tag[2] || "").trim() : body;
+        let audience = found ? { ...found, except } : null;
+        let words = audience ? (tag[2] || "").trim() : body;
+        // «#фгп гр:301 Текст» — одной группе, «#фгп курс:3» / «маг:1» — курсу.
+        const narrow = audience && !except && !uniTag ? words.match(/^(гр|курс|маг):(\S+)(?:\s+([\s\S]*))?$/i) : null;
+        if (narrow) {
+          const kind = narrow[1].toLowerCase();
+          let groups = [];
+          try {
+            groups = await tenantGroups(found);
+          } catch {
+            groups = null;
+          }
+          const picked = !groups
+            ? []
+            : kind === "гр"
+              ? groups.filter((g) => normalize(g.id) === normalize(narrow[2]) || normalize(g.title || "") === normalize(narrow[2]))
+              : groups.filter((g) => String(g.course) === narrow[2] && (kind === "маг") === (g.level === "магистратура"));
+          if (!picked.length) {
+            await callTelegram(env.BOT_TOKEN, "sendMessage", {
+              chat_id: message.chat.id,
+              text: groups
+                ? `На ${found.short || found.faculty} нет ${kind === "гр" ? `группы «${narrow[2]}»` : `${narrow[2]} ${kind === "маг" ? "курса магистратуры" : "курса"}`}. Ничего не отправлено.`
+                : "Не смог загрузить список групп факультета. Ничего не отправлено.",
+            });
+            return new Response("ok");
+          }
+          const what = kind === "гр" ? `группе ${picked[0].id}` : kind === "маг" ? `магистратуре, ${narrow[2]} курс (групп: ${picked.length})` : `${narrow[2]} курсу (групп: ${picked.length})`;
+          audience = {
+            id: `g:${picked.map((g) => groupKey(found, g.id)).join("|")}`,
+            label: `Только ${found.university} · ${found.short || found.faculty}, ${what}`,
+          };
+          words = (narrow[3] || "").trim();
+          if (!words && !castMedia) {
+            await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: "Нет текста после группы или курса. Ничего не отправлено." });
+            return new Response("ok");
+          }
+        }
         if (tag && !audience) {
           await callTelegram(env.BOT_TOKEN, "sendMessage", {
             chat_id: message.chat.id,
