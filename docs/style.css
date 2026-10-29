@@ -11307,3 +11307,97 @@ body[data-daypart="evening"] .sky-glow {
   background: #fcc419;
   color: #5c3c00;
 }
+
+/* ===== Сжимающаяся шапка и сворачивающаяся панель ===== */
+
+#date-label {
+  transform-origin: left center;
+  will-change: transform, opacity;
+}
+
+.minihead {
+  position: fixed;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 50%;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 150px;
+  max-width: calc(100vw - 32px);
+  padding: 7px 16px 8px;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -14px) scale(0.92);
+  transition: opacity 220ms var(--ease-soft, ease), transform 320ms cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
+.head-compact .minihead {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0) scale(1);
+}
+
+.minihead-date {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.minihead-ribbon {
+  display: block;
+  width: 150px;
+}
+
+.minihead-ribbon:empty {
+  display: none;
+}
+
+.minihead-ribbon .ribbon {
+  margin: 0;
+  transform: scaleY(0.7);
+}
+
+.tabs {
+  transition: left 380ms cubic-bezier(0.32, 1.25, 0.5, 1), right 380ms cubic-bezier(0.32, 1.25, 0.5, 1), padding 300ms ease, border-radius 300ms ease;
+}
+
+.tab > span[data-i18n] {
+  display: block;
+  max-height: 16px;
+  overflow: hidden;
+  transition: max-height 260ms ease, opacity 200ms ease;
+}
+
+.tabs-mini .tabs {
+  left: calc(50% - 104px);
+  right: calc(50% - 104px);
+  padding: 3px;
+}
+
+.tabs-mini .tab {
+  padding: 7px 0;
+}
+
+.tabs-mini .tab > span[data-i18n] {
+  max-height: 0;
+  opacity: 0;
+}
+
+.tabs-mini .tabs-drop {
+  top: 3px;
+  bottom: 3px;
+}

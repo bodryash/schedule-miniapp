@@ -5866,6 +5866,70 @@ function renderWeekGrid(group) {
    сплошным цветом расписания; в верхнем при сильном рывке выглядывает :P. */
 let overBottom = null;
 
+/* Прокрутка расписания: крупная дата съёживается и уезжает, а сверху
+   проявляется тонкая полоска с датой и лентой дня. Нижняя панель при
+   листании вниз сворачивается в пилюлю, при листании вверх — раскрывается. */
+function initScrollChrome() {
+  const mini = el("button", "minihead");
+  mini.type = "button";
+  const miniDate = el("span", "minihead-date");
+  const miniRibbon = el("span", "minihead-ribbon");
+  mini.append(miniDate, miniRibbon);
+  document.body.append(mini);
+  mini.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+
+  const syncMini = () => {
+    const date = document.getElementById("date-label");
+    const ribbon = document.getElementById("ribbon");
+    miniDate.textContent = (date?.querySelector(".date-new") || date)?.textContent.trim() || "";
+    miniRibbon.replaceChildren(...(ribbon && !ribbon.hidden ? [ribbon.cloneNode(true)] : []));
+    miniRibbon.firstChild?.removeAttribute("id");
+  };
+  const watched = ["date-label", "ribbon"].map((id) => document.getElementById(id)).filter(Boolean);
+  const observer = new MutationObserver(syncMini);
+  for (const node of watched) observer.observe(node, { childList: true, subtree: true, characterData: true, attributes: true });
+  syncMini();
+
+  let last = 0;
+  let travel = 0;
+  let frame = 0;
+  const update = () => {
+    frame = 0;
+    const page = document.scrollingElement || document.documentElement;
+    const y = Math.max(0, page.scrollTop);
+    const onSchedule = !document.getElementById("schedule")?.hidden;
+    const date = document.getElementById("date-label");
+    if (date) {
+      const k = onSchedule ? Math.min(1, y / 90) : 0;
+      date.style.transform = k ? `translateY(${k * 6}px) scale(${1 - k * 0.22})` : "";
+      date.style.opacity = k ? `${1 - k * 0.85}` : "";
+    }
+    document.body.classList.toggle("head-compact", onSchedule && y > 96);
+
+    // Панель: копим путь в одну сторону, чтобы дрожь пальца её не дёргала.
+    const delta = y - last;
+    last = y;
+    travel = Math.sign(delta) === Math.sign(travel) ? travel + delta : delta;
+    const atEnd = y + window.innerHeight >= page.scrollHeight - 4;
+    if (y < 40 || atEnd || travel < -24) document.body.classList.remove("tabs-mini");
+    else if (travel > 24) document.body.classList.add("tabs-mini");
+  };
+  window.addEventListener("scroll", () => {
+    if (!frame) frame = requestAnimationFrame(update);
+  }, { passive: true });
+  // Свёрнутую панель раскрывает и касание по ней.
+  document.getElementById("tabs")?.addEventListener("click", (event) => {
+    if (!document.body.classList.contains("tabs-mini")) return;
+    document.body.classList.remove("tabs-mini");
+    travel = 0;
+    event.stopPropagation();
+    event.preventDefault();
+  }, true);
+  document.getElementById("tabs")?.addEventListener("transitionend", (event) => {
+    if (event.target.id === "tabs" && (event.propertyName === "left" || event.propertyName === "right")) moveDrop(tab, false);
+  });
+}
+
 function initOverscroll() {
   // За краем страницы, пока её тянут, проглядывает фон (узор, небо). Закрываем
   // зазоры сплошным цветом. Пружину iPhone рисует сама система, а прокрутка
@@ -11307,6 +11371,7 @@ async function init() {
   applyBackground();
   initCustomLook();
   initOverscroll();
+  initScrollChrome();
   initNowCard();
   initDeadlines();
   initPolls();
