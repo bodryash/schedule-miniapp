@@ -9621,7 +9621,7 @@ body.neon .wgrid-cell--parity {
   box-shadow: none;
 }
 
-.splash[data-intro="blur"]:not(.splash--free).splash--gone {
+.splash[data-intro="blur"].splash--gone {
   animation: splash-blur-out 560ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
   box-shadow: none;
 }
@@ -9631,7 +9631,7 @@ body.neon .wgrid-cell--parity {
   box-shadow: none;
 }
 
-.splash[data-intro="blur"]:not(.splash--free).splash--gone > *,
+.splash[data-intro="blur"].splash--gone > *,
 .splash[data-intro="rise"]:not(.splash--free).splash--gone > * {
   transform: scale(0.92);
 }
@@ -11306,4 +11306,289 @@ body[data-daypart="evening"] .sky-glow {
 .flash-star--on {
   background: #fcc419;
   color: #5c3c00;
+}
+
+/* ===== Сжимающаяся шапка и сворачивающаяся панель ===== */
+
+#date-label {
+  transform-origin: left center;
+  will-change: transform, opacity;
+}
+
+.minihead {
+  position: fixed;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 50%;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 150px;
+  max-width: calc(100vw - 32px);
+  padding: 7px 16px 8px;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -14px) scale(0.92);
+  transition: opacity 220ms var(--ease-soft, ease), transform 320ms cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
+.head-compact .minihead {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0) scale(1);
+}
+
+.minihead-date {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.minihead-ribbon {
+  display: block;
+  width: 150px;
+}
+
+.minihead-ribbon:empty {
+  display: none;
+}
+
+.minihead-ribbon .ribbon {
+  margin: 0;
+  transform: scaleY(0.7);
+}
+
+.tabs {
+  transition: left 380ms cubic-bezier(0.32, 1.25, 0.5, 1), right 380ms cubic-bezier(0.32, 1.25, 0.5, 1), padding 300ms ease, border-radius 300ms ease;
+}
+
+.tab > span[data-i18n] {
+  display: block;
+  max-height: 16px;
+  overflow: hidden;
+  transition: max-height 260ms ease, opacity 200ms ease;
+}
+
+.tabs-mini .tabs {
+  left: calc(50% - 104px);
+  right: calc(50% - 104px);
+  padding: 3px;
+}
+
+.tabs .tab {
+  min-width: 0;
+}
+
+.tabs-mini .tab {
+  padding: 7px 0;
+}
+
+.tabs-mini .tab > span[data-i18n] {
+  max-height: 0;
+  opacity: 0;
+}
+
+.tabs {
+  --pad: 5px;
+}
+
+.tabs-mini .tabs {
+  --pad: 3px;
+}
+
+/* Капля стоит в долях панели: панель сжимается — капля вместе с ней. */
+.tabs .tabs-drop {
+  top: var(--pad);
+  bottom: var(--pad);
+  left: calc(var(--pad) + (100% - 2 * var(--pad)) * var(--i, 0) / var(--n, 4));
+  width: calc((100% - 2 * var(--pad)) / var(--n, 4));
+  transform: none;
+  transition:
+    left 420ms cubic-bezier(0.34, 1.36, 0.5, 1),
+    width 380ms cubic-bezier(0.32, 1.25, 0.5, 1),
+    top 300ms ease,
+    bottom 300ms ease,
+    opacity 200ms ease;
+}
+
+.tabs .tabs-drop--still {
+  transition: none;
+}
+
+/* ===== Как у Apple: живой градиент и стеклянные карточки ===== */
+
+/* Пятна — в тон акцента темы и два соседних оттенка: обои меняются вместе
+   с темой и не спорят с ней. */
+body[data-bg="mesh"][data-bg-variant=""] .bg-blob--1 {
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 85%, #fff) 0%, transparent 64%);
+}
+
+body[data-bg="mesh"][data-bg-variant=""] .bg-blob--2 {
+  background: radial-gradient(circle, color-mix(in oklch, var(--accent) 60%, #ff7ab8) 0%, transparent 64%);
+}
+
+body[data-bg="mesh"][data-bg-variant=""] .bg-blob--3 {
+  background: radial-gradient(circle, color-mix(in oklch, var(--accent) 55%, #3fe0c0) 0%, transparent 64%);
+}
+
+body[data-bg="mesh"] .bg-blob {
+  opacity: 0.42;
+  filter: saturate(1.15);
+}
+
+body[data-bg="mesh"][data-tone="dark"] .bg-blob {
+  opacity: 0.3;
+}
+
+/* Стекло: карточка пропускает фон, размывает его и чуть насыщает цвет;
+   по верхнему краю — тонкий блик, как у стекла в iOS. */
+/* Без backdrop-filter: размытие под каждой карточкой — главный тормоз при
+   прокрутке. Стекло рисуем плотной полупрозрачной заливкой и бликом. */
+body:not(.neon):not(.neon-day) :is(:is(#lessons, .slide-ghost) > .card, .card.lv-head) {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 40%),
+    color-mix(in srgb, var(--card) 78%, transparent);
+  border: 0;
+  border-radius: 26px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 7%, transparent),
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 12px 32px -14px rgba(20, 24, 50, 0.22);
+}
+
+body[data-tone="dark"]:not(.neon):not(.neon-day) :is(:is(#lessons, .slide-ghost) > .card, .card.lv-head) {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 40%),
+    color-mix(in srgb, var(--card) 80%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 14px 34px -14px rgba(0, 0, 0, 0.6);
+}
+
+body:not(.neon):not(.neon-day) :is(:is(:is(#lessons, .slide-ghost) > .card, .card.lv-head)--past, .card--past.lv-head) {
+  background: color-mix(in srgb, var(--card) 55%, transparent);
+}
+
+/* Фон: слой отдельно от страницы, перерисовка пятен не трогает остальное. */
+.bg-layer {
+  contain: strict;
+}
+
+.bg-blob {
+  backface-visibility: hidden;
+}
+
+/* Свечение выбранной плитки не упирается в край прокручиваемой полосы. */
+#week-switch,
+#days {
+  padding-top: 14px;
+  margin-top: -10px;
+}
+
+#week-switch {
+  padding-bottom: 28px;
+  margin-bottom: -12px;
+}
+
+/* Поиск — стеклянная строка с лупой, как в iOS. */
+#query {
+  height: 46px;
+  padding: 0 16px 0 42px;
+  border: 0;
+  border-radius: 16px;
+  background:
+    no-repeat 14px 50% / 18px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='M16 16l4.5 4.5'/%3E%3C/svg%3E"),
+    color-mix(in srgb, var(--card) 72%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent),
+    0 8px 24px -14px rgba(20, 24, 50, 0.3);
+  color: var(--text);
+  font-size: 16px;
+  transition: box-shadow 200ms ease;
+}
+
+#query:focus {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent),
+    0 8px 24px -14px rgba(20, 24, 50, 0.3);
+}
+
+/* Кнопка меню — стеклянная пуговица с тенью, а не серый круг. */
+#menu.icon {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.1)),
+    color-mix(in srgb, var(--card) 70%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent),
+    0 6px 18px -8px rgba(20, 24, 50, 0.35);
+  color: var(--text);
+  transition: transform 160ms ease;
+}
+
+#menu.icon:active {
+  transform: scale(0.9);
+}
+
+#menu.icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Плитки дней — стеклянные таблетки; выбранная — капля акцента. */
+body:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .day {
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--card) 34%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+body:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .day.active {
+  background: transparent;
+  box-shadow: none;
+}
+
+body:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .days-drop {
+  border-radius: 12px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #fff), color-mix(in srgb, var(--accent) 92%, #000));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 10px 22px -10px var(--accent);
+}
+
+body[data-tone="dark"] #menu.icon,
+body[data-tone="dark"]:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .day {
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Дни недели на стеклянных плитках: плотнее и темнее — на пёстром фоне
+   тонкий серый текст терялся. */
+body:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .day:not(.active) .day-name {
+  color: color-mix(in srgb, var(--text) 82%, transparent) !important;
+  font-weight: 650;
+  letter-spacing: 0.02em;
 }

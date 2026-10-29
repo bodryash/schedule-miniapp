@@ -5866,6 +5866,70 @@ function renderWeekGrid(group) {
    сплошным цветом расписания; в верхнем при сильном рывке выглядывает :P. */
 let overBottom = null;
 
+/* Прокрутка расписания: крупная дата съёживается и уезжает, а сверху
+   проявляется тонкая полоска с датой и лентой дня. Нижняя панель при
+   листании вниз сворачивается в пилюлю, при листании вверх — раскрывается. */
+function initScrollChrome() {
+  const mini = el("button", "minihead");
+  mini.type = "button";
+  const miniDate = el("span", "minihead-date");
+  const miniRibbon = el("span", "minihead-ribbon");
+  mini.append(miniDate, miniRibbon);
+  document.body.append(mini);
+  mini.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+
+  const syncMini = () => {
+    const date = document.getElementById("date-label");
+    const ribbon = document.getElementById("ribbon");
+    miniDate.textContent = (date?.querySelector(".date-new") || date)?.textContent.trim() || "";
+    miniRibbon.replaceChildren(...(ribbon && !ribbon.hidden ? [ribbon.cloneNode(true)] : []));
+    miniRibbon.firstChild?.removeAttribute("id");
+  };
+  const watched = ["date-label", "ribbon"].map((id) => document.getElementById(id)).filter(Boolean);
+  const observer = new MutationObserver(syncMini);
+  for (const node of watched) observer.observe(node, { childList: true, subtree: true, characterData: true, attributes: true });
+  syncMini();
+
+  let last = 0;
+  let travel = 0;
+  let frame = 0;
+  let lastK = -1;
+  const update = () => {
+    frame = 0;
+    const page = document.scrollingElement || document.documentElement;
+    const y = Math.max(0, page.scrollTop);
+    const onSchedule = !document.getElementById("schedule")?.hidden;
+    const date = document.getElementById("date-label");
+    const k = onSchedule ? Math.min(1, y / 90) : 0;
+    // Пишем стиль, только когда он меняется: дальше 90 px — ни одной записи.
+    if (date && k !== lastK) {
+      lastK = k;
+      date.style.transform = k ? `translateY(${k * 6}px) scale(${1 - k * 0.22})` : "";
+      date.style.opacity = k ? `${1 - k * 0.85}` : "";
+    }
+    document.body.classList.toggle("head-compact", onSchedule && y > 96);
+
+    // Панель: копим путь в одну сторону, чтобы дрожь пальца её не дёргала.
+    const delta = y - last;
+    last = y;
+    travel = Math.sign(delta) === Math.sign(travel) ? travel + delta : delta;
+    const atEnd = y + window.innerHeight >= page.scrollHeight - 4;
+    if (y < 40 || atEnd || travel < -24) document.body.classList.remove("tabs-mini");
+    else if (travel > 24) document.body.classList.add("tabs-mini");
+  };
+  window.addEventListener("scroll", () => {
+    if (!frame) frame = requestAnimationFrame(update);
+  }, { passive: true });
+  // Свёрнутую панель раскрывает и касание по ней.
+  document.getElementById("tabs")?.addEventListener("click", (event) => {
+    if (!document.body.classList.contains("tabs-mini")) return;
+    document.body.classList.remove("tabs-mini");
+    travel = 0;
+    event.stopPropagation();
+    event.preventDefault();
+  }, true);
+}
+
 function initOverscroll() {
   // За краем страницы, пока её тянут, проглядывает фон (узор, небо). Закрываем
   // зазоры сплошным цветом. Пружину iPhone рисует сама система, а прокрутка
@@ -7057,8 +7121,9 @@ function bgChoice() {
 }
 
 function applyBackground() {
-  // Фоны на выбор убраны: оформление одно. Небо по времени суток — галочкой.
-  const choice = "";
+  // Фоны на выбор убраны: оформление одно — живой градиент в тон акцента,
+  // как обои у iPhone. Небо по времени суток — галочкой, поверх.
+  const choice = "mesh";
   const [kind, variant = ""] = choice.split(":");
   document.body.dataset.bg = kind || "";
   document.body.dataset.bgVariant = variant;
@@ -7149,8 +7214,11 @@ function lessonViewBusy() {
 }
 let lessonCard = null;
 const VIEW_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
-const OPEN_MS = 460;
-const CLOSE_MS = 380;
+// Раскрытие — с лёгкой пружиной на финише, как в iOS; закрытие — мягкое,
+// без отскока: окно втягивается обратно в карточку.
+const OPEN_EASE = "cubic-bezier(0.2, 1.1, 0.32, 1)";
+const OPEN_MS = 560;
+const CLOSE_MS = 480;
 const PANEL_RADIUS = 26;
 
 /** Прямоугольник окна: отступы от краёв экрана. */
@@ -7371,18 +7439,21 @@ function openLessonView(card) {
   document.body.append(head);
   card.style.visibility = "hidden";
 
-  const timing = { duration: OPEN_MS, easing: VIEW_EASE };
+  const timing = { duration: OPEN_MS, easing: OPEN_EASE };
   const fly = head.animate(
     [{ transform: `translate(${r.left - s.left}px, ${r.top - s.top}px)` }, { transform: "translate(0px, 0px)" }],
     timing
   );
   const from = surfaceFrame(r, panel, radius);
   surface.animate([from, { transform: "none", borderRadius: `${PANEL_RADIUS}px` }], timing);
-  dim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS * 0.8, easing: "ease-out" });
-  for (const part of [bar, rest]) {
-    part.animate([{ opacity: 0, transform: "translateY(16px)" }, { opacity: 1, transform: "translateY(0px)" }], {
-      duration: OPEN_MS - 80,
-      delay: 140,
+  // Стеклянная карточка не «защёлкивается» в залитое окно: подложка
+  // проявляется поверх неё за первую треть полёта.
+  surface.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS * 0.35, easing: "ease-out", fill: "backwards" });
+  dim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS * 0.7, easing: "ease-out" });
+  for (const [i, part] of [bar, rest].entries()) {
+    part.animate([{ opacity: 0, transform: "translateY(22px) scale(0.98)", filter: "blur(4px)" }, { opacity: 1, transform: "none", filter: "blur(0px)" }], {
+      duration: OPEN_MS - 60,
+      delay: 160 + i * 60,
       easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
       fill: "backwards",
     });
@@ -7498,9 +7569,15 @@ function closeLessonView(instant = false) {
   group.style.transform = "";
   const start = { transform: `translate(0px, ${shift}px)`, borderRadius: `${PANEL_RADIUS}px` };
   surface.animate([start, surfaceFrame(r, panel, radius)], timing);
-  scroller.animate([{ opacity: 1, transform: `translateY(${shift}px)` }, { opacity: 0, transform: `translateY(${shift}px)` }], {
-    duration: CLOSE_MS * 0.35,
-    easing: "ease-out",
+  // На подлёте подложка тает и под ней уже видна стеклянная карточка —
+  // окно перетекает в неё, а не подменяется в последний кадр.
+  surface.animate([{ opacity: 1 }, { opacity: 1, offset: 0.45 }, { opacity: 0 }], { duration: CLOSE_MS, easing: "ease-in-out", fill: "forwards" });
+  scroller.animate([
+    { opacity: 1, transform: `translateY(${shift}px)`, filter: "blur(0px)" },
+    { opacity: 0, transform: `translateY(${shift + 14}px) scale(0.97)`, filter: "blur(4px)" },
+  ], {
+    duration: CLOSE_MS * 0.55,
+    easing: "cubic-bezier(0.4, 0, 1, 1)",
     fill: "forwards",
   });
   dim.animate([{ opacity: Number(dim.style.opacity || 1) }, { opacity: 0 }], { duration: CLOSE_MS, easing: "ease-out", fill: "forwards" });
@@ -8093,8 +8170,11 @@ function moveDrop(name, animate = true) {
   if (drop && !button) drop.classList.remove("tabs-drop--on");
   if (!drop || !button || els.tabs.hidden) return;
   if (!animate) drop.classList.add("tabs-drop--still");
-  drop.style.width = `${button.offsetWidth}px`;
-  drop.style.transform = `translateX(${button.offsetLeft}px)`;
+  // Место капли — в долях панели, а не в пикселях: когда панель сжимается
+  // в пилюлю, капля сжимается вместе с ней, без рывка после.
+  const buttons = [...els.tabs.querySelectorAll(".tab")].filter((b) => !b.hidden);
+  drop.style.setProperty("--i", buttons.indexOf(button));
+  drop.style.setProperty("--n", buttons.length);
   drop.classList.add("tabs-drop--on");
   if (!animate) {
     // Отключили переход только на этот кадр: при первом показе капля должна
@@ -11307,6 +11387,7 @@ async function init() {
   applyBackground();
   initCustomLook();
   initOverscroll();
+  initScrollChrome();
   initNowCard();
   initDeadlines();
   initPolls();
