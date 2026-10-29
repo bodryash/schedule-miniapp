@@ -54,11 +54,30 @@ const NOTICE_DAYS = 7;
 const HIT_COOLDOWN = 3600;
 
 async function callTelegram(token, method, payload) {
-  const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+  // Связь с Telegram идёт через прокси и иногда рвётся на секунду. Обрыв —
+  // не повод сдаваться: повторяем через паузу. «Слишком часто» (429) —
+  // ждём, сколько попросил Telegram, но не дольше 5 секунд.
+  const send = () => fetch(`https://api.telegram.org/bot${token}/${method}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
   });
+  let response;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      response = await send();
+    } catch (error) {
+      if (attempt >= 2) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1) ** 2));
+      continue;
+    }
+    if (response.status === 429 && attempt < 2) {
+      const wait = Number((await response.clone().json().catch(() => ({})))?.parameters?.retry_after) || 1;
+      await new Promise((resolve) => setTimeout(resolve, Math.min(5, wait) * 1000));
+      continue;
+    }
+    break;
+  }
   // Telegram отвергает сообщение целиком из-за одной ошибки в разметке или
   // длины — без записи в журнал это выглядит как «бот молчит».
   if (!response.ok) {
@@ -1991,7 +2010,11 @@ async function deliverReminders(env, outgoing, now) {
   // заблокировал бота) — долбиться в него каждую минуту не надо. А если
   // упала сама отправка (кончился лимит обращений), дальше не шлём: эти
   // люди останутся без отметки и получат своё в следующую минуту.
+  // Одно сообщение не ушло и после повторов — пропускаем его (без отметки,
+  // уйдёт в следующую минуту) и шлём остальным. Останавливаемся, только
+  // если подряд не ушли три: значит, связи нет совсем.
   const sent = [];
+  let failedInRow = 0;
   for (const item of outgoing) {
     try {
       await callTelegram(env.BOT_TOKEN, "sendMessage", {
@@ -2000,9 +2023,14 @@ async function deliverReminders(env, outgoing, now) {
         parse_mode: "HTML",
       });
       sent.push(item);
+      failedInRow = 0;
     } catch (error) {
-      console.log("reminder stopped", String(error?.message || error));
-      break;
+      failedInRow += 1;
+      console.log("reminder failed", String(error?.message || error));
+      if (failedInRow >= 3) {
+        console.log("reminder stopped: no connection");
+        break;
+      }
     }
   }
 
