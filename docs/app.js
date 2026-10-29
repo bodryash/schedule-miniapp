@@ -5925,9 +5925,6 @@ function initScrollChrome() {
     event.stopPropagation();
     event.preventDefault();
   }, true);
-  document.getElementById("tabs")?.addEventListener("transitionend", (event) => {
-    if (event.target.id === "tabs" && (event.propertyName === "left" || event.propertyName === "right")) moveDrop(tab, false);
-  });
 }
 
 function initOverscroll() {
@@ -8157,8 +8154,11 @@ function moveDrop(name, animate = true) {
   if (drop && !button) drop.classList.remove("tabs-drop--on");
   if (!drop || !button || els.tabs.hidden) return;
   if (!animate) drop.classList.add("tabs-drop--still");
-  drop.style.width = `${button.offsetWidth}px`;
-  drop.style.transform = `translateX(${button.offsetLeft}px)`;
+  // Место капли — в долях панели, а не в пикселях: когда панель сжимается
+  // в пилюлю, капля сжимается вместе с ней, без рывка после.
+  const buttons = [...els.tabs.querySelectorAll(".tab")].filter((b) => !b.hidden);
+  drop.style.setProperty("--i", buttons.indexOf(button));
+  drop.style.setProperty("--n", buttons.length);
   drop.classList.add("tabs-drop--on");
   if (!animate) {
     // Отключили переход только на этот кадр: при первом показе капля должна
