@@ -254,7 +254,8 @@ CREATE INDEX IF NOT EXISTS queue_spots_queue ON queue_spots (queue, created);
 CREATE TABLE IF NOT EXISTS themes (
   target  TEXT PRIMARY KEY,
   theme   TEXT NOT NULL,
-  created TEXT NOT NULL
+  created TEXT NOT NULL,
+  until   TEXT NOT NULL DEFAULT ''   -- пусто — бессрочно
 );
 
 -- Важные пары: владелец помечает преподавателя (по фамилии) или предмет,
@@ -334,7 +335,8 @@ CREATE TABLE IF NOT EXISTS clicker (
 CREATE TABLE IF NOT EXISTS greetings (
   target  TEXT PRIMARY KEY,
   text    TEXT NOT NULL,
-  created TEXT NOT NULL
+  created TEXT NOT NULL,
+  until   TEXT NOT NULL DEFAULT ''   -- пусто — бессрочно
 );
 
 -- Слово недели: одно слово на весь факультет, первый угадавший забирает
