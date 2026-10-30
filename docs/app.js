@@ -10859,6 +10859,7 @@ function helloLines() {
     filled = filled.trim();
     return { title: filled.charAt(0).toUpperCase() + filled.slice(1), wish: "", custom: true };
   }
+  if (isHalloween()) return { title: t("С Хэллоуином!"), wish: "", custom: false };
   const now = new Date();
   const hour = now.getHours();
   const hi = hour >= 5 && hour < 11 ? "Доброе утро" : hour < 17 ? "Добрый день" : hour < 23 ? "Добрый вечер" : "Доброй ночи";
@@ -10901,6 +10902,25 @@ function renderHello() {
   };
   // На заставке — только приветствие и дата, без пожелания.
   box.replaceChildren(words(title, "splash-hello-title"));
+  if (isHalloween() && !custom) box.prepend(halloweenArt());
+}
+
+/** Тыква со свечой и мыши вокруг — рисунок на заставку 31 октября. */
+function halloweenArt() {
+  const art = el("div", "hw-art");
+  art.innerHTML = `<svg viewBox="0 0 160 120" aria-hidden="true">
+    <defs><radialGradient id="hw-glow"><stop offset="0" stop-color="#fff3a0"/><stop offset=".5" stop-color="#ffb000"/><stop offset="1" stop-color="#ff5a00" stop-opacity="0"/></radialGradient></defs>
+    <g class="hw-bat hw-bat--1"><path d="M0 0q6-8 12 0q4-6 8 0q4-6 8 0q6-8 12 0q-8 2-12 8q-4-4-8 0q-4-4-8 0q-4-6-12-8z" fill="#2a1240"/></g>
+    <g class="hw-bat hw-bat--2"><path d="M0 0q6-8 12 0q4-6 8 0q4-6 8 0q6-8 12 0q-8 2-12 8q-4-4-8 0q-4-4-8 0q-4-6-12-8z" fill="#2a1240"/></g>
+    <ellipse cx="80" cy="78" rx="44" ry="36" fill="#f07114"/>
+    <path d="M44 78q0-30 36-34q36 4 36 34M64 47q-8 14-8 31M96 47q8 14 8 31" fill="none" stroke="#b44b00" stroke-width="2.5"/>
+    <path d="M77 46q1-12 9-16" stroke="#3b5e1a" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <g class="hw-flame" fill="url(#hw-glow)">
+      <path d="M58 70l12 3-9 7z"/><path d="M102 70l-12 3 9 7z"/>
+      <path d="M58 90q22 16 44 0l-6 4-5-5-6 6-5-6-5 6-6-6-5 5z"/>
+    </g>
+  </svg>`;
+  return art;
 }
 
 /** Надпись от владельца пришла — запоминаем; если заставка ещё на экране, меняем сразу. */
