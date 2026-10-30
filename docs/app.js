@@ -1473,7 +1473,7 @@ function initReminders() {
 
 // Брутал выдаёт владелец командой /theme, гламур человек находит сам —
 // словом «гламур» в поиске по МФК. Тема с сервера сильнее найденной.
-const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", devil: "devil", msu: "msu" };
+const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", devil: "devil", msu: "msu", birthday: "birthday" };
 const GLAM_KEY = "schedule.glam";
 // Зелёную тему волонтёра человек может выключить сам и вернуть обратно.
 // Остальные выданные темы так не умеют.
@@ -1726,6 +1726,21 @@ function applyTheme(granted = grantedTheme) {
   renderVolunteer(name === "volunteer");
   renderCska(name === "cska");
   renderNokia(name === "nokia");
+  // Именинник: салют один раз за день, когда заставка ушла.
+  if (name === "birthday") {
+    const today = new Date().toDateString();
+    let shown = "";
+    try {
+      shown = localStorage.getItem("schedule.birthdayConfetti") || "";
+      localStorage.setItem("schedule.birthdayConfetti", today);
+    } catch {
+      // Без памяти — салют при каждом открытии, не страшно.
+    }
+    if (shown !== today) afterSplash(() => {
+      showConfetti();
+      haptic("success");
+    });
+  }
 }
 
 /* Тема «Нокия» — экран старого телефона: два цвета, пиксели, рамки. Под
