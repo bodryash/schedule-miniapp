@@ -9,6 +9,13 @@ import { loadavg } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDatabase } from "./d1.mjs";
+import tls from "node:tls";
+
+// Node 24 по умолчанию шлёт в начале TLS ещё и пост-квантовый ключ — первый
+// пакет выходит крупным, и фильтр провайдера рвёт такие соединения с
+// Cloudflare: бот переставал отвечать совсем, хотя curl проходил. С обычным
+// набором ключей рукопожатие маленькое и проходит.
+tls.DEFAULT_ECDH_CURVE = "X25519:P-256:P-384";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
