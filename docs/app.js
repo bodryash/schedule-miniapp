@@ -1753,14 +1753,14 @@ function isHalloween() {
   return (now.getMonth() === 9 && now.getDate() === 31) || /[?&]halloween\b/.test(location.search);
 }
 
-const scream = { armed: false, at: 0, timer: 0, heard: false };
+const scream = { armed: false, timer: 0, heard: false };
 
 // Звук можно только после касания — до него скример беззвучный.
 document.addEventListener("pointerdown", () => (scream.heard = true), { once: true, capture: true });
 
-/** Скример раз в день: при открытии пары или сам, через полминуты. */
+/** Скример раз в день, сам, через полминуты. Преподавателей не пугаем. */
 function armScreamer() {
-  if (scream.armed) return;
+  if (scream.armed || activeGroup()?.teacher) return;
   const today = new Date().toDateString();
   try {
     if (localStorage.getItem("schedule.screamer") === today && !/[?&]halloween\b/.test(location.search)) return;
@@ -1768,18 +1768,11 @@ function armScreamer() {
     // Без памяти — пугаем каждый раз, это Хеллоуин.
   }
   scream.armed = true;
-  scream.at = Date.now();
   scream.timer = setTimeout(fireScreamer, 25000 + Math.random() * 20000);
 }
 
-/** Открыли пару — самое время. */
-function screamOnLesson() {
-  if (!scream.armed || Date.now() - scream.at < 6000) return;
-  setTimeout(fireScreamer, 700 + Math.random() * 900);
-}
-
 function fireScreamer() {
-  if (!scream.armed || !document.body.classList.contains("halloween")) return;
+  if (!scream.armed || !document.body.classList.contains("halloween") || activeGroup()?.teacher) return;
   scream.armed = false;
   clearTimeout(scream.timer);
   try {
@@ -7383,7 +7376,6 @@ function openLessonView(card) {
   const slots = cardSlots(card);
   const entries = visible.filter((l) => l.subject === subject && slots.includes(l.slot));
   if (!entries.length) return;
-  screamOnLesson();
   lessonCard = card;
   const r = card.getBoundingClientRect();
   const panel = panelRect();
