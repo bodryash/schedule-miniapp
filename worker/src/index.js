@@ -2498,14 +2498,16 @@ const HELLO_HELP = [
 async function helloFor(env, userId, group) {
   if (!env.STATS) return "";
   const row = await env.STATS.prepare(
-    `SELECT text FROM greetings WHERE target IN (?, ?, ?, '*') AND (until = '' OR until > ?)
-     ORDER BY CASE target WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END LIMIT 1`
+    `SELECT text FROM greetings WHERE target IN (?, ?, ?, ?, '*') AND (until = '' OR until > ?)
+     ORDER BY CASE target WHEN ? THEN -1 WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END LIMIT 1`
   )
     .bind(
+      `user:${userId || 0}:day`,
       `user:${userId || 0}`,
       group?.id || "—",
       courseOf(group || {}),
       new Date().toISOString(),
+      `user:${userId || 0}:day`,
       `user:${userId || 0}`,
       group?.id || "—",
       courseOf(group || {})
@@ -2557,15 +2559,19 @@ async function themeFor(env, userId, group) {
   const university = tenants.find((t) => t.id === tenantId)?.university;
   const uni = university ? `uni:${normalize(university)}` : "—";
   const row = await env.STATS.prepare(
-    `SELECT theme FROM themes WHERE target IN (?, ?, ?, ?, '*') AND (until = '' OR until > ?)
-     ORDER BY CASE target WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 WHEN ? THEN 3 ELSE 4 END LIMIT 1`
+    // «user:ID:day» — тема на один день (день рождения) поверх постоянной:
+    // кончился срок — снова видна прежняя, её не надо восстанавливать.
+    `SELECT theme FROM themes WHERE target IN (?, ?, ?, ?, ?, '*') AND (until = '' OR until > ?)
+     ORDER BY CASE target WHEN ? THEN -1 WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 WHEN ? THEN 3 ELSE 4 END LIMIT 1`
   )
     .bind(
+      `user:${userId || 0}:day`,
       `user:${userId || 0}`,
       group?.id || "—",
       courseOf(group || {}),
       uni,
       new Date().toISOString(),
+      `user:${userId || 0}:day`,
       `user:${userId || 0}`,
       group?.id || "—",
       courseOf(group || {}),
