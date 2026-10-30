@@ -11592,3 +11592,53 @@ body:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .day:not(.active) .day
   font-weight: 650;
   letter-spacing: 0.02em;
 }
+
+/* ===== Именинник: выдаётся на один день ===== */
+body.birthday {
+  --accent: #ff4f9a;
+  --accent-soft: rgba(255, 79, 154, 0.16);
+  --accent-text: #ffffff;
+}
+
+body.birthday[data-bg="mesh"] .bg-blob {
+  opacity: 0.55;
+}
+
+body.birthday[data-bg="mesh"] .bg-blob--1 {
+  background: radial-gradient(circle, #ff8cc6 0%, transparent 64%) !important;
+}
+
+body.birthday[data-bg="mesh"] .bg-blob--2 {
+  background: radial-gradient(circle, #ffd36b 0%, transparent 64%) !important;
+}
+
+body.birthday[data-bg="mesh"] .bg-blob--3 {
+  background: radial-gradient(circle, #a98bff 0%, transparent 64%) !important;
+}
+
+/* Шарики в углу шапки — тихо покачиваются. */
+body.birthday .bar--schedule::after {
+  content: "🎈🎂🎉";
+  position: absolute;
+  right: 64px;
+  top: 6px;
+  font-size: 20px;
+  letter-spacing: 2px;
+  pointer-events: none;
+  animation: bday-sway 3.6s ease-in-out infinite alternate;
+}
+
+body.birthday .bar--schedule {
+  position: relative;
+}
+
+@keyframes bday-sway {
+  from { transform: translateY(0) rotate(-3deg); }
+  to { transform: translateY(-4px) rotate(3deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.birthday .bar--schedule::after {
+    animation: none;
+  }
+}
