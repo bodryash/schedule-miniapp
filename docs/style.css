@@ -11642,3 +11642,116 @@ body.birthday .bar--schedule {
     animation: none;
   }
 }
+
+/* ===== Хеллоуин: 31 октября у всех ===== */
+body.halloween {
+  --accent: #ff7a1a;
+  --accent-soft: rgba(255, 122, 26, 0.18);
+  --accent-text: #1a0a00;
+}
+
+body.halloween[data-bg="mesh"] .bg-blob {
+  opacity: 0.6;
+}
+
+body.halloween[data-bg="mesh"] .bg-blob--1 {
+  background: radial-gradient(circle, #ff7a1a 0%, transparent 64%) !important;
+}
+
+body.halloween[data-bg="mesh"] .bg-blob--2 {
+  background: radial-gradient(circle, #6b2fbf 0%, transparent 64%) !important;
+}
+
+body.halloween[data-bg="mesh"] .bg-blob--3 {
+  background: radial-gradient(circle, #2b0a3d 0%, transparent 64%) !important;
+}
+
+/* Паук спускается на нити в правом верхнем углу. */
+body.halloween::after {
+  content: "🕷";
+  position: fixed;
+  top: 0;
+  right: 34%;
+  z-index: 50;
+  padding-top: 70px;
+  font-size: 22px;
+  line-height: 1;
+  background: linear-gradient(rgba(140, 140, 140, 0.7), rgba(140, 140, 140, 0.7)) center top / 1px 72px no-repeat;
+  pointer-events: none;
+  transform-origin: top center;
+  animation: hw-spider 7s ease-in-out infinite;
+}
+
+@keyframes hw-spider {
+  0%, 100% { transform: translateY(-60px) rotate(0deg); }
+  40% { transform: translateY(0) rotate(4deg); }
+  60% { transform: translateY(0) rotate(-4deg); }
+}
+
+/* Скример: темнота мигает, тыква бросается в лицо. */
+.screamer {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: grid;
+  place-items: center;
+  background: #000;
+  animation: scr-flash 0.5s steps(1) both;
+  touch-action: none;
+}
+
+.screamer svg {
+  width: min(92vw, 520px);
+  filter: drop-shadow(0 0 40px #ff3b00);
+  animation: scr-lunge 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) 0.18s both, scr-shake 0.09s linear 0.6s 14;
+}
+
+.screamer b {
+  position: absolute;
+  bottom: 14%;
+  color: #ff7a1a;
+  font-size: 24px;
+  opacity: 0;
+  animation: scr-text 0.4s ease 1.3s forwards;
+}
+
+.screamer--out {
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.screamer--calm,
+.screamer--calm svg,
+.screamer--calm b {
+  animation: none;
+  opacity: 1;
+}
+
+@keyframes scr-flash {
+  0% { background: #000; }
+  20% { background: #3a0000; }
+  35% { background: #000; }
+  50% { background: #ff2a00; }
+  60% { background: #000; }
+}
+
+@keyframes scr-lunge {
+  from { transform: scale(0.15); opacity: 0; }
+  to { transform: scale(1.25); opacity: 1; }
+}
+
+@keyframes scr-shake {
+  0% { translate: -6px 4px; }
+  50% { translate: 6px -4px; }
+  100% { translate: -4px -2px; }
+}
+
+@keyframes scr-text {
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.halloween::after {
+    animation: none;
+  }
+}

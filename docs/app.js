@@ -1473,7 +1473,7 @@ function initReminders() {
 
 // Брутал выдаёт владелец командой /theme, гламур человек находит сам —
 // словом «гламур» в поиске по МФК. Тема с сервера сильнее найденной.
-const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", devil: "devil", msu: "msu", birthday: "birthday" };
+const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", devil: "devil", msu: "msu", birthday: "birthday", halloween: "halloween" };
 const GLAM_KEY = "schedule.glam";
 // Зелёную тему волонтёра человек может выключить сам и вернуть обратно.
 // Остальные выданные темы так не умеют.
@@ -1715,7 +1715,8 @@ function applyTheme(granted = grantedTheme) {
   const worn = volunteer && volunteerOff() ? "" : grantedTheme;
   const own = colorTheme();
   const ownName = own === "msu" ? (inMsu() ? "msu" : "") : THEMES[own] ? own : "";
-  const name = worn || ownName || (ownGlam() ? "glam" : "");
+  // 31 октября у всех Хеллоуин, выданная тема всё равно сильнее.
+  const name = worn || (isHalloween() ? "halloween" : "") || ownName || (ownGlam() ? "glam" : "");
   // Неон — свои классы, не из THEMES; под выданной темой не включаем.
   document.body.classList.toggle("neon", !worn && own === "neon");
   document.body.classList.toggle("neon-day", !worn && own === "neon-day");
@@ -1740,6 +1741,110 @@ function applyTheme(granted = grantedTheme) {
       showConfetti();
       haptic("success");
     });
+  }
+  if (name === "halloween") armScreamer();
+}
+
+/* ---------- Хеллоуин ---------- */
+
+/** 31 октября; «?halloween» в адресе — посмотреть заранее. */
+function isHalloween() {
+  const now = new Date();
+  return (now.getMonth() === 9 && now.getDate() === 31) || /[?&]halloween\b/.test(location.search);
+}
+
+const scream = { armed: false, at: 0, timer: 0, heard: false };
+
+// Звук можно только после касания — до него скример беззвучный.
+document.addEventListener("pointerdown", () => (scream.heard = true), { once: true, capture: true });
+
+/** Скример раз в день: при открытии пары или сам, через полминуты. */
+function armScreamer() {
+  if (scream.armed) return;
+  const today = new Date().toDateString();
+  try {
+    if (localStorage.getItem("schedule.screamer") === today && !/[?&]halloween\b/.test(location.search)) return;
+  } catch {
+    // Без памяти — пугаем каждый раз, это Хеллоуин.
+  }
+  scream.armed = true;
+  scream.at = Date.now();
+  scream.timer = setTimeout(fireScreamer, 25000 + Math.random() * 20000);
+}
+
+/** Открыли пару — самое время. */
+function screamOnLesson() {
+  if (!scream.armed || Date.now() - scream.at < 6000) return;
+  setTimeout(fireScreamer, 700 + Math.random() * 900);
+}
+
+function fireScreamer() {
+  if (!scream.armed || !document.body.classList.contains("halloween")) return;
+  scream.armed = false;
+  clearTimeout(scream.timer);
+  try {
+    localStorage.setItem("schedule.screamer", new Date().toDateString());
+  } catch {
+    // Не запомнили — не беда.
+  }
+  const box = el("div", "screamer");
+  box.innerHTML = `<svg viewBox="0 0 200 200" aria-hidden="true">
+    <defs><radialGradient id="scr-eye"><stop offset="0" stop-color="#fff6a0"/><stop offset=".45" stop-color="#ff3b00"/><stop offset="1" stop-color="#4a0000"/></radialGradient></defs>
+    <ellipse cx="100" cy="108" rx="92" ry="80" fill="#e8630a"/>
+    <path d="M28 108q0-70 72-80q72 10 72 80M60 34q-14 34-14 74M140 34q14 34 14 74" fill="none" stroke="#a63f00" stroke-width="4"/>
+    <path d="M94 30q2-18 14-24" stroke="#3b5e1a" stroke-width="9" stroke-linecap="round" fill="none"/>
+    <path d="M42 86l42 8-30 22zM158 86l-42 8 30 22z" fill="url(#scr-eye)"/>
+    <path d="M30 128q70 70 140 0l-14 10-12-14-14 18-16-16-14 20-14-20-16 16-14-18-12 14z" fill="#1a0000"/>
+    <path d="M30 128q70 70 140 0" fill="none" stroke="#ff3b00" stroke-width="2" opacity=".7"/>
+  </svg><b>🎃 С Хеллоуином!</b>`;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) box.classList.add("screamer--calm");
+  document.body.append(box);
+  if (scream.heard) shriek();
+  haptic("heavy");
+  setTimeout(() => haptic("heavy"), 120);
+  setTimeout(() => haptic("error"), 300);
+  const close = () => {
+    box.classList.add("screamer--out");
+    setTimeout(() => box.remove(), 400);
+  };
+  box.addEventListener("click", close);
+  setTimeout(close, 3200);
+}
+
+/** Визг без файлов: шум и пила, падающая вниз. */
+function shriek() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    const t = ctx.currentTime;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.5, t + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.3);
+    gain.connect(ctx.destination);
+    const saw = ctx.createOscillator();
+    saw.type = "sawtooth";
+    saw.frequency.setValueAtTime(1400, t);
+    saw.frequency.exponentialRampToValueAtTime(260, t + 1.2);
+    const wobble = ctx.createOscillator();
+    const depth = ctx.createGain();
+    wobble.frequency.value = 38;
+    depth.gain.value = 120;
+    wobble.connect(depth).connect(saw.frequency);
+    saw.connect(gain);
+    const noise = ctx.createBufferSource();
+    const buffer = ctx.createBuffer(1, ctx.sampleRate * 1.3, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.35;
+    noise.buffer = buffer;
+    noise.connect(gain);
+    [saw, wobble, noise].forEach((node) => {
+      node.start(t);
+      node.stop(t + 1.3);
+    });
+    setTimeout(() => ctx.close(), 1600);
+  } catch {
+    // Нет звука — хватит картинки.
   }
 }
 
@@ -7278,6 +7383,7 @@ function openLessonView(card) {
   const slots = cardSlots(card);
   const entries = visible.filter((l) => l.subject === subject && slots.includes(l.slot));
   if (!entries.length) return;
+  screamOnLesson();
   lessonCard = card;
   const r = card.getBoundingClientRect();
   const panel = panelRect();
