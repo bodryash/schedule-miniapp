@@ -1473,7 +1473,7 @@ function initReminders() {
 
 // Брутал выдаёт владелец командой /theme, гламур человек находит сам —
 // словом «гламур» в поиске по МФК. Тема с сервера сильнее найденной.
-const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", devil: "devil", msu: "msu", birthday: "birthday", halloween: "halloween" };
+const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", devil: "devil", msu: "msu", birthday: "birthday", halloween: "halloween", trump: "trump", putin: "putin" };
 const GLAM_KEY = "schedule.glam";
 // Зелёную тему волонтёра человек может выключить сам и вернуть обратно.
 // Остальные выданные темы так не умеют.
@@ -1570,7 +1570,7 @@ function setOwnGlam(on) {
 const OWNER_THEME_KEY = "schedule.ownerTheme";
 const THEME_TITLES = {
   "": "Обычная", glam: "Гламур", brutal: "Брутал", champion: "Чемпион", volunteer: "Волонтёр", cska: "ЦСКА", nokia: "Нокия",
-  ocean: "Океан", sunset: "Закат", mint: "Мята", lavender: "Лаванда", graphite: "Графит", cherry: "Вишня", devil: "Дьявол", msu: "МГУ",
+  ocean: "Океан", sunset: "Закат", mint: "Мята", lavender: "Лаванда", graphite: "Графит", cherry: "Вишня", devil: "Дьявол", msu: "МГУ", trump: "Трамп", putin: "Путин",
 };
 
 function ownerTheme() {
@@ -6061,7 +6061,7 @@ function initOverscroll() {
     overTop.style.height = top ? `${top + 100 + 260}px` : "0";
     // :P — над нижней панелью, когда страницу сильно тянут вверх.
     overBottom.classList.toggle("over--egg", bottom > 130);
-    overBottom.style.height = bottom ? `${bottom + 140}px` : "0";
+    overBottom.style.height = bottom ? `${bottom + 260}px` : "0";
   };
   window.addEventListener("scroll", update, { passive: true });
   // Пока палец на экране и пружина доигрывает — сверяемся каждый кадр.

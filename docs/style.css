@@ -9688,10 +9688,16 @@ body.neon .wgrid-cell--parity {
   top: -100px;
   /* Под страницей, над узором фона: заходит под шапку, не закрывая её. */
   z-index: -2;
+  /* Нижний край заливки растворяется, а не обрезает небо и узор по линейке. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 230px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 230px), transparent 100%);
 }
 
 .over--bottom {
   bottom: -100px;
+  /* Верхний край — так же плавно; зазор внизу остаётся закрытым полностью. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 120px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 120px);
 }
 
 /* :P — чёрный на светлом, белый на тёмном. */
@@ -11593,6 +11599,22 @@ body:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .day:not(.active) .day
   letter-spacing: 0.02em;
 }
 
+/* Сегодняшний день, когда выбран другой: заливка и рамка цвета акцента.
+   Раньше рамку перекрывали стеклянные плитки выше — «сегодня» терялось. */
+#days > .day.day--today:not(.active),
+body:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .day.day--today:not(.active),
+body[data-tone="dark"]:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .day.day--today:not(.active) {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  box-shadow:
+    inset 0 0 0 2px var(--accent),
+    0 6px 14px -8px var(--accent);
+}
+
+#days > .day.day--today:not(.active) .day-num,
+#days > .day.day--today:not(.active) .day-name {
+  color: var(--accent) !important;
+}
+
 /* ===== Именинник: выдаётся на один день ===== */
 body.birthday {
   --accent: #ff4f9a;
@@ -11639,6 +11661,139 @@ body.birthday .bar--schedule {
 
 @media (prefers-reduced-motion: reduce) {
   body.birthday .bar--schedule::after {
+    animation: none;
+  }
+}
+
+/* ===== Трамп: красно-сине-золотая, без портретов — цвета, звёзды, флаг ===== */
+body.trump {
+  --accent: #d7263d;
+  --accent-soft: rgba(215, 38, 61, 0.16);
+  --accent-text: #ffffff;
+}
+
+body.trump[data-bg="mesh"] .bg-blob {
+  opacity: 0.55;
+}
+
+body.trump[data-bg="mesh"] .bg-blob--1 {
+  background: radial-gradient(circle, #2c4a9a 0%, transparent 64%) !important;
+}
+
+body.trump[data-bg="mesh"] .bg-blob--2 {
+  background: radial-gradient(circle, #ff5a6e 0%, transparent 64%) !important;
+}
+
+body.trump[data-bg="mesh"] .bg-blob--3 {
+  background: radial-gradient(circle, #ffcf4d 0%, transparent 64%) !important;
+}
+
+body.trump .bar--schedule {
+  position: relative;
+}
+
+body.trump .bar--schedule::after {
+  content: "🇺🇸⭐";
+  position: absolute;
+  right: 64px;
+  top: 6px;
+  font-size: 20px;
+  letter-spacing: 2px;
+  pointer-events: none;
+  animation: bday-sway 3.6s ease-in-out infinite alternate;
+}
+
+/* ===== Путин: триколор — белый, синий, красный; флаг и медведь ===== */
+body.putin {
+  --accent: #1f57b5;
+  --accent-soft: rgba(31, 87, 181, 0.16);
+  --accent-text: #ffffff;
+}
+
+body.putin[data-bg="mesh"] .bg-blob {
+  opacity: 0.55;
+}
+
+body.putin[data-bg="mesh"] .bg-blob--1 {
+  background: radial-gradient(circle, #ffffff 0%, transparent 64%) !important;
+}
+
+body.putin[data-bg="mesh"] .bg-blob--2 {
+  background: radial-gradient(circle, #2f6fdc 0%, transparent 64%) !important;
+}
+
+body.putin[data-bg="mesh"] .bg-blob--3 {
+  background: radial-gradient(circle, #e0313b 0%, transparent 64%) !important;
+}
+
+body.putin .bar--schedule {
+  position: relative;
+}
+
+body.putin .bar--schedule::after {
+  content: "🇷🇺🐻";
+  position: absolute;
+  right: 64px;
+  top: 6px;
+  font-size: 20px;
+  letter-spacing: 2px;
+  pointer-events: none;
+  animation: bday-sway 3.6s ease-in-out infinite alternate;
+}
+
+/* Вместо неба и пятен — флаг на весь экран. Поверх лёгкая вуаль, чтобы
+   текст и плитки читались: светлая на светлой теме, тёмная — на тёмной. */
+body.trump .bg-layer,
+body.trump .daysky,
+body.putin .bg-layer,
+body.putin .daysky {
+  display: none !important;
+}
+
+body.trump::before,
+body.putin::before {
+  z-index: -1;
+  opacity: 1;
+}
+
+/* США: 13 полос (::before) и синий угол со звёздами (::after). */
+body.trump::before {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.42)),
+    repeating-linear-gradient(180deg, #c8283c 0, #c8283c 7.692vh, #ffffff 7.692vh, #ffffff 15.384vh);
+}
+
+body.trump::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 46%;
+  height: 53.846vh;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.42)),
+    radial-gradient(circle at 50% 50%, #fff 0 1.1px, transparent 1.5px) 0 0 / 15px 13px,
+    #2a3f8f;
+}
+
+/* России: белая, синяя, красная полосы. */
+body.putin::before {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.4)),
+    linear-gradient(180deg, #ffffff 0 33.34%, #1c4fa8 33.34% 66.67%, #d52b1e 66.67% 100%);
+}
+
+body[data-tone="dark"].trump::before,
+body[data-tone="dark"].trump::after,
+body[data-tone="dark"].putin::before {
+  filter: brightness(0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.trump .bar--schedule::after,
+  body.putin .bar--schedule::after {
     animation: none;
   }
 }
