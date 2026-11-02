@@ -1282,7 +1282,8 @@ function reminderPlan() {
   if (!group) return [];
   const bells = new Map(data.bells.map((b) => [b.n, b]));
   const plan = [];
-  for (let week = 0; week < WEEKS; week++) {
+  // Бот берёт не больше 240 пар — шлём ближние две недели, как раньше.
+  for (let week = 0; week < NEAR_WEEKS; week++) {
     for (let day = 1; day <= 6; day++) {
       const date = dateOfDay(day, week);
       const iso = isoDate(date);
@@ -2588,7 +2589,7 @@ async function createQueue() {
 /** Эта неделя ↔ следующая — перелистыванием, как дни. */
 function switchWeek(week, fromShift = 0) {
   if (weekMode === "month") return false;
-  if (week === selectedWeek || week < 0 || week >= WEEKS) return false;
+  if (week === selectedWeek || week < 0 || week >= NEAR_WEEKS) return false;
   const direction = Math.sign(week - selectedWeek);
   haptic("select");
   selectedWeek = week;
@@ -2624,7 +2625,7 @@ function initWeekSwipe() {
     }
     if (!dragging) return;
     // Дальше двух недель листать некуда — сопротивление на краю.
-    const edge = (dx > 0 && selectedWeek === 0) || (dx < 0 && selectedWeek === WEEKS - 1);
+    const edge = (dx > 0 && selectedWeek === 0) || (dx < 0 && selectedWeek >= NEAR_WEEKS - 1);
     shift = edge ? dx * 0.25 : dx;
     body.style.transform = `translateX(${shift.toFixed(1)}px)`;
   });
@@ -2637,7 +2638,7 @@ function initWeekSwipe() {
     const far = Math.abs(shift) > body.clientWidth * SWIPE_DISTANCE;
     const target = selectedWeek + (shift < 0 ? 1 : -1);
     body.style.transition = "";
-    if ((far || velocity > SWIPE_VELOCITY) && target >= 0 && target < WEEKS) {
+    if ((far || velocity > SWIPE_VELOCITY) && target >= 0 && target < NEAR_WEEKS) {
       const from = shift;
       body.style.transform = "";
       switchWeek(target, from);
@@ -4623,7 +4624,10 @@ const weekStart = mondayOf(baseDate);
 
 // Показываем текущую неделю и следующую: расписание на послезавтра нужно
 // чаще, чем на месяц вперёд, а листать две недели можно одной полосой.
-const WEEKS = 2;
+// Полоса дней на главном экране — пять недель вперёд: планировать можно
+// до месяца. Напоминания и вкладка «Неделя» — по-прежнему на две недели.
+const WEEKS = 5;
+const NEAR_WEEKS = 2;
 
 let selectedDay = ((baseDate.getDay() + 6) % 7) + 1;
 let selectedWeek = 0;
