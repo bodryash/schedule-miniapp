@@ -11910,3 +11910,246 @@ body.halloween::after {
     animation: none;
   }
 }
+
+/* ===== Месяц вперёд ===== */
+.month-view {
+  padding: 4px 10px 24px;
+}
+
+.month-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.month-summary span {
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background: color-mix(in srgb, var(--card) 60%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.mgrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.mgrid-head {
+  padding: 2px 0 4px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--muted);
+  text-transform: lowercase;
+}
+
+.mgrid-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 70px;
+  padding: 5px 4px 4px 6px;
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: color-mix(in srgb, var(--card) 72%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 7%, transparent);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.mgrid-cell:active {
+  transform: scale(0.96);
+}
+
+.mgrid-num {
+  font-family: var(--digits);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Свободный день — светлее и с зелёной полоской: под него и планируют. */
+.mgrid-cell--off {
+  background: color-mix(in srgb, #2ec27e 10%, color-mix(in srgb, var(--card) 55%, transparent));
+}
+
+.mgrid-cell--off::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 4px;
+  height: 3px;
+  border-radius: 2px;
+  background: #2ec27e;
+  opacity: 0.55;
+}
+
+.mgrid-cell--weekend .mgrid-num {
+  color: color-mix(in srgb, var(--accent) 80%, var(--text));
+}
+
+.mgrid-cell--past {
+  opacity: 0.4;
+}
+
+.mgrid-cell--today {
+  box-shadow: inset 0 0 0 2px var(--accent), 0 6px 14px -8px var(--accent);
+}
+
+.mgrid-time {
+  max-width: 100%;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.mgrid-dots {
+  display: flex;
+  gap: 2px;
+}
+
+.mgrid-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.mgrid-own {
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 1px;
+}
+
+.mgrid-holiday {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  font-size: 11px;
+}
+
+.month-hint {
+  margin: 12px 2px 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Карточка дня из месяца */
+.mday-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 12px;
+}
+
+.mday-row {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+.mday-row--own {
+  cursor: pointer;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.mday-row--cancelled .mday-subject {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
+.mday-time {
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.mday-subject {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.mday-room {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mday-row--cancelled .mday-room {
+  color: #e5484d;
+}
+
+.mday-free {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+
+.mday-free-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin-right: 2px;
+}
+
+.mday-free-slot {
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #1a7f4b;
+  background: rgba(46, 194, 126, 0.16);
+}
+
+body[data-tone="dark"] .mday-free-slot {
+  color: #6fe0a6;
+}
+
+.mday-free-none {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Тип своего дела в редакторе */
+.own-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 2px;
+}
+
+.own-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.own-kind-icon {
+  font-size: 14px;
+}
