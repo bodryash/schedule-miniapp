@@ -1698,8 +1698,16 @@ function rememberLook() {
 // /theme у бота. Выданная ботом тема всё равно сильнее.
 const GIFTED_THEMES = { shizoemerald: "trump", bblamee: "putin" };
 
+// День рождения: тема «Именинник» сама включается каждый год в этот день
+// (месяц-день) — по нику или по id Telegram.
+const BIRTHDAYS = { hibernatuss: "11-02", 7997266327: "11-02" };
+
 function giftedTheme() {
-  const nick = String(tg?.initDataUnsafe?.user?.username || "").toLowerCase();
+  const user = tg?.initDataUnsafe?.user || {};
+  const nick = String(user.username || "").toLowerCase();
+  const now = new Date();
+  const today = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (BIRTHDAYS[nick] === today || BIRTHDAYS[user.id] === today) return "birthday";
   return GIFTED_THEMES[nick] || "";
 }
 
