@@ -489,20 +489,6 @@
     "short": "ЕУИ"
   },
   {
-    "id": "msu-socio",
-    "university": "МГУ",
-    "faculty": "Социологический факультет",
-    "path": "msu-socio",
-    "features": [],
-    "short": "Социофак",
-    "source": {
-      "kind": "hist",
-      "base": "http://cacs.socio.msu.ru",
-      "faculty": "all",
-      "entry": "aID=3"
-    }
-  },
-  {
     "id": "mgimo-miep",
     "university": "МГИМО",
     "faculty": "Международный институт энергетической политики и дипломатии",
@@ -630,6 +616,20 @@
       "faculty": 27
     },
     "short": "МП"
+  },
+  {
+    "id": "msu-socio",
+    "university": "МГУ",
+    "faculty": "Социологический факультет",
+    "path": "msu-socio",
+    "features": [],
+    "short": "Социофак",
+    "source": {
+      "kind": "hist",
+      "base": "http://cacs.socio.msu.ru",
+      "faculty": "all",
+      "entry": "aID=3"
+    }
   },
   {
     "id": "msu-philos",
