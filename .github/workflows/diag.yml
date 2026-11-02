@@ -34,3 +34,13 @@ jobs:
           else:
               print("Ошибок доставки нет")
           PY
+
+      - name: Чей сервер бота
+        run: |
+          sudo apt-get install -y -qq whois dnsutils netcat-openbsd >/dev/null 2>&1 || true
+          ip=$(dig +short api.bodryash.ru | tail -1)
+          echo "api.bodryash.ru → $ip (обратное имя: $(dig +short -x "$ip"))"
+          whois "$ip" | grep -iE '^(netname|descr|org-name|organisation|country|role|address|abuse-mailbox)' | head -20
+          for port in 22 80 443; do
+            nc -z -w 5 "$ip" $port && echo "порт $port открыт" || echo "порт $port закрыт"
+          done
