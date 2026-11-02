@@ -1,0 +1,36 @@
+name: Диагностика бота
+
+# Запускается вручную, когда бот молчит. Ничего не меняет: только спрашивает
+# сервер, жив ли он, и Telegram — что с вебхуком и какая последняя ошибка.
+on:
+  workflow_dispatch:
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Сервер бота отвечает?
+        run: |
+          for url in https://api.bodryash.ru/healthz https://app.bodryash.ru/; do
+            curl -s -o /dev/null -m 20 -w "$url → HTTP %{http_code} за %{time_total} с\n" "$url" || echo "$url → не отвечает"
+          done
+
+      - name: Что Telegram знает о вебхуке
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json, os, time, urllib.request
+          base = f"https://api.telegram.org/bot{os.environ['BOT_TOKEN']}"
+          me = json.load(urllib.request.urlopen(f"{base}/getMe", timeout=20))
+          print("Бот:", "@" + me["result"]["username"] if me.get("ok") else me)
+          info = json.load(urllib.request.urlopen(f"{base}/getWebhookInfo", timeout=20))["result"]
+          print("Вебхук:", info.get("url") or "НЕ ЗАДАН")
+          print("Ждут доставки:", info.get("pending_update_count"))
+          print("IP:", info.get("ip_address"))
+          if info.get("last_error_date"):
+              ago = int(time.time() - info["last_error_date"])
+              print(f"Последняя ошибка {ago // 60} мин назад:", info.get("last_error_message"))
+          else:
+              print("Ошибок доставки нет")
+          PY
