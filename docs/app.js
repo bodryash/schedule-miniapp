@@ -1694,9 +1694,18 @@ function rememberLook() {
   }, 300);
 }
 
+// Темы, привязанные к нику прямо в приложении: работают и без команды
+// /theme у бота. Выданная ботом тема всё равно сильнее.
+const GIFTED_THEMES = { shizoemerald: "trump", bblamee: "putin" };
+
+function giftedTheme() {
+  const nick = String(tg?.initDataUnsafe?.user?.username || "").toLowerCase();
+  return GIFTED_THEMES[nick] || "";
+}
+
 function applyTheme(granted = grantedTheme) {
   rememberLook();
-  grantedTheme = granted || "";
+  grantedTheme = granted || giftedTheme();
   const tried = notices.owner ? ownerTheme() : null;
   if (tried !== null) {
     for (const cls of Object.values(THEMES)) document.body.classList.toggle(cls, THEMES[tried] === cls);
