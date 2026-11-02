@@ -2587,6 +2587,7 @@ async function createQueue() {
 
 /** Эта неделя ↔ следующая — перелистыванием, как дни. */
 function switchWeek(week, fromShift = 0) {
+  if (weekMode === "month") return false;
   if (week === selectedWeek || week < 0 || week >= WEEKS) return false;
   const direction = Math.sign(week - selectedWeek);
   haptic("select");
@@ -2660,18 +2661,45 @@ function showWeek() {
     parity === "odd" ? t("Нечётная неделя") : parity === "even" ? t("Чётная неделя") : t("Вне семестра");
   els.weekRange.textContent = `${SHORT_DATE.format(dateOfDay(1, selectedWeek))} — ${SHORT_DATE.format(dateOfDay(6, selectedWeek))}`;
 
-  // Переключатель недель: их всего две, кнопки понятнее листания.
+  // Переключатель: две недели и месяц вперёд — кнопки понятнее листания.
+  const month = el("button", weekMode === "month" ? "day active" : "day");
+  month.append(
+    el("span", null, t("Месяц")),
+    el("span", "day-date", `${MONTH_WEEKS} ${t("нед.")}`)
+  );
+  month.addEventListener("click", () => {
+    if (weekMode === "month") return;
+    haptic("select");
+    weekMode = "month";
+    showWeek();
+  });
   els.weekSwitch.replaceChildren(
     ...[0, 1].map((week) => {
-      const button = el("button", week === selectedWeek ? "day active" : "day");
+      const button = el("button", weekMode === "week" && week === selectedWeek ? "day active" : "day");
       button.append(
         el("span", null, week === 0 ? t("Эта неделя") : t("Следующая")),
         el("span", "day-date", `${SHORT_DATE.format(dateOfDay(1, week))}`)
       );
-      button.addEventListener("click", () => switchWeek(week));
+      button.addEventListener("click", () => {
+        if (weekMode === "month") {
+          haptic("select");
+          weekMode = "week";
+          selectedWeek = week;
+          return showWeek();
+        }
+        switchWeek(week);
+      });
       return button;
-    })
+    }),
+    month
   );
+
+  if (weekMode === "month") {
+    els.weekParity.textContent = t("Месяц вперёд");
+    els.weekRange.textContent = `${SHORT_DATE.format(dateOfDay(1, 0))} — ${SHORT_DATE.format(dateOfDay(7, MONTH_WEEKS - 1))}`;
+    els.weekBody.replaceChildren(renderMonth(group));
+    return;
+  }
 
   // Неделя — одной сеткой: дни столбцами, пары строками.
   els.weekBody.replaceChildren(renderWeekGrid(group));
@@ -3017,7 +3045,21 @@ function closeNote() {
 // пар по своему времени. Хранится на этом устройстве и никуда не уходит,
 // поэтому бот о своих делах не знает и не напоминает.
 const OWN_KEY = "schedule.own";
-const OWN_MAX = 40;
+const OWN_MAX = 60;
+// Что за дело: значок виден в дне, неделе и месяце — план читается с одного
+// взгляда. Старые дела без типа считаются «другим».
+const OWN_KINDS = [
+  ["sport", "🏃", "Спорт"],
+  ["work", "💼", "Работа"],
+  ["club", "🎨", "Кружок"],
+  ["meet", "🤝", "Встреча"],
+  ["study", "📚", "Учёба"],
+  ["other", "📌", "Другое"],
+];
+
+function ownIcon(event) {
+  return (OWN_KINDS.find(([id]) => id === event?.kind) || OWN_KINDS[OWN_KINDS.length - 1])[1];
+}
 
 function ownEvents() {
   try {
@@ -3057,7 +3099,7 @@ function renderOwnCard(event) {
   when.append(el("span", "card-start", event.start), el("span", "card-line"), el("span", "card-end", event.end));
   const body = el("div", "own-body");
   const head = el("div", "own-head");
-  head.append(el("span", "own-tag", t("своё")));
+  head.append(el("span", "own-tag", `${ownIcon(event)} ${t("своё")}`));
   if (!event.date) head.append(el("span", "own-repeat", t("каждую неделю")));
   body.append(head, el("div", "subject", event.title));
   if (event.place) body.append(el("div", "own-place", event.place));
@@ -3181,7 +3223,7 @@ function appendOwnRows(column, date, day) {
   for (const event of ownEventsOn(date)) {
     const row = el("button", "week-row week-row--own");
     row.type = "button";
-    row.append(el("span", "week-slot", "•"), el("span", "week-subject", event.title), el("span", "week-time", event.start));
+    row.append(el("span", "week-slot", ownIcon(event)), el("span", "week-subject", event.title), el("span", "week-time", event.start));
     row.addEventListener("click", () => {
       selectedDay = day;
       openTab("schedule");
@@ -3193,7 +3235,7 @@ function appendOwnRows(column, date, day) {
 let ownSheet = null;
 let owning = null;
 
-function openOwn(event) {
+function openOwn(event, forDate = null) {
   if (!ownSheet) {
     ownSheet = el("div", "sheet-backdrop sheet-backdrop--input");
     ownSheet.hidden = true;
@@ -3237,6 +3279,18 @@ function openOwn(event) {
         }
       });
     }
+    const kinds = el("div", "own-kinds");
+    for (const [id, icon, name] of OWN_KINDS) {
+      const chip = el("button", "chip own-kind");
+      chip.type = "button";
+      chip.dataset.kind = id;
+      chip.append(el("span", "own-kind-icon", icon), el("span", null, t(name)));
+      chip.addEventListener("click", () => {
+        haptic("select");
+        for (const other of kinds.children) other.classList.toggle("chip--on", other === chip);
+      });
+      kinds.append(chip);
+    }
     const place = el("input", "own-where");
     place.type = "text";
     place.maxLength = 60;
@@ -3256,6 +3310,7 @@ function openOwn(event) {
       el("div", "group-name own-when"),
       el("h2", "own-heading"),
       title,
+      kinds,
       times,
       place,
       weekly,
@@ -3280,7 +3335,8 @@ function openOwn(event) {
       }
       const list = ownEvents().filter((e) => e.id !== owning.id);
       if (list.length >= OWN_MAX) return fail(t("Своих дел уже слишком много — удалите ненужные."));
-      const entry = { id: owning.id, title: name, start: start.value, end: end.value, place: place.value.trim() };
+      const kind = kinds.querySelector(".chip--on")?.dataset.kind || "other";
+      const entry = { id: owning.id, title: name, kind, start: start.value, end: end.value, place: place.value.trim() };
       if (box.checked) entry.day = owning.date.getDay() || 7;
       else entry.date = isoDate(owning.date);
       if (!saveOwnEvents([...list, entry])) return fail(t("Не получилось сохранить: в телефоне нет места для данных."));
@@ -3301,8 +3357,10 @@ function openOwn(event) {
     });
     document.body.append(ownSheet);
   }
-  const date = dateOfDay(selectedDay);
+  const date = forDate || dateOfDay(selectedDay);
   owning = { id: event?.id || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, date };
+  const kind = event?.kind || "other";
+  for (const chip of ownSheet.querySelectorAll(".own-kind")) chip.classList.toggle("chip--on", chip.dataset.kind === kind);
   const label = FULL_DATE.format(date);
   ownSheet.querySelector(".own-when").textContent = label[0].toUpperCase() + label.slice(1);
   ownSheet.querySelector(".own-heading").textContent = event ? t("Своё дело") : t("Новое своё дело");
@@ -3311,7 +3369,7 @@ function openOwn(event) {
   ownSheet.querySelector(".own-end").value = event?.end || "20:30";
   ownSheet.querySelector(".own-where").value = event?.place || "";
   ownSheet.querySelector(".own-times").measure();
-  ownSheet.querySelector(".own-weekly-box").checked = event ? !event.date : true;
+  ownSheet.querySelector(".own-weekly-box").checked = event ? !event.date : !forDate;
   ownSheet.querySelector(".own-delete").hidden = !event;
   ownSheet.querySelector(".own-error").hidden = true;
   ownSheet.hidden = false;
@@ -5989,6 +6047,190 @@ function renderWeekGrid(group) {
     }
   }
   return grid;
+}
+
+/* ---------- Месяц вперёд ----------
+ * Пять недель одной сеткой: в каждом дне — когда пары начинаются и
+ * кончаются, сколько их и какие свои дела. Видно свободные дни и вечера,
+ * под них удобно планировать. Нажатие на день — подробности и свободное
+ * время, оттуда же добавляется своё дело на эту дату.
+ */
+const MONTH_WEEKS = 5;
+let weekMode = "week";
+
+/** Пары дня без отменённых — со временем начала и конца. */
+function lessonsWithTimes(group, day, week) {
+  const bells = new Map(data.bells.map((b) => [b.n, b]));
+  const iso = isoDate(dateOfDay(day, week));
+  return ownLessonsForDay(group, day, week).map((lesson) => {
+    const time = timesOf(lesson, bells);
+    return { lesson, start: time?.start || "", end: time?.end || "", cancelled: Boolean(lessonCancelOn(lesson, iso)) };
+  });
+}
+
+/** Свободные промежутки дня от часа и дольше, с 8:00 до 22:00. */
+function freeWindows(busy) {
+  const spans = busy
+    .filter((b) => b.start && b.end)
+    .map((b) => [minutes(b.start), minutes(b.end)])
+    .sort((a, b) => a[0] - b[0]);
+  const out = [];
+  let from = 8 * 60;
+  for (const [start, end] of spans) {
+    if (start - from >= 60) out.push([from, start]);
+    from = Math.max(from, end);
+  }
+  if (22 * 60 - from >= 60) out.push([from, 22 * 60]);
+  const clock = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  return out.map(([a, b]) => `${clock(a)}–${clock(b)}`);
+}
+
+function renderMonth(group) {
+  const box = el("div", "month-view");
+  const todayIso = isoDate(new Date());
+  let study = 0;
+  let free = 0;
+  let own = 0;
+  const grid = el("div", "mgrid");
+  for (let day = 1; day <= 7; day++) grid.append(el("div", "mgrid-head", DAYS[day - 1].slice(0, 2)));
+  for (let week = 0; week < MONTH_WEEKS; week++) {
+    for (let day = 1; day <= 7; day++) {
+      const date = dateOfDay(day, week);
+      const iso = isoDate(date);
+      const past = iso < todayIso;
+      const lessons = lessonsWithTimes(group, day, week).filter((l) => !l.cancelled);
+      const events = ownEventsOn(date);
+      const slots = new Set(lessons.map((l) => l.lesson.slot));
+      const cell = el("button", "mgrid-cell");
+      cell.type = "button";
+      if (past) cell.classList.add("mgrid-cell--past");
+      if (iso === todayIso) cell.classList.add("mgrid-cell--today");
+      if (!slots.size) cell.classList.add("mgrid-cell--off");
+      if (day >= 6) cell.classList.add("mgrid-cell--weekend");
+      const num = date.getDate() === 1 || (week === 0 && day === 1)
+        ? `${date.getDate()} ${SHORT_DATE.format(date).replace(/^\d+\s*/, "").replace(/\.$/, "")}`
+        : String(date.getDate());
+      cell.append(el("span", "mgrid-num", num));
+      const holiday = eventOn(iso);
+      if (holiday && holiday.ours(group)) cell.append(el("span", "mgrid-holiday", holiday.icon));
+      if (slots.size) {
+        const starts = lessons.map((l) => l.start).filter(Boolean).sort();
+        const ends = lessons.map((l) => l.end).filter(Boolean).sort();
+        // Коротко, чтобы влезло в клетку: «9–16:15», ровные часы — без «:00».
+        const short = (time) => time.replace(/^0/, "").replace(/:00$/, "");
+        if (starts.length) cell.append(el("span", "mgrid-time", `${short(starts[0])}–${short(ends[ends.length - 1])}`));
+        const dots = el("span", "mgrid-dots");
+        for (let i = 0; i < Math.min(slots.size, 6); i++) dots.append(el("i"));
+        cell.append(dots);
+        if (!past) study++;
+      } else if (!past) {
+        free++;
+      }
+      if (events.length) {
+        cell.append(el("span", "mgrid-own", events.slice(0, 3).map(ownIcon).join("") + (events.length > 3 ? "+" : "")));
+        if (!past) own += events.length;
+      }
+      cell.addEventListener("click", () => {
+        haptic("light");
+        openMonthDay(group, day, week);
+      });
+      grid.append(cell);
+    }
+  }
+  const summary = el("div", "month-summary");
+  summary.append(
+    el("span", null, t("Учебных дней: {n}", { n: study })),
+    el("span", null, t("Свободных: {n}", { n: free })),
+    el("span", null, t("Своих дел: {n}", { n: own }))
+  );
+  const hint = el("p", "month-hint", t("Нажмите на день — покажем свободное время и добавим своё дело."));
+  box.append(summary, grid, hint);
+  return box;
+}
+
+let monthSheet = null;
+
+function openMonthDay(group, day, week) {
+  if (!monthSheet) {
+    monthSheet = el("div", "sheet-backdrop");
+    monthSheet.hidden = true;
+    monthSheet.addEventListener("click", (click) => {
+      if (click.target === monthSheet) monthSheet.hidden = true;
+    });
+    document.body.append(monthSheet);
+  }
+  const date = dateOfDay(day, week);
+  const sheet = el("div", "sheet sheet--month-day");
+  sheet.setAttribute("role", "dialog");
+  sheet.setAttribute("aria-modal", "true");
+  const label = FULL_DATE.format(date);
+  sheet.append(el("div", "group-name", label[0].toUpperCase() + label.slice(1)));
+
+  const lessons = lessonsWithTimes(group, day, week);
+  const live = lessons.filter((l) => !l.cancelled);
+  const slots = new Set(live.map((l) => l.lesson.slot));
+  sheet.append(el("h2", null, slots.size ? t("Пар: {n}", { n: slots.size }) : t("Пар нет — день свободен")));
+
+  const list = el("div", "mday-list");
+  for (const item of lessons) {
+    const row = el("div", item.cancelled ? "mday-row mday-row--cancelled" : "mday-row");
+    row.append(
+      el("span", "mday-time", item.start ? `${item.start}–${item.end}` : ""),
+      el("span", "mday-subject", tr(item.lesson.subject)),
+      el("span", "mday-room", item.cancelled ? t("отменена") : (item.lesson.room || "").replace(/^ауд\.?\s*/i, ""))
+    );
+    list.append(row);
+  }
+  const events = ownEventsOn(date);
+  for (const event of events) {
+    const row = el("button", "mday-row mday-row--own");
+    row.type = "button";
+    row.append(
+      el("span", "mday-time", `${event.start}–${event.end}`),
+      el("span", "mday-subject", `${ownIcon(event)} ${event.title}`),
+      el("span", "mday-room", event.date ? "" : t("каждую неделю"))
+    );
+    row.addEventListener("click", () => {
+      monthSheet.hidden = true;
+      openOwn(event, date);
+    });
+    list.append(row);
+  }
+  if (list.children.length) sheet.append(list);
+
+  const windows = freeWindows([...live, ...events]);
+  const freeBox = el("div", "mday-free");
+  freeBox.append(el("span", "mday-free-title", t("Свободно")));
+  if (windows.length) for (const w of windows) freeBox.append(el("span", "mday-free-slot", w));
+  else freeBox.append(el("span", "mday-free-none", t("весь день занят")));
+  sheet.append(freeBox);
+
+  const add = el("button", "primary", t("+ Своё дело на этот день"));
+  add.type = "button";
+  add.addEventListener("click", () => {
+    monthSheet.hidden = true;
+    openOwn(null, date);
+  });
+  const actions = el("div", "sheet-actions");
+  if (week < WEEKS) {
+    const go = el("button", "ghost", t("Открыть день"));
+    go.type = "button";
+    go.addEventListener("click", () => {
+      monthSheet.hidden = true;
+      weekMode = "week";
+      selectedWeek = week;
+      selectedDay = day;
+      openTab("schedule");
+    });
+    actions.append(go);
+  }
+  const close = el("button", "ghost", t("Закрыть"));
+  close.type = "button";
+  close.addEventListener("click", () => (monthSheet.hidden = true));
+  actions.append(close);
+  sheet.append(add, actions);
+  monthSheet.replaceChildren(sheet);
+  monthSheet.hidden = false;
 }
 
 /* Зазоры при перетягивании (пружина iPhone). За страницей лежит фон —
