@@ -11741,6 +11741,56 @@ body.putin .bar--schedule::after {
   animation: bday-sway 3.6s ease-in-out infinite alternate;
 }
 
+/* Вместо неба и пятен — флаг на весь экран. Поверх лёгкая вуаль, чтобы
+   текст и плитки читались: светлая на светлой теме, тёмная — на тёмной. */
+body.trump .bg-layer,
+body.trump .daysky,
+body.putin .bg-layer,
+body.putin .daysky {
+  display: none !important;
+}
+
+body.trump::before,
+body.putin::before {
+  z-index: -1;
+  opacity: 1;
+}
+
+/* США: 13 полос (::before) и синий угол со звёздами (::after). */
+body.trump::before {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.42)),
+    repeating-linear-gradient(180deg, #c8283c 0, #c8283c 7.692vh, #ffffff 7.692vh, #ffffff 15.384vh);
+}
+
+body.trump::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 46%;
+  height: 53.846vh;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.42)),
+    radial-gradient(circle at 50% 50%, #fff 0 1.1px, transparent 1.5px) 0 0 / 15px 13px,
+    #2a3f8f;
+}
+
+/* России: белая, синяя, красная полосы. */
+body.putin::before {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.4)),
+    linear-gradient(180deg, #ffffff 0 33.34%, #1c4fa8 33.34% 66.67%, #d52b1e 66.67% 100%);
+}
+
+body[data-tone="dark"].trump::before,
+body[data-tone="dark"].trump::after,
+body[data-tone="dark"].putin::before {
+  filter: brightness(0.55);
+}
+
 @media (prefers-reduced-motion: reduce) {
   body.trump .bar--schedule::after,
   body.putin .bar--schedule::after {
