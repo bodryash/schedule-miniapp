@@ -1,0 +1,46 @@
+name: Сервер бота — журнал, обновление, перезапуск
+
+# Запускается вручную. Заходит на сервер по SSH (пароль — секрет
+# SERVER_PASSWORD, в лог не попадает) и делает выбранное действие.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "logs — только журнал; restart — обновить и перезапустить"
+        required: true
+        default: logs
+        type: choice
+        options: [logs, restart]
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    env:
+      HOST: 2.153.248.141
+      SSH_USER: bodryash
+      SSHPASS: ${{ secrets.SERVER_PASSWORD }}
+    steps:
+      - name: Подготовка
+        run: sudo apt-get install -y -qq sshpass >/dev/null
+
+      - name: Выполнить на сервере
+        run: |
+          ssh_run() {
+            sshpass -e ssh -o StrictHostKeyChecking=no -o ConnectTimeout=20 -o SendEnv=NONE "$SSH_USER@$HOST" \
+              "sudo -S -p '' bash -s" <<< "$SSHPASS
+          $1" 2>&1 | grep -v -F "$SSHPASS" || true
+          }
+          echo "=== Состояние службы ==="
+          ssh_run "systemctl status schedule-bot --no-pager -l | head -20"
+          echo "=== Журнал бота (последние 60 строк) ==="
+          ssh_run "journalctl -u schedule-bot -n 60 --no-pager"
+          echo "=== Диск и память ==="
+          ssh_run "df -h / /var/lib/schedule | tail -n +1; free -m"
+          if [ "${{ inputs.action }}" = "restart" ]; then
+            echo "=== Обновление кода ==="
+            ssh_run "cd /opt/schedule && sudo -u schedule git pull --ff-only 2>&1 | tail -5; git log --oneline -1"
+            echo "=== Перезапуск ==="
+            ssh_run "systemctl restart schedule-bot; sleep 5; systemctl is-active schedule-bot; curl -fsS -m 5 http://127.0.0.1:8787/healthz || echo healthz не отвечает"
+            echo "=== Журнал после перезапуска ==="
+            ssh_run "journalctl -u schedule-bot -n 20 --no-pager"
+          fi
