@@ -10757,6 +10757,39 @@ function initSheetSwipe() {
   });
 }
 
+/** Профили — верхней строкой в меню: переключиться в одно нажатие. */
+function renderMenuProfiles(pop) {
+  pop.querySelector(".menu-profiles")?.remove();
+  const store = readProfiles();
+  const box = el("div", "menu-profiles");
+  for (const profile of store.list) {
+    const on = profile.id === store.active;
+    const chip = el("button", on ? "menu-profile menu-profile--on" : "menu-profile", profile.name);
+    chip.type = "button";
+    chip.addEventListener("click", (event) => {
+      event.stopPropagation();
+      pop.hidden = true;
+      if (!on) {
+        haptic("select");
+        switchProfile(profile);
+      }
+    });
+    box.append(chip);
+  }
+  const add = el("button", "menu-profile menu-profile--add", store.list.length ? "＋" : t("＋ Профиль"));
+  add.type = "button";
+  add.setAttribute("aria-label", t("Сохранить как профиль"));
+  add.addEventListener("click", (event) => {
+    event.stopPropagation();
+    pop.hidden = true;
+    haptic("light");
+    showPicker();
+    openSettingsPage("profiles");
+  });
+  box.append(add);
+  pop.prepend(box);
+}
+
 function initMenu() {
   initSheetSwipe();
   const pop = els.menuPop;
