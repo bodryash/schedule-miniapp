@@ -12888,16 +12888,6 @@ body::after {
   }
 }
 
-/* Заставка уходит быстро: расписание нужно срочно. */
-.splash--gone {
-  animation-duration: 340ms !important;
-}
-
-.splash--free.splash--gone,
-.splash--free.splash--gone .splash-day {
-  animation-duration: 300ms !important;
-  transition-duration: 300ms !important;
-}
 
 .own-span {
   padding: 6px 12px;
@@ -12906,4 +12896,174 @@ body::after {
   font-weight: 600;
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--text);
+}
+
+/* ===== Свои дела: цвет, лента дня, подсветка нового ===== */
+.own-card {
+  --own-c: var(--accent);
+  border-left: 4px solid var(--own-c) !important;
+  background: color-mix(in srgb, var(--own-c) 10%, var(--surface, var(--card))) !important;
+}
+
+.own-card .own-tag {
+  background: color-mix(in srgb, var(--own-c) 18%, transparent);
+  color: color-mix(in srgb, var(--own-c) 70%, var(--text));
+}
+
+.own-card .card-line {
+  background: var(--own-c);
+}
+
+.own-next-day {
+  margin-left: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--own-c);
+  vertical-align: super;
+}
+
+.own-card--flash {
+  animation: own-flash 1.5s ease both;
+}
+
+@keyframes own-flash {
+  0%, 60% { box-shadow: 0 0 0 3px var(--own-c), 0 10px 26px -10px var(--own-c); }
+  100% { box-shadow: none; }
+}
+
+.own-colors {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0 2px;
+}
+
+.own-color {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--own-c);
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.own-color--on {
+  transform: scale(1.18);
+  box-shadow: 0 0 0 2px var(--surface, var(--card)), 0 0 0 4px var(--own-c);
+}
+
+.own-strip {
+  margin: 6px 0 14px;
+  padding: 14px 14px 10px;
+  border-radius: 20px;
+  background: var(--surface, var(--card));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 7%, transparent);
+  animation: rise 360ms var(--ease-soft, ease) both;
+}
+
+.own-strip-title {
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.own-strip-bar {
+  position: relative;
+  height: 26px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.own-strip-seg {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--own-c);
+  cursor: pointer;
+  transform-origin: left center;
+  animation: own-seg-in 420ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+
+.own-strip-seg--new {
+  animation: own-seg-in 420ms cubic-bezier(0.3, 1.4, 0.5, 1) both, own-seg-pulse 1.2s 0.4s ease 2;
+}
+
+@keyframes own-seg-in {
+  from { transform: scaleX(0); opacity: 0; }
+}
+
+@keyframes own-seg-pulse {
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--own-c) 35%, transparent); }
+}
+
+.own-strip-now {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--text);
+  opacity: 0.6;
+}
+
+.own-strip-scale {
+  position: relative;
+  height: 16px;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.own-strip-scale span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.own-strip-scale span:first-child {
+  transform: none;
+}
+
+/* ===== Профили в меню «⋯» ===== */
+.menu-profiles {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 6px;
+  padding-bottom: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.menu-profiles::-webkit-scrollbar {
+  display: none;
+}
+
+.menu-pop .menu-profile {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  flex-direction: row;
+}
+
+.menu-pop .menu-profile--on {
+  color: var(--accent-text);
+  background: var(--accent);
+}
+
+.menu-pop .menu-profile--add {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .own-card--flash,
+  .own-strip,
+  .own-strip-seg {
+    animation: none;
+  }
 }

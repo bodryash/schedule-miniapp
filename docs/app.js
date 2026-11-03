@@ -3135,6 +3135,19 @@ const OWN_KINDS = [
   ["other", "📌", "Другое"],
 ];
 
+// Цвет дела — свой у каждого типа, можно выбрать другой.
+const OWN_COLORS = ["#2ec27e", "#3a7bff", "#8b5cf6", "#ff9f1c", "#1fb5c9", "#ff5a5f", "#ec4899", "#8e8e93"];
+const OWN_KIND_COLOR = { sport: "#2ec27e", work: "#3a7bff", club: "#8b5cf6", meet: "#ff9f1c", study: "#1fb5c9", other: "#8e8e93" };
+
+function ownColor(event) {
+  return event?.color || OWN_KIND_COLOR[event?.kind] || OWN_KIND_COLOR.other;
+}
+
+/** Дело через полночь: конец раньше начала — значит, кончается на следующий день. */
+function ownOvernight(event) {
+  return minutes(event.end) <= minutes(event.start);
+}
+
 function ownIcon(event) {
   return (OWN_KINDS.find(([id]) => id === event?.kind) || OWN_KINDS[OWN_KINDS.length - 1])[1];
 }
@@ -3180,8 +3193,12 @@ function renderOwnCard(event) {
   card.tabIndex = 0;
   card.dataset.start = event.start;
   card.dataset.end = event.end;
+  card.dataset.ownId = event.id;
+  card.style.setProperty("--own-c", ownColor(event));
   const when = el("div", "card-when");
-  when.append(el("span", "card-start", event.start), el("span", "card-line"), el("span", "card-end", event.end));
+  const endLabel = el("span", "card-end", event.end);
+  if (ownOvernight(event)) endLabel.append(el("sup", "own-next-day", "+1"));
+  when.append(el("span", "card-start", event.start), el("span", "card-line"), endLabel);
   const body = el("div", "own-body");
   const head = el("div", "own-head");
   head.append(el("span", "own-tag", `${ownIcon(event)} ${t("своё")}`));
@@ -3221,6 +3238,51 @@ function renderOwnCard(event) {
     }
   });
   return card;
+}
+
+/** Лента дня 7:00–24:00 с отрезками своих дел — нажатие ведёт к делу. */
+function renderOwnStrip(date) {
+  const FROM = 7 * 60;
+  const TO = 24 * 60;
+  const box = el("div", "own-strip");
+  const events = ownEventsOn(date);
+  box.append(el("div", "own-strip-title", prefs.planner ? t("Ваш день · дел: {n}", { n: events.length }) : t("Пар нет · своих дел: {n}", { n: events.length })));
+  const bar = el("div", "own-strip-bar");
+  for (const event of events) {
+    const a = Math.max(FROM, minutes(event.start));
+    const b = ownOvernight(event) ? TO : Math.min(TO, minutes(event.end));
+    if (b <= a) continue;
+    const seg = el("button", "own-strip-seg");
+    seg.type = "button";
+    seg.dataset.ownId = event.id;
+    seg.style.left = `${((a - FROM) / (TO - FROM)) * 100}%`;
+    seg.style.width = `${Math.max(2, ((b - a) / (TO - FROM)) * 100)}%`;
+    seg.style.setProperty("--own-c", ownColor(event));
+    seg.setAttribute("aria-label", `${event.title}, ${event.start}`);
+    seg.addEventListener("click", () => {
+      haptic("light");
+      els.lessons.querySelector(`.own-card[data-own-id="${event.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    bar.append(seg);
+  }
+  // Сейчас — вертикальная черта, если смотрим сегодняшний день.
+  if (isoDate(date) === isoDate(new Date())) {
+    const now = new Date();
+    const m = now.getHours() * 60 + now.getMinutes();
+    if (m >= FROM && m <= TO) {
+      const mark = el("i", "own-strip-now");
+      mark.style.left = `${((m - FROM) / (TO - FROM)) * 100}%`;
+      bar.append(mark);
+    }
+  }
+  const scale = el("div", "own-strip-scale");
+  for (const h of [7, 10, 13, 16, 19, 22]) {
+    const tick = el("span", null, `${h}:00`);
+    tick.style.left = `${((h * 60 - FROM) / (TO - FROM)) * 100}%`;
+    scale.append(tick);
+  }
+  box.append(bar, scale);
+  return box;
 }
 
 function renderOwnAdd() {
@@ -3367,7 +3429,9 @@ function openOwn(event, forDate = null) {
     const length = el("span", "own-length");
     times.append(from, length, to);
     const measure = () => {
-      const span = start.value && end.value ? minutes(end.value) - minutes(start.value) : 0;
+      // Конец раньше начала — дело идёт через полночь (21:00 → 03:58).
+      let span = start.value && end.value ? minutes(end.value) - minutes(start.value) : 0;
+      if (start.value && end.value && span < 0) span += 24 * 60;
       times.classList.toggle("own-times--bad", span <= 0);
       if (span <= 0) return (length.textContent = "→");
       const hours = Math.floor(span / 60);
@@ -3414,6 +3478,26 @@ function openOwn(event, forDate = null) {
       });
       kinds.append(chip);
     }
+    const colors = el("div", "own-colors");
+    for (const color of OWN_COLORS) {
+      const dot = el("button", "own-color");
+      dot.type = "button";
+      dot.dataset.color = color;
+      dot.style.setProperty("--own-c", color);
+      dot.setAttribute("aria-label", t("Цвет"));
+      dot.addEventListener("click", () => {
+        haptic("select");
+        for (const other of colors.children) other.classList.toggle("own-color--on", other === dot);
+      });
+      colors.append(dot);
+    }
+    // Тип меняет цвет по умолчанию, пока цвет не выбрали руками.
+    kinds.addEventListener("click", (click) => {
+      const kind = click.target.closest(".own-kind")?.dataset.kind;
+      if (!kind || colors.dataset.picked) return;
+      for (const dot of colors.children) dot.classList.toggle("own-color--on", dot.dataset.color === OWN_KIND_COLOR[kind]);
+    });
+    colors.addEventListener("click", () => (colors.dataset.picked = "1"));
     const place = el("input", "own-where");
     place.type = "text";
     place.maxLength = 60;
@@ -3434,6 +3518,7 @@ function openOwn(event, forDate = null) {
       el("h2", "own-heading"),
       title,
       kinds,
+      colors,
       times,
       times.spans,
       place,
@@ -3454,13 +3539,14 @@ function openOwn(event, forDate = null) {
       if (!owning) return;
       const name = title.value.trim();
       if (!name) return fail(t("Напишите, что это за дело."));
-      if (!start.value || !end.value || minutes(end.value) <= minutes(start.value)) {
-        return fail(t("Конец должен быть позже начала."));
+      if (!start.value || !end.value || start.value === end.value) {
+        return fail(t("Укажите, когда дело начинается и когда заканчивается."));
       }
       const list = ownEvents().filter((e) => e.id !== owning.id);
       if (list.length >= OWN_MAX) return fail(t("Своих дел уже слишком много — удалите ненужные."));
       const kind = kinds.querySelector(".chip--on")?.dataset.kind || "other";
-      const entry = { id: owning.id, title: name, kind, start: start.value, end: end.value, place: place.value.trim() };
+      const color = colors.querySelector(".own-color--on")?.dataset.color || OWN_KIND_COLOR[kind];
+      const entry = { id: owning.id, title: name, kind, color, start: start.value, end: end.value, place: place.value.trim() };
       if (box.checked) entry.day = owning.date.getDay() || 7;
       else entry.date = isoDate(owning.date);
       if (!saveOwnEvents([...list, entry])) return fail(t("Не получилось сохранить: в телефоне нет места для данных."));
@@ -3468,6 +3554,7 @@ function openOwn(event, forDate = null) {
       ownJustSaved = entry.id;
       closeOwn();
       refreshOwn();
+      revealOwn(entry.id);
     });
     remove.addEventListener("click", () => {
       if (!owning) return;
@@ -3486,6 +3573,10 @@ function openOwn(event, forDate = null) {
   owning = { id: event?.id || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, date };
   const kind = event?.kind || "other";
   for (const chip of ownSheet.querySelectorAll(".own-kind")) chip.classList.toggle("chip--on", chip.dataset.kind === kind);
+  const colorBox = ownSheet.querySelector(".own-colors");
+  if (event?.color) colorBox.dataset.picked = "1";
+  else delete colorBox.dataset.picked;
+  for (const dot of colorBox.children) dot.classList.toggle("own-color--on", dot.dataset.color === ownColor(event || { kind }));
   const label = FULL_DATE.format(date);
   ownSheet.querySelector(".own-when").textContent = label[0].toUpperCase() + label.slice(1);
   ownSheet.querySelector(".own-heading").textContent = event ? t("Своё дело") : t("Новое своё дело");
@@ -3507,6 +3598,18 @@ function closeOwn() {
   if (ownSheet) ownSheet.hidden = true;
   owning = null;
   document.activeElement?.blur?.();
+}
+
+/** Подводим экран к только что сохранённому делу и подсвечиваем его. */
+function revealOwn(id) {
+  setTimeout(() => {
+    const card = els.lessons?.querySelector(`.own-card[data-own-id="${id}"]`);
+    if (!card || els.schedule.hidden) return;
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    card.classList.add("own-card--flash");
+    setTimeout(() => card.classList.remove("own-card--flash"), 1600);
+    els.lessons.querySelector(`.own-strip-seg[data-own-id="${id}"]`)?.classList.add("own-strip-seg--new");
+  }, 120);
 }
 
 function refreshOwn() {
@@ -6233,7 +6336,7 @@ function lessonsWithTimes(group, day, week) {
 function freeWindows(busy) {
   const spans = busy
     .filter((b) => b.start && b.end)
-    .map((b) => [minutes(b.start), minutes(b.end)])
+    .map((b) => [minutes(b.start), minutes(b.end) <= minutes(b.start) ? 24 * 60 : minutes(b.end)])
     .sort((a, b) => a[0] - b[0]);
   const out = [];
   let from = 8 * 60;
@@ -9631,7 +9734,10 @@ function renderLessons(group, parity) {
     // Пар нет, но свои дела в этот день могут быть — они под картинкой дня.
     const own = [];
     placeOwn(own, dateOfDay(selectedDay));
-    els.lessons.replaceChildren(renderFreeDay(), ...own, renderOwnAdd(), ...[renderStarostaAsk()].filter(Boolean));
+    // Есть свои дела — вместо большой картинки «свободный день» показываем
+    // ленту дня: видно, где в сутках стоит каждое дело.
+    const head = own.length ? renderOwnStrip(dateOfDay(selectedDay)) : renderFreeDay();
+    els.lessons.replaceChildren(head, ...own, renderOwnAdd(), ...[renderStarostaAsk()].filter(Boolean));
     refreshNext();
     return;
   }
@@ -10629,6 +10735,24 @@ function haptic(kind = "select") {
  */
 function initSheetSwipe() {
   let drag = null;
+  // Главное: в Telegram свайп вниз сворачивает само мини-приложение, и
+  // жест до окна не доходил. Пока открыто любое окно снизу, этот системный
+  // свайп выключаем, закрылись все — включаем обратно.
+  const syncTelegramSwipes = () => {
+    const open = [...document.querySelectorAll(".sheet-backdrop")].some((b) => !b.hidden);
+    try {
+      if (open) tg?.disableVerticalSwipes?.();
+      else if (!lessonView) tg?.enableVerticalSwipes?.();
+    } catch {
+      // Старый Telegram без этой возможности.
+    }
+  };
+  new MutationObserver(syncTelegramSwipes).observe(document.body, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ["hidden"],
+  });
   document.addEventListener("touchstart", (event) => {
     const sheet = event.target.closest?.(".sheet");
     const backdrop = sheet?.closest(".sheet-backdrop");
@@ -10672,6 +10796,39 @@ function initSheetSwipe() {
   document.addEventListener("touchcancel", end, { passive: true });
 }
 
+/** Профили — верхней строкой в меню: переключиться в одно нажатие. */
+function renderMenuProfiles(pop) {
+  pop.querySelector(".menu-profiles")?.remove();
+  const store = readProfiles();
+  const box = el("div", "menu-profiles");
+  for (const profile of store.list) {
+    const on = profile.id === store.active;
+    const chip = el("button", on ? "menu-profile menu-profile--on" : "menu-profile", profile.name);
+    chip.type = "button";
+    chip.addEventListener("click", (event) => {
+      event.stopPropagation();
+      pop.hidden = true;
+      if (!on) {
+        haptic("select");
+        switchProfile(profile);
+      }
+    });
+    box.append(chip);
+  }
+  const add = el("button", "menu-profile menu-profile--add", store.list.length ? "＋" : t("＋ Профиль"));
+  add.type = "button";
+  add.setAttribute("aria-label", t("Сохранить как профиль"));
+  add.addEventListener("click", (event) => {
+    event.stopPropagation();
+    pop.hidden = true;
+    haptic("light");
+    showPicker();
+    openSettingsPage("profiles");
+  });
+  box.append(add);
+  pop.prepend(box);
+}
+
 function initMenu() {
   initSheetSwipe();
   const pop = els.menuPop;
@@ -10688,6 +10845,7 @@ function initMenu() {
     event.stopPropagation();
     haptic("light");
     if (pop.hidden) {
+      renderMenuProfiles(pop);
       // Без группы звать некого, аудиторий и очередей нет.
       for (const item of pop.querySelectorAll("[data-menu]")) {
         const groupOnly = ["invite", "rooms", "queues", "poll", "absences", "exams", "meet", "semester"].includes(item.dataset.menu);
@@ -11780,10 +11938,26 @@ renderHello();
 
 // Не короче: иначе сборка и приветствие не успевают прочитаться. Кто уже
 // заходил, видел их не раз — ему заставка короче.
-// Расписание открывают на бегу — заставка только мелькает: дольше, чем
-// нужно данным, не держим.
-const SPLASH_MIN = document.body.dataset.returning ? 250 : 600;
-const SPLASH_MAX = 1400; // и не дольше, даже если сеть тормозит
+// Расписание открывают на бегу: вся заставка проигрывается вдвое быстрее —
+// целиком, с той же сборкой и уходом, просто в ускоренном темпе.
+const SPLASH_SPEED = 2;
+const sp = (ms) => Math.round(ms / SPLASH_SPEED);
+const SPLASH_MIN = sp(document.body.dataset.returning ? 1000 : 1700);
+const SPLASH_MAX = sp(3200); // и не дольше, даже если сеть тормозит
+
+/** CSS-анимации и переходы заставки — в том же ускоренном темпе. */
+function speedUpSplash() {
+  const splash = els.splash;
+  if (!splash || !splash.getAnimations) return;
+  const tick = () => {
+    for (const anim of splash.getAnimations({ subtree: true })) {
+      if (anim.playbackRate !== SPLASH_SPEED) anim.playbackRate = SPLASH_SPEED;
+    }
+    if (document.body.contains(splash)) requestAnimationFrame(tick);
+  };
+  tick();
+}
+speedUpSplash();
 const splashStarted = performance.now();
 
 /**
@@ -11894,7 +12068,7 @@ function assembleSplash(plan) {
     dot.style.animationDelay = `${120 + i * 110}ms`;
     // Щелчок вибрации — в момент приземления, а не старта: так точки
     // ощущаются пальцем, как будто падают на экран.
-    setTimeout(() => haptic("soft"), 120 + i * 110 + 300);
+    setTimeout(() => haptic("soft"), sp(120 + i * 110 + 300));
   };
 
   // Одна пара — просто падает на середину, комете лететь некуда.
@@ -11904,7 +12078,7 @@ function assembleSplash(plan) {
     landing(dot, 0);
     track.append(dot);
     showSplashTimes(plan, 520);
-    return 1100;
+    return sp(1100);
   }
 
   const dots = times.slice(0, -1).map((time, i) => {
@@ -11928,10 +12102,10 @@ function assembleSplash(plan) {
     last.style.left = "100%";
     track.append(last);
     haptic("soft");
-  }, fillAt + COMET_FLIGHT);
+  }, sp(fillAt + COMET_FLIGHT));
 
   showSplashTimes(plan, fillAt + 200);
-  return fillAt + COMET_FLIGHT + 420;
+  return sp(fillAt + COMET_FLIGHT + 420);
 }
 
 /**
@@ -11961,9 +12135,9 @@ function assembleFreeSplash() {
   scene.append(el("span", "splash-free-emoji", emoji), el("span", "splash-free-title", title));
   splash.append(scene);
   // Три толчка по нарастающей — и короткий «успех», когда значок встал.
-  ["soft", "light", "medium"].forEach((kind, i) => setTimeout(() => haptic(kind), 120 + i * 170));
-  setTimeout(() => haptic("success"), 760);
-  return 1500;
+  ["soft", "light", "medium"].forEach((kind, i) => setTimeout(() => haptic(kind), sp(120 + i * 170)));
+  setTimeout(() => haptic("success"), sp(760));
+  return sp(1500);
 }
 
 /** Время начала и конца дня под полосой. */
@@ -11988,7 +12162,7 @@ async function finishSplash() {
     Promise.all([fonts, noticesReady]),
     new Promise((r) => setTimeout(r, 300)),
   ]);
-  const played = Math.min(assembleSplash(splashDayPlan()), 450);
+  const played = assembleSplash(splashDayPlan());
   const waited = performance.now() - splashStarted;
   const rest = Math.max(played, SPLASH_MIN - waited);
   setTimeout(dropSplash, Math.min(rest, SPLASH_MAX));
@@ -12021,12 +12195,12 @@ function dropSplash() {
     else scene.classList.remove("free-day--await");
   }
   splash.classList.add("splash--gone");
-  setTimeout(() => splash.remove(), 400);
+  setTimeout(() => splash.remove(), sp(700));
   // Расписание развернулось — теперь можно и салют в честь праздника.
   setTimeout(() => {
     celebrateEvent();
     afterSplashQueue.splice(0).forEach((fn) => fn());
-  }, 250);
+  }, sp(450));
 }
 
 /** Перелёт значка с заставки на экран: один и тот же предмет, а не два. */
@@ -12056,7 +12230,7 @@ function flyEmoji(from, to, scene) {
   if (!fly.animate) return land();
   // Страховка: если экран в этот момент не рисуется, анимация стоит — и
   // значок иначе завис бы посреди экрана.
-  setTimeout(land, 900);
+  setTimeout(land, sp(900));
   // Летит по дуге: сначала чуть приподнимается и растёт, потом садится.
   fly
     .animate(
@@ -12065,7 +12239,7 @@ function flyEmoji(from, to, scene) {
         { transform: `translate(${dx * 0.45}px, ${dy * 0.3 - 26}px) scale(${scale * 1.18}) rotate(-8deg)`, offset: 0.45 },
         { transform: `translate(${dx}px, ${dy}px) scale(${scale})` },
       ],
-      { duration: 680, easing: "cubic-bezier(0.45, 0, 0.2, 1)", fill: "forwards" }
+      { duration: sp(680), easing: "cubic-bezier(0.45, 0, 0.2, 1)", fill: "forwards" }
     )
     .finished.then(land, land);
 }
