@@ -32,3 +32,13 @@ api.bodryash.ru {
 		max_size 512KB
 	}
 }
+
+# Бета: ветка beta, ставится скриптом deploy/beta.sh, обновляется вместе с
+# основной копией. Поисковикам не показываем.
+beta.bodryash.ru {
+	root * /opt/schedule-beta/docs
+	encode zstd gzip
+	file_server
+	header Cache-Control "no-cache"
+	header X-Robots-Tag "noindex, nofollow"
+}
