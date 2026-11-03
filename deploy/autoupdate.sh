@@ -13,6 +13,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+TimeoutStartSec=4min
 # Скрипт берём из рабочей копии: так и он сам обновляется вместе с кодом.
 ExecStart=/bin/bash /opt/schedule/deploy/update.sh
 UNIT
