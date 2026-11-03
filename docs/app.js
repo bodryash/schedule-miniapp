@@ -1700,7 +1700,8 @@ function rememberLook() {
 }
 
 // Темы, привязанные к нику прямо в приложении: работают и без команды
-// /theme у бота. Выданная ботом тема всё равно сильнее.
+// /theme у бота. Личный подарок сильнее темы с сервера: та бывает выдана
+// на весь вуз («МГУ» всем студентам МГУ) и перекрывала бы его.
 const GIFTED_THEMES = { shizoemerald: "trump", bblamee: "putin" };
 
 // День рождения: тема «Именинник» сама включается каждый год в этот день
@@ -1718,7 +1719,7 @@ function giftedTheme() {
 
 function applyTheme(granted = grantedTheme) {
   rememberLook();
-  grantedTheme = granted || giftedTheme();
+  grantedTheme = giftedTheme() || granted || "";
   const tried = notices.owner ? ownerTheme() : null;
   if (tried !== null) {
     for (const cls of Object.values(THEMES)) document.body.classList.toggle(cls, THEMES[tried] === cls);
