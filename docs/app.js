@@ -9059,7 +9059,9 @@ function buildSettingsNav() {
     anchor.after(nav);
     settingsNav.nav = nav;
   }
-  openSettingsPage(settingsNav.open);
+  // Настройки всегда открываются со списка разделов, а не там, где
+  // остановились в прошлый раз.
+  openSettingsPage("");
 }
 
 /** Есть ли в разделе что-то видимое — пустые разделы в списке не показываем. */
