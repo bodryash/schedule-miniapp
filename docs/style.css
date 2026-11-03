@@ -12278,3 +12278,16 @@ body.putin .card--now {
     animation: none;
   }
 }
+
+/* В тёмной теме тёмно-синий на тёмном фоне тонет — дата светлее. */
+body[data-tone="dark"].trump .date,
+body[data-tone="dark"].trump .date-old,
+body[data-tone="dark"].trump .date-new {
+  background-image: linear-gradient(100deg, #ff4d5e 0%, #ff4d5e 42%, #8f9bff 58%, #8f9bff 100%);
+}
+
+body[data-tone="dark"].putin .date,
+body[data-tone="dark"].putin .date-old,
+body[data-tone="dark"].putin .date-new {
+  background-image: linear-gradient(180deg, #6c9bff 0%, #6c9bff 52%, #ff5a4f 52%, #ff5a4f 100%);
+}
