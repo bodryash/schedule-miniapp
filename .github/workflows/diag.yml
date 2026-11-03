@@ -55,3 +55,27 @@ jobs:
               echo "$js" | grep -q "$mark" && echo "  есть: $mark" || echo "  НЕТ: $mark"
             done
           done
+
+      - name: Свежие ли расписания на сервере
+        run: |
+          python3 - <<'PY'
+          import json, time, urllib.request
+          def get(url):
+              try:
+                  return json.load(urllib.request.urlopen(f"{url}?v={int(time.time())}", timeout=20))
+              except Exception as e:
+                  return {"_error": str(e)[:80]}
+          tenants = get("https://bodryash.github.io/schedule-miniapp/data/tenants.json")
+          stale = 0
+          print(f"{'факультет':32} {'GitHub':12} {'сервер':12}")
+          for t in tenants:
+              path = f"data/{t['path'] + '/' if t.get('path') else ''}schedule.json"
+              gh = get(f"https://bodryash.github.io/schedule-miniapp/{path}")
+              sv = get(f"https://app.bodryash.ru/{path}")
+              a = (gh.get("meta") or {}).get("updated") or gh.get("_error", "?")
+              b = (sv.get("meta") or {}).get("updated") or sv.get("_error", "?")
+              mark = "" if a == b else "  ← отстаёт"
+              stale += a != b
+              print(f"{t['id'][:32]:32} {str(a)[:12]:12} {str(b)[:12]:12}{mark}")
+          print(f"\nОтстают на сервере: {stale} из {len(tenants)}")
+          PY
