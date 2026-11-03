@@ -3437,6 +3437,10 @@ function openOwn(event, forDate = null) {
       const hours = Math.floor(span / 60);
       const rest = span % 60;
       length.textContent = [hours ? t("{n} ч", { n: hours }) : "", rest ? t("{n} мин", { n: rest }) : ""].filter(Boolean).join(" ");
+      // Кончается на следующий день — говорим прямо.
+      const overnight = minutes(end.value) <= minutes(start.value);
+      times.classList.toggle("own-times--overnight", overnight);
+      to.dataset.next = overnight ? t("завтра") : "";
     };
     start.addEventListener("input", measure);
     end.addEventListener("input", measure);
@@ -3449,7 +3453,8 @@ function openOwn(event, forDate = null) {
       chip.addEventListener("click", () => {
         if (!start.value) return;
         haptic("select");
-        const m = Math.min(minutes(start.value) + span, 23 * 60 + 59);
+        // Через полночь — переносим на следующий день, а не упираемся в 23:59.
+        const m = (minutes(start.value) + span) % (24 * 60);
         end.value = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
         measure();
       });
@@ -10726,15 +10731,12 @@ function haptic(kind = "select") {
 }
 
 /** Меню «⋯» в шапке: свободные аудитории и настройки. */
-/* ---------- Нижние окна закрываются свайпом вниз ----------
- * Одна механика на все окна, что выезжают снизу: тянешь окно за любое
- * место (если оно прокручено к началу) — оно едет за пальцем; отпустил
- * ниже порога или резко — закрывается, иначе пружинит обратно. Закрываем
- * так же, как нажатием на затемнение, — у каждого окна своя логика
- * закрытия уже висит на этом нажатии.
+/* ---------- Нижние окна и системный свайп Telegram ----------
+ * Само перетаскивание окон — в addSheetGrab (ниже, у механики окон). Здесь
+ * только одно: пока окно открыто, свайп вниз не должен сворачивать всё
+ * мини-приложение — иначе Telegram забирает жест у окна.
  */
 function initSheetSwipe() {
-  let drag = null;
   // Главное: в Telegram свайп вниз сворачивает само мини-приложение, и
   // жест до окна не доходил. Пока открыто любое окно снизу, этот системный
   // свайп выключаем, закрылись все — включаем обратно.
@@ -10753,80 +10755,6 @@ function initSheetSwipe() {
     attributes: true,
     attributeFilter: ["hidden"],
   });
-  document.addEventListener("touchstart", (event) => {
-    const sheet = event.target.closest?.(".sheet");
-    const backdrop = sheet?.closest(".sheet-backdrop");
-    if (!sheet || !backdrop || backdrop.hidden) return;
-    // Поля ввода и прокрученное содержимое свайп не перехватывает.
-    if (event.target.closest("input, textarea, select, [contenteditable]")) return;
-    if (sheet.scrollTop > 0) return;
-    drag = { sheet, backdrop, y0: event.touches[0].clientY, dy: 0, t0: performance.now() };
-  }, { passive: true });
-  document.addEventListener("touchmove", (event) => {
-    if (!drag) return;
-    drag.dy = Math.max(0, event.touches[0].clientY - drag.y0);
-    if (drag.dy > 4) {
-      drag.sheet.style.transition = "none";
-      drag.sheet.style.transform = `translateY(${drag.dy}px)`;
-    }
-  }, { passive: true });
-  const end = () => {
-    if (!drag) return;
-    const { sheet, backdrop, dy, t0 } = drag;
-    drag = null;
-    const fast = dy > 40 && dy / (performance.now() - t0) > 0.6;
-    sheet.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
-    if (dy > Math.min(140, sheet.offsetHeight * 0.3) || fast) {
-      sheet.style.transform = `translateY(${sheet.offsetHeight}px)`;
-      haptic("light");
-      setTimeout(() => {
-        backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-        // Окно без своей логики закрытия — просто прячем.
-        if (!backdrop.hidden && !backdrop.classList.contains("sheet-backdrop--out")) backdrop.hidden = true;
-        document.body.classList.remove("sheet-open");
-        sheet.style.transform = "";
-        sheet.style.transition = "";
-      }, 200);
-    } else {
-      sheet.style.transform = "";
-      setTimeout(() => (sheet.style.transition = ""), 240);
-    }
-  };
-  document.addEventListener("touchend", end, { passive: true });
-  document.addEventListener("touchcancel", end, { passive: true });
-}
-
-/** Профили — верхней строкой в меню: переключиться в одно нажатие. */
-function renderMenuProfiles(pop) {
-  pop.querySelector(".menu-profiles")?.remove();
-  const store = readProfiles();
-  const box = el("div", "menu-profiles");
-  for (const profile of store.list) {
-    const on = profile.id === store.active;
-    const chip = el("button", on ? "menu-profile menu-profile--on" : "menu-profile", profile.name);
-    chip.type = "button";
-    chip.addEventListener("click", (event) => {
-      event.stopPropagation();
-      pop.hidden = true;
-      if (!on) {
-        haptic("select");
-        switchProfile(profile);
-      }
-    });
-    box.append(chip);
-  }
-  const add = el("button", "menu-profile menu-profile--add", store.list.length ? "＋" : t("＋ Профиль"));
-  add.type = "button";
-  add.setAttribute("aria-label", t("Сохранить как профиль"));
-  add.addEventListener("click", (event) => {
-    event.stopPropagation();
-    pop.hidden = true;
-    haptic("light");
-    showPicker();
-    openSettingsPage("profiles");
-  });
-  box.append(add);
-  pop.prepend(box);
 }
 
 function initMenu() {
@@ -11938,9 +11866,10 @@ renderHello();
 
 // Не короче: иначе сборка и приветствие не успевают прочитаться. Кто уже
 // заходил, видел их не раз — ему заставка короче.
-// Расписание открывают на бегу: вся заставка проигрывается вдвое быстрее —
-// целиком, с той же сборкой и уходом, просто в ускоренном темпе.
-const SPLASH_SPEED = 2;
+// Расписание открывают на бегу: вся заставка проигрывается быстрее —
+// целиком, с той же сборкой и уходом. Вдвое смотрелось мультяшно: пружины
+// и комета дёргались. В 1,4 раза — заметно быстрее, но естественно.
+const SPLASH_SPEED = 1.4;
 const sp = (ms) => Math.round(ms / SPLASH_SPEED);
 const SPLASH_MIN = sp(document.body.dataset.returning ? 1000 : 1700);
 const SPLASH_MAX = sp(3200); // и не дольше, даже если сеть тормозит
@@ -12386,6 +12315,58 @@ function addSheetGrab(backdrop) {
   };
   grab.addEventListener("pointerup", finish);
   grab.addEventListener("pointercancel", finish);
+
+  // Тянуть можно и за само окно, не только за ручку: касанием, если окно
+  // прокручено к началу и палец идёт вниз. Поля ввода и горизонтальные
+  // жесты (списки чипов) не перехватываем. Закрытие — тем же путём, что у ручки.
+  let touch = null;
+  sheet.addEventListener("touchstart", (event) => {
+    if (event.target.closest(".sheet-grab, input, textarea, select, [contenteditable]")) return;
+    const p = event.touches[0];
+    // За верх окна (заголовок) тянуть можно всегда, за остальное — только
+    // когда окно прокручено к началу, иначе мешали бы прокрутке.
+    const top = p.clientY - sheet.getBoundingClientRect().top < 72;
+    if (sheet.scrollTop > 0 && !top) return;
+    touch = { x: p.clientX, y: p.clientY, at: performance.now(), last: 0, dragging: false, top };
+  }, { passive: true });
+  sheet.addEventListener("touchmove", (event) => {
+    if (!touch) return;
+    const p = event.touches[0];
+    const dy = p.clientY - touch.y;
+    const dx = Math.abs(p.clientX - touch.x);
+    if (!touch.dragging) {
+      // Решаем один раз: вниз и больше, чем вбок, — значит, тянут окно.
+      if (dy > 8 && dy > dx && (touch.top || sheet.scrollTop <= 0)) {
+        touch.dragging = true;
+        sheet.style.transition = "none";
+        sheet.style.animation = "none";
+      } else if (dx > 8 || dy < -8) {
+        touch = null;
+        return;
+      } else return;
+    }
+    event.preventDefault();
+    touch.last = Math.max(0, dy);
+    sheet.style.transform = `translateY(${touch.last}px)`;
+  }, { passive: false });
+  const touchEnd = () => {
+    if (!touch) return;
+    const { dragging, last, at } = touch;
+    touch = null;
+    if (!dragging) return;
+    const speed = last / Math.max(1, performance.now() - at);
+    sheet.style.animation = "";
+    if (last < 90 && !(last > 30 && speed > 0.6)) return reset();
+    haptic("light");
+    sheet.style.transition = "";
+    backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    setTimeout(() => {
+      if (!backdrop.hidden && !backdrop.classList.contains("sheet-backdrop--out")) backdrop.hidden = true;
+    }, 60);
+    setTimeout(() => (sheet.style.transform = ""), SHEET_OUT + 80);
+  };
+  sheet.addEventListener("touchend", touchEnd);
+  sheet.addEventListener("touchcancel", touchEnd);
 }
 
 function watchSheets() {
