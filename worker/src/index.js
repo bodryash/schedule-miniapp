@@ -40,10 +40,10 @@ import {
 // Cloudflare остаётся прежний.
 const WEB_APP_URL = globalThis.SCHEDULE_APP_URL || "https://bodryash.github.io/schedule-miniapp/";
 
-// Тестовая сборка: папка docs отдельным воркером, чтобы проверить новое до
-// выкладки студентам. Обновить:
-//   npx wrangler deploy --name fgp-schedule-beta --assets docs --compatibility-date 2026-09-11
-const BETA_URL = "https://fgp-schedule-beta.bodryash.workers.dev/";
+// Тестовая сборка — ветка beta на своём сервере (deploy/beta.sh). Обновляется
+// сама вместе с основной копией, раз в 5 минут. Прежняя бета в Cloudflare
+// (fgp-schedule-beta) обновлялась только руками и отстала.
+const BETA_URL = "https://beta.bodryash.ru/";
 
 // Объявление само снимается через неделю: забытая плашка «пара перенесена»
 // через месяц вводила бы в заблуждение сильнее, чем её отсутствие.
@@ -4439,18 +4439,6 @@ ${invite}`,
 
     // Рассылка: сперва черновик с кнопками, отправка — только по нажатию.
     // Отозвать её нельзя, поэтому подтверждение обязательно.
-    // Бета приложения (ветка beta на beta.bodryash.ru) — только владельцу.
-    // Кнопкой, а не ссылкой: так бета открывается мини-приложением, с
-    // данными Telegram, и в ней работает всё, что зависит от аккаунта.
-    if (message && /^\/beta(?:@\w+)?$/.test(text) && isOwner(env, message.chat.id)) {
-      await callTelegram(env.BOT_TOKEN, "sendMessage", {
-        chat_id: message.chat.id,
-        text: "🧪 Бета — то, что ещё не выкачено всем. Обновляется сама каждые 5 минут.",
-        reply_markup: { inline_keyboard: [[{ text: "🧪 Открыть бету", web_app: { url: "https://beta.bodryash.ru/" } }]] },
-      });
-      return new Response("ok");
-    }
-
     if (message && (text.startsWith("/broadcast") || castMedia)) {
       const owner = String(message.chat.id) === String(env.OWNER_ID);
       const body = (castMedia ? message.caption : text).slice("/broadcast".length).trim();
@@ -4587,7 +4575,7 @@ ${invite}`,
       const owner = isOwner(env, message.chat.id);
       await callTelegram(env.BOT_TOKEN, "sendMessage", {
         chat_id: message.chat.id,
-        text: owner ? "Тестовая версия расписания. Студенты её не видят." : "Команда недоступна.",
+        text: owner ? "🧪 Тестовая версия расписания (ветка beta). Студенты её не видят, обновляется сама каждые 5 минут." : "Команда недоступна.",
         reply_markup: owner
           ? { inline_keyboard: [[{ text: "🧪 Открыть тестовую версию", web_app: { url: BETA_URL } }]] }
           : undefined,
