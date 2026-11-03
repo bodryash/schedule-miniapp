@@ -12191,6 +12191,12 @@ async function init() {
     });
   }
   els.change.addEventListener("click", showPicker);
+  // Мастер первого запуска — заново, по желанию: выбор группы сохранится,
+  // пока человек не дойдёт до конца.
+  document.getElementById("onboard-again")?.addEventListener("click", () => {
+    onboard.skipped = false;
+    openOnboarding();
+  });
   initMenu();
   els.absClose?.addEventListener("click", closeAbsences);
   els.absSheet?.addEventListener("click", (event) => {
