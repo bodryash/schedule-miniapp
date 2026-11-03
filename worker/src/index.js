@@ -4439,6 +4439,18 @@ ${invite}`,
 
     // Рассылка: сперва черновик с кнопками, отправка — только по нажатию.
     // Отозвать её нельзя, поэтому подтверждение обязательно.
+    // Бета приложения (ветка beta на beta.bodryash.ru) — только владельцу.
+    // Кнопкой, а не ссылкой: так бета открывается мини-приложением, с
+    // данными Telegram, и в ней работает всё, что зависит от аккаунта.
+    if (message && /^\/beta(?:@\w+)?$/.test(text) && isOwner(env, message.chat.id)) {
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: "🧪 Бета — то, что ещё не выкачено всем. Обновляется сама каждые 5 минут.",
+        reply_markup: { inline_keyboard: [[{ text: "🧪 Открыть бету", web_app: { url: "https://beta.bodryash.ru/" } }]] },
+      });
+      return new Response("ok");
+    }
+
     if (message && (text.startsWith("/broadcast") || castMedia)) {
       const owner = String(message.chat.id) === String(env.OWNER_ID);
       const body = (castMedia ? message.caption : text).slice("/broadcast".length).trim();
