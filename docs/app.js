@@ -9018,7 +9018,7 @@ function buildSettingsNav() {
     settingsNav.built = true;
     const sections = [
       ["study", "🎓", "Учёба", [els.role?.closest("label"), "#teacher-row", "#tenant-uni-row", "#tenant-row", "#tenant-hint", "#student-fields"]],
-      ["courses", "📚", "Мои курсы", ["#mfk-row", "#electives-row", "#pairs-row"]],
+      ["courses", "📚", "Мои курсы (МФК)", ["#mfk-row", "#electives-row", "#pairs-row"]],
       ["look", "🎨", "Оформление", ["#digits"]],
       ["remind", "🔔", "Напоминания", ["#remind-row"]],
       ["themes", "⭐", "Темы", ["#owner-themes", "#volunteer-row"]],
@@ -10828,9 +10828,18 @@ function initMenu() {
     haptic("light");
     if (pop.hidden) {
       renderMenuProfiles(pop);
+      // «Мои курсы (МФК)» — сразу в раздел настроек, без хождения по списку.
+      if (!pop.querySelector('[data-menu="courses"]')) {
+        const item = el("button");
+        item.type = "button";
+        item.dataset.menu = "courses";
+        item.append(el("span", "", "📚"), el("span", "", t("Мои курсы (МФК)")));
+        pop.querySelector('[data-menu="settings"]')?.before(item);
+      }
+      pop.querySelector('[data-menu="courses"]').hidden = !mfkAvailable() || Boolean(activeGroup()?.teacher);
       // Без группы звать некого, аудиторий и очередей нет.
       for (const item of pop.querySelectorAll("[data-menu]")) {
-        const groupOnly = ["invite", "rooms", "queues", "poll", "absences", "exams", "meet", "semester"].includes(item.dataset.menu);
+        const groupOnly = ["invite", "rooms", "queues", "poll", "absences", "exams", "meet", "semester", "courses"].includes(item.dataset.menu);
         if (groupOnly) item.classList.toggle("menu-off", Boolean(prefs.planner));
       }
       // Меню встаёт под кнопкой, а носик смотрит ровно в её середину —
@@ -10863,6 +10872,10 @@ function initMenu() {
     if (item.dataset.menu === "invite") inviteGroup(item);
     if (item.dataset.menu === "rooms") showFree();
     if (item.dataset.menu === "queues") openTab("queues");
+    if (item.dataset.menu === "courses") {
+      showPicker();
+      openSettingsPage("courses");
+    }
     if (item.dataset.menu === "poll") openPollSheet();
     if (item.dataset.menu === "calendar") openCalendar();
     if (item.dataset.menu === "exams") openExams();
