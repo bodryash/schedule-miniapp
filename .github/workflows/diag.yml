@@ -31,6 +31,17 @@ jobs:
               print(f'{names.get(k, k)}: {v}')
           " || echo "healthz не ответил"
 
+      - name: Ссылка-приглашение группы создаётся?
+        run: |
+          # Тот же запрос, что шлёт кнопка «Позвать группу». Код зависит только
+          # от факультета и группы, повторный запрос ничего не дублирует.
+          for origin in https://app.bodryash.ru https://beta.bodryash.ru; do
+            echo "с $origin:"
+            curl -sS -m 20 -X POST https://api.bodryash.ru/invite -H "Origin: $origin" \
+              -d '{"tenant":"msu-fgp","group":"321гид","name":"321гид"}' -D - -o /tmp/r.txt | grep -i "^HTTP\|access-control" || true
+            cat /tmp/r.txt; echo
+          done
+
       - name: Что Telegram знает о вебхуке
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
