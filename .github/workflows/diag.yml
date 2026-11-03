@@ -20,6 +20,17 @@ jobs:
             curl -s -o /dev/null -m 20 -w "$url → HTTP %{http_code} за %{time_total} с\n" "$url" || echo "$url → не отвечает"
           done
 
+      - name: Что бот говорит о себе
+        run: |
+          curl -fsS -m 20 https://api.bodryash.ru/healthz | python3 -c "
+          import json, sys
+          h = json.load(sys.stdin)
+          names = {'uptime': 'работает, с', 'telegramOk': 'отправка в Telegram работает', 'tickAge': 'минутная задача была, с назад',
+                   'errors': 'ошибок', 'diskFree': 'свободно на диске, %', 'backupAge': 'копия базы, ч назад'}
+          for k, v in h.items():
+              print(f'{names.get(k, k)}: {v}')
+          " || echo "healthz не ответил"
+
       - name: Что Telegram знает о вебхуке
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
