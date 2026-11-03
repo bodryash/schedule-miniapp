@@ -12291,3 +12291,44 @@ body[data-tone="dark"].putin .date-old,
 body[data-tone="dark"].putin .date-new {
   background-image: linear-gradient(180deg, #6c9bff 0%, #6c9bff 52%, #ff5a4f 52%, #ff5a4f 100%);
 }
+
+/* ===== Трамп и Путин: общее фото на фоне =====
+   Поверх фото — вуаль в цветах флага: светлая на светлой теме, тёмная на
+   тёмной, чтобы дата и карточки читались. Флаг-полосы больше не рисуем. */
+body.trump::before,
+body.putin::before,
+body[data-tone="dark"].trump::before,
+body[data-tone="dark"].putin::before {
+  filter: none;
+  background-repeat: no-repeat;
+  background-position: center, center 22%;
+  background-size: 100% 100%, cover;
+}
+
+body.trump::after {
+  content: none;
+}
+
+body.trump::before {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.3) 30%, rgba(255, 255, 255, 0.3) 60%, rgba(178, 34, 52, 0.35) 100%),
+    url("themes/trump-putin.jpg");
+}
+
+body.putin::before {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.3) 30%, rgba(28, 79, 168, 0.25) 66%, rgba(213, 43, 30, 0.35) 100%),
+    url("themes/trump-putin.jpg");
+}
+
+body[data-tone="dark"].trump::before {
+  background-image:
+    linear-gradient(180deg, rgba(12, 14, 28, 0.62) 0%, rgba(12, 14, 28, 0.3) 34%, rgba(12, 14, 28, 0.4) 62%, rgba(120, 20, 35, 0.55) 100%),
+    url("themes/trump-putin.jpg");
+}
+
+body[data-tone="dark"].putin::before {
+  background-image:
+    linear-gradient(180deg, rgba(12, 14, 28, 0.62) 0%, rgba(12, 14, 28, 0.3) 34%, rgba(20, 50, 120, 0.4) 66%, rgba(130, 25, 20, 0.55) 100%),
+    url("themes/trump-putin.jpg");
+}
