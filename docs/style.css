@@ -12716,3 +12716,194 @@ body::after {
 .settings-page fieldset > legend:first-child {
   display: none;
 }
+
+/* ===== Меню «⋯»: плитки вместо длинного списка =====
+   Действия — сеткой по три с крупным значком, «Настройки» — отдельной
+   строкой внизу. Ненужное в режиме «Только свои дела» не показываем. */
+.menu-pop {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  width: min(330px, calc(100vw - 32px));
+  min-width: 0;
+  padding: 8px;
+  border-radius: 22px;
+}
+
+.menu-pop button {
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  min-height: 82px;
+  padding: 10px 4px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+.menu-pop button > span:first-child {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.menu-pop button[data-menu="settings"] {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  min-height: 48px;
+  font-size: 15px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.menu-pop button[data-menu="settings"] > span:first-child {
+  font-size: 18px;
+}
+
+.menu-pop .menu-off,
+.menu-pop [hidden] {
+  display: none;
+}
+
+/* ===== «Своё дело»: живее и удобнее ===== */
+.own-add {
+  position: relative;
+  overflow: hidden;
+  transition: transform 160ms var(--ease-out), box-shadow 200ms ease;
+}
+
+/* Блик пробегает по плашке раз в несколько секунд — она заметна, но не кричит. */
+.own-add::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -40%;
+  width: 30%;
+  background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--accent) 18%, transparent), transparent);
+  animation: own-glint 5s ease-in-out 1.2s infinite;
+  pointer-events: none;
+}
+
+@keyframes own-glint {
+  0%, 70% { left: -40%; }
+  100% { left: 130%; }
+}
+
+.own-add:active {
+  transform: scale(0.97);
+}
+
+.own-add-plus {
+  transition: transform 260ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.own-add:active .own-add-plus {
+  transform: rotate(90deg) scale(1.08);
+}
+
+/* Новое дело встаёт на место с лёгким прыжком. */
+.own-card--new {
+  animation: own-pop 520ms cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+
+@keyframes own-pop {
+  0% { opacity: 0; transform: translateY(14px) scale(0.94); }
+  60% { opacity: 1; }
+  100% { transform: none; }
+}
+
+/* Длительность одной кнопкой под временем. */
+.own-spans {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.own-spans::-webkit-scrollbar {
+  display: none;
+}
+
+.own-span {
+  flex: 0 0 auto;
+}
+
+.own-kind.chip--on {
+  animation: own-kind-pick 260ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+@keyframes own-kind-pick {
+  50% { transform: scale(1.08); }
+}
+
+/* Найденные свои дела в поиске. */
+.own-found {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 16px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface, var(--card));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 7%, transparent);
+  cursor: pointer;
+}
+
+.own-found-icon {
+  font-size: 22px;
+}
+
+.own-found-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.own-found-text b {
+  font-size: 16px;
+}
+
+.own-found-text span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Окно, которое тянут пальцем, не дёргается от своей анимации появления. */
+.sheet[style*="translateY"] {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .own-add::after,
+  .own-card--new,
+  .own-kind.chip--on {
+    animation: none;
+  }
+}
+
+/* Заставка уходит быстро: расписание нужно срочно. */
+.splash--gone {
+  animation-duration: 340ms !important;
+}
+
+.splash--free.splash--gone,
+.splash--free.splash--gone .splash-day {
+  animation-duration: 300ms !important;
+  transition-duration: 300ms !important;
+}
+
+.own-span {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+}

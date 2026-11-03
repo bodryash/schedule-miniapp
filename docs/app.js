@@ -3166,9 +3166,16 @@ function ownEventsOn(date) {
     .sort((a, b) => minutes(a.start) - minutes(b.start));
 }
 
+let ownJustSaved = null;
+
 function renderOwnCard(event) {
   // Не кнопка, а блок с ролью кнопки: внутри своя кнопка — корзина.
   const card = el("div", "own-card");
+  // Только что сохранённое дело встаёт на место с лёгким «прыжком».
+  if (event.id === ownJustSaved) {
+    card.classList.add("own-card--new");
+    ownJustSaved = null;
+  }
   card.setAttribute("role", "button");
   card.tabIndex = 0;
   card.dataset.start = event.start;
@@ -3313,6 +3320,29 @@ function appendOwnRows(column, date, day) {
 let ownSheet = null;
 let owning = null;
 
+/**
+ * Когда начать новое дело: сегодня — со следующего получаса, но не
+ * раньше конца пар; в другой день — после пар или в 19:00. Длится час.
+ */
+function ownDefaultTime(date) {
+  const clock = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  const group = activeGroup();
+  let start = 19 * 60;
+  if (group && !group.planner) {
+    const bells = new Map(data.bells.map((b) => [b.n, b]));
+    const day = date.getDay() || 7;
+    const week = Math.round((mondayOf(date) - weekStart) / (7 * 86400000));
+    const ends = ownLessonsForDay(group, day, week).map((l) => timesOf(l, bells)?.end).filter(Boolean).map(minutes);
+    if (ends.length) start = Math.ceil((Math.max(...ends) + 15) / 30) * 30;
+  }
+  if (isoDate(date) === isoDate(new Date())) {
+    const now = new Date();
+    start = Math.max(start, Math.ceil((now.getHours() * 60 + now.getMinutes() + 15) / 30) * 30);
+  }
+  start = Math.min(start, 22 * 60 + 30);
+  return [clock(start), clock(Math.min(start + 60, 23 * 60 + 59))];
+}
+
 function openOwn(event, forDate = null) {
   if (!ownSheet) {
     ownSheet = el("div", "sheet-backdrop sheet-backdrop--input");
@@ -3347,6 +3377,21 @@ function openOwn(event, forDate = null) {
     start.addEventListener("input", measure);
     end.addEventListener("input", measure);
     times.measure = measure;
+    // Длительность одной кнопкой: так быстрее, чем крутить второе время.
+    const spans = el("div", "own-spans");
+    for (const span of [30, 60, 90, 120, 180]) {
+      const chip = el("button", "chip own-span", span < 60 ? t("{n} мин", { n: span }) : t("{n} ч", { n: span / 60 }));
+      chip.type = "button";
+      chip.addEventListener("click", () => {
+        if (!start.value) return;
+        haptic("select");
+        const m = Math.min(minutes(start.value) + span, 23 * 60 + 59);
+        end.value = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+        measure();
+      });
+      spans.append(chip);
+    }
+    times.spans = spans;
     for (const field of [start, end]) {
       // На телефоне выбор времени открывается сам; на компьютере — по нажатию.
       field.addEventListener("click", () => {
@@ -3390,6 +3435,7 @@ function openOwn(event, forDate = null) {
       title,
       kinds,
       times,
+      times.spans,
       place,
       weekly,
       el("p", "error own-error"),
@@ -3419,6 +3465,7 @@ function openOwn(event, forDate = null) {
       else entry.date = isoDate(owning.date);
       if (!saveOwnEvents([...list, entry])) return fail(t("Не получилось сохранить: в телефоне нет места для данных."));
       haptic("success");
+      ownJustSaved = entry.id;
       closeOwn();
       refreshOwn();
     });
@@ -3443,8 +3490,9 @@ function openOwn(event, forDate = null) {
   ownSheet.querySelector(".own-when").textContent = label[0].toUpperCase() + label.slice(1);
   ownSheet.querySelector(".own-heading").textContent = event ? t("Своё дело") : t("Новое своё дело");
   ownSheet.querySelector(".own-title").value = event?.title || "";
-  ownSheet.querySelector(".own-start").value = event?.start || "19:00";
-  ownSheet.querySelector(".own-end").value = event?.end || "20:30";
+  const [startDefault, endDefault] = event ? [event.start, event.end] : ownDefaultTime(date);
+  ownSheet.querySelector(".own-start").value = startDefault;
+  ownSheet.querySelector(".own-end").value = endDefault;
   ownSheet.querySelector(".own-where").value = event?.place || "";
   ownSheet.querySelector(".own-times").measure();
   ownSheet.querySelector(".own-weekly-box").checked = event ? !event.date : !forDate;
@@ -7120,7 +7168,7 @@ function renderDeadlines() {
     empty.append(
       el("div", "dl-empty-icon", "📌"),
       el("p", null, t("Дедлайнов пока нет")),
-      el("p", "hint", notices.canEdit ? t("Добавьте свой или общий для группы — кнопкой ниже.") : t("Добавьте свой — кнопкой ниже. Общие для группы вносит староста."))
+      el("p", "hint", prefs.planner ? t("Срок, который нельзя пропустить: оплатить, отправить, записаться. Добавьте кнопкой ниже.") : notices.canEdit ? t("Добавьте свой или общий для группы — кнопкой ниже.") : t("Добавьте свой — кнопкой ниже. Общие для группы вносит староста."))
     );
     body.replaceChildren(empty);
     return;
@@ -7168,6 +7216,13 @@ function openDeadline(item = null) {
   const subject = document.getElementById("dl-subject");
   subject.replaceChildren(new Option(t("— без предмета —"), ""), ...groupSubjects().map((s) => new Option(tr(s), s)));
   subject.value = item?.subject || "";
+  // Без учёбы — ни предметов, ни «курсовых» в подсказке.
+  const planner = Boolean(prefs.planner);
+  subject.hidden = planner;
+  subject.previousElementSibling.hidden = planner;
+  document.getElementById("dl-title").placeholder = planner
+    ? t("Что сделать? Оплатить, отправить, записаться…")
+    : t("Что сдать? Курсовая, реферат, контрольная…");
   const [day, time] = String(item?.due || "").split("T");
   const tomorrow = new Date(Date.now() + 86400000);
   document.getElementById("dl-date").value = day || isoDate(tomorrow);
@@ -10197,8 +10252,43 @@ function renderFactCard(item) {
   return card;
 }
 
+/** Поиск по своим делам — для режима «Только свои дела»: пар там нет. */
+function runOwnSearch(query) {
+  els.searchTabs.hidden = true;
+  els.query.placeholder = t("Название или место");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const found = ownEvents()
+    .filter((e) => !query || [e.title, e.place].some((v) => String(v || "").toLowerCase().includes(query)))
+    .sort((a, b) => (a.date || "9") .localeCompare(b.date || "9") || minutes(a.start) - minutes(b.start));
+  els.searchHint.textContent = found.length
+    ? query ? t("Найдено: {n}", { n: found.length }) : t("Все ваши дела")
+    : query ? t("Ничего не нашлось") : t("Своих дел пока нет — добавьте на главном экране");
+  els.results.replaceChildren(
+    ...found.map((event) => {
+      const row = el("button", "own-found");
+      row.type = "button";
+      const when = event.date
+        ? SHORT_DATE.format(new Date(`${event.date}T00:00`))
+        : t("каждую неделю, {d}", { d: DAYS[(event.day || 1) - 1] });
+      const text = el("span", "own-found-text");
+      text.append(el("b", null, event.title), el("span", null, [when, `${event.start}–${event.end}`, event.place].filter(Boolean).join(" · ")));
+      row.append(el("span", "own-found-icon", ownIcon(event)), text);
+      row.addEventListener("click", () => {
+        haptic("light");
+        const date = event.date ? new Date(`${event.date}T00:00`) : dateOfDay(event.day || 1, 0);
+        openOwn(event, date);
+      });
+      return row;
+    })
+  );
+}
+
 function runSearch() {
   const query = els.query.value.trim().toLowerCase();
+  if (prefs.planner) return runOwnSearch(query);
+  els.searchTabs.hidden = false;
+  els.query.placeholder = t("Преподаватель, аудитория или предмет");
   if (query.length < 2) {
     // Пустой поиск — не пустой экран: показываем то, что выбрано вкладкой.
     if (searchKind === "room" || searchKind === "subject") {
@@ -10530,7 +10620,60 @@ function haptic(kind = "select") {
 }
 
 /** Меню «⋯» в шапке: свободные аудитории и настройки. */
+/* ---------- Нижние окна закрываются свайпом вниз ----------
+ * Одна механика на все окна, что выезжают снизу: тянешь окно за любое
+ * место (если оно прокручено к началу) — оно едет за пальцем; отпустил
+ * ниже порога или резко — закрывается, иначе пружинит обратно. Закрываем
+ * так же, как нажатием на затемнение, — у каждого окна своя логика
+ * закрытия уже висит на этом нажатии.
+ */
+function initSheetSwipe() {
+  let drag = null;
+  document.addEventListener("touchstart", (event) => {
+    const sheet = event.target.closest?.(".sheet");
+    const backdrop = sheet?.closest(".sheet-backdrop");
+    if (!sheet || !backdrop || backdrop.hidden) return;
+    // Поля ввода и прокрученное содержимое свайп не перехватывает.
+    if (event.target.closest("input, textarea, select, [contenteditable]")) return;
+    if (sheet.scrollTop > 0) return;
+    drag = { sheet, backdrop, y0: event.touches[0].clientY, dy: 0, t0: performance.now() };
+  }, { passive: true });
+  document.addEventListener("touchmove", (event) => {
+    if (!drag) return;
+    drag.dy = Math.max(0, event.touches[0].clientY - drag.y0);
+    if (drag.dy > 4) {
+      drag.sheet.style.transition = "none";
+      drag.sheet.style.transform = `translateY(${drag.dy}px)`;
+    }
+  }, { passive: true });
+  const end = () => {
+    if (!drag) return;
+    const { sheet, backdrop, dy, t0 } = drag;
+    drag = null;
+    const fast = dy > 40 && dy / (performance.now() - t0) > 0.6;
+    sheet.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
+    if (dy > Math.min(140, sheet.offsetHeight * 0.3) || fast) {
+      sheet.style.transform = `translateY(${sheet.offsetHeight}px)`;
+      haptic("light");
+      setTimeout(() => {
+        backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        // Окно без своей логики закрытия — просто прячем.
+        if (!backdrop.hidden && !backdrop.classList.contains("sheet-backdrop--out")) backdrop.hidden = true;
+        document.body.classList.remove("sheet-open");
+        sheet.style.transform = "";
+        sheet.style.transition = "";
+      }, 200);
+    } else {
+      sheet.style.transform = "";
+      setTimeout(() => (sheet.style.transition = ""), 240);
+    }
+  };
+  document.addEventListener("touchend", end, { passive: true });
+  document.addEventListener("touchcancel", end, { passive: true });
+}
+
 function initMenu() {
+  initSheetSwipe();
   const pop = els.menuPop;
   if (!els.menu || !pop) return;
   const close = () => {
@@ -10545,6 +10688,11 @@ function initMenu() {
     event.stopPropagation();
     haptic("light");
     if (pop.hidden) {
+      // Без группы звать некого, аудиторий и очередей нет.
+      for (const item of pop.querySelectorAll("[data-menu]")) {
+        const groupOnly = ["invite", "rooms", "queues", "poll", "absences", "exams", "meet", "semester"].includes(item.dataset.menu);
+        if (groupOnly) item.classList.toggle("menu-off", Boolean(prefs.planner));
+      }
       // Меню встаёт под кнопкой, а носик смотрит ровно в её середину —
       // так видно, откуда оно выросло. Считаем по месту кнопки на экране.
       // Считаем по раскладке, а не по экрану: экранные координаты
@@ -11632,8 +11780,10 @@ renderHello();
 
 // Не короче: иначе сборка и приветствие не успевают прочитаться. Кто уже
 // заходил, видел их не раз — ему заставка короче.
-const SPLASH_MIN = document.body.dataset.returning ? 1000 : 1700;
-const SPLASH_MAX = 3200; // и не дольше, даже если сеть тормозит
+// Расписание открывают на бегу — заставка только мелькает: дольше, чем
+// нужно данным, не держим.
+const SPLASH_MIN = document.body.dataset.returning ? 250 : 600;
+const SPLASH_MAX = 1400; // и не дольше, даже если сеть тормозит
 const splashStarted = performance.now();
 
 /**
@@ -11836,9 +11986,9 @@ async function finishSplash() {
   // за 0,2–0,4, а ждать дольше — значит показывать пустой экран.
   await Promise.race([
     Promise.all([fonts, noticesReady]),
-    new Promise((r) => setTimeout(r, 600)),
+    new Promise((r) => setTimeout(r, 300)),
   ]);
-  const played = assembleSplash(splashDayPlan());
+  const played = Math.min(assembleSplash(splashDayPlan()), 450);
   const waited = performance.now() - splashStarted;
   const rest = Math.max(played, SPLASH_MIN - waited);
   setTimeout(dropSplash, Math.min(rest, SPLASH_MAX));
@@ -11871,12 +12021,12 @@ function dropSplash() {
     else scene.classList.remove("free-day--await");
   }
   splash.classList.add("splash--gone");
-  setTimeout(() => splash.remove(), 700);
+  setTimeout(() => splash.remove(), 400);
   // Расписание развернулось — теперь можно и салют в честь праздника.
   setTimeout(() => {
     celebrateEvent();
     afterSplashQueue.splice(0).forEach((fn) => fn());
-  }, 450);
+  }, 250);
 }
 
 /** Перелёт значка с заставки на экран: один и тот же предмет, а не два. */
