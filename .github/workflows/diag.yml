@@ -4,6 +4,11 @@ name: Диагностика бота
 # сервер, жив ли он, и Telegram — что с вебхуком и какая последняя ошибка.
 on:
   workflow_dispatch:
+    inputs:
+      mark:
+        description: "Строка, которую искать в app.js на сервере (проверка, что выкладка дошла)"
+        required: false
+        default: ""
 
 jobs:
   diag:
@@ -51,7 +56,7 @@ jobs:
             js=$(curl -fsS -m 20 "$url/app.js?v=$(date +%s)" || true)
             if [ -z "$js" ]; then echo "$url → app.js не открылся"; continue; fi
             echo "$url:"
-            for mark in GIFTED_THEMES BIRTHDAYS "const WEEKS = 5" renderMonth FLAG_THEMES; do
+            for mark in GIFTED_THEMES BIRTHDAYS "const WEEKS = 5" renderMonth FLAG_THEMES ${{ inputs.mark && format('"{0}"', inputs.mark) || '' }}; do
               echo "$js" | grep -q "$mark" && echo "  есть: $mark" || echo "  НЕТ: $mark"
             done
           done
