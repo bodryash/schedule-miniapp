@@ -12332,3 +12332,256 @@ body[data-tone="dark"].putin::before {
     linear-gradient(180deg, rgba(12, 14, 28, 0.62) 0%, rgba(12, 14, 28, 0.3) 34%, rgba(20, 50, 120, 0.4) 66%, rgba(130, 25, 20, 0.55) 100%),
     url("themes/trump-putin.jpg");
 }
+
+/* ===== Первый запуск: настройка по шагам ===== */
+.onboard {
+  position: fixed;
+  inset: 0;
+  z-index: 960;
+  overflow: hidden auto;
+  background: var(--bg, var(--tg-theme-bg-color, #fff));
+  color: var(--text);
+}
+
+body.onboarding #tabs {
+  display: none;
+}
+
+.onboard-page {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+  animation: onboard-in-next 300ms var(--ease-soft, ease) both;
+}
+
+.onboard-page--prev {
+  animation-name: onboard-in-prev;
+}
+
+.onboard-page--out-left {
+  animation: onboard-out-left 300ms var(--ease-soft, ease) both;
+  pointer-events: none;
+}
+
+.onboard-page--out-right {
+  animation: onboard-out-right 300ms var(--ease-soft, ease) both;
+  pointer-events: none;
+}
+
+@keyframes onboard-in-next { from { transform: translateX(40%); opacity: 0; } }
+@keyframes onboard-in-prev { from { transform: translateX(-40%); opacity: 0; } }
+@keyframes onboard-out-left { to { transform: translateX(-40%); opacity: 0; } }
+@keyframes onboard-out-right { to { transform: translateX(40%); opacity: 0; } }
+
+.onboard-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 40px;
+}
+
+.onboard-back {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  font: inherit;
+  font-size: 20px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  cursor: pointer;
+}
+
+.onboard-dots {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.onboard-dots i {
+  width: 22px;
+  height: 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  transition: background 300ms ease;
+}
+
+.onboard-dots i.on {
+  background: var(--accent);
+}
+
+.onboard-body {
+  max-width: 520px;
+  margin: 0 auto;
+  padding-top: 18px;
+}
+
+.onboard-title {
+  margin: 0 0 6px;
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.onboard-sub {
+  margin: 0 0 20px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.onboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.onboard-list--grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.onboard-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 60px;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 18px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface, var(--card));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent), 0 8px 20px -16px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+
+.onboard-option:active {
+  transform: scale(0.97);
+}
+
+.onboard-option-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.onboard-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.onboard-option-text b {
+  font-size: 17px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.onboard-option-text span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.onboard-option--small {
+  justify-content: center;
+  min-height: 52px;
+  padding: 10px 6px;
+  text-align: center;
+}
+
+.onboard-option--small .onboard-option-text b {
+  font-size: 15px;
+}
+
+.onboard-option--muted {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.onboard-find {
+  width: 100%;
+  height: 48px;
+  margin-bottom: 12px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.onboard-more {
+  display: block;
+  margin: 22px auto 0;
+  padding: 8px 12px;
+  border: 0;
+  font: inherit;
+  font-size: 14px;
+  color: var(--muted);
+  background: none;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboard-page,
+  .onboard-page--out-left,
+  .onboard-page--out-right {
+    animation: none;
+  }
+}
+
+/* ===== Неделя в режиме «Только свои дела» ===== */
+.pweek {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 10px 24px;
+}
+
+.pweek-day {
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.pweek-day--today {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.pweek-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pweek-head span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.pweek-add {
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  font: inherit;
+  font-size: 16px;
+  color: var(--accent-text);
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.pweek-free {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}

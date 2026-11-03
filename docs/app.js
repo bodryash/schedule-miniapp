@@ -179,7 +179,7 @@ async function loadNotices(group) {
   if (notices.group === groupId) return;
   // Режим преподавателя: групп много, объявления и отмены — у каждой свои.
   // В первой версии их не грузим, показываем чистое расписание.
-  if (group.teacher) {
+  if (group.teacher || group.planner) {
     notices = { ...notices, group: groupId, list: [], cancels: [], changes: [], homework: [], owner: false,
       canEdit: false, canComment: false, comments: new Map(), weeks: new Set([0, 1]) };
     renderNotices(false);
@@ -2330,7 +2330,7 @@ async function queuesCall(payload = {}) {
 function showQueues() {
   const group = activeGroup();
   if (!group) return showPicker();
-  els.queuesGroup.textContent = group.teacher ? group.title : t("Группа {g}", { g: group.title });
+  els.queuesGroup.textContent = groupLabel(group);
   renderQueues();
   // Порядок меняется другими людьми — перечитываем при каждом открытии.
   queuesCall({ action: "list" }).then(() => {
@@ -2731,11 +2731,12 @@ function initWeekSwipe() {
 function showWeek() {
   const group = activeGroup();
   if (!group) return showPicker();
-  els.weekGroup.textContent = group.teacher ? group.title : t("Группа {g}", { g: group.title });
+  els.weekGroup.textContent = groupLabel(group);
   const parity = weekParity(data.weeks, selectedWeek);
   document.body.dataset.parity = parity || "none";
   els.weekParity.textContent =
     parity === "odd" ? t("Нечётная неделя") : parity === "even" ? t("Чётная неделя") : t("Вне семестра");
+  els.weekParity.hidden = Boolean(group.planner);
   els.weekRange.textContent = `${SHORT_DATE.format(dateOfDay(1, selectedWeek))} — ${SHORT_DATE.format(dateOfDay(6, selectedWeek))}`;
 
   // Переключатель: две недели и месяц вперёд — кнопки понятнее листания.
@@ -3239,7 +3240,7 @@ function starostaAskHidden() {
 }
 
 function renderStarostaAsk() {
-  if (prefs.teacher || notices.canEdit || !activeGroup() || starostaAskHidden()) return null;
+  if (prefs.teacher || prefs.planner || notices.canEdit || !activeGroup() || starostaAskHidden()) return null;
   const card = el("div", "starosta-ask");
   const open = el("button", "starosta-ask-main");
   open.type = "button";
@@ -5453,11 +5454,22 @@ function groupById(id) {
   return data.groups.find((g) => g.id === id) || null;
 }
 
+const PLANNER_GROUP = { id: "planner", title: "Мои дела", planner: true, course: null, level: "свои дела" };
+
+/** Подпись в шапке: «Группа 311гэу», фамилия преподавателя или «Мои дела». */
+function groupLabel(group) {
+  if (group.planner) return t("Мои дела");
+  return group.teacher ? group.title : t("Группа {g}", { g: group.title });
+}
+
 /**
  * Что показываем: группу студента или расписание преподавателя. У
  * преподавателя «группа» ненастоящая — ключ «Фамилия И.О.» из PDF.
  */
 function activeGroup() {
+  // Только свои дела: человек нигде не учится. Пар нет, вуз не нужен —
+  // приложение работает как личный ежедневник.
+  if (prefs.planner) return PLANNER_GROUP;
   if (prefs.teacher) {
     return { id: `teacher:${prefs.teacher}`, title: prefs.teacherName || prefs.teacher, teacher: prefs.teacher };
   }
@@ -6066,7 +6078,30 @@ function shortSubject(name) {
     .join(" ");
 }
 
+/** Неделя без пар — дни списком, в каждом свои дела и кнопка «добавить». */
+function renderPlannerWeek() {
+  const box = el("div", "pweek");
+  const todayIso = isoDate(new Date());
+  for (let day = 1; day <= 7; day++) {
+    const date = dateOfDay(day, selectedWeek);
+    const column = el("div", isoDate(date) === todayIso ? "pweek-day pweek-day--today" : "pweek-day");
+    const head = el("div", "pweek-head");
+    head.append(el("b", null, DAYS[day - 1]), el("span", null, SHORT_DATE.format(date)));
+    const add = el("button", "pweek-add", "＋");
+    add.type = "button";
+    add.setAttribute("aria-label", t("Добавить дело"));
+    add.addEventListener("click", () => openOwn(null, date));
+    head.append(add);
+    column.append(head);
+    if (!ownEventsOn(date).length) column.append(el("div", "pweek-free", t("свободно")));
+    appendOwnRows(column, date, day);
+    box.append(column);
+  }
+  return box;
+}
+
 function renderWeekGrid(group) {
+  if (group.planner) return renderPlannerWeek();
   const bells = new Map(data.bells.map((b) => [b.n, b]));
   const todayIso = isoDate(new Date());
   const days = [];
@@ -7074,7 +7109,7 @@ function renderDeadlines() {
   const body = document.getElementById("dl-body");
   if (!body) return;
   const group = activeGroup();
-  document.getElementById("dl-group").textContent = group ? (group.teacher ? group.title : t("Группа {g}", { g: group.title })) : "";
+  document.getElementById("dl-group").textContent = group ? groupLabel(group) : "";
   const done = new Set(readLocal("schedule.deadlinesDone", []));
   const list = allDeadlines().sort((a, b) => {
     const da = done.has(a.key);
@@ -8530,7 +8565,7 @@ function collectPrefs() {
 /** Студент или преподаватель: у преподавателя вместо группы — фамилия. */
 function fillRole() {
   if (!els.role) return;
-  els.role.value = prefs.teacher ? "teacher" : "student";
+  els.role.value = prefs.planner ? "planner" : prefs.teacher ? "teacher" : "student";
   loadTeacherNames().then(() => {
     const keys = allTeachers();
     els.teacher.replaceChildren(
@@ -8543,8 +8578,220 @@ function fillRole() {
 
 function applyRole() {
   const teacher = els.role?.value === "teacher";
-  els.studentFields.hidden = teacher;
+  const planner = els.role?.value === "planner";
+  els.studentFields.hidden = teacher || planner;
   if (els.teacherRow) els.teacherRow.hidden = !teacher;
+  // Без учёбы вуз не нужен: прячем выбор факультета.
+  const tenantRow = document.getElementById("tenant-row");
+  if (tenantRow) tenantRow.hidden = planner;
+}
+
+/* ---------- Первый запуск: настройка по шагам ----------
+ * Новичку — не лента из десятка списков, а экраны по одному вопросу:
+ * кто вы → вуз → факультет → курс → группа. Большие кнопки, листание
+ * вперёд и назад (кнопкой или свайпом вправо). Под капотом — те же поля
+ * обычной настройки, поэтому сохранение и всё остальное не меняется.
+ * Смена факультета перезапускает приложение — шаг, на котором остановились,
+ * запоминаем и продолжаем с него.
+ */
+const ONBOARD_STEP_KEY = "schedule.onboardStep";
+const ONBOARD_UNI_KEY = "schedule.onboardUni";
+const onboard = { box: null, stack: [], skipped: false, uni: "" };
+
+function onboardingWanted() {
+  return !onboard.skipped && !prefs.group && !prefs.teacher && !prefs.planner;
+}
+
+function openOnboarding() {
+  if (!onboard.box) {
+    const box = el("section", "onboard");
+    box.id = "onboard";
+    box.setAttribute("role", "dialog");
+    box.setAttribute("aria-modal", "true");
+    // Свайп вправо — шаг назад, как в обычных приложениях.
+    let x0 = null;
+    box.addEventListener("touchstart", (e) => (x0 = e.touches[0].clientX), { passive: true });
+    box.addEventListener("touchend", (e) => {
+      if (x0 !== null && e.changedTouches[0].clientX - x0 > 70) onboardBack();
+      x0 = null;
+    });
+    document.body.append(box);
+    onboard.box = box;
+  }
+  let step = "who";
+  try {
+    step = localStorage.getItem(ONBOARD_STEP_KEY) || "who";
+    onboard.uni = localStorage.getItem(ONBOARD_UNI_KEY) || "";
+    localStorage.removeItem(ONBOARD_STEP_KEY);
+  } catch {
+    // Без памяти — с первого шага.
+  }
+  onboard.stack = step === "who" ? [] : ["who", "uni", "faculty"].slice(0, step === "course" ? 3 : 1);
+  onboard.box.hidden = false;
+  document.body.classList.add("onboarding");
+  onboardShow(step, 1);
+}
+
+function closeOnboarding() {
+  if (onboard.box) onboard.box.hidden = true;
+  document.body.classList.remove("onboarding");
+}
+
+function onboardGo(step) {
+  haptic("select");
+  onboard.stack.push(onboard.current);
+  onboardShow(step, 1);
+}
+
+function onboardBack() {
+  if (!onboard.stack.length) return;
+  haptic("light");
+  onboardShow(onboard.stack.pop(), -1);
+}
+
+function onboardOption(icon, title, hint, onPick, extra = "") {
+  const button = el("button", `onboard-option ${extra}`.trim());
+  button.type = "button";
+  if (icon) button.append(el("span", "onboard-option-icon", icon));
+  const text = el("span", "onboard-option-text");
+  text.append(el("b", null, title));
+  if (hint) text.append(el("span", null, hint));
+  button.append(text);
+  button.addEventListener("click", onPick);
+  return button;
+}
+
+function onboardFinish(role) {
+  els.role.value = role;
+  applyRole();
+  closeOnboarding();
+  els.save.click();
+}
+
+function onboardShow(step, direction) {
+  onboard.current = step;
+  const steps = ["who", "uni", "faculty", "course", "group"];
+  const page = el("div", `onboard-page onboard-page--${direction > 0 ? "next" : "prev"}`);
+  const top = el("div", "onboard-top");
+  const back = el("button", "onboard-back", "←");
+  back.type = "button";
+  back.setAttribute("aria-label", t("Назад"));
+  back.hidden = !onboard.stack.length;
+  back.addEventListener("click", onboardBack);
+  const dots = el("div", "onboard-dots");
+  const at = Math.max(0, steps.indexOf(step));
+  for (let i = 0; i < steps.length; i++) dots.append(el("i", i <= at ? "on" : ""));
+  top.append(back, dots);
+  page.append(top);
+  const body = el("div", "onboard-body");
+  const head = (title, sub) => {
+    body.append(el("h1", "onboard-title", title));
+    if (sub) body.append(el("p", "onboard-sub", sub));
+  };
+  const list = el("div", "onboard-list");
+
+  if (step === "who") {
+    head(t("Привет! 👋"), t("Расписание пар, свои дела и напоминания — в одном месте. Кто вы?"));
+    list.append(
+      onboardOption("🎓", t("Студент"), t("Покажем пары вашей группы"), () => onboardGo("uni")),
+      onboardOption("👩‍🏫", t("Преподаватель"), t("Все ваши пары по группам"), () => onboardGo("teacher")),
+      onboardOption("🗓", t("Только свои дела"), t("Не учусь — нужен ежедневник: дела, неделя, месяц"), () => onboardFinish("planner"))
+    );
+  } else if (step === "uni") {
+    head(t("Где вы учитесь?"), t("Выберите вуз"));
+    const names = [...new Set(TENANTS.map((item) => item.university))].sort((x, y) => x.localeCompare(y, "ru"));
+    for (const name of names) {
+      const count = TENANTS.filter((item) => item.university === name).length;
+      list.append(onboardOption("", name, count > 1 ? t("Факультетов: {n}", { n: count }) : "", () => {
+        onboard.uni = name;
+        onboardGo("faculty");
+      }));
+    }
+    list.append(onboardOption("➕", t("Моего вуза нет"), t("Пришлите расписание боту — добавим"), () => onboardGo("missing"), "onboard-option--muted"));
+  } else if (step === "faculty") {
+    head(t("Факультет"), onboard.uni);
+    for (const item of TENANTS.filter((x) => x.university === onboard.uni)) {
+      list.append(onboardOption("", item.short || item.faculty, item.short ? item.faculty : "", () => {
+        if (item.id === tenant().id) return onboardGo("course");
+        // Другой факультет — приложение перезапустится с его расписанием;
+        // после перезапуска продолжим с выбора курса.
+        try {
+          localStorage.setItem(ONBOARD_STEP_KEY, "course");
+          localStorage.setItem(ONBOARD_UNI_KEY, onboard.uni);
+        } catch {
+          // Без памяти начнём сначала — не беда.
+        }
+        switchTenant(item);
+      }));
+    }
+    list.append(onboardOption("➕", t("Моего факультета нет"), t("Пришлите расписание боту — добавим"), () => onboardGo("missing"), "onboard-option--muted"));
+  } else if (step === "course") {
+    head(t("Курс"), tenant().short || tenant().faculty);
+    for (const option of els.course.options) {
+      list.append(onboardOption("", option.text, "", () => {
+        els.course.value = option.value;
+        els.course.dispatchEvent(new Event("change"));
+        onboardGo("group");
+      }));
+    }
+  } else if (step === "group") {
+    head(t("Группа"), els.course.selectedOptions[0]?.text || "");
+    list.classList.add("onboard-list--grid");
+    for (const option of els.group.options) {
+      list.append(onboardOption("", option.text, "", () => {
+        els.group.value = option.value;
+        els.group.dispatchEvent(new Event("change"));
+        onboardFinish("student");
+        toast(t("Готово! Языки и подгруппы можно уточнить в настройках ⚙️"));
+      }, "onboard-option--small"));
+    }
+  } else if (step === "teacher") {
+    head(t("Кто вы?"), t("Начните вводить фамилию"));
+    const find = el("input", "onboard-find");
+    find.type = "search";
+    find.placeholder = t("Фамилия");
+    body.append(find);
+    const fill = () => {
+      const q = find.value.trim().toLowerCase();
+      const keys = allTeachers().filter((k) => !q || k.toLowerCase().includes(q)).slice(0, 40);
+      list.replaceChildren(
+        ...keys.map((key) => onboardOption("", key, teacherFull(key) || "", () => {
+          els.teacher.value = key;
+          onboardFinish("teacher");
+        }))
+      );
+    };
+    find.addEventListener("input", fill);
+    loadTeacherNames().then(fill);
+  } else if (step === "missing") {
+    head(t("Добавим ваш вуз"), t("Пришлите боту расписание — файлом, фото или ссылкой — и напишите вуз, факультет и группу. Мы добавим и сообщим."));
+    list.append(
+      onboardOption("📨", t("Прислать расписание боту"), "", () => {
+        const link = "https://t.me/FGPshedulebot?start=faculty";
+        if (tg?.openTelegramLink) tg.openTelegramLink(link);
+        else window.open(link, "_blank", "noopener");
+      }),
+      onboardOption("🗓", t("Пока пользоваться как ежедневником"), t("Свои дела, неделя и месяц"), () => onboardFinish("planner"), "onboard-option--muted")
+    );
+  }
+
+  body.append(list);
+  const more = el("button", "onboard-more", t("Подробные настройки"));
+  more.type = "button";
+  more.addEventListener("click", () => {
+    onboard.skipped = true;
+    closeOnboarding();
+  });
+  body.append(more);
+  page.append(body);
+
+  const old = onboard.box.querySelector(".onboard-page:not(.onboard-page--out)");
+  if (old) {
+    old.classList.add("onboard-page--out", direction > 0 ? "onboard-page--out-left" : "onboard-page--out-right");
+    setTimeout(() => old.remove(), 320);
+  }
+  onboard.box.append(page);
+  onboard.box.scrollTop = 0;
 }
 
 function showPicker() {
@@ -8569,6 +8816,8 @@ function showPicker() {
   fillReminders();
   loadMfk().then(renderMfkPicker);
   renderMfkPicker();
+  // Первый запуск — по шагам, а не лентой настроек.
+  if (onboardingWanted()) openOnboarding();
 }
 
 /* ---------- Разделы ---------- */
@@ -8796,7 +9045,7 @@ function showSchedule() {
 
   els.picker.hidden = true;
   els.schedule.hidden = false;
-  els.currentGroup.textContent = group.teacher ? group.title : t("Группа {g}", { g: group.title });
+  els.currentGroup.textContent = groupLabel(group);
 
   const label = FULL_DATE.format(dateOfDay(selectedDay));
   setDateLabel(label[0].toUpperCase() + label.slice(1), pendingLabel);
@@ -8810,6 +9059,8 @@ function showSchedule() {
       : parity === "even"
         ? t("Чётная неделя")
         : t("Вне семестра");
+  // Без учёбы чётность недели ни к чему.
+  els.weekLabel.hidden = Boolean(group?.planner);
 
   renderDays();
   renderRemindAsk();
@@ -8873,6 +9124,7 @@ function placeDayDrop() {
 function dayLoad(day, week) {
   const group = activeGroup();
   if (!group) return 0;
+  if (group.planner) return ownEventsOn(dateOfDay(day, week)).length;
   return dayBlocks(group, day, week).length;
 }
 
@@ -9125,7 +9377,15 @@ const SUNDAYS = [
 ];
 
 /** Значок, заголовок и подпись свободного дня; у одной даты — всегда одни. */
+const PLANNER_FREE = [
+  ["🗓", "Свободный день", "Добавьте дело кнопкой ниже"],
+  ["☕", "Свободный день", "Ничего не запланировано — можно выдохнуть"],
+  ["✨", "Свободный день", "Самое время что-нибудь запланировать"],
+  ["🎧", "Свободный день", "Время для себя"],
+];
+
 function freeDayPhrase(date) {
+  if (prefs.planner) return PLANNER_FREE[(date.getDate() * 7 + date.getMonth()) % PLANNER_FREE.length].map((x) => t(x));
   if (LANG !== "ru") return ["🎉", t("Пар нет 🎉").replace("🎉", "").trim(), ""];
   const list = date.getDay() === 0 ? SUNDAYS : FREE_DAYS;
   return list[(date.getDate() * 7 + date.getMonth()) % list.length];
@@ -11905,6 +12165,10 @@ async function init() {
     if (els.role?.value === "teacher" && els.teacher?.value) {
       prefs = { ...prefs, teacher: els.teacher.value, teacherName: teacherFull(els.teacher.value) || els.teacher.value };
     }
+    // Только свои дела: ни группы, ни курсов, ни МФК — только ежедневник.
+    if (els.role?.value === "planner") {
+      prefs = { ...prefs, planner: true, group: undefined, teacher: undefined, mfk: [] };
+    }
     savePrefs(prefs);
     notices.group = null;
     openTab(tab === "search" ? "schedule" : tab);
@@ -11912,6 +12176,7 @@ async function init() {
     const group = !prefs.teacher && groupById(prefs.group);
     if (group && group.id !== before) countOpen({ id: group.id, course: group.course, level: group.level });
     if (prefs.teacher) countOpen(teacherVisit(prefs.teacher));
+    if (prefs.planner && !before) countOpen({ id: "свои дела", course: null, level: "свои дела" });
     loadForeignTeacher();
   });
   // Telegram может отдать из кэша старый index.html без окна комментариев
