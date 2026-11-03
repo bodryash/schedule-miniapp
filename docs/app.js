@@ -603,6 +603,10 @@ function showConfetti() {
     ? ["#ffd700", "#f5c542", "#e6b422", "#fff3b0", "#d4a017", "#ffcc4d"]
     : document.body.classList.contains("cska")
     ? ["#e4002b", "#0b3ea8", "#ff3b5c", "#2f6bff", "#ffffff", "#b80022"]
+    : document.body.classList.contains("trump")
+    ? ["#b22234", "#ffffff", "#3c3b6e", "#d4a017", "#ffd700", "#e0313b"]
+    : document.body.classList.contains("putin")
+    ? ["#ffffff", "#1c4fa8", "#d52b1e", "#ffffff", "#2f6fdc", "#e0313b"]
     : ["#ff2d87", "#ffd166", "#4c6ef5", "#2ea6ff", "#40c057", "#ff922b"];
   for (let i = 0; i < 40; i++) {
     const piece = el("i");
@@ -1721,6 +1725,8 @@ function applyTheme(granted = grantedTheme) {
     renderChampion(tried === "champion");
     renderVolunteer(tried === "volunteer");
     renderCska(tried === "cska");
+    renderFlagTheme("trump", tried === "trump");
+    renderFlagTheme("putin", tried === "putin");
     renderNokia(tried === "nokia");
     return;
   }
@@ -1744,6 +1750,8 @@ function applyTheme(granted = grantedTheme) {
   renderChampion(name === "champion");
   renderVolunteer(name === "volunteer");
   renderCska(name === "cska");
+  renderFlagTheme("trump", name === "trump");
+  renderFlagTheme("putin", name === "putin");
   renderNokia(name === "nokia");
   // Именинник: салют один раз за день, когда заставка ушла.
   if (name === "birthday") {
@@ -1945,6 +1953,73 @@ function renderCska(on) {
     showConfetti();
     haptic("success");
     if (!last) toast(t("★ Тема «ЦСКА» включена. Красно-синий — самый сильный!"));
+  });
+}
+
+/* Темы «Трамп» и «Путин» — по нику, в подарок. Кроме флага на фоне —
+   лента с лозунгом под датой, дождь из эмодзи при первом открытии за день
+   и по нажатию на ленту, салют в цветах флага. */
+const FLAG_THEMES = {
+  trump: {
+    icon: "🦅",
+    text: "Make studying great again",
+    rain: ["🇺🇸", "⭐", "🦅", "💵", "🇺🇸", "⭐"],
+    hello: "🇺🇸 Тема «Трамп» включена. Let's make this week great again!",
+  },
+  putin: {
+    icon: "🐻",
+    text: "Всё идёт по плану",
+    rain: ["🇷🇺", "❄️", "🐻", "⭐", "🇷🇺", "❄️"],
+    hello: "🇷🇺 Тема «Путин» включена. Учёба идёт по плану!",
+  },
+};
+
+/** Дождь из эмодзи сверху вниз — как листопад волонтёра. */
+function showEmojiRain(kinds) {
+  if (document.querySelector(".leaves")) return;
+  const box = el("div", "leaves");
+  for (let i = 0; i < 28; i++) {
+    const drop = el("i", "", kinds[i % kinds.length]);
+    drop.style.left = `${Math.random() * 96}%`;
+    drop.style.fontSize = `${18 + Math.random() * 16}px`;
+    drop.style.animationDelay = `${Math.random() * 0.9}s`;
+    drop.style.animationDuration = `${2.4 + Math.random() * 1.6}s`;
+    drop.style.setProperty("--sway", `${(Math.random() < 0.5 ? -1 : 1) * (20 + Math.random() * 40)}px`);
+    box.append(drop);
+  }
+  document.body.append(box);
+  setTimeout(() => box.remove(), 5200);
+}
+
+function renderFlagTheme(name, on) {
+  const theme = FLAG_THEMES[name];
+  let ribbon = document.querySelector(`.flag-ribbon--${name}`);
+  if (!on) return ribbon?.remove();
+  const party = () => {
+    haptic("success");
+    showConfetti();
+    showEmojiRain(theme.rain);
+  };
+  if (!ribbon && els.freedom) {
+    ribbon = el("button", `flag-ribbon flag-ribbon--${name}`);
+    ribbon.type = "button";
+    ribbon.append(el("span", "flag-ribbon-icon", theme.icon), el("span", "", t(theme.text)));
+    ribbon.addEventListener("click", party);
+    els.freedom.after(ribbon);
+  }
+  const key = `schedule.${name}Salute`;
+  const today = isoDate(new Date());
+  let last = "";
+  try {
+    last = localStorage.getItem(key) || "";
+    if (last === today) return;
+    localStorage.setItem(key, today);
+  } catch {
+    // Без хранилища праздник при каждом открытии — не беда.
+  }
+  afterSplash(() => {
+    party();
+    if (!last) toast(t(theme.hello));
   });
 }
 
