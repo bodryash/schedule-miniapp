@@ -10928,10 +10928,35 @@ function initMenu() {
     haptic("light");
     openSemester();
   });
-  // Тап мимо меню закрывает его, как принято на телефонах.
+  // Пока меню открыто, всё позади него не отвечает: касание мимо меню только
+  // закрывает его и дальше не идёт — не открывает пару, не листает день,
+  // не прокручивает страницу. Ловим на самом раннем этапе (capture).
+  const outside = (event) => !pop.hidden && !pop.contains(event.target) && !els.menu.contains(event.target);
+  const swallow = (event) => {
+    if (!outside(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    // Касание глушим целиком — значит, и «клика» после него не будет:
+    // закрываем меню сами, когда палец поднят.
+    if ((event.type === "touchend" || event.type === "mouseup") && !pop.classList.contains("menu-pop--out")) close();
+  };
+  for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup", "touchstart", "touchend", "dblclick"]) {
+    document.addEventListener(type, swallow, { capture: true, passive: false });
+  }
+  document.addEventListener("touchmove", (event) => {
+    if (!pop.hidden && !pop.contains(event.target)) event.preventDefault();
+  }, { capture: true, passive: false });
+  document.addEventListener("wheel", (event) => {
+    if (!pop.hidden && !pop.contains(event.target)) event.preventDefault();
+  }, { capture: true, passive: false });
   document.addEventListener("click", (event) => {
-    if (!pop.hidden && !pop.contains(event.target)) close();
-  });
+    if (!outside(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    close();
+  }, true);
 }
 
 /**
