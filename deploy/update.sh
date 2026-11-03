@@ -11,6 +11,13 @@ if [ -f "$TIMER" ] && grep -q "OnUnitActiveSec=5min" "$TIMER"; then
   systemctl daemon-reload
   systemctl restart schedule-update.timer || true
 fi
+# Служба обновления не должна висеть вечно: у одноразовых служб systemd
+# по умолчанию нет предела времени. Ставим 4 минуты.
+UNIT=/etc/systemd/system/schedule-update.service
+if [ -f "$UNIT" ] && ! grep -q "^TimeoutStartSec=" "$UNIT"; then
+  sed -i 's/^Type=oneshot$/Type=oneshot\nTimeoutStartSec=4min/' "$UNIT"
+  systemctl daemon-reload
+fi
 # Сторож: бот завис (процесс жив, но не отвечает) — systemd этого не видит
 # и сам не перезапускает. Проверяем каждую минуту: две неудачи подряд —
 # сохраняем журнал, перезапускаем бота и пишем владельцу с журналом.
@@ -51,18 +58,20 @@ fi
 # приложения, бот у беты общий с основным. Обновляем первой: основная
 # копия ниже может выйти раньше, если в ней ничего нового.
 if [ -d /opt/schedule-beta/.git ]; then
-  sudo -u schedule git -C /opt/schedule-beta fetch -q origin beta \
+  timeout 60 sudo -u schedule git -C /opt/schedule-beta fetch -q origin beta \
     && sudo -u schedule git -C /opt/schedule-beta reset -q --hard origin/beta \
     || echo "Бету обновить не вышло." >&2
 fi
 cd /opt/schedule
 BEFORE=$(git rev-parse HEAD)
-sudo -u schedule git pull --ff-only -q
+timeout 90 sudo -u schedule git pull --ff-only -q
 AFTER=$(git rev-parse HEAD)
 [ "$BEFORE" = "$AFTER" ] && { echo "Уже свежая версия."; exit 0; }
 if git diff --name-only "$BEFORE" "$AFTER" | grep -qE '^(worker/|server/)'; then
   systemctl restart schedule-bot
   sleep 2
-  curl -fsS http://127.0.0.1:8787/healthz >/dev/null && echo "Бот перезапущен и отвечает."
+  # С таймаутом: без него зависший после перезапуска бот подвешивал и сам
+  # скрипт — таймер не запускал новые обновления, сторож не срабатывал.
+  curl -fsS -m 10 http://127.0.0.1:8787/healthz >/dev/null && echo "Бот перезапущен и отвечает." || echo "Бот после перезапуска не отвечает — разберётся сторож."
 fi
 echo "Обновлено: $(git log --oneline -1)"
