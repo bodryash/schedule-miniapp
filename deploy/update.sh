@@ -2,6 +2,14 @@
 # Обновление сервера до свежей версии из репозитория. Приложение — это
 # файлы, они обновляются сразу; бота перезапускаем, только если менялся он.
 set -euo pipefail
+# Бета (beta.bodryash.ru) — вторая копия из ветки beta. Только файлы
+# приложения, бот у беты общий с основным. Обновляем первой: основная
+# копия ниже может выйти раньше, если в ней ничего нового.
+if [ -d /opt/schedule-beta/.git ]; then
+  sudo -u schedule git -C /opt/schedule-beta fetch -q origin beta \
+    && sudo -u schedule git -C /opt/schedule-beta reset -q --hard origin/beta \
+    || echo "Бету обновить не вышло." >&2
+fi
 cd /opt/schedule
 BEFORE=$(git rev-parse HEAD)
 sudo -u schedule git pull --ff-only -q
