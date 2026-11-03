@@ -63,7 +63,7 @@ jobs:
 
       - name: Какая версия приложения у пользователей
         run: |
-          for url in https://app.bodryash.ru https://bodryash.github.io/schedule-miniapp; do
+          for url in https://app.bodryash.ru https://beta.bodryash.ru https://bodryash.github.io/schedule-miniapp; do
             js=$(curl -fsS -m 20 "$url/app.js?v=$(date +%s)" || true)
             if [ -z "$js" ]; then echo "$url → app.js не открылся"; continue; fi
             echo "$url:"
