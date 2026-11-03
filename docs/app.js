@@ -1220,6 +1220,8 @@ function refreshFreedom() {
 }
 
 function freedomLine(now) {
+  // Без учёбы — ни «до конца пары», ни «до конца семестра».
+  if (prefs.planner) return "";
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const today = isoDate(dateOfDay(selectedDay)) === isoDate(now);
   const weekday = ((now.getDay() + 6) % 7) + 1;
@@ -1261,6 +1263,7 @@ function freedomLine(now) {
  * а отсчёт меняет смысл — считать до конца семестра уже поздно.
  */
 function examMode() {
+  if (prefs.planner) return false;
   const last = (data?.weeks || []).at(-1)?.to;
   if (!last) return false;
   const days = Math.ceil((new Date(`${last}T23:59:59`) - new Date()) / 86400000);
@@ -1366,7 +1369,8 @@ function renderRemindAsk() {
   const box = els.remindAsk;
   if (!box) return;
   const off = !prefs?.remindMorning && !prefs?.remindBefore;
-  const show = Boolean(tg?.initData) && off && !prefs?.remindAsked && !activeGroup()?.teacher;
+  // Напоминания — о парах; без учёбы их и предлагать нечего.
+  const show = Boolean(tg?.initData) && off && !prefs?.remindAsked && !activeGroup()?.teacher && !prefs?.planner;
   box.hidden = !show;
   if (!show) return;
 
@@ -2162,6 +2166,7 @@ function renderGlamPick() {
  * а отсчёт меняет смысл — считать до конца семестра уже поздно.
  */
 function examMode() {
+  if (prefs.planner) return false;
   const last = (data?.weeks || []).at(-1)?.to;
   if (!last) return false;
   const days = Math.ceil((new Date(`${last}T23:59:59`) - new Date()) / 86400000);
@@ -5799,6 +5804,10 @@ function renderExamBanner() {
     examBox = el("div", "exam-box");
     (document.getElementById("remind-ask") || els.days).before(examBox);
   }
+  if (prefs.planner) {
+    examBox.replaceChildren();
+    return;
+  }
   const next = upcomingExams().find((e) => e.kind !== t("Консультация"));
   const days = next ? daysTill(next.day) : null;
   if (!next || days > EXAM_BANNER_DAYS) {
@@ -6374,7 +6383,8 @@ function renderMonth(group) {
       cell.type = "button";
       if (past) cell.classList.add("mgrid-cell--past");
       if (iso === todayIso) cell.classList.add("mgrid-cell--today");
-      if (!slots.size) cell.classList.add("mgrid-cell--off");
+      // Без учёбы «свободный» — день без своих дел, а не без пар.
+      if (group.planner ? !ownEventsOn(date).length : !slots.size) cell.classList.add("mgrid-cell--off");
       if (day >= 6) cell.classList.add("mgrid-cell--weekend");
       const num = date.getDate() === 1 || (week === 0 && day === 1)
         ? `${date.getDate()} ${SHORT_DATE.format(date).replace(/^\d+\s*/, "").replace(/\.$/, "")}`
@@ -6408,9 +6418,13 @@ function renderMonth(group) {
   }
   const summary = el("div", "month-summary");
   summary.append(
-    el("span", null, t("Учебных дней: {n}", { n: study })),
-    el("span", null, t("Свободных: {n}", { n: free })),
-    el("span", null, t("Своих дел: {n}", { n: own }))
+    ...(group.planner
+      ? [el("span", null, t("Своих дел: {n}", { n: own }))]
+      : [
+          el("span", null, t("Учебных дней: {n}", { n: study })),
+          el("span", null, t("Свободных: {n}", { n: free })),
+          el("span", null, t("Своих дел: {n}", { n: own })),
+        ])
   );
   const hint = el("p", "month-hint", t("Нажмите на день — покажем свободное время и добавим своё дело."));
   box.append(summary, grid, hint);
@@ -6438,7 +6452,10 @@ function openMonthDay(group, day, week) {
   const lessons = lessonsWithTimes(group, day, week);
   const live = lessons.filter((l) => !l.cancelled);
   const slots = new Set(live.map((l) => l.lesson.slot));
-  sheet.append(el("h2", null, slots.size ? t("Пар: {n}", { n: slots.size }) : t("Пар нет — день свободен")));
+  const ownCount = ownEventsOn(date).length;
+  sheet.append(el("h2", null, group.planner
+    ? (ownCount ? t("Дел: {n}", { n: ownCount }) : t("Свободный день"))
+    : slots.size ? t("Пар: {n}", { n: slots.size }) : t("Пар нет — день свободен")));
 
   const list = el("div", "mday-list");
   for (const item of lessons) {
@@ -9052,6 +9069,7 @@ function settingsPageHasContent(page) {
 
 function settingsSummary(id) {
   const group = activeGroup();
+  if (id === "study" && prefs.planner) return t("Только свои дела");
   if (id === "study") return group ? `${groupLabel(group)} · ${tenant().short || tenant().faculty}` : t("Выберите группу");
   if (id === "look") return [{ auto: t("Как в Telegram"), light: t("Светлая"), dark: t("Тёмная") }[scheme()], COLOR_THEMES.find(([c]) => c === colorTheme())?.[1]].filter(Boolean).join(" · ");
   if (id === "lang") return els.lang?.selectedOptions[0]?.text || "";
@@ -9071,6 +9089,7 @@ function openSettingsPage(id) {
     const page = settingsNav.pages[key];
     row.hidden = !settingsPageHasContent(page) || (key === "courses" && !student);
     row.querySelector(".settings-row-sub").textContent = settingsSummary(key);
+    if (key === "study") row.querySelector(".settings-row-text b").textContent = prefs.planner ? t("Режим") : t("Учёба");
   }
   els.picker.scrollTop = 0;
   window.scrollTo(0, 0);
