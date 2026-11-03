@@ -411,19 +411,6 @@
     "short": "ИМиП"
   },
   {
-    "id": "mgimo-up",
-    "university": "МГИМО",
-    "faculty": "Факультет управления и политики",
-    "path": "mgimo-up",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 30
-    },
-    "short": "УП"
-  },
-  {
     "id": "msu-vshga",
     "university": "МГУ",
     "faculty": "Высшая школа государственного аудита",
@@ -448,6 +435,58 @@
       "faculty": 53
     },
     "short": "МЭО (Дип)"
+  },
+  {
+    "id": "mgimo-eui",
+    "university": "МГИМО",
+    "faculty": "Евразийский учебный институт",
+    "path": "mgimo-eui",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 34
+    },
+    "short": "ЕУИ"
+  },
+  {
+    "id": "mgimo-imtur",
+    "university": "МГИМО",
+    "faculty": "Институт международной торговли и устойчивого развития",
+    "path": "mgimo-imtur",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 28
+    },
+    "short": "ИМТУР"
+  },
+  {
+    "id": "mgimo-mo-dip",
+    "university": "МГИМО",
+    "faculty": "Факультет Международные отношения (Дип)",
+    "path": "mgimo-mo-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 55
+    },
+    "short": "МО (Дип)"
+  },
+  {
+    "id": "mgimo-up",
+    "university": "МГИМО",
+    "faculty": "Факультет управления и политики",
+    "path": "mgimo-up",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 30
+    },
+    "short": "УП"
   },
   {
     "id": "msu-hist",
@@ -476,19 +515,6 @@
     "short": "МЖ"
   },
   {
-    "id": "mgimo-eui",
-    "university": "МГИМО",
-    "faculty": "Евразийский учебный институт",
-    "path": "mgimo-eui",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 34
-    },
-    "short": "ЕУИ"
-  },
-  {
     "id": "mgimo-miep",
     "university": "МГИМО",
     "faculty": "Международный институт энергетической политики и дипломатии",
@@ -500,19 +526,6 @@
       "faculty": 31
     },
     "short": "МИЭП"
-  },
-  {
-    "id": "mgimo-imtur",
-    "university": "МГИМО",
-    "faculty": "Институт международной торговли и устойчивого развития",
-    "path": "mgimo-imtur",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 28
-    },
-    "short": "ИМТУР"
   },
   {
     "id": "mgimo-meo",
@@ -551,19 +564,6 @@
       "base": "https://ruz.mgimo.ru",
       "faculty": 32
     }
-  },
-  {
-    "id": "mgimo-mo-dip",
-    "university": "МГИМО",
-    "faculty": "Факультет Международные отношения (Дип)",
-    "path": "mgimo-mo-dip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 55
-    },
-    "short": "МО (Дип)"
   },
   {
     "id": "mgimo-mo",
