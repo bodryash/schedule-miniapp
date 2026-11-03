@@ -5831,11 +5831,9 @@ let seasonLayer = null;
 let garland = null;
 
 function decorOn() {
-  try {
-    return localStorage.getItem(DECOR_KEY) !== "off";
-  } catch {
-    return true;
-  }
+  // Фон — только сплошной светлый или тёмный: неба, облаков и сезонных
+  // деталей больше нет. Цветовые темы меняют лишь оттенок акцента.
+  return false;
 }
 
 function daypart(date = new Date()) {
@@ -7610,11 +7608,11 @@ function bgChoice() {
 function applyBackground() {
   // Фоны на выбор убраны: оформление одно — живой градиент в тон акцента,
   // как обои у iPhone. Небо по времени суток — галочкой, поверх.
-  const choice = "mesh";
-  const [kind, variant = ""] = choice.split(":");
-  document.body.dataset.bg = kind || "";
-  document.body.dataset.bgVariant = variant;
-  if (!bgLayer) {
+  // Живого градиента тоже больше нет — фон сплошной.
+  const choice = "";
+  document.body.dataset.bg = "";
+  document.body.dataset.bgVariant = "";
+  if (choice && !bgLayer) {
     bgLayer = el("div", "bg-layer");
     bgLayer.setAttribute("aria-hidden", "true");
     // Три пятна — для живого градиента; узорам и небу они не мешают.
@@ -8816,8 +8814,103 @@ function showPicker() {
   fillReminders();
   loadMfk().then(renderMfkPicker);
   renderMfkPicker();
+  buildSettingsNav();
   // Первый запуск — по шагам, а не лентой настроек.
   if (onboardingWanted()) openOnboarding();
+}
+
+/* ---------- Настройки разделами ----------
+ * Раньше — лента на три экрана. Теперь главный экран — список разделов,
+ * как в настройках телефона: «Учёба», «Оформление», «Напоминания»… Раздел
+ * открывается отдельным экраном. Поля внутри — те же, что были (их просто
+ * переносим), поэтому сохранение и вся логика прежние.
+ */
+const settingsNav = { built: false, nav: null, pages: {}, open: "" };
+
+function settingsPart(selector) {
+  return selector.startsWith("#") ? document.getElementById(selector.slice(1)) : null;
+}
+
+function buildSettingsNav() {
+  const picker = els.picker;
+  if (!picker) return;
+  if (!settingsNav.built) {
+    settingsNav.built = true;
+    const sections = [
+      ["study", "🎓", "Учёба", [els.role?.closest("label"), "#teacher-row", "#tenant-uni-row", "#tenant-row", "#tenant-hint", "#student-fields"]],
+      ["courses", "📚", "Мои курсы", ["#mfk-row", "#electives-row", "#pairs-row"]],
+      ["look", "🎨", "Оформление", ["#digits"]],
+      ["remind", "🔔", "Напоминания", ["#remind-row"]],
+      ["themes", "⭐", "Темы", ["#owner-themes", "#volunteer-row"]],
+      ["profiles", "👥", "Профили", ["#profiles"]],
+      ["lang", "🌐", "Язык · Language", [els.lang?.closest("label")]],
+      ["home", "📲", "На главный экран", ["#home", "#home-hint", "#home-ios"]],
+    ];
+    const nav = el("div", "settings-nav");
+    const anchor = picker.querySelector("header.bar");
+    for (const [id, icon, title, parts] of sections) {
+      const page = el("div", "settings-page");
+      page.hidden = true;
+      page.dataset.section = id;
+      const back = el("button", "settings-back", `‹ ${t("Настройки")}`);
+      back.type = "button";
+      back.addEventListener("click", () => openSettingsPage(""));
+      page.append(back, el("h2", "settings-page-title", t(title)));
+      for (const part of parts) {
+        const node = typeof part === "string" ? settingsPart(part) : part;
+        if (node) page.append(node);
+      }
+      // Сезонный фон убран — его галочка больше не нужна.
+      page.querySelector(".look-extra")?.remove();
+      const row = el("button", "settings-row");
+      row.type = "button";
+      row.dataset.section = id;
+      const text = el("span", "settings-row-text");
+      text.append(el("b", null, t(title)), el("span", "settings-row-sub"));
+      row.append(el("span", "settings-row-icon", icon), text, el("span", "settings-row-chev", "›"));
+      row.addEventListener("click", () => {
+        haptic("light");
+        openSettingsPage(id);
+      });
+      nav.append(row);
+      settingsNav.pages[id] = page;
+      anchor.after(page);
+    }
+    anchor.after(nav);
+    settingsNav.nav = nav;
+  }
+  openSettingsPage(settingsNav.open);
+}
+
+/** Есть ли в разделе что-то видимое — пустые разделы в списке не показываем. */
+function settingsPageHasContent(page) {
+  return [...page.children].slice(2).some((node) => !node.hidden && node.style.display !== "none");
+}
+
+function settingsSummary(id) {
+  const group = activeGroup();
+  if (id === "study") return group ? `${groupLabel(group)} · ${tenant().short || tenant().faculty}` : t("Выберите группу");
+  if (id === "look") return [{ auto: t("Как в Telegram"), light: t("Светлая"), dark: t("Тёмная") }[scheme()], COLOR_THEMES.find(([c]) => c === colorTheme())?.[1]].filter(Boolean).join(" · ");
+  if (id === "lang") return els.lang?.selectedOptions[0]?.text || "";
+  if (id === "remind") return prefs.remindMorning || prefs.remindBefore ? t("Включены") : t("Выключены");
+  return "";
+}
+
+function openSettingsPage(id) {
+  settingsNav.open = id;
+  const student = !prefs.teacher && !prefs.planner && els.role?.value !== "teacher" && els.role?.value !== "planner";
+  for (const [key, page] of Object.entries(settingsNav.pages)) page.hidden = key !== id;
+  settingsNav.nav.hidden = Boolean(id);
+  const title = els.picker.querySelector("header.bar h1");
+  if (title) title.textContent = t("Настройки");
+  for (const row of settingsNav.nav.children) {
+    const key = row.dataset.section;
+    const page = settingsNav.pages[key];
+    row.hidden = !settingsPageHasContent(page) || (key === "courses" && !student);
+    row.querySelector(".settings-row-sub").textContent = settingsSummary(key);
+  }
+  els.picker.scrollTop = 0;
+  window.scrollTo(0, 0);
 }
 
 /* ---------- Разделы ---------- */
