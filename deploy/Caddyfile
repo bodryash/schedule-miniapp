@@ -39,6 +39,9 @@ beta.bodryash.ru {
 	root * /opt/schedule-beta/docs
 	encode zstd gzip
 	file_server
-	header Cache-Control "no-cache"
+	@betapage path / /index.html
+	header @betapage Cache-Control "no-cache"
+	@betaassets path *.js *.css *.json *.woff2 *.png *.svg *.jpg
+	header @betaassets Cache-Control "public, max-age=60"
 	header X-Robots-Tag "noindex, nofollow"
 }
