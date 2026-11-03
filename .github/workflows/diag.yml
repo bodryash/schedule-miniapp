@@ -51,7 +51,7 @@ jobs:
             js=$(curl -fsS -m 20 "$url/app.js?v=$(date +%s)" || true)
             if [ -z "$js" ]; then echo "$url → app.js не открылся"; continue; fi
             echo "$url:"
-            for mark in GIFTED_THEMES BIRTHDAYS "const WEEKS = 5" renderMonth; do
+            for mark in GIFTED_THEMES BIRTHDAYS "const WEEKS = 5" renderMonth FLAG_THEMES; do
               echo "$js" | grep -q "$mark" && echo "  есть: $mark" || echo "  НЕТ: $mark"
             done
           done
