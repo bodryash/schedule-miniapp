@@ -9017,7 +9017,9 @@ function buildSettingsNav() {
   if (!settingsNav.built) {
     settingsNav.built = true;
     const sections = [
-      ["study", "🎓", "Учёба", [els.role?.closest("label"), "#teacher-row", "#tenant-uni-row", "#tenant-row", "#tenant-hint", "#student-fields"]],
+      // Не «Учёба»: здесь выбирают, что показывать, — группу, преподавателя
+      // или только свои дела. Учиться при этом не обязательно.
+      ["study", "🗓", "Расписание", [els.role?.closest("label"), "#teacher-row", "#tenant-uni-row", "#tenant-row", "#tenant-hint", "#student-fields"]],
       ["courses", "📚", "Мои курсы (МФК)", ["#mfk-row", "#electives-row", "#pairs-row"]],
       ["look", "🎨", "Оформление", ["#digits"]],
       ["remind", "🔔", "Напоминания", ["#remind-row"]],
@@ -9091,7 +9093,6 @@ function openSettingsPage(id) {
     const page = settingsNav.pages[key];
     row.hidden = !settingsPageHasContent(page) || (key === "courses" && !student);
     row.querySelector(".settings-row-sub").textContent = settingsSummary(key);
-    if (key === "study") row.querySelector(".settings-row-text b").textContent = prefs.planner ? t("Режим") : t("Учёба");
   }
   els.picker.scrollTop = 0;
   window.scrollTo(0, 0);

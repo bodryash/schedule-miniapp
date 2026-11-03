@@ -233,6 +233,20 @@
         } catch (e) {}
         // Одно появление и уход: заставка расходится, как туман.
         document.getElementById("splash").dataset.intro = "blur";
+        // Вся заставка — в одном ускоренном темпе с первого кадра. Раньше
+        // ускорение включалось позже, с кодом приложения, и подхватывало
+        // уже идущие анимации на ходу: дата и размытие шли вразнобой.
+        (function () {
+          var splash = document.getElementById("splash");
+          if (!splash.getAnimations) return;
+          var speed = 1.4;
+          (function tick() {
+            splash.getAnimations({ subtree: true }).forEach(function (a) {
+              if (a.playbackRate !== speed) a.playbackRate = speed;
+            });
+            if (document.body.contains(splash)) requestAnimationFrame(tick);
+          })();
+        })();
         var day = new Date();
         var locale = { ru: "ru-RU", en: "en-GB", zh: "zh-CN", ko: "ko-KR" }[window.__lang] || "ru-RU";
         var text = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(day);

@@ -13082,3 +13082,49 @@ body::after {
   background: var(--accent);
   animation: own-kind-pick 260ms cubic-bezier(0.3, 1.6, 0.5, 1);
 }
+
+/* Уход заставки: дата уменьшается тем же плавным движением, что и
+   размытие, — раньше она прыгала в 0.92 мгновенно и обгоняла туман. */
+.splash[data-intro] > * {
+  transition: transform 560ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== Меню «⋯» без серой рамки =====
+   Рамка в 1 px и размытие фона под меню во время масштабирования давали
+   серую обводку с резкими углами. Теперь — сплошная подложка, мягкая тень
+   и появление сдвигом с прозрачностью, без масштаба. */
+.menu-pop {
+  border: 0 !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: var(--surface, var(--card)) !important;
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+  animation: menu-in-soft 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  will-change: transform, opacity;
+}
+
+.menu-pop::before,
+.menu-pop::after {
+  display: none !important;
+}
+
+.menu-pop--out {
+  animation: menu-out-soft 160ms ease forwards !important;
+}
+
+@keyframes menu-in-soft {
+  from { opacity: 0; transform: translateY(-6px); }
+}
+
+@keyframes menu-out-soft {
+  to { opacity: 0; transform: translateY(-4px); }
+}
+
+body[data-tone="dark"] .menu-pop {
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+}
+
+.menu-pop {
+  border-radius: 22px !important;
+  clip-path: none !important;
+}
