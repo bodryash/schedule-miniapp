@@ -4736,6 +4736,8 @@ function withFlag(subject) {
 // Военная кафедра — факультатив, на который ходят не все. «Военно-
 // политическое измерение…» — обычная дисциплина по выбору, её не трогаем.
 const MILITARY = /^Военная подготовка/;
+// Физкультура: «Физическая культура», «Элективные курсы по физической культуре», «Физкультура».
+const PE = /физическ\S* культур|физкультур|^физ-?ра/i;
 // Русский для иностранных студентов, записанный отдельной парой в общем
 // расписании группы (как у ВШССН). Остальным он не нужен — по умолчанию скрыт.
 const RKI = /^Иностранный язык \(русский язык\)$/;
@@ -4786,6 +4788,8 @@ const els = {
   mfkSlot: document.getElementById("mfkslot"),
   rki: document.getElementById("rki"),
   military: document.getElementById("military"),
+  peRow: document.getElementById("pe-row"),
+  pe: document.getElementById("pe"),
   electivesRow: document.getElementById("electives-row"),
   electives: document.getElementById("electives"),
   pairsRow: document.getElementById("pairs-row"),
@@ -8341,7 +8345,7 @@ function calendarUrl() {
   const id = tenantId();
   const raw = id === DEFAULT_TENANT ? group.id : group.id.slice(id.length + 1);
   const keep = {};
-  for (const name of ["main", "mainGroup", "lang2", "lang2Group", "lang3", "military", "rki", "mfkSlot"]) {
+  for (const name of ["main", "mainGroup", "lang2", "lang2Group", "lang3", "military", "pe", "rki", "mfkSlot"]) {
     if (prefs[name] != null && prefs[name] !== "") keep[name] = prefs[name];
   }
   if (prefs.electives?.length) keep.electives = prefs.electives;
@@ -8545,6 +8549,11 @@ function fillLanguages() {
   if (els.militaryRow) {
     els.militaryRow.hidden = !subjects.some((s) => MILITARY.test(s));
     els.military.value = prefs.military === "no" ? "no" : "";
+  }
+  // Физкультуру — тоже только там, где она есть в расписании.
+  if (els.peRow) {
+    els.peRow.hidden = !subjects.some((s) => PE.test(s));
+    els.pe.value = prefs.pe === "no" ? "no" : "";
   }
   if (els.rkiRow) {
     els.rkiRow.hidden = !subjects.some((s) => RKI.test(s));
@@ -8780,6 +8789,7 @@ function collectPrefs() {
         : Number(els.lang2Group.value),
     lang3: (els.lang3Row.hidden ? "" : els.lang3.value) || null,
     military: els.militaryRow && !els.militaryRow.hidden && els.military.value === "no" ? "no" : null,
+    pe: els.peRow && !els.peRow.hidden && els.pe.value === "no" ? "no" : null,
     rki: els.rkiRow && !els.rkiRow.hidden && els.rki.value === "yes" ? "yes" : null,
     mfkSlot: els.mfkSlotRow && !els.mfkSlotRow.hidden && els.mfkSlot.value === "no" ? "no" : null,
     electives: [...els.electives.querySelectorAll("input:checked")].map(
@@ -9699,6 +9709,7 @@ let daysScrolled = false;
 /** Отсеивает языковые пары чужих подгрупп по настройкам студента. */
 function matchesPrefs(lesson) {
   if (prefs.military === "no" && MILITARY.test(lesson.subject)) return false;
+  if (prefs.pe === "no" && PE.test(lesson.subject)) return false;
   if (prefs.rki !== "yes" && RKI.test(lesson.subject)) return false;
   if (prefs.mfkSlot === "no" && isMfkSlot(lesson.subject)) return false;
   if (prefs.pick && pairsHidden().has(lesson)) return false;
