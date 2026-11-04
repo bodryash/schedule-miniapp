@@ -13355,3 +13355,10 @@ html.look-fade body *::after {
 .drift.drift--on {
   overflow: hidden;
 }
+
+/* Вид пары рядом с номером: «Мир языка» и «Практика речи» читаются с первого взгляда. */
+.tag.tag--kind {
+  font-weight: 700;
+  color: var(--accent-text);
+  background: var(--accent);
+}

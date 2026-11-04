@@ -11945,6 +11945,12 @@ function subgroupsLabel(n) {
 // Пары в стилистике «Локомотива» — по просьбе 3 курса ФГП.
 const LOKO_SUBJECTS = new Set(["Деловой протокол и этикет"]);
 
+// Пометки, которые на деле — вид пары (ФИЯР): показываем меткой, а не серой строкой.
+const NOTE_KINDS = {
+  "МИР": "Мир языка",
+  "теория и практика речевого общения": "Практика речи",
+};
+
 function renderCard(entries, bells, slots = [entries[0].slot]) {
   const first = entries[0];
   const bell = timesOf(first, bells);
@@ -11992,6 +11998,11 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
   }
   if (isMfkLesson(first.subject)) head.append(el("span", "tag", t("МФК")));
   else if (first.elective) head.append(el("span", "tag", t(first.elective)));
+  // «2-ой Французский язык» бывает разной парой: практика речи или курс «МИР».
+  // В расписании ФИЯР это различает только пометка, и под одинаковым названием
+  // пары путали. Выносим её цветной меткой рядом с номером пары.
+  const kindTag = NOTE_KINDS[first.note];
+  if (kindTag) head.append(el("span", "tag tag--kind", t(kindTag)));
   // Аудитория выносится вправо отдельной плашкой — но только когда она одна
   // на всю карточку. У подгрупп аудитории разные, и в списке они остаются.
   const single = entries.length === 1;
@@ -12018,7 +12029,7 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
     body.append(renderSegments(slots, bells));
   }
 
-  const notes = [...new Set(entries.map((e) => e.note).filter(Boolean))];
+  const notes = [...new Set(entries.map((e) => e.note).filter((n) => n && !NOTE_KINDS[n]))];
   if (notes.length) body.append(el("div", "note", notes.map(trNote).join("; ")));
 
   // Занятие на удалёнке — ссылка на встречу прямо в карточке.
