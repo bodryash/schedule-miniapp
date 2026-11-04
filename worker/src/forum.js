@@ -285,6 +285,7 @@ function viewPost(env, row, user, perm, vote) {
     // Под своим именем человек сам выбрал быть узнаваемым: даём ссылку на его
     // профиль Telegram (если у него есть @ник). У анонимов её нет никогда.
     tg: !row.anon && row.username ? row.username : undefined,
+    ava: !row.anon && row.tg_id ? 1 : undefined,
     text: row.text,
     created: row.created,
     // Рейтинг: голосов «за» минус голосов «против» (может быть отрицательным).
@@ -322,6 +323,7 @@ function viewReply(env, row, user, perm, postRow, byId, vote) {
     anon: Boolean(row.anon),
     op: row.tg_id === postRow.tg_id,
     tg: !row.anon && row.username ? row.username : undefined,
+    ava: !row.anon && row.tg_id ? 1 : undefined,
     text: row.text,
     created: row.created,
     score: row.likes || 0,

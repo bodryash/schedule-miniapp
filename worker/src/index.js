@@ -3928,6 +3928,32 @@ export default {
       });
     }
 
+    // Аватарка автора под своим именем: фото профиля из Telegram. У анонимов и
+    // у тех, кто скрыл фото, ответа нет — приложение рисует букву.
+    const avaMatch = url.pathname.match(/^\/forum\/ava\/([pr])\/(\d+)$/);
+    if (avaMatch && request.method === "GET") {
+      const miss = () => new Response("", { status: 404, headers: { "access-control-allow-origin": "*", "cache-control": "public, max-age=300" } });
+      try {
+        const table = avaMatch[1] === "r" ? "forum_replies" : "forum_posts";
+        const row = await env.STATS.prepare(`SELECT tg_id, anon, hidden FROM ${table} WHERE id = ?`).bind(Number(avaMatch[2])).first();
+        if (!row || row.anon || row.hidden || !row.tg_id) return miss();
+        const api = (method, query) => fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/${method}?${query}`).then((r) => r.json());
+        const photos = await api("getUserProfilePhotos", `user_id=${row.tg_id}&limit=1`);
+        const sizes = photos?.result?.photos?.[0];
+        if (!sizes?.length) return miss();
+        const pick = sizes.find((x) => x.width >= 160) || sizes[sizes.length - 1];
+        const info = await api("getFile", `file_id=${encodeURIComponent(pick.file_id)}`);
+        if (!info?.result?.file_path) return miss();
+        const img = await fetch(`https://api.telegram.org/file/bot${env.BOT_TOKEN}/${info.result.file_path}`);
+        if (!img.ok) return miss();
+        return new Response(img.body, {
+          headers: { "content-type": "image/jpeg", "access-control-allow-origin": "*", "cache-control": "public, max-age=86400" },
+        });
+      } catch {
+        return miss();
+      }
+    }
+
     // «Подслушка» — общий форум вузов: список, пост, ответ, лайк, жалоба, удаление.
     const forumAction = url.pathname.match(/^\/forum\/(list|poll|replies|post|reply|like|vote|delete|report|mod|prefs)$/)?.[1];
     if (forumAction && request.method === "POST") {
