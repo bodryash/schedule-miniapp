@@ -35,7 +35,7 @@ import {
   purgeAuthor,
   unbanCommand,
 } from "./comments.js";
-import { forumApi, forumCloseConfirm, forumCommand, forumModerate } from "./forum.js";
+import { forumApi, forumCloseConfirm, forumCommand, forumModerate, forumWipe } from "./forum.js";
 
 let forumErrorAt = 0;
 /** true — владельцу про ошибку форума недавно уже писали. */
@@ -4341,6 +4341,19 @@ export default {
       return new Response("ok");
     }
 
+    // Очистка Подслушки: «Да, стереть всё» / «Отмена».
+    const wipeBtn = update.callback_query?.data?.match(/^fwp:([yn])$/);
+    if (wipeBtn) {
+      const query = update.callback_query;
+      const owner = isOwner(env, query.from?.id);
+      const answer = !owner ? "Недоступно" : wipeBtn[1] === "y" ? await forumWipe(env) : "Отменено, ничего не тронул.";
+      await callTelegram(env.BOT_TOKEN, "answerCallbackQuery", { callback_query_id: query.id, text: owner ? "Готово" : answer });
+      if (owner && query.message) {
+        await callTelegram(env.BOT_TOKEN, "editMessageText", { chat_id: query.message.chat.id, message_id: query.message.message_id, text: answer });
+      }
+      return new Response("ok");
+    }
+
     // «Вернуть» / «Удалить» под уведомлением о скрытом жалобами комментарии.
     const moderation = update.callback_query?.data?.match(/^(cmr|cmd):(\d+)$/);
     if (moderation) {
@@ -4937,7 +4950,7 @@ ${invite}`,
     }
 
     // Подслушка: сводка, выключатель, кто автор, удалить, бан — только владелец.
-    if (message && /^\/(forum|fwho|fdel|fban|ftester|funtester|fmod|funmod|froles|fclose|fopen)(?:@\w+)?(?:\s|$)/.test(text)) {
+    if (message && /^\/(forum|fwho|fdel|fban|ftester|funtester|fmod|funmod|froles|fclose|fopen|fclear)(?:@\w+)?(?:\s|$)/.test(text)) {
       const answer = isOwner(env, message.chat.id) ? await forumCommand(env, text, findPerson) : { text: "Команда недоступна." };
       await callTelegram(env.BOT_TOKEN, "sendMessage", {
         chat_id: message.chat.id,
