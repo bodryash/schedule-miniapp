@@ -358,13 +358,36 @@ function viewReply(env, row, user, perm, postRow, byId, vote) {
 
 /* ---------- API ---------- */
 
+/** Закрыта ли Подслушка на ремонт и что написать людям. */
+async function forumStatus(env, user) {
+  const off = (await setting(env, "forum_on", "1")) !== "1";
+  return {
+    status: 200,
+    json: { ok: true, off, message: off ? await setting(env, "forum_off_msg", "") : "", owner: Boolean(user?.id && isOwner(env, user.id)) },
+  };
+}
+
+/** Закрыть (off) или открыть Подслушку для всех, кроме владельца. */
+export async function forumSwitch(env, off, message = "") {
+  await putSetting(env, "forum_on", off ? "0" : "1");
+  await putSetting(env, "forum_off_msg", off ? String(message || "").trim().slice(0, 200) : "");
+  await putSetting(env, "forum_close_pending", "");
+}
+
 export async function forumApi(env, action, body, user, notify, tell) {
+  // Статус отдаём и без входа: по нему приложение решает, открывать ли форум.
+  if (action === "status") return forumStatus(env, user);
   if (!user?.id) return fail("unauthorized", 401);
   const owner = isOwner(env, user.id);
+  if (action === "switch") {
+    if (!owner) return fail("forbidden", 403);
+    await forumSwitch(env, Boolean(body.off), body.message);
+    return forumStatus(env, user);
+  }
   const role = owner ? "owner" : await roleOf(env, user.id);
   // staff — владелец и модераторы: видят очередь проверки и решают судьбу записей.
   const who = { owner, staff: owner || role === "moderator", role };
-  if (!owner && (await setting(env, "forum_on", "1")) !== "1") return fail("off", 503);
+  if (!owner && (await setting(env, "forum_on", "1")) !== "1") return fail("off", 503, { message: await setting(env, "forum_off_msg", "") });
   // Закрытое тестирование: пока форум не открыт для всех, пускаем только своих.
   if (!owner && !role && (await setting(env, "forum_access", "testers")) !== "all") return fail("closed", 403);
 
@@ -845,7 +868,8 @@ export async function forumModerate(env, action, kind, id) {
 export const FORUM_HELP = [
   "<b>Подслушка</b> — общий форум вузов.",
   "/forum — сводка и посты на проверке",
-  "/forum off · /forum on — аварийный выключатель",
+  "/fclose [текст людям] — закрыть Подслушку на ремонт (переспросит) · /fopen — открыть",
+  "/forum off · /forum on — то же без переспроса",
   "/forum newbie on|off — проверять первый пост нового автора",
   "/forum testers · /forum all — доступ: только свои (тестировщики, модераторы) или все",
   "/ftester @ник — открыть доступ тестировщику · /funtester @ник — закрыть",
@@ -862,9 +886,35 @@ function parseRef(token) {
   return m ? { kind: m[1] ? "r" : "p", id: Number(m[2]) } : null;
 }
 
+/** Ответ на кнопки «Да, закрыть» / «Отмена» под /fclose. */
+export async function forumCloseConfirm(env, yes) {
+  const pending = await setting(env, "forum_close_pending", "");
+  if (!yes) {
+    await putSetting(env, "forum_close_pending", "");
+    return "Отменено, Подслушка работает.";
+  }
+  if (!pending) return "Запрос устарел: отправьте /fclose ещё раз.";
+  await forumSwitch(env, true, pending === "-" ? "" : pending);
+  return "Подслушка закрыта на ремонт. Открыть: /fopen";
+}
+
 export async function forumCommand(env, text, findPerson) {
   const [cmdRaw, ...args] = String(text).trim().split(/\s+/);
   const cmd = cmdRaw.replace(/^\//, "").replace(/@\w+$/, "").toLowerCase();
+
+  if (cmd === "fclose") {
+    // Закрыть на ремонт — с переспросом: сначала кнопки, закрывает только «Да».
+    const message = args.join(" ").trim().slice(0, 200);
+    await putSetting(env, "forum_close_pending", message || "-");
+    return {
+      text: `⛔ Закрыть Подслушку на ремонт для всех?${message ? `\nЛюдям покажем: «${escape(message)}»` : ""}\nОткрыть обратно: /fopen`,
+      keyboard: [[{ text: "⛔ Да, закрыть", callback_data: "fcl:y" }, { text: "Отмена", callback_data: "fcl:n" }]],
+    };
+  }
+  if (cmd === "fopen") {
+    await forumSwitch(env, false);
+    return { text: "✅ Подслушка открыта." };
+  }
 
   if (cmd === "forum") {
     const sub = (args[0] || "").toLowerCase();
