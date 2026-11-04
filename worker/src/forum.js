@@ -706,8 +706,8 @@ async function report(env, body, user, who, notify) {
   const row = await authorOf(env, kind, id);
   if (!row || row.hidden !== 0) return fail("not found", 404);
   if (row.tg_id === user.id) return fail("own");
-  const added = await env.STATS.prepare("INSERT OR IGNORE INTO forum_reports (kind, item, tg_id, reason) VALUES (?, ?, ?, ?)")
-    .bind(kind, id, user.id, reason)
+  const added = await env.STATS.prepare("INSERT OR IGNORE INTO forum_reports (kind, item, tg_id, reason, name, username) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(kind, id, user.id, reason, displayName(user), user.username || null)
     .run();
   if (!added.meta?.changes) return { status: 200, json: { ok: true, already: true } };
   const reports = row.reports + 1;
@@ -722,12 +722,20 @@ async function report(env, body, user, who, notify) {
   )
     .bind(kind, id)
     .all();
+  // Кто жалуется — владельцу: анонимность жалобы только перед автором и остальными.
+  const { results: who2 = [] } = await env.STATS.prepare(
+    "SELECT tg_id, name, username, reason FROM forum_reports WHERE kind = ? AND item = ? ORDER BY rowid"
+  )
+    .bind(kind, id)
+    .all();
+  const reporters = who2.map((r) => `• ${AUTHOR_LINK(r)} — ${escape(REPORT_REASONS[r.reason] || r.reason)}`).join("\n");
   const reasons = why.map((w) => `${REPORT_REASONS[w.reason] || w.reason}${w.n > 1 ? ` ×${w.n}` : ""}`).join(", ");
   // Каждая жалоба — владельцу: первая тихо (без звука), скрытие — со звуком.
   await notify(
     [
       hide ? `⚠️ <b>Подслушка: ${label} №${id} скрыт после ${reports} жалоб</b>` : `🚩 Подслушка: жалоба на ${label} №${id} (${reports} из ${REPORTS_TO_HIDE})`,
       `Причина: ${escape(reasons)}`,
+      `Жалуются:\n${reporters}`,
       `Автор: ${AUTHOR_LINK(row)} · показан как ${row.anon ? "аноним" : "под именем"}`,
       "",
       snippet(row.text),
@@ -921,6 +929,9 @@ export async function forumCommand(env, text, findPerson) {
   if (!row) return { text: `Нет ${ref.kind === "p" ? "поста" : "ответа"} №${ref.id}.` };
 
   if (cmd === "fwho") {
+    const { results: reps = [] } = await env.STATS.prepare(
+      "SELECT tg_id, name, username, reason FROM forum_reports WHERE kind = ? AND item = ? ORDER BY rowid"
+    ).bind(ref.kind, ref.id).all();
     const state = { 0: "виден", 1: "скрыт жалобами", 2: "удалён", 3: "ждёт проверки" }[row.hidden];
     return {
       text: [
@@ -928,6 +939,7 @@ export async function forumCommand(env, text, findPerson) {
         `Автор: ${AUTHOR_LINK(row)}`,
         `Показан как: ${row.anon ? "аноним" : "под именем"}`,
         row.reports ? `Жалоб: ${row.reports}` : null,
+        reps.length ? `Жалуются:\n${reps.map((r) => `• ${AUTHOR_LINK({ ...r, name: r.name || "—" })} — ${escape(REPORT_REASONS[r.reason] || r.reason)}`).join("\n")}` : null,
         "",
         snippet(row.text),
       ].filter((x) => x !== null).join("\n"),

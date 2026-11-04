@@ -84,6 +84,8 @@ for (const change of [
   "ALTER TABLE forum_replies ADD COLUMN parent INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE forum_replies ADD COLUMN likes INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE forum_reports ADD COLUMN reason TEXT NOT NULL DEFAULT ''",
+  "ALTER TABLE forum_reports ADD COLUMN name TEXT NOT NULL DEFAULT ''",
+  "ALTER TABLE forum_reports ADD COLUMN username TEXT",
   // Голосование стрелками: +1 «за», −1 «против». Прежние лайки остаются голосами «за».
   "ALTER TABLE forum_likes ADD COLUMN v INTEGER NOT NULL DEFAULT 1",
   "ALTER TABLE forum_reply_likes ADD COLUMN v INTEGER NOT NULL DEFAULT 1",

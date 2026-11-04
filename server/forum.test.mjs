@@ -173,6 +173,7 @@ sent.length = 0;
 const newPost = (await api("list", {}, 200)).posts[0];
 await api("report", { kind: "p", id: newPost.id, reason: "spam" }, 300);
 ok(sent.some((m) => /спам или реклама/.test(m.text || "")), "причина жалобы указана в сообщении владельцу");
+ok(sent.some((m) => /Жалуются:/.test(m.text || "") && /tg:\/\/user\?id=300/.test(m.text || "")), "владелец видит, кто пожаловался (ссылка на профиль)");
 // действия владельца из приложения
 r = await api("mod", { kind: "p", id: newPost.id, op: "del" }, 200); ok(r.status === 403, "обычному человеку mod недоступен", JSON.stringify(r));
 r = await api("mod", { kind: "p", id: newPost.id, op: "del" }, OWNER); ok(r.ok && /Удалено/.test(r.text), "владелец удаляет из приложения", JSON.stringify(r));
