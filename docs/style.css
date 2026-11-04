@@ -2545,12 +2545,7 @@ body {
 
 /* Дата проявляется из размытия — мягче, чем простое появление. */
 .splash-day {
-  filter: blur(6px);
-  transition: opacity 420ms var(--ease-soft), transform 420ms var(--ease-soft), filter 420ms var(--ease-soft);
-}
-
-.splash:has(.splash-track--ready) .splash-day {
-  filter: none;
+  transition: opacity 420ms var(--ease-soft), transform 420ms var(--ease-soft);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4689,7 +4684,6 @@ body.champion .card--now {
   from {
     opacity: 0;
     transform: translateY(10px) rotate(-3deg);
-    filter: blur(3px);
   }
 }
 
@@ -5607,11 +5601,7 @@ body[data-head="tall"] .bar--schedule .date {
   clip-path: none;
   /* Цвета фона — постоянные, те же, что во встроенных стилях страницы:
      от недели они не зависят, иначе фон менялся бы на глазах. */
-  background:
-    radial-gradient(120% 50% at -10% -6%, rgba(255, 150, 70, 0.2), transparent 62%),
-    radial-gradient(100% 44% at 112% 2%, rgba(143, 123, 255, 0.18), transparent 64%),
-    radial-gradient(120% 46% at 50% 112%, rgba(90, 160, 255, 0.12), transparent 70%),
-    var(--bg);
+  background: var(--bg);
   will-change: transform;
 }
 
@@ -9651,7 +9641,6 @@ body.neon .wgrid-cell--parity {
   to {
     opacity: 0;
     transform: scale(1.12);
-    filter: blur(10px);
   }
 }
 
@@ -13354,4 +13343,110 @@ html.look-fade body *::after {
 
 .drift.drift--on {
   overflow: hidden;
+}
+
+/* Вид пары рядом с номером: «Мир языка» и «Практика речи» читаются с первого взгляда. */
+.tag.tag--kind {
+  font-weight: 700;
+  color: var(--accent-text);
+  background: var(--accent);
+}
+
+/* Кнопка режима «Подслушка» в шапке: заметная, не такая, как значки. */
+.forum-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  margin-right: 8px;
+  padding: 0 12px 0 10px;
+  border: 0;
+  border-radius: 17px;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms ease, opacity 160ms;
+}
+
+.forum-btn:active {
+  transform: scale(0.94);
+}
+
+.forum-btn svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+}
+.forum-btn[hidden] {
+  display: none;
+}
+
+/* Свободный день — спокойнее: значок мягко проявляется, без пружины и вращения. */
+@keyframes free-drop {
+  from { opacity: 0; transform: translateY(12px) scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes free-bob {
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes free-breathe {
+  50% { transform: scale(1.04); opacity: 0.85; }
+}
+
+.free-day-emoji {
+  animation:
+    free-drop 700ms var(--ease-soft) both,
+    free-bob 5.2s ease-in-out 700ms infinite;
+}
+
+.free-day--landed .free-day-emoji {
+  animation: free-bob 5.2s ease-in-out infinite;
+}
+
+.splash-free-emoji {
+  animation: splash-free-pop 700ms var(--ease-soft) 420ms both;
+}
+
+@keyframes splash-free-pop {
+  from { opacity: 0; transform: translateY(10px) scale(0.9); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Смена режима: цветная завеса с названием режима. */
+.mode-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: #fff;
+  pointer-events: all;
+}
+
+.mode-veil-card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.mode-veil-icon {
+  font-size: 64px;
+  line-height: 1;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.22));
+}
+
+.mode-veil-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
 }

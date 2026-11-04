@@ -8840,9 +8840,59 @@ function applyRole() {
  * отдельным переключателем и не трогает выбор вуза — группа и преподаватель
  * откладываются в prefs.study и возвращаются, когда режим выключают.
  */
+/** Куда нажали последний раз: из этой точки раскрывается смена режима. */
+let lastPress = { x: innerWidth / 2, y: innerHeight / 2 };
+document.addEventListener("pointerdown", (event) => {
+  lastPress = { x: event.clientX, y: event.clientY };
+}, { capture: true, passive: true });
+
+let modeSwitching = false;
+
+/**
+ * Смена режима «расписание ⇄ ежедневник»: цвет раскрывается кругом из точки
+ * нажатия и накрывает экран, под ним режим меняется, на плашке всплывает
+ * название режима — и она тает, открывая уже новый экран.
+ */
 function setPlannerMode(on) {
-  if (Boolean(prefs.planner) === on) return;
+  if (Boolean(prefs.planner) === on || modeSwitching) return;
+  const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (calm || !document.body.animate) return applyPlannerMode(on);
+  modeSwitching = true;
   haptic("select");
+  const { x, y } = lastPress;
+  const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) + 24;
+  const veil = el("div", "mode-veil");
+  veil.setAttribute("aria-hidden", "true");
+  const card = el("div", "mode-veil-card");
+  card.append(el("div", "mode-veil-icon", on ? "📓" : "📅"), el("div", "mode-veil-title", on ? t("Ежедневник") : t("Расписание")));
+  veil.append(card);
+  document.body.append(veil);
+  const grow = veil.animate(
+    [{ clipPath: `circle(0px at ${x}px ${y}px)` }, { clipPath: `circle(${radius}px at ${x}px ${y}px)` }],
+    { duration: 460, easing: "cubic-bezier(0.55, 0, 0.1, 1)", fill: "forwards" }
+  );
+  card.animate(
+    [{ opacity: 0, transform: "translateY(14px) scale(0.92)" }, { opacity: 1, transform: "none" }],
+    { duration: 420, delay: 240, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "backwards" }
+  );
+  grow.finished.then(() => {
+    applyPlannerMode(on);
+    haptic("success");
+    setTimeout(() => {
+      const gone = veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 420, easing: "ease-out", fill: "forwards" });
+      card.animate([{ transform: "none" }, { transform: "scale(1.06)" }], { duration: 420, easing: "ease-out", fill: "forwards" });
+      gone.finished.then(() => {
+        veil.remove();
+        modeSwitching = false;
+      });
+    }, 420);
+  }).catch(() => {
+    veil.remove();
+    modeSwitching = false;
+  });
+}
+
+function applyPlannerMode(on) {
   if (on) {
     const study = { group: prefs.group, teacher: prefs.teacher, teacherName: prefs.teacherName, mfk: prefs.mfk || [] };
     prefs = { ...prefs, planner: true, study, group: undefined, teacher: undefined, teacherName: undefined, mfk: [] };
@@ -8863,6 +8913,21 @@ function setPlannerMode(on) {
   // Выключили, а группы ещё не было: сразу к выбору вуза и группы.
   if (!on && !group && settingsNav.built) openSettingsPage("study");
   else if (settingsNav.built) openSettingsPage(settingsNav.open || "");
+  // Новый режим — с чистого листа: сегодняшний день, экран собирается заново
+  // и подгружает своё (дела или пары), а не остаётся от прошлого режима.
+  const menu = document.getElementById("menu-pop");
+  if (menu) menu.hidden = true;
+  const modeRowSwitch = document.querySelector("#menu-pop .menu-mode .mode-switch");
+  modeRowSwitch?.setAttribute("aria-checked", String(Boolean(prefs.planner)));
+  if (prefs.planner || group) {
+    selectedWeek = 0;
+    selectedDay = ((new Date().getDay() + 6) % 7) + 1;
+    tab = "";
+    openTab("schedule");
+  } else if (!settingsNav.built) {
+    showPicker();
+    openSettingsPage("study");
+  }
 }
 
 function renderPlannerMode() {
@@ -9312,6 +9377,8 @@ function openTab(name) {
   requestAnimationFrame(() => moveDrop(name));
   els.free.hidden = true;
   els.picker.hidden = true;
+  const forumBox = document.getElementById("forum");
+  if (forumBox) forumBox.hidden = true;
   els.week.hidden = name !== "week";
   if (els.queues) els.queues.hidden = name !== "queues";
   document.getElementById("deadlines").hidden = name !== "deadlines";
@@ -9811,29 +9878,8 @@ function renderFreeDay() {
   const [emoji, title, line] = freeDayPhrase(date);
   // Сцена: значок падает сверху и пружинит, под ним расходится круг, вокруг
   // всплывают искры. Подписи поднимаются следом — день «собирается» за секунду.
-  // Фон: три цветных пятна медленно плавают за значком, поверх мерцают
-  // редкие точки. Пустой экран перестаёт быть белым листом.
-  const sky = el("div", "free-day-sky");
-  for (let i = 1; i <= 3; i++) sky.append(el("span", `free-day-blob free-day-blob--${i}`));
-  const seed = date.getDate() * 31 + date.getMonth() * 7;
-  for (let i = 0; i < 9; i++) {
-    const star = el("span", "free-day-star");
-    // Места точек — от даты: у каждого дня своё «небо», но оно не скачет.
-    star.style.left = `${8 + ((seed * (i + 3) * 37) % 84)}%`;
-    star.style.top = `${6 + ((seed * (i + 5) * 53) % 78)}%`;
-    star.style.setProperty("--d", `${(i * 430) % 3000}ms`);
-    star.style.setProperty("--s", `${3 + ((seed + i) % 3)}px`);
-    sky.append(star);
-  }
-  node.append(sky);
   const stage = el("div", "free-day-stage");
-  stage.append(el("span", "free-day-halo"), el("span", "free-day-ring"));
-  for (let i = 0; i < 6; i++) {
-    const spark = el("span", "free-day-spark");
-    spark.style.setProperty("--a", `${i * 60 + 20}deg`);
-    spark.style.setProperty("--d", `${i * 90}ms`);
-    stage.append(spark);
-  }
+  stage.append(el("span", "free-day-halo"));
   stage.append(el("div", "free-day-emoji", emoji));
   node.append(stage, el("div", "free-day-title", title));
   if (line) node.append(el("div", "free-day-line", line));
@@ -10961,6 +11007,67 @@ function haptic(kind = "select") {
   }
 }
 
+/**
+ * Подслушка грузится, только когда её открывают: forum.js и forum.css весят
+ * десятки килобайт, и тем, кто форумом не пользуется, они не нужны.
+ */
+let forumAssets = null;
+if (!tg?.initData) document.getElementById("forum-btn")?.setAttribute("hidden", "");
+document.getElementById("forum-btn")?.addEventListener("click", () => {
+  haptic("medium");
+  openForum();
+});
+
+/**
+ * Аварийный выключатель Подслушки, не зависящий от бота: флаг лежит файлом
+ * на GitHub Pages и на самом сервере. Любой, кто ответил первым, решает.
+ * Нет сети — считаем, что открыто: выключатель только закрывает, не мешает.
+ */
+const FORUM_FLAG_URLS = ["https://bodryash.github.io/schedule-miniapp/forum-status.json", "forum-status.json"];
+async function forumKill() {
+  const within = (promise) => promise.then((res) => (res.ok ? res.json() : null)).catch(() => null);
+  const timeout = () => AbortSignal.timeout(2500);
+  const flags = await Promise.all([
+    ...FORUM_FLAG_URLS.map((url) => within(fetch(`${url}?t=${Date.now()}`, { cache: "no-store", signal: timeout() }))),
+    // Сервер знает и про /fclose, и про кнопку владельца в приложении; заодно скажет, владелец ли это.
+    within(fetch(`${API_URL}/forum/status`, { method: "POST", body: JSON.stringify({ initData: tg?.initData || "" }), signal: timeout() })),
+  ]);
+  const found = flags.filter(Boolean);
+  const closed = found.find((f) => f.off);
+  const owner = found.some((f) => f.owner);
+  // Владелец проходит всегда: иначе он не смог бы открыть форум обратно.
+  return closed && !owner ? closed : null;
+}
+window.forumKill = forumKill;
+window.forumKillNotice = (flag) =>
+  toast(`🛠 ${t("Подслушка закрыта на ремонт.")} ${flag?.message ? flag.message : t("Скоро вернёмся.")}`);
+
+async function openForum(opts) {
+  if (!tg?.initData) return;
+  const flag = await forumKill();
+  if (flag?.off) return window.forumKillNotice(flag);
+  if (typeof window.showForum === "function") return window.showForum(opts);
+  forumAssets ||= new Promise((resolve, reject) => {
+    const v = window.__v || Date.now();
+    let left = 2;
+    const done = () => (--left === 0 ? resolve() : null);
+    const css = document.createElement("link");
+    css.rel = "stylesheet";
+    css.href = `forum.css?v=${v}`;
+    css.onload = done;
+    css.onerror = reject;
+    const js = document.createElement("script");
+    js.src = `forum.js?v=${v}`;
+    js.onload = done;
+    js.onerror = reject;
+    document.head.append(css, js);
+  }).catch((error) => {
+    forumAssets = null;
+    console.error("Подслушка не загрузилась:", error);
+  });
+  forumAssets.then(() => window.showForum?.(opts));
+}
+
 /** Меню «⋯» в шапке: свободные аудитории и настройки. */
 /* ---------- Нижние окна и системный свайп Telegram ----------
  * Само перетаскивание окон — в addSheetGrab (ниже, у механики окон). Здесь
@@ -11060,14 +11167,7 @@ function initMenu() {
           event.stopPropagation();
           setPlannerMode(!prefs.planner);
           sw.setAttribute("aria-checked", String(Boolean(prefs.planner)));
-          setTimeout(() => {
-            close();
-            if (prefs.planner || activeGroup()) openTab("schedule");
-            else {
-              showPicker();
-              openSettingsPage("study");
-            }
-          }, 260);
+          close();
         });
         pop.prepend(modeRow);
       }
@@ -11913,6 +12013,22 @@ function subgroupsLabel(n) {
 // Пары в стилистике «Локомотива» — по просьбе 3 курса ФГП.
 const LOKO_SUBJECTS = new Set(["Деловой протокол и этикет"]);
 
+// Что за пара «МИР», по преподавателю. Со слов студента ФИЯР: у французского
+// Бунтман ведёт литературу, Ратникова — историю. Остальных дописываем по мере
+// того, как студенты подтверждают (испанский, китайский, итальянский, немецкий).
+const MIR_BY_TEACHER = {
+  "msu-ffl": {
+    "Бунтман Н.В.": "литература",
+    "Ратникова Е.И.": "история",
+  },
+};
+
+// Пометки, которые на деле — вид пары (ФИЯР): показываем меткой, а не серой строкой.
+const NOTE_KINDS = {
+  "МИР": "Мир языка",
+  "теория и практика речевого общения": "Практика речи",
+};
+
 function renderCard(entries, bells, slots = [entries[0].slot]) {
   const first = entries[0];
   const bell = timesOf(first, bells);
@@ -11960,6 +12076,17 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
   }
   if (isMfkLesson(first.subject)) head.append(el("span", "tag", t("МФК")));
   else if (first.elective) head.append(el("span", "tag", t(first.elective)));
+  // «2-ой Французский язык» бывает разной парой: практика речи или курс «МИР».
+  // В расписании ФИЯР это различает только пометка, и под одинаковым названием
+  // пары путали. Выносим её цветной меткой рядом с номером пары.
+  let kindTag = NOTE_KINDS[first.note];
+  // «МИР» у каждого языка свой («культура и история»): по преподавателю видно, что именно.
+  if (first.note === "МИР") {
+    const byTeacher = MIR_BY_TEACHER[tenantId()] || {};
+    const hit = Object.keys(byTeacher).find((name) => String(first.teacher || "").includes(name));
+    if (hit) kindTag = `Мир: ${byTeacher[hit]}`;
+  }
+  if (kindTag) head.append(el("span", "tag tag--kind", t(kindTag)));
   // Аудитория выносится вправо отдельной плашкой — но только когда она одна
   // на всю карточку. У подгрупп аудитории разные, и в списке они остаются.
   const single = entries.length === 1;
@@ -11986,7 +12113,7 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
     body.append(renderSegments(slots, bells));
   }
 
-  const notes = [...new Set(entries.map((e) => e.note).filter(Boolean))];
+  const notes = [...new Set(entries.map((e) => e.note).filter((n) => n && !NOTE_KINDS[n]))];
   if (notes.length) body.append(el("div", "note", notes.map(trNote).join("; ")));
 
   // Занятие на удалёнке — ссылка на встречу прямо в карточке.
@@ -12233,7 +12360,9 @@ function speedUpSplash() {
     for (const anim of splash.getAnimations({ subtree: true })) {
       if (anim.playbackRate !== SPLASH_SPEED) anim.playbackRate = SPLASH_SPEED;
     }
-    if (document.body.contains(splash)) requestAnimationFrame(tick);
+    // Раз в 100 мс, а не каждый кадр: обход всех анимаций дерева на каждом
+    // кадре сам отнимал время у заставки.
+    if (document.body.contains(splash)) setTimeout(tick, 100);
   };
   tick();
 }
@@ -12402,21 +12531,10 @@ function assembleFreeSplash() {
   const scene = el("div", "splash-free");
   const rect = els.splashTrack.getBoundingClientRect();
   scene.style.top = `${Math.round(rect.top + rect.height / 2)}px`;
-  for (let i = 0; i < 3; i++) {
-    const ring = el("span", "splash-free-ring");
-    ring.style.setProperty("--i", i);
-    scene.append(ring);
-  }
-  for (let i = 0; i < 8; i++) {
-    const ray = el("span", "splash-free-ray");
-    ray.style.setProperty("--a", `${i * 45}deg`);
-    scene.append(ray);
-  }
   scene.append(el("span", "splash-free-emoji", emoji), el("span", "splash-free-title", title));
   splash.append(scene);
-  // Три толчка по нарастающей — и короткий «успех», когда значок встал.
-  ["soft", "light", "medium"].forEach((kind, i) => setTimeout(() => haptic(kind), sp(120 + i * 170)));
-  setTimeout(() => haptic("success"), sp(760));
+  // Спокойно: один мягкий толчок, когда значок встал.
+  setTimeout(() => haptic("soft"), sp(560));
   return sp(1500);
 }
 
@@ -12896,18 +13014,6 @@ async function init() {
     }
     applyBackground();
   });
-  const decorBox = document.getElementById("decor");
-  if (decorBox) {
-    decorBox.checked = decorOn();
-    decorBox.addEventListener("change", () => {
-      try {
-        localStorage.setItem(DECOR_KEY, decorBox.checked ? "on" : "off");
-      } catch {
-        // Без памяти — до перезапуска.
-      }
-      applyDecor();
-    });
-  }
   // 5. Нажатие на карточку пары — подробности. Кнопки внутри — сами по себе.
   els.lessons.addEventListener("click", (event) => {
     const card = event.target.closest("article.card");
@@ -13085,6 +13191,10 @@ async function init() {
   // Пришли по ссылке «поделиться» — спросим, когда заставка уйдёт.
   setTimeout(acceptShared, SPLASH_MIN + 600);
   setTimeout(acceptInvite, SPLASH_MIN + 700);
+  // Из бота: «вам ответили» — кнопка ведёт прямо в это обсуждение.
+  const talk = Number(new URLSearchParams(location.search).get("forum"));
+  const talkReply = Number(new URLSearchParams(location.search).get("reply")) || 0;
+  if (talk > 0) setTimeout(() => openForum({ thread: talk, reply: talkReply }), SPLASH_MIN + 900);
 }
 
 init();

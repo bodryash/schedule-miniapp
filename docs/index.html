@@ -83,11 +83,7 @@
       position: fixed; inset: 0; z-index: 80; overflow: hidden;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 26px; padding: 0 40px;
-      background:
-      radial-gradient(120% 50% at -10% -6%, rgba(255, 150, 70, 0.2), transparent 62%),
-      radial-gradient(100% 44% at 112% 2%, rgba(143, 123, 255, 0.18), transparent 64%),
-      radial-gradient(120% 46% at 50% 112%, rgba(90, 160, 255, 0.12), transparent 70%),
-      var(--tg-theme-bg-color, #fff);
+      background: var(--tg-theme-bg-color, #fff);
       color: var(--tg-theme-text-color, #0f0f0f);
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     }
@@ -391,10 +387,6 @@
 
     <fieldset id="decor-row">
       <legend data-i18n>Оформление</legend>
-      <label class="check">
-        <input id="decor" type="checkbox">
-        <span data-i18n>Небо по времени суток и сезонные детали</span>
-      </label>
       <p class="hint" data-i18n>Цвет предмета — откройте пару и выберите цвет внизу.</p>
     </fieldset>
 
@@ -633,6 +625,10 @@
           <!-- Поиск живёт во вкладке снизу, аудитории и настройки — в меню:
                шапка остаётся под дату. Старые кнопки прячем, а не удаляем —
                на них держатся обработчики и старые сохранённые страницы. -->
+          <button id="forum-btn" class="forum-btn" type="button" aria-label="Подслушка — общий форум студентов">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 5.2A2.2 2.2 0 0 1 5.7 3h8.6a2.2 2.2 0 0 1 2.2 2.2v5.6a2.2 2.2 0 0 1-2.2 2.2H9.4l-3.6 3v-3H5.7a2.2 2.2 0 0 1-2.2-2.2z" /></svg>
+            <span data-i18n>Подслушка</span>
+          </button>
           <button id="menu" class="icon" type="button" aria-label="Меню" aria-haspopup="true">
             <svg viewBox="0 0 20 20" aria-hidden="true">
               <circle cx="4.5" cy="10" r="1.6" class="icon-fill" />
