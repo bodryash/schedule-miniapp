@@ -459,6 +459,9 @@ async function replies(env, body, user, owner, ban) {
       ok: true,
       banned: ban,
       notify: prefsRow ? Boolean(prefsRow.notify) : true,
+      // Как зрителя будут звать в этой теме — чтобы свой ответ сразу показать
+      // с настоящим именем, не дожидаясь сервера.
+      me: { alias: alias(env, id, user.id), name: displayName(user), hue: personHue(env, user.id) },
       post: viewPost(env, post, user, owner, liked),
       replies: results.map((r) => viewReply(env, r, user, owner, post, byId, likedReplies.has(r.id))),
     },

@@ -48,7 +48,7 @@ jobs:
           # Без подписи Telegram форум должен ответить 401: значит, код форума на сервере живой.
           curl -s -m 20 -X POST https://api.bodryash.ru/forum/list -d '{}' -w "\n/forum/list без подписи → HTTP %{http_code} (ждём 401)\n" || echo "форум не ответил"
           for url in https://beta.bodryash.ru https://fgp-schedule-beta.bodryash.workers.dev; do
-            curl -fsS -m 20 "$url/forum.js?v=$(date +%s)" 2>/dev/null | grep -q forumOpenCompose && echo "$url: экран форума есть" || echo "$url: экрана форума нет"
+            curl -fsS -m 20 "$url/forum.js?v=$(date +%s)" 2>/dev/null | grep -q openComposer && echo "$url: экран форума есть" || echo "$url: экрана форума нет"
           done
           curl -fsS -m 20 "https://app.bodryash.ru/forum.js?v=$(date +%s)" >/dev/null 2>&1 && echo "app.bodryash.ru: экран форума ЕСТЬ у студентов" || echo "app.bodryash.ru: экрана форума нет (так и надо, пока не выкатили)"
 
