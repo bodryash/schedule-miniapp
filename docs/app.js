@@ -10963,6 +10963,35 @@ function haptic(kind = "select") {
   }
 }
 
+/**
+ * Подслушка грузится, только когда её открывают: forum.js и forum.css весят
+ * десятки килобайт, и тем, кто форумом не пользуется, они не нужны.
+ */
+let forumAssets = null;
+function openForum(opts) {
+  if (!tg?.initData) return;
+  if (typeof window.showForum === "function") return window.showForum(opts);
+  forumAssets ||= new Promise((resolve, reject) => {
+    const v = window.__v || Date.now();
+    let left = 2;
+    const done = () => (--left === 0 ? resolve() : null);
+    const css = document.createElement("link");
+    css.rel = "stylesheet";
+    css.href = `forum.css?v=${v}`;
+    css.onload = done;
+    css.onerror = reject;
+    const js = document.createElement("script");
+    js.src = `forum.js?v=${v}`;
+    js.onload = done;
+    js.onerror = reject;
+    document.head.append(css, js);
+  }).catch((error) => {
+    forumAssets = null;
+    console.error("Подслушка не загрузилась:", error);
+  });
+  forumAssets.then(() => window.showForum?.(opts));
+}
+
 /** Меню «⋯» в шапке: свободные аудитории и настройки. */
 /* ---------- Нижние окна и системный свайп Telegram ----------
  * Само перетаскивание окон — в addSheetGrab (ниже, у механики окон). Здесь
@@ -11109,7 +11138,7 @@ function initMenu() {
     if (item.dataset.menu === "invite") inviteGroup(item);
     if (item.dataset.menu === "rooms") showFree();
     if (item.dataset.menu === "queues") openTab("queues");
-    if (item.dataset.menu === "forum" && typeof showForum === "function") showForum();
+    if (item.dataset.menu === "forum") openForum();
     if (item.dataset.menu === "courses") {
       showPicker();
       openSettingsPage("courses");
@@ -13088,6 +13117,9 @@ async function init() {
   // Пришли по ссылке «поделиться» — спросим, когда заставка уйдёт.
   setTimeout(acceptShared, SPLASH_MIN + 600);
   setTimeout(acceptInvite, SPLASH_MIN + 700);
+  // Из бота: «вам ответили» — кнопка ведёт прямо в это обсуждение.
+  const talk = Number(new URLSearchParams(location.search).get("forum"));
+  if (talk > 0) setTimeout(() => openForum({ thread: talk }), SPLASH_MIN + 900);
 }
 
 init();
