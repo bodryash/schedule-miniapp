@@ -200,7 +200,7 @@ ok(seenAnon && seenAnon.tg === undefined && !JSON.stringify(seenAnon).includes("
 // команды владельца
 sent.length = 0; await tg("/forum");
 ok(sent.some((m) => /Подслушка/.test(m.text || "") && /На проверке/.test(m.text)), "/forum показывает сводку");
-ok(sent.filter((m) => /ждёт —/.test(m.text || "")).length >= 2, "в сводке очередь проверки с кнопками");
+ok(sent.filter((m) => /ждёт\nПричина:/.test(m.text || "")).length >= 2, "в сводке очередь проверки с кнопками");
 sent.length = 0; await tg(`/fwho ${postId}`); ok(sent.some((m) => /Автор:/.test(m.text || "") && /id 100/.test(m.text)), "/fwho раскрывает автора");
 // выключатель
 await tg("/forum off");
