@@ -332,19 +332,6 @@
     "short": "РГУП"
   },
   {
-    "id": "mgimo-up-dip",
-    "university": "МГИМО",
-    "faculty": "Факультет управления и политики (Дип)",
-    "path": "mgimo-up-dip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 63
-    },
-    "short": "УП (Дип)"
-  },
-  {
     "id": "msal-orenburg-spo3",
     "university": "МГЮА, Оренбургский институт",
     "faculty": "Юриспруденция (СПО, 3 курс)",
@@ -411,19 +398,6 @@
     "short": "ИМиП"
   },
   {
-    "id": "msu-vshga",
-    "university": "МГУ",
-    "faculty": "Высшая школа государственного аудита",
-    "path": "msu-vshga",
-    "features": [],
-    "source": {
-      "kind": "tt",
-      "base": "https://tt.audit.msu.ru",
-      "faculty": "3"
-    },
-    "short": "ВШГА"
-  },
-  {
     "id": "mgimo-meo-dip",
     "university": "МГИМО",
     "faculty": "Факультет международных экономических отношений (Дип)",
@@ -450,19 +424,6 @@
     "short": "ЕУИ"
   },
   {
-    "id": "mgimo-imtur",
-    "university": "МГИМО",
-    "faculty": "Институт международной торговли и устойчивого развития",
-    "path": "mgimo-imtur",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 28
-    },
-    "short": "ИМТУР"
-  },
-  {
     "id": "mgimo-mo-dip",
     "university": "МГИМО",
     "faculty": "Факультет Международные отношения (Дип)",
@@ -474,6 +435,45 @@
       "faculty": 55
     },
     "short": "МО (Дип)"
+  },
+  {
+    "id": "mgimo-up-dip",
+    "university": "МГИМО",
+    "faculty": "Факультет управления и политики (Дип)",
+    "path": "mgimo-up-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 63
+    },
+    "short": "УП (Дип)"
+  },
+  {
+    "id": "msu-vshga",
+    "university": "МГУ",
+    "faculty": "Высшая школа государственного аудита",
+    "path": "msu-vshga",
+    "features": [],
+    "source": {
+      "kind": "tt",
+      "base": "https://tt.audit.msu.ru",
+      "faculty": "3"
+    },
+    "short": "ВШГА"
+  },
+  {
+    "id": "mgimo-imtur",
+    "university": "МГИМО",
+    "faculty": "Институт международной торговли и устойчивого развития",
+    "path": "mgimo-imtur",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 28
+    },
+    "short": "ИМТУР"
   },
   {
     "id": "mgimo-up",
