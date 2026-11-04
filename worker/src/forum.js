@@ -874,7 +874,7 @@ export const FORUM_HELP = [
   "/forum newbie on|off — проверять первый пост нового автора",
   "/forum testers · /forum all — доступ: только свои (тестировщики, модераторы) или все",
   "/ftester @ник — открыть доступ тестировщику · /funtester @ник — закрыть",
-  "/fmod @ник — назначить модератором · /funmod @ник — снять",
+  "/fmod @ник — назначить модератором · /funmod @ник — снять · /funmod all — снять всех модераторов сразу",
   "/froles — кто допущен к форуму",
   "/fwho 12 — кто на самом деле автор поста №12 (ответ: /fwho r5)",
   "/fdel 12 — удалить пост (ответ: /fdel r5)",
@@ -1060,14 +1060,20 @@ async function rolesCommand(env, cmd, args, findPerson) {
         "",
         ...results.map((r) => `${r.role === "moderator" ? "🛡" : "🧪"} <a href="tg://user?id=${r.tg_id}">${escape(r.name || `id ${r.tg_id}`)}</a>${r.username ? ` @${escape(r.username)}` : ""} · id ${r.tg_id} · ${ROLE_NAME[r.role]}`),
         "",
-        "Снять: /funtester @ник · /funmod @ник",
+        "Снять: /funtester @ник · /funmod @ник · всех сразу: /funmod all, /funtester all",
       ].join("\n"),
     };
   }
   const grant = cmd === "ftester" || cmd === "fmod";
   const role = cmd === "ftester" || cmd === "funtester" ? "tester" : "moderator";
   const token = args[0];
-  if (!token) return { text: `Кого? /${cmd} @ник или /${cmd} 123456789` };
+  // Снять сразу всех: /funmod all, /funtester all.
+  if (!grant && /^(all|все|всех)$/i.test(token || "")) {
+    const { results = [] } = await env.STATS.prepare("SELECT tg_id FROM forum_roles WHERE role = ?").bind(role).all();
+    await env.STATS.prepare("DELETE FROM forum_roles WHERE role = ?").bind(role).run();
+    return { text: results.length ? `Снял ${role === "moderator" ? "всех модераторов" : "всех тестировщиков"}: ${results.length}.` : `${role === "moderator" ? "Модераторов" : "Тестировщиков"} и так нет.` };
+  }
+  if (!token) return { text: `Кого? /${cmd} @ник или /${cmd} 123456789${grant ? "" : " · /" + cmd + " all — снять всех"}` };
   const person = await findPerson(env, token);
   if (!person?.tg_id) {
     return { text: `Не нашёл ${escape(token)}. Человек должен хоть раз открыть бота или расписание; можно указать его числовой id.` };

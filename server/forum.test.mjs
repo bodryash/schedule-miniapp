@@ -230,6 +230,13 @@ r = await api("switch", { off: true, message: "Минутку" }, OWNER); ok(r.o
 await tg("/fopen"); await settle();
 r = await api("list", {}, 200); ok(r.ok, "/fopen открывает");
 r = await api("status", {}, 200); ok(r.off === false && r.message === "", "status после открытия чистый");
+// снять всех модераторов одной командой
+await tg("/fmod 451"); await tg("/fmod 452"); await settle();
+r = await api("list", {}, 451); ok(r.ok && r.role === "moderator", "модератор назначен (до /funmod all)");
+sent.length = 0; await tg("/funmod all"); await settle();
+ok(sent.some((m) => /Снял всех модераторов/.test(m.text || "")), "/funmod all снимает всех сразу", JSON.stringify(sent.slice(-2)));
+sent.length = 0; await tg("/froles"); await settle();
+ok(!sent.some((m) => /🛡/.test(m.text || "")), "после /funmod all модераторов в списке нет");
 // очистка: только после «Да», посты и модераторы стираются, тестировщики остаются
 await tg("/fmod 450"); await settle();
 r = await api("list", {}, 200); const beforeWipe = r.posts.length; ok(beforeWipe > 0, "до очистки посты есть");
