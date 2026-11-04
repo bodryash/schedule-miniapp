@@ -47,6 +47,7 @@ const tg = async (text, from = OWNER) => {
   return r.status;
 };
 const lastSent = (n = 1) => sent.slice(-n);
+const settle = () => new Promise((r) => setTimeout(r, 200));
 let fail = 0;
 const ok = (cond, name, extra = "") => { console.log((cond ? "✓ " : "✗ ") + name + (cond ? "" : "  " + extra)); if (!cond) fail++; };
 
@@ -78,7 +79,10 @@ r = await api("post", { text: "ну ты и хуйло, поговорим", ano
 r = await api("post", { text: "я не хочу жить, всё надоело", anon: true }, 101); ok(r.ok && r.pending && /беды/.test(r.reason), "признаки беды — на проверку", JSON.stringify(r));
 r = await api("post", { text: "куплю траву недорого", anon: true }, 102); ok(r.ok && r.pending, "наркотики — на проверку", JSON.stringify(r));
 // ответы
+sent.length = 0;
 r = await api("reply", { post: postId, text: "Во вторник в 14:00, смотри в расписании", anon: true }, 200);
+await settle();
+ok(sent.some((m) => m.method === "sendMessage" && String(m.chat_id) === "100" && /Ответили на ваш пост/.test(m.text || "") && m.reply_markup?.inline_keyboard?.[0]?.[0]?.web_app?.url?.includes("?forum=" + postId)), "автору поста пришло уведомление со ссылкой на тему");
 ok(r.ok && !r.pending, "ответ публикуется сразу", JSON.stringify(r));
 const rep1 = r.reply;
 r = await api("reply", { post: postId, text: "Спасибо большое!", anon: true }, 100);
@@ -89,10 +93,48 @@ r = await api("list", {}, 200); ok(r.posts[0].replies === 2, "счётчик о�
 // лайк
 r = await api("like", { post: postId }, 200); ok(r.ok && r.liked && r.likes === 1, "лайк", JSON.stringify(r));
 r = await api("like", { post: postId }, 200); ok(r.ok && !r.liked && r.likes === 0, "повторный лайк снимает", JSON.stringify(r));
+// ответ на ответ, лайк ответа, цитата родителя
+r = await api("replies", { post: postId }, 100);
+const parentId = r.replies[0].id;
+sent.length = 0;
+r = await api("reply", { post: postId, text: "Это ответ на ответ", anon: true, to: parentId }, 201);
+await settle();
+ok(r.ok && r.reply.parent?.id === parentId, "ответ на ответ хранит родителя", JSON.stringify(r));
+r = await api("replies", { post: postId }, 100);
+const child = r.replies.find((x) => x.parent);
+ok(child && child.parent.text.length > 0 && child.parent.name.startsWith("Аноним"), "родитель приходит цитатой с именем", JSON.stringify(child));
+ok(sent.some((m) => m.method === "sendMessage" && String(m.chat_id) === "200" && /Ответили на ваш ответ/.test(m.text || "")), "автору ответа пришло уведомление, что ответили именно ему");
+r = await api("reply", { post: postId, text: "Ответ на несуществующий", anon: true, to: 99999 }, 202); ok(r.status === 404, "ответ на чужую/несуществующую ветку — отказ", JSON.stringify(r));
+r = await api("like", { kind: "r", id: parentId }, 202); ok(r.ok && r.liked && r.likes === 1, "лайк ответа", JSON.stringify(r));
+r = await api("replies", { post: postId }, 202); ok(r.replies.find((x) => x.id === parentId).liked === true, "лайк ответа виден лайкнувшему");
+r = await api("prefs", { notify: false }, OWNER); ok(r.ok && r.notify === false, "уведомления можно выключить");
+// другая тема — чтобы не упереться в «не чаще раза в 20 минут»
+const other = await api("post", { text: "Вторая тема, чтобы проверить выключенные уведомления", anon: true }, OWNER);
+await api("prefs", { notify: false }, OWNER);
+sent.length = 0; await api("reply", { post: other.post.id, text: "Ответ, о котором автор не узнает", anon: true }, 203);
+await settle();
+ok(!sent.some((m) => String(m.chat_id) === String(OWNER) && /Ответили/.test(m.text || "")), "выключенные уведомления не приходят");
+await api("prefs", { notify: true }, OWNER);
+// опрос новых
+const top0 = (await api("list", {}, 200)).top;
+await api("post", { text: "Свежий пост про расписание на пятницу, кто в курсе?", anon: true }, OWNER);
+r = await api("poll", { after: top0 }, 200); ok(r.ok && r.count === 1, "poll считает новые посты", JSON.stringify(r));
+r = await api("poll", { after: top0 }, OWNER); ok(r.count === 0, "свои посты в «новых» не считаются", JSON.stringify(r));
+// причина жалобы доходит до владельца
+sent.length = 0;
+const newPost = (await api("list", {}, 200)).posts[0];
+await api("report", { kind: "p", id: newPost.id, reason: "spam" }, 300);
+ok(sent.some((m) => /спам или реклама/.test(m.text || "")), "причина жалобы указана в сообщении владельцу");
+// действия владельца из приложения
+r = await api("mod", { kind: "p", id: newPost.id, op: "del" }, 200); ok(r.status === 403, "обычному человеку mod недоступен", JSON.stringify(r));
+r = await api("mod", { kind: "p", id: newPost.id, op: "del" }, OWNER); ok(r.ok && /Удалено/.test(r.text), "владелец удаляет из приложения", JSON.stringify(r));
+r = await api("list", { sort: "review" }, OWNER); ok(r.ok && typeof r.review === "number", "очередь проверки у владельца", JSON.stringify(r).slice(0, 120));
+r = await api("list", { sort: "review" }, 200); ok(r.ok && r.review === undefined && r.posts.every((p) => !p.pending || p.mine), "очередь проверки обычному не раскрывается");
+
 // жалобы: 3 → скрыт
 sent.length = 0;
 for (const id of [300, 301, 302]) r = await api("report", { kind: "p", id: postId }, id);
-r = await api("list", {}, 200); ok(r.posts.length === 0, "после 3 жалоб пост скрыт", JSON.stringify(r.posts));
+r = await api("list", {}, 200); ok(!r.posts.some((p) => p.id === postId), "после 3 жалоб пост скрыт", JSON.stringify(r.posts.map((p) => p.id)));
 ok(sent.some((m) => /скрыт после 3 жалоб/.test(m.text || "")), "владелец получил уведомление о скрытии");
 ok(sent.filter((m) => /жалоба на/.test(m.text || "")).length === 2, "и о первых двух жалобах");
 // бан → не пишет

@@ -529,7 +529,10 @@ CREATE TABLE IF NOT EXISTS forum_replies (
   created  TEXT NOT NULL,
   hidden   INTEGER NOT NULL DEFAULT 0,
   reports  INTEGER NOT NULL DEFAULT 0,
-  held_for TEXT NOT NULL DEFAULT ''
+  held_for TEXT NOT NULL DEFAULT '',
+  -- Ответ на чей-то ответ (id ответа) или 0 — на сам пост.
+  parent   INTEGER NOT NULL DEFAULT 0,
+  likes    INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS forum_replies_post ON forum_replies (post, hidden, id);
 CREATE INDEX IF NOT EXISTS forum_replies_author ON forum_replies (tg_id, created);
@@ -540,11 +543,19 @@ CREATE TABLE IF NOT EXISTS forum_likes (
   PRIMARY KEY (post, tg_id)
 );
 
+CREATE TABLE IF NOT EXISTS forum_reply_likes (
+  reply INTEGER NOT NULL,
+  tg_id INTEGER NOT NULL,
+  PRIMARY KEY (reply, tg_id)
+);
+
 -- Жалоба на пост (kind = 'p') или ответ (kind = 'r'); один человек — одна.
 CREATE TABLE IF NOT EXISTS forum_reports (
   kind  TEXT NOT NULL,
   item  INTEGER NOT NULL,
   tg_id INTEGER NOT NULL,
+  -- Причина, которую выбрал пожаловавшийся: spam, abuse, private, danger, other.
+  reason TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (kind, item, tg_id)
 );
 
@@ -558,4 +569,10 @@ CREATE TABLE IF NOT EXISTS forum_settings (
 CREATE TABLE IF NOT EXISTS forum_trusted (
   tg_id   INTEGER PRIMARY KEY,
   created TEXT NOT NULL
+);
+
+-- Присылать ли в бота «вам ответили»: по умолчанию да, выключается в форуме.
+CREATE TABLE IF NOT EXISTS forum_prefs (
+  tg_id  INTEGER PRIMARY KEY,
+  notify INTEGER NOT NULL DEFAULT 1
 );
