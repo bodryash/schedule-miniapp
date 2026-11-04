@@ -299,6 +299,8 @@
         return t("Вам закрыт доступ к записям.");
       case "off":
         return t("Подслушка временно закрыта.");
+      case "closed":
+        return t("Подслушка пока в закрытом тестировании.");
       case "too long":
         return t("Слишком длинно.");
       case "parent gone":
@@ -311,7 +313,7 @@
   }
 
   // Ошибки, из-за которых ответ не повторяют, а возвращают человеку на правку.
-  const isRejected = (error) => ["blocked", "limit", "slow", "duplicate", "banned", "too long", "parent gone", "off"].includes(error.code);
+  const isRejected = (error) => ["blocked", "limit", "slow", "duplicate", "banned", "too long", "parent gone", "off", "closed"].includes(error.code);
 
   // Те же простые проверки, что на сервере: ссылку, @ и телефон видно сразу,
   // не дожидаясь ответа.
@@ -868,6 +870,11 @@
   }
 
   function renderError(error) {
+    if (error.code === "closed") {
+      S.feed.replaceChildren(state({ art: "off", title: t("Закрытое тестирование"), text: t("Подслушку пока проверяют свои. Скоро откроем для всех.") }));
+      S.prompt.hidden = true;
+      return;
+    }
     if (error.code === "off") {
       S.feed.replaceChildren(state({ art: "off", title: t("Подслушка на паузе"), text: t("Администратор ненадолго закрыл форум. Загляните позже.") }));
       S.prompt.hidden = true;
