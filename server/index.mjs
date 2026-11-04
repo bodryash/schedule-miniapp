@@ -4,7 +4,7 @@
 //
 // Запуск: node --env-file=/etc/schedule/env server/index.mjs
 import { createServer } from "node:http";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statfsSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statfsSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { cpus, freemem, loadavg, totalmem } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -124,7 +124,17 @@ globalThis.SCHEDULE_SAVE_FILE = async (document, from, caption) => {
  * /inbox: файлы из входящих, которые ещё не ушли на разбор, — владельцу в
  * чат (так у них появляется свой file_id) и оттуда на GitHub в ветку inbox.
  */
+let inboxRunning = false;
 globalThis.SCHEDULE_INBOX_SYNC = async (botEnv, sendToInbox) => {
+  if (inboxRunning) return "Уже отправляю — подождите итога прошлого запуска.";
+  inboxRunning = true;
+  try {
+    return await inboxSync(botEnv, sendToInbox);
+  } finally {
+    inboxRunning = false;
+  }
+};
+async function inboxSync(botEnv, sendToInbox) {
   if (!botEnv.GITHUB_TOKEN) return "На сервере нет GITHUB_TOKEN — отправить на разбор не получится.";
   mkdirSync(INBOX, { recursive: true });
   const names = readdirSync(INBOX).filter((n) => !n.endsWith(".json") && !n.endsWith(".synced"));
@@ -139,6 +149,8 @@ globalThis.SCHEDULE_INBOX_SYNC = async (botEnv, sendToInbox) => {
       const meta = JSON.parse(readFileSync(`${path}.json`, "utf8"));
       who = [meta.from?.name, meta.from?.username && `@${meta.from.username}`].filter(Boolean).join(" ") + (meta.caption ? ` · ${meta.caption}` : "");
     } catch {}
+    // Помечаем сразу: если запуск оборвётся или придёт повторная команда, файл не уйдёт дважды.
+    writeFileSync(`${path}.synced`, "в работе");
     try {
       const data = readFileSync(path);
       if (data.length > 20 * 1024 * 1024) throw new Error("больше 20 МБ");
@@ -153,11 +165,12 @@ globalThis.SCHEDULE_INBOX_SYNC = async (botEnv, sendToInbox) => {
       writeFileSync(`${path}.synced`, new Date().toISOString());
       report.push(`✔ ${name.replace(/^[0-9T-]+_[^_]*_/, "")}`);
     } catch (error) {
+      try { unlinkSync(`${path}.synced`); } catch {}
       report.push(`✖ ${name.replace(/^[0-9T-]+_[^_]*_/, "")}: ${String(error.message).slice(0, 80)}`);
     }
   }
   return `Отправил на разбор:\n${report.join("\n")}`;
-};
+}
 
 /**
  * Файл из Telegram. Через пересыльщик на Cloudflare длинное скачивание из

@@ -4846,8 +4846,14 @@ ${invite}`,
         return new Response("ok");
       }
       const sync = globalThis.SCHEDULE_INBOX_SYNC;
-      const answer = sync ? await sync(env, sendToInbox).catch((error) => `Не вышло: ${String(error?.message || error).slice(0, 200)}`) : "Эта команда работает только на своём сервере.";
-      await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: answer });
+      // Отвечаем Telegram сразу: загрузка файлов долгая, а без быстрого ответа
+      // Telegram присылает ту же команду заново — отсюда повторные сообщения.
+      await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: "Смотрю входящие… Итог пришлю отдельным сообщением." }).catch(() => {});
+      const chatId = message.chat.id;
+      (async () => {
+        const answer = sync ? await sync(env, sendToInbox).catch((error) => `Не вышло: ${String(error?.message || error).slice(0, 200)}`) : "Эта команда работает только на своём сервере.";
+        await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: chatId, text: answer }).catch(() => {});
+      })();
       return new Response("ok");
     }
 
