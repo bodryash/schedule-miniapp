@@ -833,8 +833,16 @@ function parseCourse(name) {
   return null;
 }
 
+// «3курс» в /cancel, /change, /notice — это курс «своего» факультета (ФГП МГУ).
+// Раньше курс считался по всем факультетам сразу: третьекурсники ФИЯР получали
+// отмену «3 курс · Политика мягкой силы», которой у них нет. Другим факультетам
+// курс-адресат не подходит: им — группа целиком (с префиксом) или «вуз:…».
 const courseOf = (group) =>
-  group.level && group.course ? courseKey(group.level, group.course) : "—";
+  group.tenant && group.tenant !== DEFAULT_TENANT
+    ? "—"
+    : group.level && group.course
+      ? courseKey(group.level, group.course)
+      : "—";
 
 /**
  * Отмены пар группы — с позавчерашнего дня по Москве: часы телефона могут
