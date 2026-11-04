@@ -11018,8 +11018,32 @@ document.getElementById("forum-btn")?.addEventListener("click", () => {
   openForum();
 });
 
-function openForum(opts) {
+/**
+ * Аварийный выключатель Подслушки, не зависящий от бота: флаг лежит файлом
+ * на GitHub Pages и на самом сервере. Любой, кто ответил первым, решает.
+ * Нет сети — считаем, что открыто: выключатель только закрывает, не мешает.
+ */
+const FORUM_FLAG_URLS = ["https://bodryash.github.io/schedule-miniapp/forum-status.json", "forum-status.json"];
+async function forumKill() {
+  const ask = (url) =>
+    fetch(`${url}?t=${Date.now()}`, { cache: "no-store", signal: AbortSignal.timeout(3000) }).then((res) => {
+      if (!res.ok) throw new Error(String(res.status));
+      return res.json();
+    });
+  try {
+    return await Promise.any(FORUM_FLAG_URLS.map(ask));
+  } catch {
+    return null;
+  }
+}
+window.forumKill = forumKill;
+window.forumKillNotice = (flag) =>
+  toast(`🛠 ${t("Подслушка закрыта на ремонт.")} ${flag?.message ? flag.message : t("Скоро вернёмся.")}`);
+
+async function openForum(opts) {
   if (!tg?.initData) return;
+  const flag = await forumKill();
+  if (flag?.off) return window.forumKillNotice(flag);
   if (typeof window.showForum === "function") return window.showForum(opts);
   forumAssets ||= new Promise((resolve, reject) => {
     const v = window.__v || Date.now();

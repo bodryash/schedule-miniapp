@@ -1326,7 +1326,15 @@
   }
 
   async function pollNow() {
-    if (!S.open || T.open || document.hidden) return;
+    if (!S.open || document.hidden) return;
+    // Аварийный выключатель: закрыли на ремонт — выходим из режима.
+    const flag = await window.forumKill?.();
+    if (flag?.off && S.open) {
+      closeForum();
+      window.forumKillNotice?.(flag);
+      return;
+    }
+    if (T.open) return;
     try {
       const body = await request("poll", { after: S.top });
       if (!S.open) return;
