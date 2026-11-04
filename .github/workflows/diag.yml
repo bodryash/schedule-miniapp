@@ -26,10 +26,33 @@ jobs:
           import json, sys
           h = json.load(sys.stdin)
           names = {'uptime': 'работает, с', 'telegramOk': 'отправка в Telegram работает', 'tickAge': 'минутная задача была, с назад',
+                   'cpuCores': 'ядер процессора', 'loadAvg': 'загрузка за 1/5/15 мин', 'ramTotalMb': 'память всего, МБ',
+                   'ramFreeMb': 'память свободно, МБ', 'botRssMb': 'бот занимает, МБ',
                    'errors': 'ошибок', 'diskFree': 'свободно на диске, %', 'backupAge': 'копия базы, ч назад'}
           for k, v in h.items():
               print(f'{names.get(k, k)}: {v}')
           " || echo "healthz не ответил"
+
+      - name: Замер отклика (200 запросов, по 20 сразу)
+        run: |
+          python3 - <<'PY'
+          import time, urllib.request, concurrent.futures as cf
+          url = "https://api.bodryash.ru/healthz"
+          def one(_):
+              t = time.time()
+              try:
+                  urllib.request.urlopen(url, timeout=20).read()
+                  return time.time() - t
+              except Exception:
+                  return None
+          t0 = time.time()
+          with cf.ThreadPoolExecutor(20) as ex:
+              res = list(ex.map(one, range(200)))
+          ok = sorted(r for r in res if r is not None)
+          print(f"ответили {len(ok)} из 200, всего {time.time()-t0:.1f} с, ~{len(ok)/(time.time()-t0):.0f} запросов/с")
+          if ok:
+              print(f"медиана {ok[len(ok)//2]*1000:.0f} мс, p95 {ok[int(len(ok)*.95)-1]*1000:.0f} мс, худший {ok[-1]*1000:.0f} мс")
+          PY
 
       - name: Ссылка-приглашение группы создаётся?
         run: |

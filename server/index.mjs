@@ -5,7 +5,7 @@
 // Запуск: node --env-file=/etc/schedule/env server/index.mjs
 import { createServer } from "node:http";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statfsSync, statSync, writeFileSync } from "node:fs";
-import { loadavg } from "node:os";
+import { cpus, freemem, loadavg, totalmem } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDatabase } from "./d1.mjs";
@@ -291,6 +291,12 @@ const watch = { tick: 0, telegram: 0, telegramOk: null };
 
 function vitals() {
   const out = { tickAge: watch.tick ? Math.round((Date.now() - watch.tick) / 1000) : null, telegramOk: watch.telegramOk };
+  // Железо и запас: по ним видно, сколько людей выдержит сервер.
+  out.cpuCores = cpus().length;
+  out.loadAvg = loadavg().map((n) => Math.round(n * 100) / 100).join(" ");
+  out.ramTotalMb = Math.round(totalmem() / 1048576);
+  out.ramFreeMb = Math.round(freemem() / 1048576);
+  out.botRssMb = Math.round(process.memoryUsage().rss / 1048576);
   try {
     const disk = statfsSync(dirname(DB_PATH));
     out.diskFree = Math.round((Number(disk.bavail) / Number(disk.blocks)) * 100);
