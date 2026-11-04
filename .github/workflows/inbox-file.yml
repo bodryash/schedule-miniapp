@@ -1,0 +1,47 @@
+name: Присланный файл расписания → ветка inbox
+
+# Бот (команда /inbox или пересылка файла владельцем) присылает сюда file_id.
+# Файл скачивается и кладётся в ветку inbox (не в main): оттуда его берём в
+# работу, когда подключаем новый факультет.
+on:
+  repository_dispatch:
+    types: [inbox-file]
+
+permissions:
+  contents: write
+
+concurrency: inbox-file
+
+jobs:
+  save:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Скачать файл и положить в ветку inbox
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          FILE_ID: ${{ github.event.client_payload.file_id }}
+          NAME: ${{ github.event.client_payload.name }}
+          SENDER: ${{ github.event.client_payload.sender }}
+        run: |
+          set -e
+          path=$(curl -sf "https://api.telegram.org/bot$BOT_TOKEN/getFile?file_id=$FILE_ID" | python3 -c "import json,sys; print(json.load(sys.stdin)['result']['file_path'])")
+          safe=$(python3 -c "import os,re;n=os.environ['NAME'] or 'file';print(re.sub(r'[^\w.\- ]','_',n)[-80:])")
+          if git fetch -q origin inbox:inbox 2>/dev/null; then
+            git checkout -q inbox
+          else
+            git checkout -q --orphan inbox
+            git rm -rfq . >/dev/null 2>&1 || true
+          fi
+          mkdir -p inbox
+          stamp=$(date -u +%Y%m%d-%H%M%S)
+          curl -sf -o "inbox/${stamp}_${safe}" "https://api.telegram.org/file/bot$BOT_TOKEN/$path"
+          printf '{"name": %s, "sender": %s, "saved": "%s"}\n' "$(python3 -c "import json,os;print(json.dumps(os.environ['NAME']))")" "$(python3 -c "import json,os;print(json.dumps(os.environ['SENDER']))")" "$stamp" > "inbox/${stamp}_${safe}.json"
+          ls -la inbox
+          git config user.name "inbox"
+          git config user.email "inbox@users.noreply.github.com"
+          git add inbox
+          git commit -q -m "Присланный файл: $safe"
+          for i in 1 2 3; do git push -q origin inbox && break || (git pull -q --rebase origin inbox || true); done
