@@ -9312,6 +9312,8 @@ function openTab(name) {
   requestAnimationFrame(() => moveDrop(name));
   els.free.hidden = true;
   els.picker.hidden = true;
+  const forumBox = document.getElementById("forum");
+  if (forumBox) forumBox.hidden = true;
   els.week.hidden = name !== "week";
   if (els.queues) els.queues.hidden = name !== "queues";
   document.getElementById("deadlines").hidden = name !== "deadlines";
@@ -11107,6 +11109,7 @@ function initMenu() {
     if (item.dataset.menu === "invite") inviteGroup(item);
     if (item.dataset.menu === "rooms") showFree();
     if (item.dataset.menu === "queues") openTab("queues");
+    if (item.dataset.menu === "forum" && typeof showForum === "function") showForum();
     if (item.dataset.menu === "courses") {
       showPicker();
       openSettingsPage("courses");

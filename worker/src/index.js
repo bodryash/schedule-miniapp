@@ -2575,6 +2575,12 @@ async function forgetUser(env, userId) {
     run("DELETE FROM queue_spots WHERE tg_id = ?", id),
     run("DELETE FROM comments WHERE tg_id = ?", id),
     run("DELETE FROM comment_reports WHERE tg_id = ?", id),
+    // Подслушка: посты и ответы убираются и обезличиваются, лайки и жалобы стираются.
+    run("UPDATE forum_posts SET tg_id = 0, name = '', username = NULL, text = '', hidden = 2 WHERE tg_id = ?", id),
+    run("UPDATE forum_replies SET tg_id = 0, name = '', username = NULL, text = '', hidden = 2 WHERE tg_id = ?", id),
+    run("DELETE FROM forum_likes WHERE tg_id = ?", id),
+    run("DELETE FROM forum_reports WHERE tg_id = ?", id),
+    run("DELETE FROM forum_trusted WHERE tg_id = ?", id),
     run("DELETE FROM clicker WHERE user_id = ?", id),
     run("DELETE FROM shares WHERE owner = ?", id),
     run("DELETE FROM sources WHERE tg_id = ?", id),
