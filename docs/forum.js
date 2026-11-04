@@ -586,7 +586,7 @@
     if (!tg?.initData) return;
     build();
     if (S.open) {
-      if (opts.thread) openThread({ id: opts.thread });
+      if (opts.thread) openThread({ id: opts.thread }, { mark: opts.reply || "post" });
       return;
     }
     S.open = true;
@@ -617,7 +617,7 @@
       load(true, { silent: true });
     }
     if (store(KEY.rules) !== "1") setTimeout(() => openRules(true), 700);
-    if (opts.thread) setTimeout(() => openThread({ id: opts.thread }), 450);
+    if (opts.thread) setTimeout(() => openThread({ id: opts.thread }, { mark: opts.reply || "post" }), 450);
   }
 
   /** Центр кнопки, из которой «раскрывается» режим; без неё — правый верхний угол. */
@@ -1540,8 +1540,11 @@
 
   /* ---------- Обсуждение ---------- */
 
-  async function openThread(seed, { focus = false } = {}) {
-    if (T.open && T.id === seed.id) return;
+  async function openThread(seed, { focus = false, mark = null } = {}) {
+    if (T.open && T.id === seed.id) {
+      if (mark) highlight(mark);
+      return;
+    }
     haptic("light");
     const token = ++T.token;
     T.id = seed.id;
@@ -1572,6 +1575,7 @@
       await slide;
       if (token !== T.token) return;
       renderThread({ fade: true });
+      if (mark) setTimeout(() => highlight(mark), REDUCED ? 0 : 420);
       if (focus) {
         await sleep(60);
         T.area.focus({ preventScroll: true });
@@ -1611,6 +1615,21 @@
     setTimeout(() => {
       if (!T.open) T.wrap.replaceChildren();
     }, 420);
+  }
+
+  /** Подсветка сообщения, на которое ведёт ссылка: прокрутить к нему и мигнуть. */
+  function highlight(mark) {
+    const node = mark === "post" ? T.wrap.querySelector(".fm-th-post") : T.wrap.querySelector(`.fm-reply[data-id="${mark}"]`);
+    if (!node) return;
+    if (mark !== "post") {
+      const top = node.getBoundingClientRect().top - T.scroll.getBoundingClientRect().top + T.scroll.scrollTop - 90;
+      smoothScroll(T.scroll, Math.max(0, top));
+    }
+    node.classList.remove("is-marked");
+    void node.offsetWidth;
+    node.classList.add("is-marked");
+    haptic("light");
+    setTimeout(() => node.classList.remove("is-marked"), 2600);
   }
 
   function renderThread({ skeleton = false, fade = false } = {}) {
@@ -2101,6 +2120,15 @@
         list.append(actionRow("share", t("Поделиться"), () => {
           sheet.close();
           const link = `https://t.me/FGPshedulebot?start=f_${item.id}`;
+          const share = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(item.text.replace(/\s+/g, " ").slice(0, 120))}`;
+          if (tg?.openTelegramLink) tg.openTelegramLink(share);
+          else window.open(share, "_blank", "noopener");
+        }, { sub: t("Отправить в чат") }));
+      }
+      if (kind === "r" && !item.pending && item.id > 0 && T.open) {
+        list.append(actionRow("share", t("Поделиться"), () => {
+          sheet.close();
+          const link = `https://t.me/FGPshedulebot?start=f_${T.id}_${item.id}`;
           const share = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(item.text.replace(/\s+/g, " ").slice(0, 120))}`;
           if (tg?.openTelegramLink) tg.openTelegramLink(share);
           else window.open(share, "_blank", "noopener");

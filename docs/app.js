@@ -13153,7 +13153,8 @@ async function init() {
   setTimeout(acceptInvite, SPLASH_MIN + 700);
   // Из бота: «вам ответили» — кнопка ведёт прямо в это обсуждение.
   const talk = Number(new URLSearchParams(location.search).get("forum"));
-  if (talk > 0) setTimeout(() => openForum({ thread: talk }), SPLASH_MIN + 900);
+  const talkReply = Number(new URLSearchParams(location.search).get("reply")) || 0;
+  if (talk > 0) setTimeout(() => openForum({ thread: talk, reply: talkReply }), SPLASH_MIN + 900);
 }
 
 init();
