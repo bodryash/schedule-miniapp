@@ -13128,3 +13128,164 @@ body[data-tone="dark"] .menu-pop {
   border-radius: 22px !important;
   clip-path: none !important;
 }
+
+/* Смахнули окно — оно уезжает тем же движением, что вёл палец
+   (переход задан в addSheetGrab), без второй анимации ухода. */
+.sheet-backdrop.sheet-swiped .sheet {
+  animation: none !important;
+}
+
+.sheet-backdrop.sheet-swiped.sheet-backdrop--out {
+  animation-duration: var(--swipe-ms, 220ms) !important;
+}
+
+/* Поиск — это вкладка, закрывать её крестиком незачем. */
+#search-close {
+  display: none !important;
+}
+
+/* Свои преподаватели в пустом поиске медленно плывут по кругу (mountDrift). */
+.drift.drift--on {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 36px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 36px), transparent 100%);
+}
+
+.drift.drift--on::-webkit-scrollbar {
+  display: none;
+}
+
+.drift-track {
+  will-change: transform;
+}
+
+/* Следующий месяц в сетке — своим оттенком (и через один — другим). */
+.mgrid-cell.mgrid-cell--next {
+  background: color-mix(in srgb, #8b7cf6 16%, color-mix(in srgb, var(--card) 72%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #8b7cf6 28%, transparent);
+}
+
+.mgrid-cell.mgrid-cell--next2 {
+  background: color-mix(in srgb, #f0a030 14%, color-mix(in srgb, var(--card) 72%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #f0a030 26%, transparent);
+}
+
+.mgrid-cell--next .mgrid-num {
+  color: color-mix(in srgb, #8b7cf6 75%, var(--text));
+}
+
+.mgrid-cell--next2 .mgrid-num {
+  color: color-mix(in srgb, #f0a030 75%, var(--text));
+}
+
+.mgrid-cell.mgrid-cell--next.mgrid-cell--today,
+.mgrid-cell.mgrid-cell--next2.mgrid-cell--today {
+  box-shadow: inset 0 0 0 2px var(--accent), 0 6px 14px -8px var(--accent);
+}
+
+/* Карточки пар — чуть выше и просторнее: полное имя преподавателя
+   и предмет в две строки читаются без тесноты. */
+#lessons article.card {
+  min-height: 128px;
+  padding-top: 17px;
+  padding-bottom: 17px;
+}
+
+#lessons article.card .card-body {
+  gap: 6px;
+}
+
+#lessons article.card .subject {
+  font-size: 17px;
+  line-height: 1.22;
+}
+
+#lessons article.card .meta {
+  line-height: 1.35;
+}
+
+/* Режим ежедневника — отдельная карточка с переключателем над разделами. */
+.settings-mode {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 12px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--surface, var(--card));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 7%, transparent);
+  cursor: pointer;
+  transition: background-color 260ms var(--ease-soft, ease), box-shadow 260ms var(--ease-soft, ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.settings-mode--on {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface, var(--card)));
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.settings-mode .settings-row-sub {
+  white-space: normal;
+}
+
+.mode-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 50px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+  cursor: pointer;
+  transition: background-color 220ms var(--ease-soft, ease);
+}
+
+.mode-switch i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: transform 240ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+.mode-switch[aria-checked="true"] {
+  background: var(--accent);
+}
+
+.mode-switch[aria-checked="true"] i {
+  transform: translateX(20px);
+}
+
+/* Плавная смена темы (smoothLook). Снимок экрана растворяется в новом виде. */
+html.look-vt::view-transition-old(root),
+html.look-vt::view-transition-new(root) {
+  animation-duration: 460ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Запасной путь без View Transitions: цвета перетекают сами. */
+html.look-fade,
+html.look-fade body,
+html.look-fade body *,
+html.look-fade body *::before,
+html.look-fade body *::after {
+  transition:
+    background-color 480ms var(--ease-soft, ease),
+    color 480ms var(--ease-soft, ease),
+    border-color 480ms var(--ease-soft, ease),
+    fill 480ms var(--ease-soft, ease),
+    stroke 480ms var(--ease-soft, ease),
+    box-shadow 480ms var(--ease-soft, ease) !important;
+}
+
+#picker.picker--planner #save,
+#picker.picker--planner #consent {
+  display: none;
+}
