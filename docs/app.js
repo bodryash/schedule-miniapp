@@ -10116,9 +10116,11 @@ function mountDrift(cards) {
     const bottom = tabs && !tabs.hidden ? tabs.getBoundingClientRect().top : window.innerHeight;
     const height = Math.max(260, Math.round(bottom - box.getBoundingClientRect().top - 10));
     if (track.scrollHeight <= height + 24) return;
+    // Пока не трогают — список плывёт сдвигом (без прокрутки, только
+    // видеокарта). Коснулись — плавание выключается насовсем, и дальше это
+    // обычная страница с родной прокруткой: никаких лагов и скачков.
     box.style.height = `${height}px`;
     box.classList.add("drift--on");
-    // Вторая копия списка — чтобы за последним сразу шёл первый.
     const first = track.children.length;
     for (const card of cards) {
       const copy = card.cloneNode(true);
@@ -10128,43 +10130,30 @@ function mountDrift(cards) {
     const loop = track.children[first].offsetTop - track.children[0].offsetTop;
     let pos = 0;
     let last = performance.now();
-    let held = false;
-    let resumeAt = performance.now() + 1200;
-    const hold = () => {
-      held = true;
+    const startAt = last + 1200;
+    let stopped = false;
+    const stop = () => {
+      if (stopped) return;
+      stopped = true;
+      cancelAnimationFrame(driftFrame);
+      const shift = pos % loop;
+      // Копии больше не нужны; список — на своё место в странице.
+      while (track.children.length > first) track.lastElementChild.remove();
       track.style.transform = "";
-      box.scrollTop = Math.round(pos);
+      box.classList.remove("drift--on");
+      box.style.height = "";
+      window.scrollBy(0, shift);
     };
-    const letGo = () => {
-      held = false;
-      resumeAt = performance.now() + 2500;
-    };
-    box.addEventListener("pointerdown", hold);
-    box.addEventListener("touchstart", hold, { passive: true });
-    box.addEventListener("wheel", () => {
-      hold();
-      letGo();
-    }, { passive: true });
-    box.addEventListener("pointerup", letGo);
-    box.addEventListener("pointercancel", letGo);
-    box.addEventListener("touchend", letGo);
-    box.addEventListener("scroll", () => {
-      if (box.scrollTop >= loop) box.scrollTop -= loop;
-    }, { passive: true });
+    for (const type of ["touchstart", "pointerdown", "wheel"]) box.addEventListener(type, stop, { passive: true, once: true });
+    els.query.addEventListener("focus", stop, { once: true });
     const step = (now) => {
-      if (!box.isConnected || els.search.hidden) return;
+      if (stopped || !box.isConnected || els.search.hidden) return;
       const dt = Math.min(64, now - last);
       last = now;
-      if (held || now < resumeAt || document.activeElement === els.query) {
-        pos = box.scrollTop;
-      } else {
+      if (now > startAt) {
         pos += dt * DRIFT_SPEED;
         if (pos >= loop) pos -= loop;
-        // Прокрутка — целыми пикселями, остаток — сдвигом: так движение
-        // плавное и на экранах, где scrollTop не бывает дробным.
-        const whole = Math.floor(pos);
-        if (box.scrollTop !== whole) box.scrollTop = whole;
-        track.style.transform = `translateY(${-(pos - whole).toFixed(2)}px)`;
+        track.style.transform = `translate3d(0, ${-pos.toFixed(2)}px, 0)`;
       }
       driftFrame = requestAnimationFrame(step);
     };

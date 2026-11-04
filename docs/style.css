@@ -13294,10 +13294,7 @@ html.look-fade body *::after {
 }
 
 /* Поиск: карточки вне экрана не рисуются — длинный список листается без лагов. */
-#results .teacher-card {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 150px;
-}
+
 
 .drift.drift--on {
   -webkit-mask-image: none;
@@ -13349,4 +13346,8 @@ html.look-fade body *::after {
 
 .menu-pop .menu-mode .mode-switch[aria-checked="true"] i {
   transform: translateX(20px);
+}
+
+.drift.drift--on {
+  overflow: hidden;
 }
