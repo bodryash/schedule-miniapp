@@ -338,7 +338,8 @@ export async function handleIcs(url, request, extras = {}) {
   const group = (schedule.groups || []).find((g) => g.id === rest);
   if (!group) return new Response("Unknown group", { status: 404 });
   const id = scoped(tenant, group.id);
-  const course = extras.courseOf ? extras.courseOf(group) : "—";
+  // Курс-адресат — только у «своего» факультета (см. courseOf в index.js).
+  const course = extras.courseOf && tenant.id === "msu-fgp" ? extras.courseOf(group) : "—";
   const myCancels = forGroup(cancels, id, course);
   const myChanges = forGroup(changes, id, course);
   const bells = new Map((schedule.bells || []).map((b) => [b.n, b]));
@@ -428,7 +429,7 @@ async function teacherCalendar(key, tenant, tenants, ctx) {
       if (!start || !end) continue;
       const group = groups.get(lesson.group);
       const gid = ctx.scoped(other, lesson.group);
-      const course = group && ctx.extras.courseOf ? ctx.extras.courseOf(group) : "—";
+      const course = group && ctx.extras.courseOf && other.id === "msu-fgp" ? ctx.extras.courseOf(group) : "—";
       const title = [lesson.subject, lesson.type].filter(Boolean).join(" · ");
       for (const date of datesOf(lesson, schedule.weeks)) {
         if (date < ctx.since) continue;
