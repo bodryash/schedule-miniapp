@@ -12113,8 +12113,10 @@ function renderHello() {
     box = el("div", "splash-hello");
     splash.prepend(box);
   }
-  const { title, wish, custom } = helloLines();
-  const key = `${title}|${wish}`;
+  // Пожелание на заставке не показываем — сверяем только заголовок: тот же,
+  // что уже нарисовала страница, не перерисовываем (слова не мигнут заново).
+  const { title, custom } = helloLines();
+  const key = title;
   if (box.dataset.key === key) return;
   box.dataset.key = key;
   box.classList.toggle("splash-hello--custom", custom);
