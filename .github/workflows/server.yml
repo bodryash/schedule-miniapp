@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "logs — только журнал; restart — обновить и перезапустить"
+        description: "logs — только журнал; restart — обновить и перезапустить; inbox — какие файлы расписания прислали студенты"
         required: true
         default: logs
         type: choice
-        options: [logs, restart]
+        options: [logs, restart, inbox]
 
 jobs:
   server:
@@ -30,6 +30,11 @@ jobs:
               "sudo -S -p '' bash -s" <<< "$SSHPASS
           $1" 2>&1 | grep -v -F "$SSHPASS" || true
           }
+          if [ "${{ inputs.action }}" = "inbox" ]; then
+            echo "=== Входящие файлы (присланные боту) ==="
+            ssh_run "d=/var/lib/schedule/inbox; echo \"папка: \$d\"; ls -la \"\$d\" | tail -80; echo; for f in \"\$d\"/*.json; do [ -f \"\$f\" ] && { echo \"--- \$(basename \"\$f\")\"; cat \"\$f\"; echo; }; done 2>/dev/null | tail -250"
+            exit 0
+          fi
           echo "=== Состояние службы ==="
           ssh_run "systemctl status schedule-bot --no-pager -l | head -20"
           echo "=== Журнал бота (последние 60 строк) ==="
