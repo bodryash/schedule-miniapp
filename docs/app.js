@@ -9813,29 +9813,8 @@ function renderFreeDay() {
   const [emoji, title, line] = freeDayPhrase(date);
   // Сцена: значок падает сверху и пружинит, под ним расходится круг, вокруг
   // всплывают искры. Подписи поднимаются следом — день «собирается» за секунду.
-  // Фон: три цветных пятна медленно плавают за значком, поверх мерцают
-  // редкие точки. Пустой экран перестаёт быть белым листом.
-  const sky = el("div", "free-day-sky");
-  for (let i = 1; i <= 3; i++) sky.append(el("span", `free-day-blob free-day-blob--${i}`));
-  const seed = date.getDate() * 31 + date.getMonth() * 7;
-  for (let i = 0; i < 9; i++) {
-    const star = el("span", "free-day-star");
-    // Места точек — от даты: у каждого дня своё «небо», но оно не скачет.
-    star.style.left = `${8 + ((seed * (i + 3) * 37) % 84)}%`;
-    star.style.top = `${6 + ((seed * (i + 5) * 53) % 78)}%`;
-    star.style.setProperty("--d", `${(i * 430) % 3000}ms`);
-    star.style.setProperty("--s", `${3 + ((seed + i) % 3)}px`);
-    sky.append(star);
-  }
-  node.append(sky);
   const stage = el("div", "free-day-stage");
-  stage.append(el("span", "free-day-halo"), el("span", "free-day-ring"));
-  for (let i = 0; i < 6; i++) {
-    const spark = el("span", "free-day-spark");
-    spark.style.setProperty("--a", `${i * 60 + 20}deg`);
-    spark.style.setProperty("--d", `${i * 90}ms`);
-    stage.append(spark);
-  }
+  stage.append(el("span", "free-day-halo"));
   stage.append(el("div", "free-day-emoji", emoji));
   node.append(stage, el("div", "free-day-title", title));
   if (line) node.append(el("div", "free-day-line", line));
@@ -12468,21 +12447,10 @@ function assembleFreeSplash() {
   const scene = el("div", "splash-free");
   const rect = els.splashTrack.getBoundingClientRect();
   scene.style.top = `${Math.round(rect.top + rect.height / 2)}px`;
-  for (let i = 0; i < 3; i++) {
-    const ring = el("span", "splash-free-ring");
-    ring.style.setProperty("--i", i);
-    scene.append(ring);
-  }
-  for (let i = 0; i < 8; i++) {
-    const ray = el("span", "splash-free-ray");
-    ray.style.setProperty("--a", `${i * 45}deg`);
-    scene.append(ray);
-  }
   scene.append(el("span", "splash-free-emoji", emoji), el("span", "splash-free-title", title));
   splash.append(scene);
-  // Три толчка по нарастающей — и короткий «успех», когда значок встал.
-  ["soft", "light", "medium"].forEach((kind, i) => setTimeout(() => haptic(kind), sp(120 + i * 170)));
-  setTimeout(() => haptic("success"), sp(760));
+  // Спокойно: один мягкий толчок, когда значок встал.
+  setTimeout(() => haptic("soft"), sp(560));
   return sp(1500);
 }
 
