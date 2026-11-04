@@ -113,6 +113,31 @@ function applyScheme(value = scheme()) {
   }
 }
 applyScheme();
+
+/**
+ * Смена темы — плавным перетеканием, а не миганием: старый вид растворяется
+ * в новом. Где браузер умеет View Transitions — снимком всего экрана, иначе
+ * на полсекунды включаем переходы цветов у всех элементов.
+ */
+function smoothLook(change) {
+  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  if (still) return change();
+  if (document.startViewTransition) {
+    try {
+      document.documentElement.classList.add("look-vt");
+      const run = document.startViewTransition(change);
+      run.finished.finally(() => document.documentElement.classList.remove("look-vt"));
+      return;
+    } catch {
+      document.documentElement.classList.remove("look-vt");
+    }
+  }
+  const root = document.documentElement;
+  root.classList.add("look-fade");
+  clearTimeout(smoothLook.timer);
+  change();
+  smoothLook.timer = setTimeout(() => root.classList.remove("look-fade"), 560);
+}
 // Где живёт бот: свой сервер в России. Прежний адрес в Cloudflare остался
 // переходником для версий приложения, которые ещё лежат в кэше.
 const API_URL = "https://api.bodryash.ru";
@@ -1609,8 +1634,10 @@ function fillOwnerThemes() {
       } catch {
         // Без хранилища примерка живёт до перезапуска.
       }
-      applyTheme();
-      fillOwnerThemes();
+      smoothLook(() => {
+        applyTheme();
+        fillOwnerThemes();
+      });
     });
     return chip;
   });
@@ -2733,6 +2760,28 @@ function initWeekSwipe() {
   body.addEventListener("pointercancel", finish);
 }
 
+/** Месяц ↔ неделя — плавно: старый вид тает, новый вырастает на его месте. */
+function morphWeek(toMonth) {
+  const body = els.weekBody;
+  if (!body?.animate || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return showWeek();
+  body.getAnimations().forEach((a) => a.cancel());
+  const out = body.animate(
+    [{ opacity: 1, transform: "none" }, { opacity: 0, transform: `scale(${toMonth ? 0.97 : 1.02})` }],
+    { duration: 150, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }
+  );
+  out.onfinish = () => {
+    showWeek();
+    out.cancel();
+    body.animate(
+      [
+        { opacity: 0, transform: `translateY(${toMonth ? 14 : -10}px) scale(${toMonth ? 1.02 : 0.98})` },
+        { opacity: 1, transform: "none" },
+      ],
+      { duration: 320, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }
+    );
+  };
+}
+
 function showWeek() {
   const group = activeGroup();
   if (!group) return showPicker();
@@ -2754,7 +2803,7 @@ function showWeek() {
     if (weekMode === "month") return;
     haptic("select");
     weekMode = "month";
-    showWeek();
+    morphWeek(true);
   });
   els.weekSwitch.replaceChildren(
     ...[0, 1].map((week) => {
@@ -2768,7 +2817,7 @@ function showWeek() {
           haptic("select");
           weekMode = "week";
           selectedWeek = week;
-          return showWeek();
+          return morphWeek(false);
         }
         switchWeek(week);
       });
@@ -5450,9 +5499,11 @@ function fillDigits() {
       } catch {
         // Не сохранилось — выбор проживёт до закрытия.
       }
-      applyScheme(id);
-      rememberLook();
-      fillDigits();
+      smoothLook(() => {
+        applyScheme(id);
+        rememberLook();
+        fillDigits();
+      });
     });
     themes.append(chip);
   }
@@ -5480,9 +5531,11 @@ function fillDigits() {
       } catch {
         // Не сохранилось — выбор проживёт до закрытия.
       }
-      applyTheme();
-      fillDigits();
-      fillOwnerThemes();
+      smoothLook(() => {
+        applyTheme();
+        fillDigits();
+        fillOwnerThemes();
+      });
     });
     colors.append(chip);
   }
@@ -6366,6 +6419,7 @@ function freeWindows(busy) {
 function renderMonth(group) {
   const box = el("div", "month-view");
   const todayIso = isoDate(new Date());
+  const todayYm = new Date().getFullYear() * 12 + new Date().getMonth();
   let study = 0;
   let free = 0;
   let own = 0;
@@ -6386,6 +6440,9 @@ function renderMonth(group) {
       // Без учёбы «свободный» — день без своих дел, а не без пар.
       if (group.planner ? !ownEventsOn(date).length : !slots.size) cell.classList.add("mgrid-cell--off");
       if (day >= 6) cell.classList.add("mgrid-cell--weekend");
+      // Следующий месяц — своим цветом, чтобы граница месяцев была видна сразу.
+      const ahead = date.getFullYear() * 12 + date.getMonth() - (todayYm);
+      if (ahead > 0) cell.classList.add(ahead % 2 ? "mgrid-cell--next" : "mgrid-cell--next2");
       const num = date.getDate() === 1 || (week === 0 && day === 1)
         ? `${date.getDate()} ${SHORT_DATE.format(date).replace(/^\d+\s*/, "").replace(/\.$/, "")}`
         : String(date.getDate());
@@ -8743,7 +8800,9 @@ function collectPrefs() {
 /** Студент или преподаватель: у преподавателя вместо группы — фамилия. */
 function fillRole() {
   if (!els.role) return;
-  els.role.value = prefs.planner ? "planner" : prefs.teacher ? "teacher" : "student";
+  // Режим ежедневника — отдельный переключатель; здесь — кем был до него.
+  const back = prefs.planner ? prefs.study || {} : prefs;
+  els.role.value = back.teacher ? "teacher" : "student";
   loadTeacherNames().then(() => {
     const keys = allTeachers();
     els.teacher.replaceChildren(
@@ -8760,8 +8819,53 @@ function applyRole() {
   els.studentFields.hidden = teacher || planner;
   if (els.teacherRow) els.teacherRow.hidden = !teacher;
   // Без учёбы вуз не нужен: прячем выбор факультета.
-  const tenantRow = document.getElementById("tenant-row");
-  if (tenantRow) tenantRow.hidden = planner;
+  for (const id of ["tenant-row", "tenant-uni-row"]) {
+    const row = document.getElementById(id);
+    if (row) row.hidden = planner;
+  }
+}
+
+/**
+ * Режим ежедневника: только свои дела, без вуза, группы и пар. Включается
+ * отдельным переключателем и не трогает выбор вуза — группа и преподаватель
+ * откладываются в prefs.study и возвращаются, когда режим выключают.
+ */
+function setPlannerMode(on) {
+  if (Boolean(prefs.planner) === on) return;
+  haptic("select");
+  if (on) {
+    const study = { group: prefs.group, teacher: prefs.teacher, teacherName: prefs.teacherName, mfk: prefs.mfk || [] };
+    prefs = { ...prefs, planner: true, study, group: undefined, teacher: undefined, teacherName: undefined, mfk: [] };
+  } else {
+    const study = prefs.study || {};
+    prefs = { ...prefs, ...study, planner: undefined, study: undefined };
+  }
+  savePrefs(prefs);
+  notices.group = null;
+  fillRole();
+  const group = activeGroup();
+  if (on) countOpen({ id: "свои дела", course: null, level: "свои дела" });
+  else if (group?.teacher) countOpen(teacherVisit(group.teacher));
+  else if (group) countOpen({ id: group.id, course: group.course, level: group.level });
+  sendReminderSettings();
+  refreshFreedom();
+  renderPlannerMode();
+  // Выключили, а группы ещё не было: сразу к выбору вуза и группы.
+  if (!on && !group && settingsNav.built) openSettingsPage("study");
+  else if (settingsNav.built) openSettingsPage(settingsNav.open || "");
+}
+
+function renderPlannerMode() {
+  const box = settingsNav.mode;
+  if (!box) return;
+  const on = Boolean(prefs.planner);
+  box.classList.toggle("settings-mode--on", on);
+  const sub = box.querySelector(".settings-row-sub");
+  if (sub) sub.textContent = on ? t("Включён: только свои дела, неделя и месяц") : t("Только свои дела — без вуза, группы и пар");
+  box.querySelector(".mode-switch")?.setAttribute("aria-checked", String(on));
+  // В ежедневнике всё применяется сразу — «Сохранить» с согласием на
+  // обработку данных о группе там ни к чему.
+  els.picker?.classList.toggle("picker--planner", on);
 }
 
 /* ---------- Первый запуск: настройка по шагам ----------
@@ -8840,6 +8944,12 @@ function onboardOption(icon, title, hint, onPick, extra = "") {
 }
 
 function onboardFinish(role) {
+  if (role === "planner") {
+    closeOnboarding();
+    setPlannerMode(true);
+    openTab("schedule");
+    return;
+  }
   els.role.value = role;
   applyRole();
   closeOnboarding();
@@ -9060,6 +9170,19 @@ function buildSettingsNav() {
     }
     anchor.after(nav);
     settingsNav.nav = nav;
+    // Режим ежедневника — отдельной карточкой над разделами: он не про вуз.
+    const mode = el("div", "settings-mode");
+    const toggle = el("button", "mode-switch");
+    toggle.type = "button";
+    toggle.setAttribute("role", "switch");
+    toggle.append(el("i"));
+    const modeText = el("span", "settings-row-text");
+    modeText.append(el("b", null, t("Режим ежедневника")), el("span", "settings-row-sub", t("Только свои дела — без вуза, группы и пар")));
+    mode.append(el("span", "settings-row-icon", "📒"), modeText, toggle);
+    mode.addEventListener("click", () => setPlannerMode(!prefs.planner));
+    nav.before(mode);
+    settingsNav.mode = mode;
+    renderPlannerMode();
   }
   // Настройки всегда открываются со списка разделов, а не там, где
   // остановились в прошлый раз.
@@ -9073,7 +9196,6 @@ function settingsPageHasContent(page) {
 
 function settingsSummary(id) {
   const group = activeGroup();
-  if (id === "study" && prefs.planner) return t("Только свои дела");
   if (id === "study") return group ? `${groupLabel(group)} · ${tenant().short || tenant().faculty}` : t("Выберите группу");
   if (id === "look") return [{ auto: t("Как в Telegram"), light: t("Светлая"), dark: t("Тёмная") }[scheme()], COLOR_THEMES.find(([c]) => c === colorTheme())?.[1]].filter(Boolean).join(" · ");
   if (id === "lang") return els.lang?.selectedOptions[0]?.text || "";
@@ -9086,12 +9208,15 @@ function openSettingsPage(id) {
   const student = !prefs.teacher && !prefs.planner && els.role?.value !== "teacher" && els.role?.value !== "planner";
   for (const [key, page] of Object.entries(settingsNav.pages)) page.hidden = key !== id;
   settingsNav.nav.hidden = Boolean(id);
+  if (settingsNav.mode) settingsNav.mode.hidden = Boolean(id);
+  renderPlannerMode();
   const title = els.picker.querySelector("header.bar h1");
   if (title) title.textContent = t("Настройки");
   for (const row of settingsNav.nav.children) {
     const key = row.dataset.section;
     const page = settingsNav.pages[key];
-    row.hidden = !settingsPageHasContent(page) || (key === "courses" && !student);
+    // В режиме ежедневника выбирать вуз и курсы незачем — разделов нет.
+    row.hidden = !settingsPageHasContent(page) || (key === "courses" && !student) || (prefs.planner && (key === "study" || key === "courses"));
     row.querySelector(".settings-row-sub").textContent = settingsSummary(key);
   }
   els.picker.scrollTop = 0;
@@ -9957,10 +10082,83 @@ function showSearch() {
   els.picker.hidden = true;
   els.search.hidden = false;
   // Имена преподавателей нужны только поиску — грузим при первом открытии.
-  loadTeacherNames().then(() => {
-    if (!els.search.hidden) runSearch();
+  // Рисуем один раз, когда имена уже есть: иначе карточки сначала встают
+  // с инициалами, а потом перерисовываются и подпрыгивают.
+  if (TEACHER_NAMES) return runSearch();
+  els.results.replaceChildren();
+  let drawn = false;
+  const draw = () => {
+    if (drawn || els.search.hidden) return;
+    drawn = true;
+    runSearch();
+  };
+  loadTeacherNames().then(draw);
+  setTimeout(draw, 900);
+}
+
+/* Карточки своих преподавателей, пока поиск пуст, медленно плывут вверх
+   по кругу. Коснулись — остановились и листаются пальцем; отпустили —
+   через пару секунд поплыли снова. */
+const DRIFT_SPEED = 0.016; // px в мс
+let driftFrame = 0;
+
+function mountDrift(cards) {
+  cancelAnimationFrame(driftFrame);
+  const box = el("div", "drift");
+  const track = el("div", "drift-track");
+  track.append(...cards);
+  box.append(track);
+  els.results.replaceChildren(box);
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  requestAnimationFrame(() => {
+    if (!box.isConnected) return;
+    const tabs = document.querySelector(".tabs");
+    const bottom = tabs && !tabs.hidden ? tabs.getBoundingClientRect().top : window.innerHeight;
+    const height = Math.max(260, Math.round(bottom - box.getBoundingClientRect().top - 10));
+    if (track.scrollHeight <= height + 24) return;
+    // Пока не трогают — список плывёт сдвигом (без прокрутки, только
+    // видеокарта). Коснулись — плавание выключается насовсем, и дальше это
+    // обычная страница с родной прокруткой: никаких лагов и скачков.
+    box.style.height = `${height}px`;
+    box.classList.add("drift--on");
+    const first = track.children.length;
+    for (const card of cards) {
+      const copy = card.cloneNode(true);
+      copy.setAttribute("aria-hidden", "true");
+      track.append(copy);
+    }
+    const loop = track.children[first].offsetTop - track.children[0].offsetTop;
+    let pos = 0;
+    let last = performance.now();
+    const startAt = last + 1200;
+    let stopped = false;
+    const stop = () => {
+      if (stopped) return;
+      stopped = true;
+      cancelAnimationFrame(driftFrame);
+      const shift = pos % loop;
+      // Копии больше не нужны; список — на своё место в странице.
+      while (track.children.length > first) track.lastElementChild.remove();
+      track.style.transform = "";
+      box.classList.remove("drift--on");
+      box.style.height = "";
+      window.scrollBy(0, shift);
+    };
+    for (const type of ["touchstart", "pointerdown", "wheel"]) box.addEventListener(type, stop, { passive: true, once: true });
+    els.query.addEventListener("focus", stop, { once: true });
+    const step = (now) => {
+      if (stopped || !box.isConnected || els.search.hidden) return;
+      const dt = Math.min(64, now - last);
+      last = now;
+      if (now > startAt) {
+        pos += dt * DRIFT_SPEED;
+        if (pos >= loop) pos -= loop;
+        track.style.transform = `translate3d(0, ${-pos.toFixed(2)}px, 0)`;
+      }
+      driftFrame = requestAnimationFrame(step);
+    };
+    driftFrame = requestAnimationFrame(step);
   });
-  runSearch();
 }
 
 function closeSearch() {
@@ -10435,7 +10633,7 @@ function runSearch() {
       return;
     }
     const mine = renderMyTeachers();
-    els.results.replaceChildren(...mine.map(renderTeacherCard));
+    mountDrift(mine.map(renderTeacherCard));
     els.searchHint.textContent = mine.length
       ? t("Преподаватели вашей группы")
       : t("Например: Шестова, 614, микроэкономика");
@@ -10838,6 +11036,31 @@ function initMenu() {
         pop.querySelector('[data-menu="settings"]')?.before(item);
       }
       pop.querySelector('[data-menu="courses"]').hidden = !mfkAvailable() || Boolean(activeGroup()?.teacher);
+      // Ежедневник — отдельный переключатель вверху меню, не плитка.
+      let modeRow = pop.querySelector(".menu-mode");
+      if (!modeRow) {
+        modeRow = el("div", "menu-mode");
+        const sw = el("button", "mode-switch");
+        sw.type = "button";
+        sw.setAttribute("role", "switch");
+        sw.append(el("i"));
+        modeRow.append(el("span", "menu-mode-text", t("Режим ежедневника")), sw);
+        modeRow.addEventListener("click", (event) => {
+          event.stopPropagation();
+          setPlannerMode(!prefs.planner);
+          sw.setAttribute("aria-checked", String(Boolean(prefs.planner)));
+          setTimeout(() => {
+            close();
+            if (prefs.planner || activeGroup()) openTab("schedule");
+            else {
+              showPicker();
+              openSettingsPage("study");
+            }
+          }, 260);
+        });
+        pop.prepend(modeRow);
+      }
+      modeRow.querySelector(".mode-switch").setAttribute("aria-checked", String(Boolean(prefs.planner)));
       // Без группы звать некого, аудиторий и очередей нет.
       for (const item of pop.querySelectorAll("[data-menu]")) {
         const groupOnly = ["invite", "rooms", "queues", "poll", "absences", "exams", "meet", "semester", "courses"].includes(item.dataset.menu);
@@ -11051,6 +11274,8 @@ function goToDay(direction) {
   return true;
 }
 
+// Когда последний раз листали дни: следом браузер шлёт «нажатие» на пару.
+let daySwipedAt = 0;
 function initSwipe() {
   // Слушаем документ, а не блок расписания: у body есть отступ, и крайние
   // пиксели экрана блоку не принадлежат — именно туда и приходится
@@ -11107,6 +11332,7 @@ function initSwipe() {
       dragging = Math.abs(dx) > Math.abs(dy);
     }
     if (!dragging) return;
+    daySwipedAt = performance.now();
 
     // За краем ленты сопротивление растёт, но упора нет — так понятнее,
     // что дальше ничего нет, чем если бы палец просто упёрся в стену.
@@ -11133,6 +11359,7 @@ function initSwipe() {
       if (!moved && !onControl) {
         const width = document.documentElement.clientWidth;
         const zone = width * TAP_ZONE;
+        if (startX < zone || startX > width - zone) daySwipedAt = performance.now();
         if (startX < zone) goToDay(-1);
         else if (startX > width - zone) goToDay(1);
       }
@@ -11140,6 +11367,7 @@ function initSwipe() {
       return;
     }
     dragging = false;
+    daySwipedAt = performance.now();
 
     const velocity = Math.abs(shift) / Math.max(1, performance.now() - startedAt);
     const far = Math.abs(shift) > strip.clientWidth * SWIPE_DISTANCE;
@@ -11576,6 +11804,21 @@ function describe(lesson) {
  * Строка под названием. Аудиторию сюда не пишем, когда она вынесена в
  * отдельную плашку справа — иначе она стояла бы дважды.
  */
+/** «доц. Арсанова Т.Е.» → «доц. Арсанова Татьяна Евгеньевна», если имя известно. */
+function fullTeacherLine(field) {
+  if (!field || !TEACHER_NAMES) return field;
+  return String(field)
+    .split(/,\s*/)
+    .map((part) => {
+      const person = teachersOf(part)[0];
+      const full = person && teacherFull(person.key);
+      if (!full) return part;
+      const at = part.search(/[А-ЯЁ]/);
+      return at < 0 ? part : part.slice(0, at) + full;
+    })
+    .join(", ");
+}
+
 function metaLine(lesson, prefix = "", withRoom = true) {
   const line = el("div", "meta");
   const before = [prefix, t(lesson.type), lesson.teacher].filter(Boolean).join(" · ");
@@ -11713,7 +11956,9 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
   body.append(head, el("div", "subject", withFlag(first.subject)));
 
   if (single) {
-    body.append(metaLine(first, "", false));
+    // В карточке — полное имя преподавателя, если оно известно: «доц.
+    // Арсанова Татьяна Евгеньевна» говорит больше, чем инициалы.
+    body.append(metaLine({ ...first, teacher: fullTeacherLine(first.teacher) }, "", false));
   } else {
     const details = el("details", "subgroups");
     details.append(el("summary", null, subgroupsLabel(entries.length)));
@@ -11904,8 +12149,10 @@ function renderHello() {
     box = el("div", "splash-hello");
     splash.prepend(box);
   }
-  const { title, wish, custom } = helloLines();
-  const key = `${title}|${wish}`;
+  // Пожелание на заставке не показываем — сверяем только заголовок: тот же,
+  // что уже нарисовала страница, не перерисовываем (слова не мигнут заново).
+  const { title, custom } = helloLines();
+  const key = title;
   if (box.dataset.key === key) return;
   box.dataset.key = key;
   box.classList.toggle("splash-hello--custom", custom);
@@ -12371,6 +12618,32 @@ function addSheetGrab(backdrop) {
   grab.setAttribute("aria-hidden", "true");
   sheet.prepend(grab);
   let start = null;
+  // Отпустили — окно одним движением уезжает дальше с той же скоростью,
+  // а не замирает и не играет вторую анимацию ухода с начала.
+  const swipeAway = (moved, speed) => {
+    haptic("light");
+    const rest = Math.max(0, sheet.offsetHeight + 40 - moved);
+    // Скорость пальца в px/мс; уходит не медленнее, чем за 260 мс.
+    const ms = Math.round(Math.min(260, Math.max(140, rest / Math.max(speed, 1.2))));
+    backdrop.classList.add("sheet-swiped");
+    backdrop.style.setProperty("--swipe-ms", `${ms}ms`);
+    sheet.style.animation = "none";
+    sheet.style.transition = `transform ${ms}ms cubic-bezier(0.25, 0.6, 0.4, 1)`;
+    sheet.style.transform = `translateY(${moved + rest}px)`;
+    // Закрываем так же, как нажатием мимо окна: у каждого окна свой порядок закрытия.
+    backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    setTimeout(() => {
+      if (!backdrop.hidden && !backdrop.classList.contains("sheet-backdrop--out")) backdrop.hidden = true;
+    }, 60);
+    // Следы жеста снимаем, когда окно уже скрыто: иначе оно дёрнулось бы назад.
+    setTimeout(() => {
+      backdrop.classList.remove("sheet-swiped");
+      backdrop.style.removeProperty("--swipe-ms");
+      sheet.style.transition = "";
+      sheet.style.transform = "";
+      sheet.style.animation = "";
+    }, SHEET_OUT + 120);
+  };
   const reset = () => {
     sheet.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
     sheet.style.transform = "";
@@ -12394,17 +12667,9 @@ function addSheetGrab(backdrop) {
     const speed = moved / Math.max(1, performance.now() - start.at);
     start = null;
     grab.releasePointerCapture?.(event.pointerId);
-    sheet.style.animation = "";
+    if (moved < 80 && !(moved > 30 && speed > 0.6)) sheet.style.animation = "";
     if (moved < 80 && !(moved > 30 && speed > 0.6)) return reset();
-    haptic("light");
-    sheet.style.transition = "";
-    // Закрываем так же, как нажатием мимо окна: у каждого окна свой порядок закрытия.
-    backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    setTimeout(() => {
-      if (!backdrop.hidden && !backdrop.classList.contains("sheet-backdrop--out")) backdrop.hidden = true;
-    }, 60);
-    // Сдвиг пальцем снимаем, когда окно уже ушло: иначе оно дёрнулось бы назад.
-    setTimeout(() => (sheet.style.transform = ""), SHEET_OUT + 80);
+    swipeAway(moved, speed);
   };
   grab.addEventListener("pointerup", finish);
   grab.addEventListener("pointercancel", finish);
@@ -12448,15 +12713,9 @@ function addSheetGrab(backdrop) {
     touch = null;
     if (!dragging) return;
     const speed = last / Math.max(1, performance.now() - at);
-    sheet.style.animation = "";
+    if (last < 90 && !(last > 30 && speed > 0.6)) sheet.style.animation = "";
     if (last < 90 && !(last > 30 && speed > 0.6)) return reset();
-    haptic("light");
-    sheet.style.transition = "";
-    backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    setTimeout(() => {
-      if (!backdrop.hidden && !backdrop.classList.contains("sheet-backdrop--out")) backdrop.hidden = true;
-    }, 60);
-    setTimeout(() => (sheet.style.transform = ""), SHEET_OUT + 80);
+    swipeAway(last, speed);
   };
   sheet.addEventListener("touchend", touchEnd);
   sheet.addEventListener("touchcancel", touchEnd);
@@ -12642,6 +12901,12 @@ async function init() {
   els.lessons.addEventListener("click", (event) => {
     const card = event.target.closest("article.card");
     if (!card || event.target.closest("button, a, summary, details, input, .room-badge")) return;
+    // Только что листали дни — это не нажатие на пару.
+    if (performance.now() - daySwipedAt < 450) return;
+    // Края экрана листают дни, как в сторис; пара открывается от середины.
+    const width = document.documentElement.clientWidth;
+    const zone = width * TAP_ZONE;
+    if (event.clientX && (event.clientX < zone || event.clientX > width - zone)) return;
     haptic("light");
     openLessonView(card);
   });
@@ -12651,14 +12916,17 @@ async function init() {
   els.save.addEventListener("click", () => {
     haptic("success");
     const before = prefs.group;
+    const wasPlanner = Boolean(prefs.planner);
     // Настройки собираются заново — выбранный вуз надо сохранить.
     prefs = { ...collectPrefs(), tenant: tenantId() };
     if (els.role?.value === "teacher" && els.teacher?.value) {
       prefs = { ...prefs, teacher: els.teacher.value, teacherName: teacherFull(els.teacher.value) || els.teacher.value };
     }
-    // Только свои дела: ни группы, ни курсов, ни МФК — только ежедневник.
-    if (els.role?.value === "planner") {
-      prefs = { ...prefs, planner: true, group: undefined, teacher: undefined, mfk: [] };
+    // Режим ежедневника включают отдельным переключателем; «Сохранить» его
+    // не выключает — выбранная группа просто ждёт в prefs.study.
+    if (wasPlanner) {
+      const study = { group: prefs.group, teacher: prefs.teacher, teacherName: prefs.teacherName, mfk: prefs.mfk || [] };
+      prefs = { ...prefs, planner: true, study, group: undefined, teacher: undefined, teacherName: undefined, mfk: [] };
     }
     savePrefs(prefs);
     notices.group = null;
@@ -12667,7 +12935,6 @@ async function init() {
     const group = !prefs.teacher && groupById(prefs.group);
     if (group && group.id !== before) countOpen({ id: group.id, course: group.course, level: group.level });
     if (prefs.teacher) countOpen(teacherVisit(prefs.teacher));
-    if (prefs.planner && !before) countOpen({ id: "свои дела", course: null, level: "свои дела" });
     loadForeignTeacher();
   });
   // Telegram может отдать из кэша старый index.html без окна комментариев
@@ -12788,8 +13055,12 @@ async function init() {
   // иначе всё посчиталось бы по голой разметке.
   await Promise.race([window.__cssReady, new Promise((r) => setTimeout(r, 4000))]);
   const group = activeGroup();
+  // Полные имена преподавателей — в карточках пар. Ждём их недолго, пока
+  // идёт заставка: дорисовывать потом значило бы сдвинуть карточки.
+  if (group && !group.planner) {
+    await Promise.race([loadTeacherNames(), new Promise((r) => setTimeout(r, 600))]);
+  }
   if (group?.teacher) {
-    loadTeacherNames();
     openTab("schedule");
     countOpen(teacherVisit(group.teacher));
   } else if (group) {
