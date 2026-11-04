@@ -40,10 +40,10 @@ import {
 // Cloudflare остаётся прежний.
 const WEB_APP_URL = globalThis.SCHEDULE_APP_URL || "https://bodryash.github.io/schedule-miniapp/";
 
-// Тестовая сборка — ветка beta на своём сервере (deploy/beta.sh). Обновляется
-// сама вместе с основной копией, раз в 5 минут. Прежняя бета в Cloudflare
-// (fgp-schedule-beta) обновлялась только руками и отстала.
-const BETA_URL = "https://beta.bodryash.ru/";
+// Тестовая сборка — ветка beta на Cloudflare: выкладывается сама при каждом
+// обновлении ветки (.github/workflows/beta-cloudflare.yml) и открывается,
+// даже когда свой сервер недоступен. Копия на сервере — beta.bodryash.ru.
+const BETA_URL = "https://fgp-schedule-beta.bodryash.workers.dev/";
 
 // Объявление само снимается через неделю: забытая плашка «пара перенесена»
 // через месяц вводила бы в заблуждение сильнее, чем её отсутствие.
@@ -4575,7 +4575,7 @@ ${invite}`,
       const owner = isOwner(env, message.chat.id);
       await callTelegram(env.BOT_TOKEN, "sendMessage", {
         chat_id: message.chat.id,
-        text: owner ? "🧪 Тестовая версия расписания (ветка beta). Студенты её не видят, обновляется сама каждые 5 минут." : "Команда недоступна.",
+        text: owner ? "🧪 Тестовая версия расписания (ветка beta). Студенты её не видят, обновляется сама после каждой выкладки." : "Команда недоступна.",
         reply_markup: owner
           ? { inline_keyboard: [[{ text: "🧪 Открыть тестовую версию", web_app: { url: BETA_URL } }]] }
           : undefined,
