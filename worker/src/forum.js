@@ -868,6 +868,7 @@ export async function forumModerate(env, action, kind, id) {
 export const FORUM_HELP = [
   "<b>Подслушка</b> — общий форум вузов.",
   "/forum — сводка и посты на проверке",
+  "/fclear — стереть все посты и ответы и снять модераторов (переспросит)",
   "/fclose [текст людям] — закрыть Подслушку на ремонт (переспросит) · /fopen — открыть",
   "/forum off · /forum on — то же без переспроса",
   "/forum newbie on|off — проверять первый пост нового автора",
@@ -884,6 +885,28 @@ export const FORUM_HELP = [
 function parseRef(token) {
   const m = String(token || "").match(/^(r|р)?[№#]?(\d+)$/i);
   return m ? { kind: m[1] ? "r" : "p", id: Number(m[2]) } : null;
+}
+
+/**
+ * /fclear: стереть всё содержимое Подслушки (посты, ответы, голоса, жалобы) и
+ * снять всех модераторов. Тестировщики, баны и настройки остаются.
+ */
+export async function forumWipe(env) {
+  const count = async (table) => (await env.STATS.prepare(`SELECT COUNT(*) AS n FROM ${table}`).first()).n;
+  const posts = await count("forum_posts");
+  const replies = await count("forum_replies");
+  const { n: mods } = await env.STATS.prepare("SELECT COUNT(*) AS n FROM forum_roles WHERE role = 'moderator'").first();
+  await env.STATS.batch([
+    env.STATS.prepare("DELETE FROM forum_reply_likes"),
+    env.STATS.prepare("DELETE FROM forum_likes"),
+    env.STATS.prepare("DELETE FROM forum_reports"),
+    env.STATS.prepare("DELETE FROM forum_replies"),
+    env.STATS.prepare("DELETE FROM forum_posts"),
+    env.STATS.prepare("DELETE FROM forum_trusted"),
+    env.STATS.prepare("DELETE FROM forum_roles WHERE role = 'moderator'"),
+  ]);
+  await putSetting(env, "forum_wipe_pending", "");
+  return `Стёр: постов ${posts}, ответов ${replies}. Модераторов снято: ${mods}. Выдать заново: /fmod @ник`;
 }
 
 /** Ответ на кнопки «Да, закрыть» / «Отмена» под /fclose. */
@@ -909,6 +932,13 @@ export async function forumCommand(env, text, findPerson) {
     return {
       text: `⛔ Закрыть Подслушку на ремонт для всех?${message ? `\nЛюдям покажем: «${escape(message)}»` : ""}\nОткрыть обратно: /fopen`,
       keyboard: [[{ text: "⛔ Да, закрыть", callback_data: "fcl:y" }, { text: "Отмена", callback_data: "fcl:n" }]],
+    };
+  }
+  if (cmd === "fclear") {
+    // Необратимо — только после кнопки «Да».
+    return {
+      text: "🧹 Стереть ВСЕ посты и ответы Подслушки (с голосами и жалобами) и снять всех модераторов?\nТестировщики, баны и настройки останутся. Отменить это нельзя.",
+      keyboard: [[{ text: "🧹 Да, стереть всё", callback_data: "fwp:y" }, { text: "Отмена", callback_data: "fwp:n" }]],
     };
   }
   if (cmd === "fopen") {
