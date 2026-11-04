@@ -127,6 +127,20 @@ r = await api("list", {}, 200); ok(r.posts[0].replies === 2, "счётчик о�
 // лайк
 r = await api("like", { post: postId }, 200); ok(r.ok && r.liked && r.likes === 1, "лайк", JSON.stringify(r));
 r = await api("like", { post: postId }, 200); ok(r.ok && !r.liked && r.likes === 0, "повторный лайк снимает", JSON.stringify(r));
+// голосование стрелками
+r = await api("vote", { kind: "p", post: postId, v: -1 }, 301);
+ok(r.ok && r.v === -1 && r.score === -1, "стрелка вниз: рейтинг 0 → −1", JSON.stringify(r));
+r = await api("vote", { kind: "p", post: postId, v: -1 }, 302);
+ok(r.score === -2, "второй голос против: рейтинг −2", JSON.stringify(r));
+r = await api("vote", { kind: "p", post: postId, v: 1 }, 301);
+ok(r.v === 1 && r.score === 0, "переключили вниз → вверх: меняет рейтинг сразу на 2 (−2 → 0)", JSON.stringify(r));
+r = await api("list", {}, 302);
+ok(r.posts.find((p) => p.id === postId)?.vote === -1, "свой голос виден в ленте", JSON.stringify(r.posts.find((p) => p.id === postId)));
+r = await api("vote", { kind: "p", post: postId, v: 0 }, 302);
+ok(r.v === 0 && r.score === 1, "снять голос против: −1 к минусу (0 → +1)", JSON.stringify(r));
+r = await api("vote", { kind: "p", post: postId, v: 7 }, 302); ok(r.status === 400, "странный голос отклонён");
+r = await api("vote", { kind: "p", post: postId, v: 1 }, 301);
+r = await api("vote", { kind: "p", post: postId, v: 0 }, 301);
 // ответ на ответ, лайк ответа, цитата родителя
 r = await api("replies", { post: postId }, 100);
 const parentId = r.replies[0].id;
