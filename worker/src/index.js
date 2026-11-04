@@ -3168,6 +3168,22 @@ async function watchCommand(env, message, on) {
   });
 }
 
+/** Файл от студента или владельца — на GitHub, в ветку inbox: оттуда его разбираем без доступа к серверу. */
+async function sendToInbox(env, fileId, name, sender) {
+  if (!env.GITHUB_TOKEN || !fileId) return false;
+  const response = await fetch(`https://api.github.com/repos/${REPO}/dispatches`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      accept: "application/vnd.github+json",
+      "content-type": "application/json",
+      "user-agent": "fgp-schedule-bot",
+    },
+    body: JSON.stringify({ event_type: "inbox-file", client_payload: { file_id: fileId, name: String(name || "file").slice(0, 120), sender: String(sender || "").slice(0, 120) } }),
+  });
+  return response.ok;
+}
+
 /**
  * PDF в чате курса. Сам файл здесь не разобрать — парсер на Python живёт в
  * сборке на GitHub, поэтому файл уходит туда на проверку. Она ничего не
@@ -4653,9 +4669,10 @@ ${invite}`,
         await Promise.resolve(globalThis.SCHEDULE_SAVE_FILE(document, forwardedFrom, message.caption || "")).catch(() => {
           saved = false;
         });
+        const onGithub = saved && (await sendToInbox(env, document.file_id, document.file_name, forwardedFrom.first_name || forwardedFrom.username || "")).valueOf();
         await callTelegram(env.BOT_TOKEN, "sendMessage", {
           chat_id: message.chat.id,
-          text: saved ? `Сохранил во входящие: ${document.file_name || "файл"}` : "Не смог сохранить файл — подробности в журнале сервера.",
+          text: saved ? `Сохранил во входящие: ${document.file_name || "файл"}${onGithub ? " (и отправил на разбор)" : ""}` : "Не смог сохранить файл — подробности в журнале сервера.",
         }).catch(() => {});
       } else if (watched) {
         // Чат курса: в сам чат не отвечаем ни при каких условиях.
@@ -4820,6 +4837,18 @@ ${invite}`,
         const audience = await findAudience("msu-fgp");
         await draftBroadcast(env, message.chat.id, await updatedText(extra), { button: true, audience });
       }
+    }
+
+    // Файлы расписаний, присланные раньше: отправляем на разбор все, что ещё не ушло.
+    if (message && /^\/inbox(?:@\w+)?$/.test(text.trim())) {
+      if (!isOwner(env, message.chat.id)) {
+        await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: "Команда недоступна." });
+        return new Response("ok");
+      }
+      const sync = globalThis.SCHEDULE_INBOX_SYNC;
+      const answer = sync ? await sync(env, sendToInbox).catch((error) => `Не вышло: ${String(error?.message || error).slice(0, 200)}`) : "Эта команда работает только на своём сервере.";
+      await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: answer });
+      return new Response("ok");
     }
 
     // Последние рассылки и их итог — только владельцу. У остановленной с

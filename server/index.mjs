@@ -121,6 +121,45 @@ globalThis.SCHEDULE_SAVE_FILE = async (document, from, caption) => {
 };
 
 /**
+ * /inbox: файлы из входящих, которые ещё не ушли на разбор, — владельцу в
+ * чат (так у них появляется свой file_id) и оттуда на GitHub в ветку inbox.
+ */
+globalThis.SCHEDULE_INBOX_SYNC = async (botEnv, sendToInbox) => {
+  if (!botEnv.GITHUB_TOKEN) return "На сервере нет GITHUB_TOKEN — отправить на разбор не получится.";
+  mkdirSync(INBOX, { recursive: true });
+  const names = readdirSync(INBOX).filter((n) => !n.endsWith(".json") && !n.endsWith(".synced"));
+  const todo = names.filter((n) => !existsSync(join(INBOX, `${n}.synced`))).sort().slice(-15);
+  if (!names.length) return "Во входящих пусто.";
+  if (!todo.length) return `Все ${names.length} файл(ов) уже отправлены на разбор.`;
+  const report = [];
+  for (const name of todo) {
+    const path = join(INBOX, name);
+    let who = "";
+    try {
+      const meta = JSON.parse(readFileSync(`${path}.json`, "utf8"));
+      who = [meta.from?.name, meta.from?.username && `@${meta.from.username}`].filter(Boolean).join(" ") + (meta.caption ? ` · ${meta.caption}` : "");
+    } catch {}
+    try {
+      const data = readFileSync(path);
+      if (data.length > 20 * 1024 * 1024) throw new Error("больше 20 МБ");
+      const form = new FormData();
+      form.append("chat_id", String(botEnv.OWNER_ID));
+      form.append("caption", `Из входящих: ${name.replace(/^[0-9T-]+_[^_]*_/, "")}`.slice(0, 200));
+      form.append("document", new Blob([data]), name.replace(/^[0-9T-]+_[^_]*_/, "") || name);
+      const res = await (await fetch(`https://api.telegram.org/bot${botEnv.BOT_TOKEN}/sendDocument`, { method: "POST", body: form, signal: AbortSignal.timeout(60000) })).json();
+      const fileId = res?.result?.document?.file_id;
+      if (!fileId) throw new Error(res?.description || "Telegram не принял файл");
+      if (!(await sendToInbox(botEnv, fileId, name.replace(/^[0-9T-]+_[^_]*_/, ""), who))) throw new Error("GitHub не принял");
+      writeFileSync(`${path}.synced`, new Date().toISOString());
+      report.push(`✔ ${name.replace(/^[0-9T-]+_[^_]*_/, "")}`);
+    } catch (error) {
+      report.push(`✖ ${name.replace(/^[0-9T-]+_[^_]*_/, "")}: ${String(error.message).slice(0, 80)}`);
+    }
+  }
+  return `Отправил на разбор:\n${report.join("\n")}`;
+};
+
+/**
  * Файл из Telegram. Через пересыльщик на Cloudflare длинное скачивание из
  * России обрывается (соединение душат после ~16 КБ), поэтому качаем кусками
  * по 12 КБ, каждый — отдельным соединением. Напрямую (без пересыльщика) —
