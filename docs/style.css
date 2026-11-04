@@ -12332,3 +12332,799 @@ body[data-tone="dark"].putin::before {
     linear-gradient(180deg, rgba(12, 14, 28, 0.62) 0%, rgba(12, 14, 28, 0.3) 34%, rgba(20, 50, 120, 0.4) 66%, rgba(130, 25, 20, 0.55) 100%),
     url("themes/trump-putin.jpg");
 }
+
+/* ===== Первый запуск: настройка по шагам ===== */
+.onboard {
+  position: fixed;
+  inset: 0;
+  z-index: 960;
+  overflow: hidden auto;
+  background: var(--bg, var(--tg-theme-bg-color, #fff));
+  color: var(--text);
+}
+
+body.onboarding #tabs {
+  display: none;
+}
+
+.onboard-page {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+  animation: onboard-in-next 300ms var(--ease-soft, ease) both;
+}
+
+.onboard-page--prev {
+  animation-name: onboard-in-prev;
+}
+
+.onboard-page--out-left {
+  animation: onboard-out-left 300ms var(--ease-soft, ease) both;
+  pointer-events: none;
+}
+
+.onboard-page--out-right {
+  animation: onboard-out-right 300ms var(--ease-soft, ease) both;
+  pointer-events: none;
+}
+
+@keyframes onboard-in-next { from { transform: translateX(40%); opacity: 0; } }
+@keyframes onboard-in-prev { from { transform: translateX(-40%); opacity: 0; } }
+@keyframes onboard-out-left { to { transform: translateX(-40%); opacity: 0; } }
+@keyframes onboard-out-right { to { transform: translateX(40%); opacity: 0; } }
+
+.onboard-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 40px;
+}
+
+.onboard-back {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  font: inherit;
+  font-size: 20px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  cursor: pointer;
+}
+
+.onboard-dots {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.onboard-dots i {
+  width: 22px;
+  height: 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  transition: background 300ms ease;
+}
+
+.onboard-dots i.on {
+  background: var(--accent);
+}
+
+.onboard-body {
+  max-width: 520px;
+  margin: 0 auto;
+  padding-top: 18px;
+}
+
+.onboard-title {
+  margin: 0 0 6px;
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.onboard-sub {
+  margin: 0 0 20px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.onboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.onboard-list--grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.onboard-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 60px;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 18px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface, var(--card));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent), 0 8px 20px -16px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+
+.onboard-option:active {
+  transform: scale(0.97);
+}
+
+.onboard-option-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.onboard-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.onboard-option-text b {
+  font-size: 17px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.onboard-option-text span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.onboard-option--small {
+  justify-content: center;
+  min-height: 52px;
+  padding: 10px 6px;
+  text-align: center;
+}
+
+.onboard-option--small .onboard-option-text b {
+  font-size: 15px;
+}
+
+.onboard-option--muted {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.onboard-find {
+  width: 100%;
+  height: 48px;
+  margin-bottom: 12px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.onboard-more {
+  display: block;
+  margin: 22px auto 0;
+  padding: 8px 12px;
+  border: 0;
+  font: inherit;
+  font-size: 14px;
+  color: var(--muted);
+  background: none;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboard-page,
+  .onboard-page--out-left,
+  .onboard-page--out-right {
+    animation: none;
+  }
+}
+
+/* ===== Неделя в режиме «Только свои дела» ===== */
+.pweek {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 10px 24px;
+}
+
+.pweek-day {
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.pweek-day--today {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.pweek-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pweek-head span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.pweek-add {
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  font: inherit;
+  font-size: 16px;
+  color: var(--accent-text);
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.pweek-free {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ===== Фон — только сплошной светлый или тёмный =====
+   Неба, облаков, пятен, свечений и фото больше нет ни в одной теме:
+   темы меняют лишь оттенок акцента (кнопки, выбранный день, дата). */
+.bg-layer,
+.daysky,
+.garland {
+  display: none !important;
+}
+
+body::before,
+body::after {
+  background: none !important;
+  content: none !important;
+}
+
+/* ===== Настройки разделами ===== */
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: 4px 0 16px;
+  border-radius: 18px;
+  background: var(--surface, var(--card));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 7%, transparent);
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  cursor: pointer;
+}
+
+.settings-row:last-child {
+  border-bottom: 0;
+}
+
+.settings-row:active {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+.settings-row-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 34px;
+  height: 34px;
+  border-radius: 10px;
+  font-size: 18px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.settings-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-row-text b {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.settings-row-sub {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-row-sub:empty {
+  display: none;
+}
+
+.settings-row-chev {
+  font-size: 22px;
+  color: var(--muted);
+}
+
+.settings-page {
+  margin-bottom: 16px;
+  animation: settings-in 260ms var(--ease-soft, ease) both;
+}
+
+@keyframes settings-in {
+  from { transform: translateX(24px); opacity: 0; }
+}
+
+.settings-back {
+  margin: 0 0 6px -4px;
+  padding: 6px 4px;
+  border: 0;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  cursor: pointer;
+}
+
+.settings-page-title {
+  margin: 0 0 14px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-page {
+    animation: none;
+  }
+}
+
+/* Заголовок раздела уже есть сверху — свой у блока прячем. */
+.settings-page .look-head,
+.settings-page .profiles-head,
+.settings-page fieldset > legend:first-child {
+  display: none;
+}
+
+/* ===== Меню «⋯»: плитки вместо длинного списка =====
+   Действия — сеткой по три с крупным значком, «Настройки» — отдельной
+   строкой внизу. Ненужное в режиме «Только свои дела» не показываем. */
+.menu-pop {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  width: min(330px, calc(100vw - 32px));
+  min-width: 0;
+  padding: 8px;
+  border-radius: 22px;
+}
+
+.menu-pop button {
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  min-height: 82px;
+  padding: 10px 4px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+.menu-pop button > span:first-child {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.menu-pop button[data-menu="settings"] {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  min-height: 48px;
+  font-size: 15px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.menu-pop button[data-menu="settings"] > span:first-child {
+  font-size: 18px;
+}
+
+.menu-pop .menu-off,
+.menu-pop [hidden] {
+  display: none;
+}
+
+/* ===== «Своё дело»: живее и удобнее ===== */
+.own-add {
+  position: relative;
+  overflow: hidden;
+  transition: transform 160ms var(--ease-out), box-shadow 200ms ease;
+}
+
+/* Блик пробегает по плашке раз в несколько секунд — она заметна, но не кричит. */
+.own-add::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -40%;
+  width: 30%;
+  background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--accent) 18%, transparent), transparent);
+  animation: own-glint 5s ease-in-out 1.2s infinite;
+  pointer-events: none;
+}
+
+@keyframes own-glint {
+  0%, 70% { left: -40%; }
+  100% { left: 130%; }
+}
+
+.own-add:active {
+  transform: scale(0.97);
+}
+
+.own-add-plus {
+  transition: transform 260ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.own-add:active .own-add-plus {
+  transform: rotate(90deg) scale(1.08);
+}
+
+/* Новое дело встаёт на место с лёгким прыжком. */
+.own-card--new {
+  animation: own-pop 520ms cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+
+@keyframes own-pop {
+  0% { opacity: 0; transform: translateY(14px) scale(0.94); }
+  60% { opacity: 1; }
+  100% { transform: none; }
+}
+
+/* Длительность одной кнопкой под временем. */
+.own-spans {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.own-spans::-webkit-scrollbar {
+  display: none;
+}
+
+.own-span {
+  flex: 0 0 auto;
+}
+
+.own-kind.chip--on {
+  animation: own-kind-pick 260ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+@keyframes own-kind-pick {
+  50% { transform: scale(1.08); }
+}
+
+/* Найденные свои дела в поиске. */
+.own-found {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 16px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface, var(--card));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 7%, transparent);
+  cursor: pointer;
+}
+
+.own-found-icon {
+  font-size: 22px;
+}
+
+.own-found-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.own-found-text b {
+  font-size: 16px;
+}
+
+.own-found-text span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Окно, которое тянут пальцем, не дёргается от своей анимации появления. */
+.sheet[style*="translateY"] {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .own-add::after,
+  .own-card--new,
+  .own-kind.chip--on {
+    animation: none;
+  }
+}
+
+
+.own-span {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+}
+
+/* ===== Свои дела: цвет, лента дня, подсветка нового ===== */
+.own-card {
+  --own-c: var(--accent);
+  border-left: 4px solid var(--own-c) !important;
+  background: color-mix(in srgb, var(--own-c) 10%, var(--surface, var(--card))) !important;
+}
+
+.own-card .own-tag {
+  background: color-mix(in srgb, var(--own-c) 18%, transparent);
+  color: color-mix(in srgb, var(--own-c) 70%, var(--text));
+}
+
+.own-card .card-line {
+  background: var(--own-c);
+}
+
+.own-next-day {
+  margin-left: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--own-c);
+  vertical-align: super;
+}
+
+.own-card--flash {
+  animation: own-flash 1.5s ease both;
+}
+
+@keyframes own-flash {
+  0%, 60% { box-shadow: 0 0 0 3px var(--own-c), 0 10px 26px -10px var(--own-c); }
+  100% { box-shadow: none; }
+}
+
+.own-colors {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0 2px;
+}
+
+.own-color {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--own-c);
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.own-color--on {
+  transform: scale(1.18);
+  box-shadow: 0 0 0 2px var(--surface, var(--card)), 0 0 0 4px var(--own-c);
+}
+
+.own-strip {
+  margin: 6px 0 14px;
+  padding: 14px 14px 10px;
+  border-radius: 20px;
+  background: var(--surface, var(--card));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 7%, transparent);
+  animation: rise 360ms var(--ease-soft, ease) both;
+}
+
+.own-strip-title {
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.own-strip-bar {
+  position: relative;
+  height: 26px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.own-strip-seg {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--own-c);
+  cursor: pointer;
+  transform-origin: left center;
+  animation: own-seg-in 420ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+
+.own-strip-seg--new {
+  animation: own-seg-in 420ms cubic-bezier(0.3, 1.4, 0.5, 1) both, own-seg-pulse 1.2s 0.4s ease 2;
+}
+
+@keyframes own-seg-in {
+  from { transform: scaleX(0); opacity: 0; }
+}
+
+@keyframes own-seg-pulse {
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--own-c) 35%, transparent); }
+}
+
+.own-strip-now {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--text);
+  opacity: 0.6;
+}
+
+.own-strip-scale {
+  position: relative;
+  height: 16px;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.own-strip-scale span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.own-strip-scale span:first-child {
+  transform: none;
+}
+
+/* ===== Профили в меню «⋯» ===== */
+.menu-profiles {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 6px;
+  padding-bottom: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.menu-profiles::-webkit-scrollbar {
+  display: none;
+}
+
+.menu-pop .menu-profile {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  flex-direction: row;
+}
+
+.menu-pop .menu-profile--on {
+  color: var(--accent-text);
+  background: var(--accent);
+}
+
+.menu-pop .menu-profile--add {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .own-card--flash,
+  .own-strip,
+  .own-strip-seg {
+    animation: none;
+  }
+}
+
+/* Дело кончается на следующий день — у конца пометка «завтра». */
+.own-field[data-next]:not([data-next=""])::after {
+  content: attr(data-next);
+  display: inline-block;
+  margin-top: 2px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--accent-text);
+  background: var(--accent);
+  animation: own-kind-pick 260ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+/* Уход заставки: дата уменьшается тем же плавным движением, что и
+   размытие, — раньше она прыгала в 0.92 мгновенно и обгоняла туман. */
+.splash[data-intro] > * {
+  transition: transform 560ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== Меню «⋯» без серой рамки =====
+   Рамка в 1 px и размытие фона под меню во время масштабирования давали
+   серую обводку с резкими углами. Теперь — сплошная подложка, мягкая тень
+   и появление сдвигом с прозрачностью, без масштаба. */
+.menu-pop {
+  border: 0 !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: var(--surface, var(--card)) !important;
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+  animation: menu-in-soft 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  will-change: transform, opacity;
+}
+
+.menu-pop::before,
+.menu-pop::after {
+  display: none !important;
+}
+
+.menu-pop--out {
+  animation: menu-out-soft 160ms ease forwards !important;
+}
+
+@keyframes menu-in-soft {
+  from { opacity: 0; transform: translateY(-6px); }
+}
+
+@keyframes menu-out-soft {
+  to { opacity: 0; transform: translateY(-4px); }
+}
+
+body[data-tone="dark"] .menu-pop {
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+}
+
+.menu-pop {
+  border-radius: 22px !important;
+  clip-path: none !important;
+}
