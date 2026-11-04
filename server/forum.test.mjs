@@ -141,6 +141,14 @@ ok(sent.filter((m) => /жалоба на/.test(m.text || "")).length === 2, "и 
 await tg(`/fban ${postId} 3 тест`);
 r = await api("post", { text: "новый пост после бана", anon: true }, 100); ok(r.status === 403 && r.error === "banned", "забаненный не пишет", JSON.stringify(r));
 r = await api("list", {}, 100); ok(r.ok, "забаненный может читать");
+// ссылка на профиль — только у тех, кто пишет под именем и имеет @ник
+const named = await api("post", { text: "Пост под своим именем, чтобы проверить ссылку на профиль", anon: false }, OWNER, "Админ", "boss_nick");
+const anonPost = await api("post", { text: "Анонимный пост того же человека, ссылки быть не должно", anon: true }, OWNER, "Админ", "boss_nick");
+r = await api("list", {}, 200);
+const seenNamed = r.posts.find((p) => p.id === named.post.id);
+const seenAnon = r.posts.find((p) => p.id === anonPost.post.id);
+ok(seenNamed?.tg === "boss_nick", "под именем — ссылка на профиль доступна другим", JSON.stringify(seenNamed));
+ok(seenAnon && seenAnon.tg === undefined && !JSON.stringify(seenAnon).includes("boss_nick"), "у анонима ника нет нигде в ответе", JSON.stringify(seenAnon));
 // команды владельца
 sent.length = 0; await tg("/forum");
 ok(sent.some((m) => /Подслушка/.test(m.text || "") && /На проверке/.test(m.text)), "/forum показывает сводку");
