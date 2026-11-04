@@ -34,6 +34,8 @@
     back: '<path d="M15 5l-7 7 7 7"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
     heart: '<path d="M12 20.4s-7.4-4.5-7.4-10.1A4.3 4.3 0 0 1 12 7.5a4.3 4.3 0 0 1 7.4 2.8c0 5.6-7.4 10.1-7.4 10.1z"/>',
+    arrowUp: '<path d="M12 19.5V5M5.8 11.2L12 5l6.2 6.2"/>',
+    arrowDown: '<path d="M12 4.5V19M5.8 12.8L12 19l6.2-6.2"/>',
     comment: '<path d="M5.5 5h13a2 2 0 0 1 2 2v8.2a2 2 0 0 1-2 2H13l-4.2 3.3v-3.3H5.5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/>',
     reply: '<path d="M9.5 6.5L4 12l5.5 5.5M4.5 12H14a5.5 5.5 0 0 1 5.5 5.5V19"/>',
     more: '<circle cx="5.5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18.5" cy="12" r="1.5"/>',
@@ -134,9 +136,15 @@
     return node.animate(frames, { easing: EASE, ...options });
   }
 
-  /** Число с «прокруткой»: старое уезжает, новое въезжает. */
-  function setNum(node, n, animated) {
-    const text = n > 0 ? String(n) : "";
+  const fmtScore = (n) => (n < 0 ? `\u2212${Math.abs(n)}` : String(n));
+  const parseScore = (text) => Number(String(text).replace("\u2212", "-")) || 0;
+
+  /**
+   * Число с «прокруткой»: старое уезжает, новое въезжает. С `signed` показывает
+   * и ноль, и минус (рейтинг), без него ноль — пусто (счётчик ответов).
+   */
+  function setNum(node, n, animated, signed = false) {
+    const text = signed ? fmtScore(n) : n > 0 ? String(n) : "";
     const cur = node.firstElementChild;
     if (!cur) {
       const first = document.createElement("span");
@@ -145,7 +153,7 @@
       return;
     }
     if (cur.textContent === text) return;
-    const prev = Number(cur.textContent) || 0;
+    const prev = parseScore(cur.textContent);
     if (!animated || REDUCED || !node.animate) {
       cur.textContent = text;
       return;
@@ -887,6 +895,40 @@
 
   /* ---------- Строки ленты ---------- */
 
+  /** Стрелки вверх/вниз с рейтингом посередине. */
+  function voteControl(item, label) {
+    const box = document.createElement("span");
+    box.className = "fm-vote";
+    box.setAttribute("role", "group");
+    box.setAttribute("aria-label", label || t("Голосование"));
+    const make = (dir, name, aria) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = `fm-v fm-v--${dir > 0 ? "up" : "down"}`;
+      b.setAttribute("aria-label", aria);
+      const holder = document.createElement("span");
+      holder.className = "fm-i-wrap";
+      holder.style.cssText = "position:relative;display:inline-flex";
+      holder.append(icon(name));
+      b.append(holder);
+      return b;
+    };
+    const num = document.createElement("span");
+    num.className = "fm-num";
+    setNum(num, item.score || 0, false, true);
+    box.append(make(1, "arrowUp", t("За")), num, make(-1, "arrowDown", t("Против")));
+    paintVote(box, item, false);
+    return box;
+  }
+
+  function paintVote(box, item, animated) {
+    box.classList.toggle("is-up", item.vote === 1);
+    box.classList.toggle("is-down", item.vote === -1);
+    box.querySelector(".fm-v--up").setAttribute("aria-pressed", String(item.vote === 1));
+    box.querySelector(".fm-v--down").setAttribute("aria-pressed", String(item.vote === -1));
+    setNum(box.querySelector(".fm-num"), item.score || 0, animated, true);
+  }
+
   function numButton(kind, count, label) {
     const b = document.createElement("button");
     b.type = "button";
@@ -901,12 +943,6 @@
     setNum(num, count, false);
     b.append(holder, num);
     return b;
-  }
-
-  function paintLike(btn, item, animated) {
-    btn.classList.toggle("is-on", Boolean(item.liked));
-    btn.setAttribute("aria-pressed", String(Boolean(item.liked)));
-    setNum(btn.querySelector(".fm-num"), item.likes || 0, animated);
   }
 
   function rowNode(post) {
@@ -948,12 +984,11 @@
 
     const acts = document.createElement("footer");
     acts.className = "fm-acts";
-    const like = numButton("like", post.likes, t("Нравится"));
-    paintLike(like, post, false);
-    like.disabled = Boolean(post.pending);
+    const votes = voteControl(post);
+    votes.querySelectorAll("button").forEach((b) => (b.disabled = Boolean(post.pending)));
     const talk = numButton("reply", post.replies, t("Ответы"));
     talk.disabled = Boolean(post.pending);
-    acts.append(like, talk);
+    acts.append(votes, talk);
     main.append(acts);
 
     if (S.owner && (post.hidden === 3 || post.hidden === 1)) main.append(modBar("p", post));
@@ -1074,7 +1109,7 @@
   function refreshPost(post, animated) {
     const row = S.feed?.querySelector(`.fm-row[data-id="${post.id}"]`);
     if (row) {
-      paintLike(row.querySelector(".fm-act--like"), post, animated);
+      paintVote(row.querySelector(".fm-vote"), post, animated);
       setNum(row.querySelector(".fm-act--reply .fm-num"), post.replies || 0, animated);
     }
     if (T.open && T.post?.id === post.id) paintThreadPost(animated);
@@ -1110,8 +1145,8 @@
       if (!post) return;
       const profile = event.target.closest("[data-tg]");
       if (profile) return openProfile(profile.dataset.tg);
-      const like = event.target.closest(".fm-act--like");
-      if (like) return toggleLike(post, "p", like);
+      const arrow = event.target.closest(".fm-v");
+      if (arrow) return castVote(post, "p", arrow.classList.contains("fm-v--up") ? 1 : -1, arrow.closest(".fm-vote"));
       if (event.target.closest(".fm-dots")) return openActions("p", post);
       if (event.target.closest(".fm-modbar")) return;
       if (event.target.closest(".fm-act--reply")) return openThread(post, { focus: true });
@@ -1122,56 +1157,64 @@
 
   /* ---------- Лайки ---------- */
 
-  function pop(btn) {
+  /** Стрелка «подпрыгивает» в свою сторону и бросает искры. */
+  function pop(btn, dir) {
     const ic = btn.querySelector(".fm-i");
     if (!ic) return;
+    const away = dir > 0 ? -1 : 1;
     animate(ic, [
-      { transform: "scale(1)" },
-      { transform: "scale(0.7)", offset: 0.14 },
-      { transform: "scale(1.34)", offset: 0.5 },
-      { transform: "scale(0.94)", offset: 0.76 },
-      { transform: "scale(1)" },
-    ], { duration: 500, easing: "ease-out" });
+      { transform: "translateY(0) scale(1)" },
+      { transform: `translateY(${away * 7}px) scale(1.3)`, offset: 0.34 },
+      { transform: `translateY(${-away * 1.5}px) scale(0.94)`, offset: 0.68 },
+      { transform: "translateY(0) scale(1)" },
+    ], { duration: 460, easing: "ease-out" });
     if (REDUCED) return;
     const holder = btn.querySelector(".fm-i-wrap");
-    for (let i = 0; i < 7; i++) {
+    const color = dir > 0 ? "var(--accent)" : "#5b7cfa";
+    for (let i = 0; i < 6; i++) {
       const dot = document.createElement("i");
       dot.className = "fm-burst";
+      dot.style.background = color;
       holder.append(dot);
-      const angle = (i / 7) * Math.PI * 2 + 0.3;
-      const dist = 20 + (i % 2) * 7;
+      const spread = ((i - 2.5) / 2.5) * 1.1;
       const a = dot.animate(
         [
           { transform: "translate3d(0,0,0) scale(1)", opacity: 1 },
-          { transform: `translate3d(${Math.cos(angle) * dist}px, ${Math.sin(angle) * dist}px, 0) scale(0.2)`, opacity: 0 },
+          { transform: `translate3d(${Math.sin(spread) * 18}px, ${away * (14 + (i % 2) * 6)}px, 0) scale(0.2)`, opacity: 0 },
         ],
-        { duration: 480, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", delay: 60 }
+        { duration: 460, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", delay: 50 }
       );
       a.onfinish = () => dot.remove();
     }
   }
 
-  async function toggleLike(item, kind, btn) {
+  /** Голос за (1) или против (−1); повторное нажатие снимает голос. */
+  async function castVote(item, kind, dir, box) {
     if (S.banned) return toast(t("Вам закрыт доступ к записям."), { tone: "warn", icon: "lock" });
-    haptic(item.liked ? "light" : "medium");
-    item.liked = !item.liked;
-    item.likes = Math.max(0, (item.likes || 0) + (item.liked ? 1 : -1));
-    if (item.liked && btn) pop(btn);
+    const was = item._was || { score: item.score || 0, vote: item.vote || 0 };
+    const cur = item.vote || 0;
+    const next = cur === dir ? 0 : dir;
+    haptic(next ? "medium" : "light");
+    item.vote = next;
+    item.score = (item.score || 0) + (next - cur);
+    if (next && box) pop(box.querySelector(next === 1 ? ".fm-v--up" : ".fm-v--down"), next);
     paintAll(item, kind, true);
     if (item._syncing) return;
     item._syncing = true;
+    item._was = was;
     try {
       for (let i = 0; i < 3; i++) {
-        const res = await request("like", kind === "r" ? { kind: "r", id: item.id } : { kind: "p", post: item.id });
-        item.likes = res.likes;
-        if (res.liked === item.liked) break;
+        const res = await request("vote", kind === "r" ? { kind: "r", id: item.id, v: item.vote } : { kind: "p", post: item.id, v: item.vote });
+        item.score = res.score;
+        if (res.v === item.vote) break;
       }
     } catch (error) {
-      item.liked = !item.liked;
-      item.likes = Math.max(0, (item.likes || 0) + (item.liked ? 1 : -1));
+      item.vote = was.vote;
+      item.score = was.score;
       toast(errorText(error), { tone: "bad", icon: "alert" });
     } finally {
       item._syncing = false;
+      item._was = null;
       paintAll(item, kind, false);
     }
   }
@@ -1179,8 +1222,8 @@
   function paintAll(item, kind, animated) {
     if (kind === "p") refreshPost(item, animated);
     else {
-      const node = T.wrap?.querySelector(`.fm-reply[data-id="${item.id}"] .fm-act--like`);
-      if (node) paintLike(node, item, animated);
+      const node = T.wrap?.querySelector(`.fm-reply[data-id="${item.id}"] .fm-vote`);
+      if (node) paintVote(node, item, animated);
     }
   }
 
@@ -1577,16 +1620,18 @@
 
     const acts = document.createElement("div");
     acts.className = "fm-th-acts";
-    const like = numButton("like", post.likes, t("Нравится"));
-    like.disabled = Boolean(post.pending);
-    like.addEventListener("click", () => toggleLike(post, "p", like));
+    const votes = voteControl(post);
+    votes.querySelectorAll("button").forEach((b) => {
+      b.disabled = Boolean(post.pending);
+      b.addEventListener("click", () => castVote(post, "p", b.classList.contains("fm-v--up") ? 1 : -1, votes));
+    });
     const talk = numButton("reply", post.replies, t("Ответить"));
     talk.disabled = Boolean(post.pending);
     talk.addEventListener("click", () => {
       setReplyTarget(null);
       T.area.focus();
     });
-    acts.append(like, talk);
+    acts.append(votes, talk);
     box.append(acts);
     queueMicrotask(() => paintThreadPost(false));
     return box;
@@ -1596,10 +1641,10 @@
     const post = T.post;
     const box = T.wrap.querySelector(".fm-th-post");
     if (!box || !post) return;
-    paintLike(box.querySelector(".fm-act--like"), post, animated);
+    paintVote(box.querySelector(".fm-vote"), post, animated);
     setNum(box.querySelector(".fm-act--reply .fm-num"), post.replies || 0, animated);
-    box.querySelector(".n-likes").textContent = String(post.likes || 0);
-    box.querySelector(".l-likes").textContent = plural(post.likes || 0, t("нравится"), t("нравится"), t("нравится"));
+    box.querySelector(".n-likes").textContent = fmtScore(post.score || 0);
+    box.querySelector(".l-likes").textContent = t("рейтинг");
     box.querySelector(".n-replies").textContent = String(post.replies || 0);
     box.querySelector(".l-replies").textContent = plural(post.replies || 0, t("ответ"), t("ответа"), t("ответов"));
   }
@@ -1620,20 +1665,17 @@
       const now = performance.now();
       if (now - last < 320) {
         last = 0;
-        if (!post.liked && !post.pending) {
-          const btn = T.wrap.querySelector(".fm-th-acts .fm-act--like");
-          toggleLike(post, "p", btn);
-        }
-        bigHeart(e.clientX, e.clientY);
+        if (post.vote !== 1 && !post.pending) castVote(post, "p", 1, T.wrap.querySelector(".fm-th-acts .fm-vote"));
+        bigArrow(e.clientX, e.clientY);
       } else last = now;
     });
   }
 
-  function bigHeart(x, y) {
+  function bigArrow(x, y) {
     const rect = T.page.getBoundingClientRect();
     const heart = document.createElement("div");
     heart.className = "fm-bigheart";
-    heart.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 20.4s-7.4-4.5-7.4-10.1A4.3 4.3 0 0 1 12 7.5a4.3 4.3 0 0 1 7.4 2.8c0 5.6-7.4 10.1-7.4 10.1z"/></svg>';
+    heart.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 3.2l8.4 9.3h-5.2V20.8H8.8V12.5H3.6z"/></svg>';
     heart.style.left = `${x - rect.left}px`;
     heart.style.top = `${y - rect.top}px`;
     T.page.append(heart);
@@ -1721,9 +1763,8 @@
     const acts = document.createElement("footer");
     acts.className = "fm-acts";
     if (reply.tmp || reply.pending) return acts;
-    const like = numButton("like", reply.likes || 0, t("Нравится"));
-    paintLike(like, reply, false);
-    like.addEventListener("click", () => toggleLike(reply, "r", like));
+    const like = voteControl(reply);
+    like.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => castVote(reply, "r", b.classList.contains("fm-v--up") ? 1 : -1, like)));
     const answer = document.createElement("button");
     answer.type = "button";
     answer.className = "fm-act fm-reply-btn";

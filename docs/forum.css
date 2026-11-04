@@ -611,22 +611,113 @@
   opacity: 0.45;
 }
 
-.fm-act--like {
-  /* Цвет меняется сразу, без перетекания: сердце «вспыхивает» вместе с хлопком. */
-  transition: background-color 160ms, transform 160ms var(--fm-ease);
+/* Стрелки вверх/вниз с рейтингом: «за» — цвет акцента, «против» — синий. */
+.fm-vote {
+  --fm-down: #5b7cfa;
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  margin: 2px 4px 2px 0;
+  border-radius: 17px;
+  background: var(--fm-soft);
+  transition: background-color 200ms;
 }
 
-.fm-act--like.is-on {
-  color: var(--fm-heart);
+.fm-v {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  transition: color 160ms, transform 160ms var(--fm-ease);
 }
 
-.fm-act--like.is-on .fm-i svg {
-  fill: currentColor;
+.fm-v--up { border-radius: 17px 0 0 17px; }
+.fm-v--down { border-radius: 0 17px 17px 0; }
+
+.fm-v:active {
+  transform: scale(0.88);
 }
 
-.fm-act--like .fm-i {
-  position: relative;
+.fm-v .fm-i svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.2;
 }
+
+.fm-v:disabled {
+  opacity: 0.45;
+}
+
+.fm-vote .fm-num {
+  min-width: 24px;
+  height: 18px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  transition: color 160ms;
+}
+
+.fm-vote .fm-num > span {
+  display: block;
+  text-align: center;
+}
+
+.fm-vote.is-up {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.fm-vote.is-up .fm-v--up,
+.fm-vote.is-up .fm-num {
+  color: var(--accent);
+}
+
+.fm-vote.is-up .fm-v--up svg {
+  stroke-width: 2.8;
+}
+
+.fm-vote.is-down {
+  background: color-mix(in srgb, var(--fm-down) 14%, transparent);
+}
+
+.fm-vote.is-down .fm-v--down,
+.fm-vote.is-down .fm-num {
+  color: var(--fm-down);
+}
+
+.fm-vote.is-down .fm-v--down svg {
+  stroke-width: 2.8;
+}
+
+.fm-reply .fm-vote {
+  height: 30px;
+}
+
+.fm-reply .fm-v {
+  width: 32px;
+  height: 30px;
+}
+
+.fm-reply .fm-v .fm-i svg {
+  width: 17px;
+  height: 17px;
+}
+
+.fm-th-acts {
+  justify-content: space-between;
+  padding: 6px 16px;
+}
+
+.fm-th-acts .fm-act {
+  flex: none;
+}
+
 
 /* Счётчик: старое число уезжает вверх, новое въезжает снизу. */
 .fm-num {
@@ -650,7 +741,6 @@
   height: 5px;
   margin: -2.5px;
   border-radius: 50%;
-  background: var(--fm-heart);
   pointer-events: none;
 }
 
@@ -1221,7 +1311,7 @@
   width: 84px;
   height: 84px;
   margin: -42px 0 0 -42px;
-  color: var(--fm-heart);
+  color: var(--accent);
   pointer-events: none;
   opacity: 0;
 }
@@ -1231,7 +1321,7 @@
   height: 100%;
   fill: currentColor;
   stroke: none;
-  filter: drop-shadow(0 6px 14px rgba(255, 59, 92, 0.45));
+  filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--accent) 55%, transparent));
 }
 
 .fm-spacer {
