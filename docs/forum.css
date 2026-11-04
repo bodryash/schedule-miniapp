@@ -1941,3 +1941,20 @@
 body.fm-open .minihead {
   display: none !important;
 }
+
+.fm-fine {
+  margin: 10px 2px 0;
+}
+
+.fm-fine p {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* Правила длиннее экрана телефона: окно прокручивается, кнопка «Готово» достаётся. */
+.sheet--fm-rules {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

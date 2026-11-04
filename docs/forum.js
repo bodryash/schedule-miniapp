@@ -2114,6 +2114,14 @@
       }
     });
     wrapper.append(toggle);
+    const fine = document.createElement("div");
+    fine.className = "fm-fine";
+    for (const line of [
+      t("Когда кто-то отвечает на ваш пост или на ваш ответ, бот пришлёт тихое сообщение, без звука: кусочек ответа и кнопку «Открыть обсуждение». Она ведёт сразу в эту тему."),
+      t("Не чаще раза в 20 минут по одной теме, чтобы бурное обсуждение не засыпало чат. Лайки и ваши собственные ответы сообщений не вызывают."),
+      t("Аноним остаётся анонимом: вы увидите «Аноним Лиса», а не имя. Бот может написать только тем, кто уже запускал его."),
+    ]) fine.append(Object.assign(document.createElement("p"), { textContent: line }));
+    wrapper.append(fine);
 
     const actions = document.createElement("div");
     actions.className = "fm-sheet-actions";
