@@ -985,6 +985,7 @@
     name.className = "fm-name";
     name.textContent = post.name;
     meta.append(name);
+    if (post.tg) meta.append(Object.assign(document.createElement("span"), { className: "fm-nick fm-nick--row fm-tg", textContent: `@${post.tg}` }));
     if (post.tag) meta.append(Object.assign(document.createElement("span"), { className: "fm-tag", textContent: post.tag }));
     const time = document.createElement("time");
     time.className = "fm-time";
@@ -1021,7 +1022,7 @@
     if (S.owner && (post.hidden === 3 || post.hidden === 1)) main.append(modBar("p", post));
 
     const ava = avatar(post);
-    linkify(post, name, ava);
+    linkify(post, name, ava, meta.querySelector(".fm-nick") || ava);
     row.append(ava, main);
     return row;
   }

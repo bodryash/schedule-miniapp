@@ -2065,3 +2065,13 @@ body.fm-open .minihead {
 .fm-ava-img.is-in {
   opacity: 1;
 }
+
+.fm-nick--row {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
