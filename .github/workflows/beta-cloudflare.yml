@@ -12,6 +12,11 @@ on:
     branches: [beta]
     paths: ["docs/**", ".github/workflows/beta-cloudflare.yml"]
   workflow_dispatch:
+    inputs:
+      notify:
+        description: "Прислать владельцу в бота кнопку «Открыть бету» и закрепить её"
+        type: boolean
+        default: true
 
 concurrency: beta-cloudflare
 
@@ -57,3 +62,31 @@ jobs:
           url=https://fgp-schedule-beta.bodryash.workers.dev
           curl -s -o /dev/null -m 20 -w "$url → HTTP %{http_code}\n" "$url/" || true
           curl -fsS -m 20 "$url/app.js?v=$(date +%s)" | grep -q setPlannerMode && echo "свежая версия на месте" || echo "app.js не тот или не открылся"
+
+      # Кнопка в боте — прямо через Telegram, без своего сервера: бета
+      # открывается мини-приложением, даже когда сервер бота лежит.
+      - name: Кнопка беты в боте
+        if: steps.token.outputs.ok == 'yes' && github.event_name == 'workflow_dispatch' && inputs.notify
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          OWNER_ID: ${{ secrets.OWNER_ID }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          base = f"https://api.telegram.org/bot{os.environ['BOT_TOKEN']}"
+          def call(method, payload):
+              req = urllib.request.Request(f"{base}/{method}", data=json.dumps(payload).encode(),
+                                           headers={"content-type": "application/json"})
+              return json.load(urllib.request.urlopen(req, timeout=20))
+          sent = call("sendMessage", {
+              "chat_id": os.environ["OWNER_ID"],
+              "text": "🧪 Тестовая версия расписания (ветка beta). Студенты её не видят, обновляется сама после каждой выкладки.",
+              "reply_markup": {"inline_keyboard": [[{"text": "🧪 Открыть бету",
+                  "web_app": {"url": "https://fgp-schedule-beta.bodryash.workers.dev/"}}]]},
+          })
+          print("сообщение:", "отправлено" if sent.get("ok") else sent)
+          if sent.get("ok"):
+              pin = call("pinChatMessage", {"chat_id": os.environ["OWNER_ID"],
+                                            "message_id": sent["result"]["message_id"], "disable_notification": True})
+              print("закреплено:", pin.get("ok"), pin.get("description", ""))
+          PY
