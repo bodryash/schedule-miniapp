@@ -1,0 +1,59 @@
+name: Бета на Cloudflare
+
+# Тестовая версия (ветка beta) — копией на Cloudflare, чтобы её можно было
+# смотреть, даже когда свой сервер недоступен. Выкладывается сама при каждом
+# обновлении ветки beta: https://fgp-schedule-beta.bodryash.workers.dev/
+#
+# Нужен секрет CLOUDFLARE_API_TOKEN (токен Cloudflare по шаблону «Edit
+# Cloudflare Workers»). CLOUDFLARE_ACCOUNT_ID — по желанию: если у токена
+# один аккаунт, wrangler найдёт его сам.
+on:
+  push:
+    branches: [beta]
+    paths: ["docs/**", ".github/workflows/beta-cloudflare.yml"]
+  workflow_dispatch:
+
+concurrency: beta-cloudflare
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Есть ли токен Cloudflare
+        id: token
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "Нет секрета CLOUDFLARE_API_TOKEN — выкладывать не с чем."
+            echo "Создайте токен: dash.cloudflare.com → My Profile → API Tokens → Create Token → «Edit Cloudflare Workers»,"
+            echo "и добавьте его в GitHub: Settings → Secrets and variables → Actions → New repository secret."
+            echo "ok=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.ok == 'yes'
+        with:
+          ref: beta
+
+      - name: Выложить docs/ ветки beta
+        if: steps.token.outputs.ok == 'yes'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || unset CLOUDFLARE_ACCOUNT_ID
+          # Пустой конфиг рядом: иначе wrangler подхватил бы настройки бота из worker/.
+          mkdir -p /tmp/beta && cd /tmp/beta
+          npx --yes wrangler@4 deploy --name fgp-schedule-beta --assets "$GITHUB_WORKSPACE/docs" \
+            --compatibility-date 2026-09-11
+
+      - name: Бета отвечает?
+        if: steps.token.outputs.ok == 'yes'
+        run: |
+          sleep 5
+          url=https://fgp-schedule-beta.bodryash.workers.dev
+          curl -s -o /dev/null -m 20 -w "$url → HTTP %{http_code}\n" "$url/" || true
+          curl -fsS -m 20 "$url/app.js?v=$(date +%s)" | grep -q setPlannerMode && echo "свежая версия на месте" || echo "app.js не тот или не открылся"
