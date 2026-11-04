@@ -2579,6 +2579,8 @@ async function forgetUser(env, userId) {
     run("UPDATE forum_posts SET tg_id = 0, name = '', username = NULL, text = '', hidden = 2 WHERE tg_id = ?", id),
     run("UPDATE forum_replies SET tg_id = 0, name = '', username = NULL, text = '', hidden = 2 WHERE tg_id = ?", id),
     run("DELETE FROM forum_likes WHERE tg_id = ?", id),
+    run("DELETE FROM forum_reply_likes WHERE tg_id = ?", id),
+    run("DELETE FROM forum_prefs WHERE tg_id = ?", id),
     run("DELETE FROM forum_reports WHERE tg_id = ?", id),
     run("DELETE FROM forum_trusted WHERE tg_id = ?", id),
     run("DELETE FROM clicker WHERE user_id = ?", id),
@@ -3918,7 +3920,7 @@ export default {
     }
 
     // «Подслушка» — общий форум вузов: список, пост, ответ, лайк, жалоба, удаление.
-    const forumAction = url.pathname.match(/^\/forum\/(list|replies|post|reply|like|delete|report)$/)?.[1];
+    const forumAction = url.pathname.match(/^\/forum\/(list|poll|replies|post|reply|like|delete|report|mod|prefs)$/)?.[1];
     if (forumAction && request.method === "POST") {
       let result;
       try {
@@ -3933,7 +3935,17 @@ export default {
             reply_markup: keyboard ? { inline_keyboard: keyboard } : undefined,
           });
         try {
-          result = await forumApi(env, forumAction, body, user, notify);
+          // Тихое сообщение человеку в бота; кнопка открывает именно эту тему.
+          const tell = (chatId, text, postId) =>
+            callTelegram(env.BOT_TOKEN, "sendMessage", {
+              chat_id: chatId,
+              text,
+              parse_mode: "HTML",
+              disable_notification: true,
+              link_preview_options: { is_disabled: true },
+              reply_markup: { inline_keyboard: [[{ text: "Открыть обсуждение", web_app: { url: `${WEB_APP_URL}?forum=${postId}` } }]] },
+            });
+          result = await forumApi(env, forumAction, body, user, notify, tell);
         } catch (error) {
           // Ошибку форума владелец узнаёт сразу (не чаще раза в 10 минут).
           console.error("Подслушка упала:", error);

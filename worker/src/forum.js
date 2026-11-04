@@ -176,8 +176,8 @@ export function screenText(text, { allowEmpty = false } = {}) {
 
 /* ---------- Имена ---------- */
 
-const ALIASES = ["Лиса", "Енот", "Барсук", "Сова", "Выдра", "Бобр", "Ёж", "Заяц", "Кот", "Пингвин", "Панда", "Тигр", "Лось", "Орёл", "Ворон", "Лама", "Утка", "Сурок", "Хомяк", "Тюлень", "Крот", "Дятел", "Белка", "Волк"];
-const EMOJI = ["🦊", "🦝", "🦡", "🦉", "🦦", "🦫", "🦔", "🐇", "🐈", "🐧", "🐼", "🐯", "🫎", "🦅", "🐦‍⬛", "🦙", "🦆", "🐹", "🐹", "🦭", "🐀", "🐦", "🐿️", "🐺"];
+const ALIASES = ["Лиса", "Енот", "Барсук", "Сова", "Выдра", "Бобр", "Ёж", "Заяц", "Кот", "Пингвин", "Панда", "Тигр", "Олень", "Орёл", "Попугай", "Лама", "Утка", "Медведь", "Хомяк", "Тюлень", "Слон", "Жираф", "Белка", "Волк"];
+const EMOJI = ["🦊", "🦝", "🦡", "🦉", "🦦", "🦫", "🦔", "🐇", "🐈", "🐧", "🐼", "🐯", "🦌", "🦅", "🦜", "🦙", "🦆", "🐻", "🐹", "🦭", "🐘", "🦒", "🐿️", "🐺"];
 
 function hash(text) {
   let h = 2166136261;
@@ -192,7 +192,12 @@ function hash(text) {
 function alias(env, post, tgId) {
   const h = hash(`${env.STATS_SALT || "salt"}:${post}:${tgId}`);
   const i = h % ALIASES.length;
-  return { name: `Аноним ${ALIASES[i]}`, emoji: EMOJI[i] };
+  return { name: `Аноним ${ALIASES[i]}`, emoji: EMOJI[i], hue: (h >>> 5) % 360 };
+}
+
+/** Цвет аватара человека под именем: один и тот же везде, id не раскрывает. */
+function personHue(env, tgId) {
+  return hash(`${env.STATS_SALT || "salt"}:hue:${tgId}`) % 360;
 }
 
 function displayName(user) {
@@ -245,13 +250,28 @@ async function authorOf(env, kind, id) {
   return env.STATS.prepare(`SELECT * FROM ${table} WHERE id = ?`).bind(id).first();
 }
 
+const REPORT_REASONS = {
+  spam: "спам или реклама",
+  abuse: "оскорбления или травля",
+  private: "личные данные",
+  danger: "угрозы или опасное",
+  other: "другое",
+};
+
+function whoOf(env, row, postId) {
+  return row.anon
+    ? alias(env, postId, row.tg_id)
+    : { name: row.name, emoji: "", hue: personHue(env, row.tg_id) };
+}
+
 function viewPost(env, row, user, owner, liked) {
   const mine = row.tg_id === user.id;
-  const who = row.anon ? alias(env, row.id, row.tg_id) : { name: row.name, emoji: "🎓" };
+  const who = whoOf(env, row, row.id);
   return {
     id: row.id,
     name: who.name,
     emoji: who.emoji,
+    hue: who.hue,
     anon: Boolean(row.anon),
     tag: row.tag || "",
     text: row.text,
@@ -266,32 +286,44 @@ function viewPost(env, row, user, owner, liked) {
     author: owner ? { name: row.name, username: row.username || null, id: row.tg_id } : undefined,
     hidden: owner ? row.hidden : undefined,
     reports: owner ? row.reports : undefined,
+    held: owner && row.held_for ? row.held_for : undefined,
   };
 }
 
-function viewReply(env, row, user, owner, postRow) {
+function viewReply(env, row, user, owner, postRow, byId, liked) {
   const mine = row.tg_id === user.id;
-  const isOp = row.tg_id === postRow.tg_id;
-  const who = row.anon ? alias(env, row.post, row.tg_id) : { name: row.name, emoji: "🎓" };
+  const who = whoOf(env, row, row.post);
+  let parent = null;
+  if (row.parent) {
+    const p = byId.get(row.parent);
+    parent = p && p.hidden === 0
+      ? { id: p.id, name: whoOf(env, p, row.post).name, text: p.text.length > 90 ? `${p.text.slice(0, 90)}…` : p.text }
+      : { id: row.parent, gone: true };
+  }
   return {
     id: row.id,
     name: who.name,
     emoji: who.emoji,
+    hue: who.hue,
     anon: Boolean(row.anon),
-    op: isOp,
+    op: row.tg_id === postRow.tg_id,
     text: row.text,
     created: row.created,
+    likes: row.likes || 0,
+    liked: Boolean(liked),
+    parent,
     mine,
     pending: row.hidden === 3,
     canDelete: mine || owner,
     author: owner ? { name: row.name, username: row.username || null, id: row.tg_id } : undefined,
     hidden: owner ? row.hidden : undefined,
+    held: owner && row.held_for ? row.held_for : undefined,
   };
 }
 
 /* ---------- API ---------- */
 
-export async function forumApi(env, action, body, user, notify) {
+export async function forumApi(env, action, body, user, notify, tell) {
   if (!user?.id) return fail("unauthorized", 401);
   const owner = isOwner(env, user.id);
   if (!owner && (await setting(env, "forum_on", "1")) !== "1") return fail("off", 503);
@@ -302,41 +334,53 @@ export async function forumApi(env, action, body, user, notify) {
   if (ban && writing) return fail("banned", 403, { banned: ban });
 
   if (action === "list") return list(env, body, user, owner, ban);
+  if (action === "poll") return poll(env, body, user, owner);
   if (action === "replies") return replies(env, body, user, owner, ban);
   if (action === "post") return createPost(env, body, user, owner, notify);
-  if (action === "reply") return createReply(env, body, user, owner, notify);
+  if (action === "reply") return createReply(env, body, user, owner, notify, tell);
   if (action === "like") return like(env, body, user);
   if (action === "delete") return remove(env, body, user, owner);
   if (action === "report") return report(env, body, user, owner, notify);
+  if (action === "mod") return mod(env, body, owner);
+  if (action === "prefs") return prefs(env, body, user);
   return fail("bad request");
 }
 
 async function list(env, body, user, owner, ban) {
   const before = Number(body.before) || 0;
-  const top = body.sort === "top";
+  const sort = owner && body.sort === "review" ? "review" : body.sort === "top" ? "top" : "new";
   const since = new Date(Date.now() - 3 * 86400000).toISOString();
-  const { results = [] } = top
-    ? await env.STATS.prepare(
-        `SELECT * FROM forum_posts WHERE hidden = 0 AND created > ? ORDER BY likes * 3 + replies DESC, id DESC LIMIT ?`
-      )
-        .bind(since, PAGE)
-        .all()
-    : await env.STATS.prepare(
-        `SELECT * FROM forum_posts WHERE hidden = 0 ${before ? "AND id < ?" : ""} ORDER BY id DESC LIMIT ?`
-      )
-        .bind(...(before ? [before] : []), PAGE)
-        .all();
+  let rows;
+  if (sort === "review") {
+    ({ results: rows = [] } = await env.STATS.prepare(
+      "SELECT * FROM forum_posts WHERE hidden IN (1, 3) ORDER BY id DESC LIMIT ?"
+    )
+      .bind(PAGE)
+      .all());
+  } else if (sort === "top") {
+    ({ results: rows = [] } = await env.STATS.prepare(
+      "SELECT * FROM forum_posts WHERE hidden = 0 AND created > ? ORDER BY likes * 3 + replies DESC, id DESC LIMIT ?"
+    )
+      .bind(since, PAGE)
+      .all());
+  } else {
+    ({ results: rows = [] } = await env.STATS.prepare(
+      `SELECT * FROM forum_posts WHERE hidden = 0 ${before ? "AND id < ?" : ""} ORDER BY id DESC LIMIT ?`
+    )
+      .bind(...(before ? [before] : []), PAGE)
+      .all());
+  }
 
   // Свои посты, ждущие проверки, — сверху первой страницы: человек видит, что пост принят.
   let mine = [];
-  if (!before && !top) {
+  if (!before && sort === "new") {
     ({ results: mine = [] } = await env.STATS.prepare(
       "SELECT * FROM forum_posts WHERE tg_id = ? AND hidden = 3 ORDER BY id DESC LIMIT 5"
     )
       .bind(user.id)
       .all());
   }
-  const all = [...mine, ...results];
+  const all = [...mine, ...rows];
   const ids = all.map((p) => p.id);
   const liked = new Set();
   if (ids.length) {
@@ -347,16 +391,44 @@ async function list(env, body, user, owner, ban) {
       .all();
     for (const l of likes) liked.add(l.post);
   }
+  const top = await env.STATS.prepare("SELECT MAX(id) AS id FROM forum_posts WHERE hidden = 0").first();
+  let review;
+  if (owner) {
+    const row = await env.STATS.prepare(
+      "SELECT (SELECT COUNT(*) FROM forum_posts WHERE hidden IN (1, 3)) + (SELECT COUNT(*) FROM forum_replies WHERE hidden IN (1, 3)) AS n"
+    ).first();
+    review = row?.n || 0;
+  }
   return {
     status: 200,
     json: {
       ok: true,
       owner,
       banned: ban,
-      more: !top && results.length === PAGE,
+      top: top?.id || 0,
+      review,
+      more: sort === "new" && rows.length === PAGE,
       posts: all.map((p) => viewPost(env, p, user, owner, liked.has(p.id))),
     },
   };
+}
+
+/** Сколько новых постов появилось после `after` — для плашки «↑ 3 новых». */
+async function poll(env, body, user, owner) {
+  const after = Number(body.after) || 0;
+  const row = await env.STATS.prepare(
+    "SELECT COUNT(*) AS n, MAX(id) AS top FROM forum_posts WHERE hidden = 0 AND id > ? AND tg_id != ?"
+  )
+    .bind(after, user.id)
+    .first();
+  let review;
+  if (owner) {
+    const r = await env.STATS.prepare(
+      "SELECT (SELECT COUNT(*) FROM forum_posts WHERE hidden IN (1, 3)) + (SELECT COUNT(*) FROM forum_replies WHERE hidden IN (1, 3)) AS n"
+    ).first();
+    review = r?.n || 0;
+  }
+  return { status: 200, json: { ok: true, count: row?.n || 0, review } };
 }
 
 async function replies(env, body, user, owner, ban) {
@@ -365,18 +437,30 @@ async function replies(env, body, user, owner, ban) {
   const post = await env.STATS.prepare("SELECT * FROM forum_posts WHERE id = ?").bind(id).first();
   if (!post || (post.hidden !== 0 && !(post.hidden === 3 && post.tg_id === user.id) && !owner)) return fail("not found", 404);
   const { results = [] } = await env.STATS.prepare(
-    `SELECT * FROM forum_replies WHERE post = ? AND (hidden = 0 OR (hidden = 3 AND tg_id = ?)${owner ? " OR 1 = 1" : ""}) ORDER BY id LIMIT ?`
+    `SELECT * FROM forum_replies WHERE post = ? AND (hidden = 0 OR (hidden = 3 AND tg_id = ?)${owner ? " OR hidden IN (1, 3)" : ""}) ORDER BY id LIMIT ?`
   )
     .bind(id, user.id, REPLIES_PAGE)
     .all();
   const liked = await env.STATS.prepare("SELECT 1 AS ok FROM forum_likes WHERE post = ? AND tg_id = ?").bind(id, user.id).first();
+  const likedReplies = new Set();
+  if (results.length) {
+    const { results: rl = [] } = await env.STATS.prepare(
+      `SELECT reply FROM forum_reply_likes WHERE tg_id = ? AND reply IN (${results.map(() => "?").join(",")})`
+    )
+      .bind(user.id, ...results.map((r) => r.id))
+      .all();
+    for (const l of rl) likedReplies.add(l.reply);
+  }
+  const byId = new Map(results.map((r) => [r.id, r]));
+  const prefsRow = await env.STATS.prepare("SELECT notify FROM forum_prefs WHERE tg_id = ?").bind(user.id).first();
   return {
     status: 200,
     json: {
       ok: true,
       banned: ban,
+      notify: prefsRow ? Boolean(prefsRow.notify) : true,
       post: viewPost(env, post, user, owner, liked),
-      replies: results.map((r) => viewReply(env, r, user, owner, post)),
+      replies: results.map((r) => viewReply(env, r, user, owner, post, byId, likedReplies.has(r.id))),
     },
   };
 }
@@ -460,26 +544,53 @@ async function createPost(env, body, user, owner, notify) {
   };
 }
 
-async function createReply(env, body, user, owner, notify) {
+async function createReply(env, body, user, owner, notify, tell) {
   const postId = Number(body.post);
   if (!Number.isInteger(postId) || postId < 1) return fail("bad request");
   const post = await env.STATS.prepare("SELECT * FROM forum_posts WHERE id = ? AND hidden = 0").bind(postId).first();
   if (!post) return fail("not found", 404);
   const text = String(body.text || "").trim();
   if (text.length > REPLY_MAX) return fail("too long");
+  // Ответ на чей-то ответ: родитель должен быть виден и из этой же темы.
+  let parent = null;
+  const to = Number(body.to) || 0;
+  if (to) {
+    parent = await env.STATS.prepare("SELECT * FROM forum_replies WHERE id = ? AND post = ? AND hidden = 0").bind(to, postId).first();
+    if (!parent) return fail("parent gone", 404);
+  }
   const verdict = await gate(env, user, owner, "r", text, notify);
   if (verdict.fail) return verdict.fail;
   const anon = body.anon === false ? 0 : 1;
   // Ответы новичков не ждут проверки (иначе тема мертва) — только стоп-слова и всплеск.
   const hidden = verdict.hold ? 3 : 0;
   const result = await env.STATS.prepare(
-    `INSERT INTO forum_replies (post, tg_id, name, username, anon, text, created, hidden, held_for)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+    `INSERT INTO forum_replies (post, tg_id, name, username, anon, text, created, hidden, held_for, parent)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
   )
-    .bind(postId, user.id, displayName(user), user.username || null, anon, text, nowIso(), hidden, verdict.hold || "")
+    .bind(postId, user.id, displayName(user), user.username || null, anon, text, nowIso(), hidden, verdict.hold || "", parent ? parent.id : 0)
     .first();
-  if (!hidden) await env.STATS.prepare("UPDATE forum_posts SET replies = replies + 1 WHERE id = ?").bind(postId).run();
-  else {
+  const row = await env.STATS.prepare("SELECT * FROM forum_replies WHERE id = ?").bind(result.id).first();
+  if (!hidden) {
+    await env.STATS.prepare("UPDATE forum_posts SET replies = replies + 1 WHERE id = ?").bind(postId).run();
+    // Автору поста и автору ответа, на который отвечают, — тихое уведомление в боте.
+    if (tell) {
+      const mine = whoOf(env, row, postId);
+      const targets = new Map();
+      if (post.tg_id !== user.id) targets.set(post.tg_id, { what: "пост", quote: post.text });
+      if (parent && parent.tg_id !== user.id) targets.set(parent.tg_id, { what: "ответ", quote: parent.text });
+      for (const [tgId, info] of targets) {
+        if (quiet(`fr:${tgId}:${postId}`, 20 * 60 * 1000)) continue;
+        const pref = await env.STATS.prepare("SELECT notify FROM forum_prefs WHERE tg_id = ?").bind(tgId).first();
+        if (pref && !pref.notify) continue;
+        const q = info.quote.length > 70 ? `${info.quote.slice(0, 70)}…` : info.quote;
+        tell(
+          tgId,
+          [`💬 Ответили на ваш ${info.what} в Подслушке`, `«${escape(q)}»`, "", `<b>${escape(mine.name)}:</b> ${escape(text.length > 160 ? `${text.slice(0, 160)}…` : text)}`].join("\n"),
+          postId
+        ).catch(() => {});
+      }
+    }
+  } else {
     await notify(
       [
         `💬 <b>Подслушка: ответ №${result.id} (к посту №${postId}) ждёт проверки</b> — ${escape(verdict.hold)}`,
@@ -490,31 +601,35 @@ async function createReply(env, body, user, owner, notify) {
       buttons("r", result.id, { review: true })
     ).catch(() => {});
   }
-  const row = await env.STATS.prepare("SELECT * FROM forum_replies WHERE id = ?").bind(result.id).first();
+  const byId = new Map(parent ? [[parent.id, parent]] : []);
   return {
     status: 200,
-    json: { ok: true, pending: Boolean(hidden), reason: hidden ? verdict.hold : "", reply: viewReply(env, row, user, owner, post) },
+    json: { ok: true, pending: Boolean(hidden), reason: hidden ? verdict.hold : "", reply: viewReply(env, row, user, owner, post, byId, false) },
   };
 }
 
 async function like(env, body, user) {
-  const id = Number(body.post);
+  const kind = body.kind === "r" ? "r" : "p";
+  const id = Number(kind === "r" ? body.id : body.post || body.id);
   if (!Number.isInteger(id) || id < 1) return fail("bad request");
-  const post = await env.STATS.prepare("SELECT id, tg_id FROM forum_posts WHERE id = ? AND hidden = 0").bind(id).first();
-  if (!post) return fail("not found", 404);
-  const had = await env.STATS.prepare("SELECT 1 AS ok FROM forum_likes WHERE post = ? AND tg_id = ?").bind(id, user.id).first();
+  const table = kind === "r" ? "forum_replies" : "forum_posts";
+  const likes = kind === "r" ? "forum_reply_likes" : "forum_likes";
+  const col = kind === "r" ? "reply" : "post";
+  const item = await env.STATS.prepare(`SELECT id FROM ${table} WHERE id = ? AND hidden = 0`).bind(id).first();
+  if (!item) return fail("not found", 404);
+  const had = await env.STATS.prepare(`SELECT 1 AS ok FROM ${likes} WHERE ${col} = ? AND tg_id = ?`).bind(id, user.id).first();
   if (had) {
     await env.STATS.batch([
-      env.STATS.prepare("DELETE FROM forum_likes WHERE post = ? AND tg_id = ?").bind(id, user.id),
-      env.STATS.prepare("UPDATE forum_posts SET likes = MAX(likes - 1, 0) WHERE id = ?").bind(id),
+      env.STATS.prepare(`DELETE FROM ${likes} WHERE ${col} = ? AND tg_id = ?`).bind(id, user.id),
+      env.STATS.prepare(`UPDATE ${table} SET likes = MAX(likes - 1, 0) WHERE id = ?`).bind(id),
     ]);
   } else {
     await env.STATS.batch([
-      env.STATS.prepare("INSERT OR IGNORE INTO forum_likes (post, tg_id) VALUES (?, ?)").bind(id, user.id),
-      env.STATS.prepare("UPDATE forum_posts SET likes = likes + 1 WHERE id = ?").bind(id),
+      env.STATS.prepare(`INSERT OR IGNORE INTO ${likes} (${col}, tg_id) VALUES (?, ?)`).bind(id, user.id),
+      env.STATS.prepare(`UPDATE ${table} SET likes = likes + 1 WHERE id = ?`).bind(id),
     ]);
   }
-  const row = await env.STATS.prepare("SELECT likes FROM forum_posts WHERE id = ?").bind(id).first();
+  const row = await env.STATS.prepare(`SELECT likes FROM ${table} WHERE id = ?`).bind(id).first();
   return { status: 200, json: { ok: true, liked: !had, likes: row?.likes || 0 } };
 }
 
@@ -533,11 +648,12 @@ async function report(env, body, user, owner, notify) {
   const kind = body.kind === "r" ? "r" : "p";
   const id = Number(body.id);
   if (!Number.isInteger(id) || id < 1) return fail("bad request");
+  const reason = Object.hasOwn(REPORT_REASONS, body.reason) ? body.reason : "other";
   const row = await authorOf(env, kind, id);
   if (!row || row.hidden !== 0) return fail("not found", 404);
   if (row.tg_id === user.id) return fail("own");
-  const added = await env.STATS.prepare("INSERT OR IGNORE INTO forum_reports (kind, item, tg_id) VALUES (?, ?, ?)")
-    .bind(kind, id, user.id)
+  const added = await env.STATS.prepare("INSERT OR IGNORE INTO forum_reports (kind, item, tg_id, reason) VALUES (?, ?, ?, ?)")
+    .bind(kind, id, user.id, reason)
     .run();
   if (!added.meta?.changes) return { status: 200, json: { ok: true, already: true } };
   const reports = row.reports + 1;
@@ -546,10 +662,18 @@ async function report(env, body, user, owner, notify) {
   await env.STATS.prepare(`UPDATE ${table} SET reports = ?, hidden = ? WHERE id = ?`).bind(reports, hide ? 1 : 0, id).run();
   if (hide && kind === "r") await env.STATS.prepare("UPDATE forum_posts SET replies = MAX(replies - 1, 0) WHERE id = ?").bind(row.post).run();
   const label = kind === "p" ? "пост" : "ответ";
+  // Какие причины назвали — владельцу, чтобы решить быстрее.
+  const { results: why = [] } = await env.STATS.prepare(
+    "SELECT reason, COUNT(*) AS n FROM forum_reports WHERE kind = ? AND item = ? GROUP BY reason ORDER BY n DESC"
+  )
+    .bind(kind, id)
+    .all();
+  const reasons = why.map((w) => `${REPORT_REASONS[w.reason] || w.reason}${w.n > 1 ? ` ×${w.n}` : ""}`).join(", ");
   // Каждая жалоба — владельцу: первая тихо (без звука), скрытие — со звуком.
   await notify(
     [
       hide ? `⚠️ <b>Подслушка: ${label} №${id} скрыт после ${reports} жалоб</b>` : `🚩 Подслушка: жалоба на ${label} №${id} (${reports} из ${REPORTS_TO_HIDE})`,
+      `Причина: ${escape(reasons)}`,
       `Автор: ${AUTHOR_LINK(row)} · показан как ${row.anon ? "аноним" : "под именем"}`,
       "",
       snippet(row.text),
@@ -557,6 +681,30 @@ async function report(env, body, user, owner, notify) {
     buttons(kind, id)
   ).catch(() => {});
   return { status: 200, json: { ok: true } };
+}
+
+/** Решения владельца прямо в приложении: те же, что кнопки под уведомлениями. */
+async function mod(env, body, owner) {
+  if (!owner) return fail("forbidden", 403);
+  const kind = body.kind === "r" ? "r" : "p";
+  const id = Number(body.id);
+  const op = { ok: "fok", del: "fdl", ban: "fbn", purge: "fpg" }[body.op];
+  if (!Number.isInteger(id) || id < 1 || !op) return fail("bad request");
+  const text = await forumModerate(env, op, kind, id);
+  return { status: 200, json: { ok: true, text } };
+}
+
+/** Личные настройки форума: пока одна — присылать ли ответы в бота. */
+async function prefs(env, body, user) {
+  if (typeof body.notify === "boolean") {
+    await env.STATS.prepare(
+      "INSERT INTO forum_prefs (tg_id, notify) VALUES (?, ?) ON CONFLICT(tg_id) DO UPDATE SET notify = excluded.notify"
+    )
+      .bind(user.id, body.notify ? 1 : 0)
+      .run();
+  }
+  const row = await env.STATS.prepare("SELECT notify FROM forum_prefs WHERE tg_id = ?").bind(user.id).first();
+  return { status: 200, json: { ok: true, notify: row ? Boolean(row.notify) : true } };
 }
 
 /* ---------- Решения владельца ---------- */

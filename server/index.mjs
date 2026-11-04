@@ -80,6 +80,10 @@ for (const change of [
   // Тема и надпись «на день» (день рождения): после until не показываются.
   "ALTER TABLE themes ADD COLUMN until TEXT NOT NULL DEFAULT ''",
   "ALTER TABLE greetings ADD COLUMN until TEXT NOT NULL DEFAULT ''",
+  // Подслушка: ответы на ответы, лайки ответов, причина жалобы.
+  "ALTER TABLE forum_replies ADD COLUMN parent INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE forum_replies ADD COLUMN likes INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE forum_reports ADD COLUMN reason TEXT NOT NULL DEFAULT ''",
 ]) {
   try {
     STATS.raw.exec(change);
