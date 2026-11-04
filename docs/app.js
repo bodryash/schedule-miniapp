@@ -8840,9 +8840,59 @@ function applyRole() {
  * отдельным переключателем и не трогает выбор вуза — группа и преподаватель
  * откладываются в prefs.study и возвращаются, когда режим выключают.
  */
+/** Куда нажали последний раз: из этой точки раскрывается смена режима. */
+let lastPress = { x: innerWidth / 2, y: innerHeight / 2 };
+document.addEventListener("pointerdown", (event) => {
+  lastPress = { x: event.clientX, y: event.clientY };
+}, { capture: true, passive: true });
+
+let modeSwitching = false;
+
+/**
+ * Смена режима «расписание ⇄ ежедневник»: цвет раскрывается кругом из точки
+ * нажатия и накрывает экран, под ним режим меняется, на плашке всплывает
+ * название режима — и она тает, открывая уже новый экран.
+ */
 function setPlannerMode(on) {
-  if (Boolean(prefs.planner) === on) return;
+  if (Boolean(prefs.planner) === on || modeSwitching) return;
+  const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (calm || !document.body.animate) return applyPlannerMode(on);
+  modeSwitching = true;
   haptic("select");
+  const { x, y } = lastPress;
+  const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) + 24;
+  const veil = el("div", "mode-veil");
+  veil.setAttribute("aria-hidden", "true");
+  const card = el("div", "mode-veil-card");
+  card.append(el("div", "mode-veil-icon", on ? "📓" : "📅"), el("div", "mode-veil-title", on ? t("Ежедневник") : t("Расписание")));
+  veil.append(card);
+  document.body.append(veil);
+  const grow = veil.animate(
+    [{ clipPath: `circle(0px at ${x}px ${y}px)` }, { clipPath: `circle(${radius}px at ${x}px ${y}px)` }],
+    { duration: 460, easing: "cubic-bezier(0.55, 0, 0.1, 1)", fill: "forwards" }
+  );
+  card.animate(
+    [{ opacity: 0, transform: "translateY(14px) scale(0.92)" }, { opacity: 1, transform: "none" }],
+    { duration: 420, delay: 240, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "backwards" }
+  );
+  grow.finished.then(() => {
+    applyPlannerMode(on);
+    haptic("success");
+    setTimeout(() => {
+      const gone = veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 420, easing: "ease-out", fill: "forwards" });
+      card.animate([{ transform: "none" }, { transform: "scale(1.06)" }], { duration: 420, easing: "ease-out", fill: "forwards" });
+      gone.finished.then(() => {
+        veil.remove();
+        modeSwitching = false;
+      });
+    }, 420);
+  }).catch(() => {
+    veil.remove();
+    modeSwitching = false;
+  });
+}
+
+function applyPlannerMode(on) {
   if (on) {
     const study = { group: prefs.group, teacher: prefs.teacher, teacherName: prefs.teacherName, mfk: prefs.mfk || [] };
     prefs = { ...prefs, planner: true, study, group: undefined, teacher: undefined, teacherName: undefined, mfk: [] };
