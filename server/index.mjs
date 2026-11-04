@@ -493,6 +493,18 @@ async function tick() {
   checkAlarms().catch((error) => console.error("Сигналы упали:", error));
   try {
     await new Promise((resolve) => {
+      // Задача может повиснуть на запросе без ответа (так было 04.11, когда
+      // сервер отваливался от сети): тогда ticking оставался true навсегда и
+      // ни напоминания, ни рассылки больше не шли. Через 55 с перестаём ждать.
+      const limit = setTimeout(() => {
+        console.error("Минутная задача не уложилась в 55 с — не ждём её дальше");
+        resolve();
+      }, 55000);
+      const done = resolve;
+      resolve = () => {
+        clearTimeout(limit);
+        done();
+      };
       const pending = [];
       const cronCtx = { ...ctx, waitUntil: (promise) => pending.push(Promise.resolve(promise).catch((e) => console.error("Расписание упало:", e))) };
       Promise.resolve(worker.scheduled({ cron: "* * * * *", scheduledTime: Date.now() }, env, cronCtx))
