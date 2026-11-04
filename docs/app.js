@@ -12930,18 +12930,6 @@ async function init() {
     }
     applyBackground();
   });
-  const decorBox = document.getElementById("decor");
-  if (decorBox) {
-    decorBox.checked = decorOn();
-    decorBox.addEventListener("change", () => {
-      try {
-        localStorage.setItem(DECOR_KEY, decorBox.checked ? "on" : "off");
-      } catch {
-        // Без памяти — до перезапуска.
-      }
-      applyDecor();
-    });
-  }
   // 5. Нажатие на карточку пары — подробности. Кнопки внутри — сами по себе.
   els.lessons.addEventListener("click", (event) => {
     const card = event.target.closest("article.card");
