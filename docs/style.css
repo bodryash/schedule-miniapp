@@ -13187,22 +13187,26 @@ body[data-tone="dark"] .menu-pop {
 
 /* Карточки пар — чуть выше и просторнее: полное имя преподавателя
    и предмет в две строки читаются без тесноты. */
-#lessons article.card {
+#lessons article.card,
+article.card.lv-head {
   min-height: 128px;
   padding-top: 17px;
   padding-bottom: 17px;
 }
 
-#lessons article.card .card-body {
+#lessons article.card .card-body,
+article.card.lv-head .card-body {
   gap: 6px;
 }
 
-#lessons article.card .subject {
+#lessons article.card .subject,
+article.card.lv-head .subject {
   font-size: 17px;
   line-height: 1.22;
 }
 
-#lessons article.card .meta {
+#lessons article.card .meta,
+article.card.lv-head .meta {
   line-height: 1.35;
 }
 
