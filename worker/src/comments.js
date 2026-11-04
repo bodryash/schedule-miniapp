@@ -115,7 +115,7 @@ const fail = (error, status = 400, extra = {}) => ({ status, json: { ok: false, 
 /* ---------- Баны ---------- */
 
 /** Действующий бан: без срока или срок ещё не вышел. */
-async function activeBan(env, tgId) {
+export async function activeBan(env, tgId) {
   const row = await env.STATS.prepare("SELECT reason, until FROM comment_bans WHERE tg_id = ?")
     .bind(tgId)
     .first();
