@@ -13285,7 +13285,21 @@ html.look-fade body *::after {
     box-shadow 480ms var(--ease-soft, ease) !important;
 }
 
-#picker.picker--planner #save,
-#picker.picker--planner #consent {
-  display: none;
+
+
+/* Ежедневник в меню «⋯»: включённый — подсвечен акцентом. */
+.menu-pop .menu-planner--on {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* Поиск: карточки вне экрана не рисуются — длинный список листается без лагов. */
+#results .teacher-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 150px;
+}
+
+.drift.drift--on {
+  -webkit-mask-image: none;
+  mask-image: none;
 }

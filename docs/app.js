@@ -2760,6 +2760,28 @@ function initWeekSwipe() {
   body.addEventListener("pointercancel", finish);
 }
 
+/** Месяц ↔ неделя — плавно: старый вид тает, новый вырастает на его месте. */
+function morphWeek(toMonth) {
+  const body = els.weekBody;
+  if (!body?.animate || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return showWeek();
+  body.getAnimations().forEach((a) => a.cancel());
+  const out = body.animate(
+    [{ opacity: 1, transform: "none" }, { opacity: 0, transform: `scale(${toMonth ? 0.97 : 1.02})` }],
+    { duration: 150, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }
+  );
+  out.onfinish = () => {
+    showWeek();
+    out.cancel();
+    body.animate(
+      [
+        { opacity: 0, transform: `translateY(${toMonth ? 14 : -10}px) scale(${toMonth ? 1.02 : 0.98})` },
+        { opacity: 1, transform: "none" },
+      ],
+      { duration: 320, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }
+    );
+  };
+}
+
 function showWeek() {
   const group = activeGroup();
   if (!group) return showPicker();
@@ -2781,7 +2803,7 @@ function showWeek() {
     if (weekMode === "month") return;
     haptic("select");
     weekMode = "month";
-    showWeek();
+    morphWeek(true);
   });
   els.weekSwitch.replaceChildren(
     ...[0, 1].map((week) => {
@@ -2795,7 +2817,7 @@ function showWeek() {
           haptic("select");
           weekMode = "week";
           selectedWeek = week;
-          return showWeek();
+          return morphWeek(false);
         }
         switchWeek(week);
       });
@@ -11025,6 +11047,12 @@ function initMenu() {
         pop.querySelector('[data-menu="settings"]')?.before(item);
       }
       pop.querySelector('[data-menu="courses"]').hidden = !mfkAvailable() || Boolean(activeGroup()?.teacher);
+      // Ежедневник — переключатель прямо в меню, без похода в настройки.
+      const plannerItem = pop.querySelector('[data-menu="planner"]');
+      if (plannerItem) {
+        plannerItem.classList.toggle("menu-planner--on", Boolean(prefs.planner));
+        plannerItem.lastElementChild.textContent = prefs.planner ? t("Ежедневник: вкл") : t("Ежедневник: выкл");
+      }
       // Без группы звать некого, аудиторий и очередей нет.
       for (const item of pop.querySelectorAll("[data-menu]")) {
         const groupOnly = ["invite", "rooms", "queues", "poll", "absences", "exams", "meet", "semester", "courses"].includes(item.dataset.menu);
@@ -11068,6 +11096,12 @@ function initMenu() {
     if (item.dataset.menu === "calendar") openCalendar();
     if (item.dataset.menu === "exams") openExams();
     if (item.dataset.menu === "settings") showPicker();
+    if (item.dataset.menu === "planner") {
+      setPlannerMode(!prefs.planner);
+      // Выключили, а группы нет — setPlannerMode уже открыл выбор группы.
+      if (prefs.planner || activeGroup()) openTab("schedule");
+      else showPicker(), openSettingsPage("study");
+    }
     if (item.dataset.menu === "absences") openAbsences();
     if (item.dataset.menu === "semester") openSemester();
     if (item.dataset.menu === "meet") openMeet();
