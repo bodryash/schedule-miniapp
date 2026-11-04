@@ -13355,3 +13355,39 @@ html.look-fade body *::after {
   color: var(--accent-text);
   background: var(--accent);
 }
+
+/* Кнопка режима «Подслушка» в шапке: заметная, не такая, как значки. */
+.forum-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  margin-right: 8px;
+  padding: 0 12px 0 10px;
+  border: 0;
+  border-radius: 17px;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms ease, opacity 160ms;
+}
+
+.forum-btn:active {
+  transform: scale(0.94);
+}
+
+.forum-btn svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+}
+.forum-btn[hidden] {
+  display: none;
+}

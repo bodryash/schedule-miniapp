@@ -591,8 +591,20 @@
     S.open = true;
     document.body.classList.add("fm-open");
     S.root.hidden = false;
+    S.origin = opts.origin || originOf(document.getElementById("forum-btn"));
+    S.iris = !REDUCED && Boolean(S.root.animate);
+    S.root.classList.toggle("is-iris", S.iris);
     void S.root.offsetWidth;
     S.root.classList.add("is-open");
+    if (S.iris) {
+      const { x, y } = S.origin;
+      S.irisAnim?.cancel();
+      S.irisAnim = S.root.animate(
+        [{ clipPath: `circle(0px at ${x}px ${y}px)` }, { clipPath: `circle(${Math.hypot(innerWidth, innerHeight) + 40}px at ${x}px ${y}px)` }],
+        { duration: 620, easing: "cubic-bezier(0.55, 0, 0.1, 1)" }
+      );
+      S.irisAnim.onfinish = () => S.irisAnim?.cancel();
+    }
     choreograph();
     tg?.disableVerticalSwipes?.();
     attachBackButton();
@@ -607,15 +619,22 @@
     if (opts.thread) setTimeout(() => openThread({ id: opts.thread }), 450);
   }
 
+  /** Центр кнопки, из которой «раскрывается» режим; без неё — правый верхний угол. */
+  function originOf(node) {
+    const r = node?.getBoundingClientRect?.();
+    if (r && r.width) return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    return { x: innerWidth - 40, y: 44 };
+  }
+
   /** Открытие по очереди: заголовок, переключатель, лента (она сама), кнопка «+». */
   function choreograph() {
     if (REDUCED) return;
     const step = (node, from, delay, ms = 460) =>
       node && animate(node, [{ opacity: 0, transform: from }, { opacity: 1, transform: "none" }], { duration: ms, delay, easing: EASE, fill: "backwards" });
-    step(S.root.querySelector(".fm-nav-title"), "translate3d(0, 10px, 0)", 140);
-    step(S.root.querySelector(".fm-segwrap"), "translate3d(0, 12px, 0)", 200);
+    step(S.root.querySelector(".fm-nav-title"), "translate3d(0, 10px, 0)", 260);
+    step(S.root.querySelector(".fm-segwrap"), "translate3d(0, 12px, 0)", 340);
     const fab = S.root.querySelector(".fm-fab");
-    if (fab) animate(fab, [{ opacity: 0, transform: "scale(0.4) rotate(-40deg)" }, { opacity: 1, transform: "scale(1) rotate(0)" }], { duration: 560, delay: 520, easing: "cubic-bezier(0.34, 1.5, 0.5, 1)", fill: "backwards" });
+    if (fab) animate(fab, [{ opacity: 0, transform: "scale(0.4) rotate(-40deg)" }, { opacity: 1, transform: "scale(1) rotate(0)" }], { duration: 560, delay: 700, easing: "cubic-bezier(0.34, 1.5, 0.5, 1)", fill: "backwards" });
   }
 
   function closeForum({ instant = false } = {}) {
@@ -624,6 +643,26 @@
     document.body.classList.remove("fm-open");
     if (T.open) closeThread({ instant: true });
     stopPolling();
+    if (S.iris && !instant && S.root.animate) {
+      // Режим «схлопывается» обратно в кнопку.
+      const { x, y } = S.origin;
+      S.irisAnim?.cancel();
+      detachBackButton();
+      tg?.enableVerticalSwipes?.();
+      const a = S.root.animate(
+        [{ clipPath: `circle(${Math.hypot(innerWidth, innerHeight) + 40}px at ${x}px ${y}px)` }, { clipPath: `circle(0px at ${x}px ${y}px)` }],
+        { duration: 460, easing: "cubic-bezier(0.55, 0, 0.1, 1)", fill: "forwards" }
+      );
+      const end = () => {
+        if (S.open) return;
+        S.root.classList.remove("is-open");
+        S.root.hidden = true;
+        a.cancel();
+      };
+      a.onfinish = end;
+      setTimeout(end, 700);
+      return;
+    }
     if (instant) {
       S.root.style.transition = "none";
       requestAnimationFrame(() => (S.root.style.transition = ""));

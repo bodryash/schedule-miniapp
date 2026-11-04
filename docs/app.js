@@ -10968,6 +10968,12 @@ function haptic(kind = "select") {
  * десятки килобайт, и тем, кто форумом не пользуется, они не нужны.
  */
 let forumAssets = null;
+if (!tg?.initData) document.getElementById("forum-btn")?.setAttribute("hidden", "");
+document.getElementById("forum-btn")?.addEventListener("click", () => {
+  haptic("medium");
+  openForum();
+});
+
 function openForum(opts) {
   if (!tg?.initData) return;
   if (typeof window.showForum === "function") return window.showForum(opts);
@@ -11138,7 +11144,6 @@ function initMenu() {
     if (item.dataset.menu === "invite") inviteGroup(item);
     if (item.dataset.menu === "rooms") showFree();
     if (item.dataset.menu === "queues") openTab("queues");
-    if (item.dataset.menu === "forum") openForum();
     if (item.dataset.menu === "courses") {
       showPicker();
       openSettingsPage("courses");

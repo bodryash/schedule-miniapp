@@ -2075,3 +2075,14 @@ body.fm-open .minihead {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Подслушка как отдельный режим: открывается кругом из кнопки, а не сдвигом. */
+.fm.is-iris {
+  transform: none;
+  transition: none;
+  visibility: hidden;
+}
+
+.fm.is-iris.is-open {
+  visibility: visible;
+}
