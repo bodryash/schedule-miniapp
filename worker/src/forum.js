@@ -47,6 +47,14 @@ const dayStartUtc = () => {
 const escape = (text) => String(text).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c]);
 const fail = (error, status = 400, extra = {}) => ({ status, json: { ok: false, error, ...extra } });
 
+/* ---------- Роли ---------- */
+
+/** «tester» — открыт тестовый доступ, «moderator» — ещё и проверяет записи. */
+async function roleOf(env, id) {
+  const row = await env.STATS.prepare("SELECT role FROM forum_roles WHERE tg_id = ?").bind(id).first();
+  return row ? row.role : null;
+}
+
 /* ---------- Настройки ---------- */
 
 async function setting(env, key, fallback) {
@@ -264,7 +272,7 @@ function whoOf(env, row, postId) {
     : { name: row.name, emoji: "", hue: personHue(env, row.tg_id) };
 }
 
-function viewPost(env, row, user, owner, liked) {
+function viewPost(env, row, user, perm, liked) {
   const mine = row.tg_id === user.id;
   const who = whoOf(env, row, row.id);
   return {
@@ -284,16 +292,16 @@ function viewPost(env, row, user, owner, liked) {
     liked: Boolean(liked),
     mine,
     pending: row.hidden === 3,
-    canDelete: mine || owner,
-    // Настоящий автор — только владельцу.
-    author: owner ? { name: row.name, username: row.username || null, id: row.tg_id } : undefined,
-    hidden: owner ? row.hidden : undefined,
-    reports: owner ? row.reports : undefined,
-    held: owner && row.held_for ? row.held_for : undefined,
+    canDelete: mine || perm.staff,
+    // Настоящий автор — только владельцу (модератор видит содержимое, но не автора).
+    author: perm.owner ? { name: row.name, username: row.username || null, id: row.tg_id } : undefined,
+    hidden: perm.staff ? row.hidden : undefined,
+    reports: perm.staff ? row.reports : undefined,
+    held: perm.staff && row.held_for ? row.held_for : undefined,
   };
 }
 
-function viewReply(env, row, user, owner, postRow, byId, liked) {
+function viewReply(env, row, user, perm, postRow, byId, liked) {
   const mine = row.tg_id === user.id;
   const who = whoOf(env, row, row.post);
   let parent = null;
@@ -318,10 +326,10 @@ function viewReply(env, row, user, owner, postRow, byId, liked) {
     parent,
     mine,
     pending: row.hidden === 3,
-    canDelete: mine || owner,
-    author: owner ? { name: row.name, username: row.username || null, id: row.tg_id } : undefined,
-    hidden: owner ? row.hidden : undefined,
-    held: owner && row.held_for ? row.held_for : undefined,
+    canDelete: mine || perm.staff,
+    author: perm.owner ? { name: row.name, username: row.username || null, id: row.tg_id } : undefined,
+    hidden: perm.staff ? row.hidden : undefined,
+    held: perm.staff && row.held_for ? row.held_for : undefined,
   };
 }
 
@@ -330,29 +338,34 @@ function viewReply(env, row, user, owner, postRow, byId, liked) {
 export async function forumApi(env, action, body, user, notify, tell) {
   if (!user?.id) return fail("unauthorized", 401);
   const owner = isOwner(env, user.id);
+  const role = owner ? "owner" : await roleOf(env, user.id);
+  // staff — владелец и модераторы: видят очередь проверки и решают судьбу записей.
+  const who = { owner, staff: owner || role === "moderator", role };
   if (!owner && (await setting(env, "forum_on", "1")) !== "1") return fail("off", 503);
+  // Закрытое тестирование: пока форум не открыт для всех, пускаем только своих.
+  if (!owner && !role && (await setting(env, "forum_access", "testers")) !== "all") return fail("closed", 403);
 
   // Забаненный (общий бан /ban) читает, но не пишет, не жалуется и не лайкает.
   const ban = owner ? null : await activeBan(env, user.id);
   const writing = ["post", "reply", "like", "report"].includes(action);
   if (ban && writing) return fail("banned", 403, { banned: ban });
 
-  if (action === "list") return list(env, body, user, owner, ban);
-  if (action === "poll") return poll(env, body, user, owner);
-  if (action === "replies") return replies(env, body, user, owner, ban);
-  if (action === "post") return createPost(env, body, user, owner, notify);
-  if (action === "reply") return createReply(env, body, user, owner, notify, tell);
+  if (action === "list") return list(env, body, user, who, ban);
+  if (action === "poll") return poll(env, body, user, who);
+  if (action === "replies") return replies(env, body, user, who, ban);
+  if (action === "post") return createPost(env, body, user, who, notify);
+  if (action === "reply") return createReply(env, body, user, who, notify, tell);
   if (action === "like") return like(env, body, user);
-  if (action === "delete") return remove(env, body, user, owner);
-  if (action === "report") return report(env, body, user, owner, notify);
-  if (action === "mod") return mod(env, body, owner);
+  if (action === "delete") return remove(env, body, user, who);
+  if (action === "report") return report(env, body, user, who, notify);
+  if (action === "mod") return mod(env, body, who);
   if (action === "prefs") return prefs(env, body, user);
   return fail("bad request");
 }
 
-async function list(env, body, user, owner, ban) {
+async function list(env, body, user, who, ban) {
   const before = Number(body.before) || 0;
-  const sort = owner && body.sort === "review" ? "review" : body.sort === "top" ? "top" : "new";
+  const sort = who.staff && body.sort === "review" ? "review" : body.sort === "top" ? "top" : "new";
   const since = new Date(Date.now() - 3 * 86400000).toISOString();
   let rows;
   if (sort === "review") {
@@ -397,7 +410,7 @@ async function list(env, body, user, owner, ban) {
   }
   const top = await env.STATS.prepare("SELECT MAX(id) AS id FROM forum_posts WHERE hidden = 0").first();
   let review;
-  if (owner) {
+  if (who.staff) {
     const row = await env.STATS.prepare(
       "SELECT (SELECT COUNT(*) FROM forum_posts WHERE hidden IN (1, 3)) + (SELECT COUNT(*) FROM forum_replies WHERE hidden IN (1, 3)) AS n"
     ).first();
@@ -407,18 +420,20 @@ async function list(env, body, user, owner, ban) {
     status: 200,
     json: {
       ok: true,
-      owner,
+      // Для приложения «owner» значит «есть права проверять»: так показываются вкладка «Проверка» и кнопки.
+      owner: who.staff,
+      role: who.role || null,
       banned: ban,
       top: top?.id || 0,
       review,
       more: sort === "new" && rows.length === PAGE,
-      posts: all.map((p) => viewPost(env, p, user, owner, liked.has(p.id))),
+      posts: all.map((p) => viewPost(env, p, user, who, liked.has(p.id))),
     },
   };
 }
 
 /** Сколько новых постов появилось после `after` — для плашки «↑ 3 новых». */
-async function poll(env, body, user, owner) {
+async function poll(env, body, user, who) {
   const after = Number(body.after) || 0;
   const row = await env.STATS.prepare(
     "SELECT COUNT(*) AS n, MAX(id) AS top FROM forum_posts WHERE hidden = 0 AND id > ? AND tg_id != ?"
@@ -426,7 +441,7 @@ async function poll(env, body, user, owner) {
     .bind(after, user.id)
     .first();
   let review;
-  if (owner) {
+  if (who.staff) {
     const r = await env.STATS.prepare(
       "SELECT (SELECT COUNT(*) FROM forum_posts WHERE hidden IN (1, 3)) + (SELECT COUNT(*) FROM forum_replies WHERE hidden IN (1, 3)) AS n"
     ).first();
@@ -435,13 +450,13 @@ async function poll(env, body, user, owner) {
   return { status: 200, json: { ok: true, count: row?.n || 0, review } };
 }
 
-async function replies(env, body, user, owner, ban) {
+async function replies(env, body, user, who, ban) {
   const id = Number(body.post);
   if (!Number.isInteger(id) || id < 1) return fail("bad request");
   const post = await env.STATS.prepare("SELECT * FROM forum_posts WHERE id = ?").bind(id).first();
-  if (!post || (post.hidden !== 0 && !(post.hidden === 3 && post.tg_id === user.id) && !owner)) return fail("not found", 404);
+  if (!post || (post.hidden !== 0 && !(post.hidden === 3 && post.tg_id === user.id) && !who.staff)) return fail("not found", 404);
   const { results = [] } = await env.STATS.prepare(
-    `SELECT * FROM forum_replies WHERE post = ? AND (hidden = 0 OR (hidden = 3 AND tg_id = ?)${owner ? " OR hidden IN (1, 3)" : ""}) ORDER BY id LIMIT ?`
+    `SELECT * FROM forum_replies WHERE post = ? AND (hidden = 0 OR (hidden = 3 AND tg_id = ?)${who.staff ? " OR hidden IN (1, 3)" : ""}) ORDER BY id LIMIT ?`
   )
     .bind(id, user.id, REPLIES_PAGE)
     .all();
@@ -466,16 +481,16 @@ async function replies(env, body, user, owner, ban) {
       // Как зрителя будут звать в этой теме — чтобы свой ответ сразу показать
       // с настоящим именем, не дожидаясь сервера.
       me: { alias: alias(env, id, user.id), name: displayName(user), hue: personHue(env, user.id) },
-      post: viewPost(env, post, user, owner, liked),
-      replies: results.map((r) => viewReply(env, r, user, owner, post, byId, likedReplies.has(r.id))),
+      post: viewPost(env, post, user, who, liked),
+      replies: results.map((r) => viewReply(env, r, user, who, post, byId, likedReplies.has(r.id))),
     },
   };
 }
 
 /** Общая проверка перед записью поста/ответа. Возвращает { fail } или { hold, flood }. */
-async function gate(env, user, owner, kind, text, notify) {
+async function gate(env, user, who, kind, text, notify) {
   const screen = screenText(text);
-  if (owner) return { hold: "" };
+  if (who.owner) return { hold: "" };
   if (screen.block) return { fail: fail("blocked", 422, { reason: screen.block }) };
 
   const table = kind === "p" ? "forum_posts" : "forum_replies";
@@ -517,11 +532,11 @@ async function gate(env, user, owner, kind, text, notify) {
   return { hold };
 }
 
-async function createPost(env, body, user, owner, notify) {
+async function createPost(env, body, user, who, notify) {
   const text = String(body.text || "").trim();
   if (text.length > POST_MAX) return fail("too long");
   const tag = String(body.tag || "").trim().slice(0, TAG_MAX);
-  const verdict = await gate(env, user, owner, "p", text, notify);
+  const verdict = await gate(env, user, who, "p", text, notify);
   if (verdict.fail) return verdict.fail;
   if (tag && screenText(tag, { allowEmpty: true }).block) return fail("blocked", 422, { reason: "Подпись вуза не подходит." });
   const anon = body.anon === false ? 0 : 1;
@@ -547,11 +562,11 @@ async function createPost(env, body, user, owner, notify) {
   const row = await env.STATS.prepare("SELECT * FROM forum_posts WHERE id = ?").bind(result.id).first();
   return {
     status: 200,
-    json: { ok: true, pending: Boolean(hidden), reason: hidden ? verdict.hold : "", post: viewPost(env, row, user, owner, false) },
+    json: { ok: true, pending: Boolean(hidden), reason: hidden ? verdict.hold : "", post: viewPost(env, row, user, who, false) },
   };
 }
 
-async function createReply(env, body, user, owner, notify, tell) {
+async function createReply(env, body, user, who, notify, tell) {
   const postId = Number(body.post);
   if (!Number.isInteger(postId) || postId < 1) return fail("bad request");
   const post = await env.STATS.prepare("SELECT * FROM forum_posts WHERE id = ? AND hidden = 0").bind(postId).first();
@@ -565,7 +580,7 @@ async function createReply(env, body, user, owner, notify, tell) {
     parent = await env.STATS.prepare("SELECT * FROM forum_replies WHERE id = ? AND post = ? AND hidden = 0").bind(to, postId).first();
     if (!parent) return fail("parent gone", 404);
   }
-  const verdict = await gate(env, user, owner, "r", text, notify);
+  const verdict = await gate(env, user, who, "r", text, notify);
   if (verdict.fail) return verdict.fail;
   const anon = body.anon === false ? 0 : 1;
   // Ответы новичков не ждут проверки (иначе тема мертва) — только стоп-слова и всплеск.
@@ -611,7 +626,7 @@ async function createReply(env, body, user, owner, notify, tell) {
   const byId = new Map(parent ? [[parent.id, parent]] : []);
   return {
     status: 200,
-    json: { ok: true, pending: Boolean(hidden), reason: hidden ? verdict.hold : "", reply: viewReply(env, row, user, owner, post, byId, false) },
+    json: { ok: true, pending: Boolean(hidden), reason: hidden ? verdict.hold : "", reply: viewReply(env, row, user, who, post, byId, false) },
   };
 }
 
@@ -640,18 +655,18 @@ async function like(env, body, user) {
   return { status: 200, json: { ok: true, liked: !had, likes: row?.likes || 0 } };
 }
 
-async function remove(env, body, user, owner) {
+async function remove(env, body, user, who) {
   const kind = body.kind === "r" ? "r" : "p";
   const id = Number(body.id);
   if (!Number.isInteger(id) || id < 1) return fail("bad request");
   const row = await authorOf(env, kind, id);
   if (!row || row.hidden === 2) return fail("not found", 404);
-  if (row.tg_id !== user.id && !owner) return fail("forbidden", 403);
+  if (row.tg_id !== user.id && !who.staff) return fail("forbidden", 403);
   await applyAction(env, "del", kind, row);
   return { status: 200, json: { ok: true } };
 }
 
-async function report(env, body, user, owner, notify) {
+async function report(env, body, user, who, notify) {
   const kind = body.kind === "r" ? "r" : "p";
   const id = Number(body.id);
   if (!Number.isInteger(id) || id < 1) return fail("bad request");
@@ -691,10 +706,12 @@ async function report(env, body, user, owner, notify) {
 }
 
 /** Решения владельца прямо в приложении: те же, что кнопки под уведомлениями. */
-async function mod(env, body, owner) {
-  if (!owner) return fail("forbidden", 403);
+async function mod(env, body, who) {
+  if (!who.staff) return fail("forbidden", 403);
   const kind = body.kind === "r" ? "r" : "p";
   const id = Number(body.id);
+  // «Удалить всё автора» — только владельцу: модератору автор не раскрывается.
+  if (body.op === "purge" && !who.owner) return fail("forbidden", 403);
   const op = { ok: "fok", del: "fdl", ban: "fbn", purge: "fpg" }[body.op];
   if (!Number.isInteger(id) || id < 1 || !op) return fail("bad request");
   const text = await forumModerate(env, op, kind, id);
@@ -790,6 +807,10 @@ export const FORUM_HELP = [
   "/forum — сводка и посты на проверке",
   "/forum off · /forum on — аварийный выключатель",
   "/forum newbie on|off — проверять первый пост нового автора",
+  "/forum testers · /forum all — доступ: только свои (тестировщики, модераторы) или все",
+  "/ftester @ник — открыть доступ тестировщику · /funtester @ник — закрыть",
+  "/fmod @ник — назначить модератором · /funmod @ник — снять",
+  "/froles — кто допущен к форуму",
   "/fwho 12 — кто на самом деле автор поста №12 (ответ: /fwho r5)",
   "/fdel 12 — удалить пост (ответ: /fdel r5)",
   "/fban 12 [дни] [причина] — удалить и забанить автора поста №12",
@@ -801,7 +822,7 @@ function parseRef(token) {
   return m ? { kind: m[1] ? "r" : "p", id: Number(m[2]) } : null;
 }
 
-export async function forumCommand(env, text) {
+export async function forumCommand(env, text, findPerson) {
   const [cmdRaw, ...args] = String(text).trim().split(/\s+/);
   const cmd = cmdRaw.replace(/^\//, "").replace(/@\w+$/, "").toLowerCase();
 
@@ -811,10 +832,22 @@ export async function forumCommand(env, text) {
       await putSetting(env, "forum_on", sub === "on" ? "1" : "0");
       return { text: sub === "on" ? "✅ Подслушка включена." : "⛔ Подслушка выключена: у всех, кроме вас, форум не открывается. Включить: /forum on" };
     }
+    if (sub === "all" || sub === "testers") {
+      await putSetting(env, "forum_access", sub);
+      return {
+        text:
+          sub === "all"
+            ? "🌍 Подслушка открыта для всех, у кого есть приложение с ней."
+            : "🔒 Подслушка в закрытом тестировании: пускаем только вас, тестировщиков и модераторов. Открыть всем: /forum all",
+      };
+    }
     if (sub === "newbie" && (args[1] === "on" || args[1] === "off")) {
       await putSetting(env, "forum_newbie_hold", args[1] === "on" ? "1" : "0");
       return { text: args[1] === "on" ? "✅ Первый пост нового автора проверяете вы." : "⚠️ Первые посты новых авторов публикуются сразу (стоп-слова и жалобы работают по-прежнему)." };
     }
+    const access = await setting(env, "forum_access", "testers");
+    const { results: roleRows = [] } = await env.STATS.prepare("SELECT role, COUNT(*) AS n FROM forum_roles GROUP BY role").all();
+    const rolesLine = roleRows.length ? roleRows.map((r) => `${r.role === "moderator" ? "модераторов" : "тестировщиков"}: ${r.n}`).join(", ") : "никого не назначено";
     const since = dayStartUtc();
     const [on, newbie, today, pending, hidden, posts, authors, bans] = await Promise.all([
       setting(env, "forum_on", "1"),
@@ -837,6 +870,7 @@ export async function forumCommand(env, text) {
         `Постов на виду: ${posts.n}, авторов: ${authors.n}, сегодня новых: ${today.n}`,
         `На проверке: ${pending.n} · скрыто жалобами: ${hidden.n} · в бане: ${bans.n}`,
         `Первый пост новичка проверяете: ${newbie === "1" ? "да" : "нет"}`,
+        `Доступ: ${access === "all" ? "🌍 для всех" : "🔒 закрытое тестирование"} · ${rolesLine}`,
         "",
         FORUM_HELP,
       ].join("\n"),
@@ -846,6 +880,8 @@ export async function forumCommand(env, text) {
       })),
     };
   }
+
+  if (["ftester", "funtester", "fmod", "funmod", "froles"].includes(cmd)) return rolesCommand(env, cmd, args, findPerson);
 
   const ref = parseRef(args[0]);
   if (!ref) return { text: `Укажите номер: /${cmd} 12 (ответ — /${cmd} r5).\n\n${FORUM_HELP}` };
@@ -882,4 +918,66 @@ export async function forumCommand(env, text) {
     };
   }
   return { text: FORUM_HELP };
+}
+
+/* ---------- Тестировщики и модераторы ---------- */
+
+const ROLE_NAME = { tester: "тестировщик", moderator: "модератор" };
+
+async function rolesCommand(env, cmd, args, findPerson) {
+  if (cmd === "froles") {
+    const { results = [] } = await env.STATS.prepare(
+      "SELECT tg_id, name, username, role, created FROM forum_roles ORDER BY role DESC, created"
+    ).all();
+    if (!results.length) return { text: "Никого не назначено.\n\n/ftester @ник — тестировщик\n/fmod @ник — модератор" };
+    return {
+      text: [
+        `<b>Допущены к Подслушке</b> (${results.length})`,
+        "",
+        ...results.map((r) => `${r.role === "moderator" ? "🛡" : "🧪"} <a href="tg://user?id=${r.tg_id}">${escape(r.name || `id ${r.tg_id}`)}</a>${r.username ? ` @${escape(r.username)}` : ""} · id ${r.tg_id} · ${ROLE_NAME[r.role]}`),
+        "",
+        "Снять: /funtester @ник · /funmod @ник",
+      ].join("\n"),
+    };
+  }
+  const grant = cmd === "ftester" || cmd === "fmod";
+  const role = cmd === "ftester" || cmd === "funtester" ? "tester" : "moderator";
+  const token = args[0];
+  if (!token) return { text: `Кого? /${cmd} @ник или /${cmd} 123456789` };
+  const person = await findPerson(env, token);
+  if (!person?.tg_id) {
+    return { text: `Не нашёл ${escape(token)}. Человек должен хоть раз открыть бота или расписание; можно указать его числовой id.` };
+  }
+  if (isOwner(env, person.tg_id)) return { text: "Вы и так владелец: у вас все права." };
+  const label = `${escape(person.name || "")}${person.username ? ` @${escape(person.username)}` : ""} · id ${person.tg_id}`.trim();
+
+  if (grant) {
+    await env.STATS.prepare(
+      `INSERT INTO forum_roles (tg_id, name, username, role, created) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(tg_id) DO UPDATE SET role = excluded.role, name = excluded.name, username = excluded.username`
+    )
+      .bind(person.tg_id, person.name || null, person.username || null, role, nowIso())
+      .run();
+    // Модератору первые посты проверять незачем.
+    if (role === "moderator") {
+      await env.STATS.prepare("INSERT OR IGNORE INTO forum_trusted (tg_id, created) VALUES (?, ?)").bind(person.tg_id, nowIso()).run();
+    }
+    return {
+      text: `${role === "moderator" ? "🛡" : "🧪"} ${label} — теперь ${ROLE_NAME[role]} Подслушки. Ему отправил сообщение с кнопкой.`,
+      notify: {
+        chat: person.tg_id,
+        text:
+          role === "moderator"
+            ? "🛡 Вас назначили модератором Подслушки.\n\nВ форуме появилась вкладка «Проверка»: там посты и ответы, которые ждут решения или скрыты жалобами. Можно опубликовать, удалить или забанить автора на 7 дней. Кто автор, модератору не показывается."
+            : "🧪 Вам открыт тестовый доступ к Подслушке — общему форуму студентов.\n\nПока он закрыт для остальных. Открывается из меню «⋯» → «Подслушка». Если что-то не так, просто напишите, что именно.",
+        button: "Открыть",
+      },
+    };
+  }
+  const had = await env.STATS.prepare("SELECT role FROM forum_roles WHERE tg_id = ?").bind(person.tg_id).first();
+  if (!had || had.role !== role) {
+    return { text: `${label} не ${role === "moderator" ? "модератор" : "тестировщик"}${had ? ` (он ${ROLE_NAME[had.role]})` : ""}.` };
+  }
+  await env.STATS.prepare("DELETE FROM forum_roles WHERE tg_id = ?").bind(person.tg_id).run();
+  return { text: `${label} больше не ${ROLE_NAME[role]} Подслушки.` };
 }

@@ -51,8 +51,42 @@ const settle = () => new Promise((r) => setTimeout(r, 200));
 let fail = 0;
 const ok = (cond, name, extra = "") => { console.log((cond ? "✓ " : "✗ ") + name + (cond ? "" : "  " + extra)); if (!cond) fail++; };
 
+// 0. закрытое тестирование: по умолчанию пускаем только своих
+let r = await api("list", {}, 100);
+ok(r.status === 403 && r.error === "closed", "по умолчанию форум закрыт для посторонних", JSON.stringify(r));
+r = await api("list", {}, OWNER);
+ok(r.ok, "владельцу открыт всегда");
+await tg("/ftester 100");
+await settle();
+ok(sent.some((m) => String(m.chat_id) === "100" && /тестовый доступ/.test(m.text || "") && m.reply_markup?.inline_keyboard?.[0]?.[0]?.web_app), "тестировщику ушло сообщение с кнопкой");
+r = await api("list", {}, 100);
+ok(r.ok, "тестировщик допущен");
+r = await api("list", {}, 200);
+ok(r.status === 403 && r.error === "closed", "остальные по-прежнему закрыты");
+await tg("/fmod 201"); await settle();
+r = await api("list", { sort: "review" }, 201);
+ok(r.ok && r.owner === true && r.role === "moderator", "модератору видна очередь проверки", JSON.stringify(r).slice(0, 140));
+ok(r.posts.every((p) => p.author === undefined), "модератор не видит настоящих авторов");
+r = await api("mod", { kind: "p", id: 1, op: "purge" }, 201);
+ok(r.status === 403, "модератор не может «удалить всё автора»", JSON.stringify(r));
+r = await api("mod", { kind: "p", id: 99999, op: "del" }, 100);
+ok(r.status === 403, "тестировщику модерация недоступна", JSON.stringify(r));
+sent.length = 0; await tg("/froles"); await settle();
+ok(sent.some((m) => /Допущены/.test(m.text || "") && /тестировщик/.test(m.text) && /модератор/.test(m.text)), "/froles показывает роли");
+await tg("/funtester 100"); await settle();
+r = await api("list", {}, 100);
+ok(r.status === 403, "после /funtester доступ закрыт снова");
+await tg("/ftester 100"); await tg("/forum all"); await settle();
+r = await api("list", {}, 300);
+ok(r.ok, "/forum all открывает форум всем");
+await tg("/forum testers"); await settle();
+r = await api("list", {}, 300);
+ok(r.status === 403, "/forum testers закрывает снова");
+await tg("/forum all"); await settle();
+sent.length = 0;
+
 // 1. первый пост нового автора — на проверку
-let r = await api("post", { text: "Кто знает, когда пересдача по микроэкономике?", anon: true });
+r = await api("post", { text: "Кто знает, когда пересдача по микроэкономике?", anon: true });
 ok(r.ok && r.pending, "первый пост новичка ждёт проверки", JSON.stringify(r));
 ok(sent.some((m) => m.method === "sendMessage" && /ждёт проверки/.test(m.text) && String(m.chat_id) === "1"), "владельцу пришло уведомление о проверке");
 const note = sent.find((m) => /ждёт проверки/.test(m.text || ""));
