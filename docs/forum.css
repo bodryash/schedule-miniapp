@@ -1641,42 +1641,18 @@
   height: 19px;
 }
 
-.fm-ring {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
+.fm-count {
+  min-width: 32px;
   margin-left: auto;
-  font-size: 11px;
+  font-size: 14px;
+  font-weight: 650;
+  text-align: right;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
 }
 
-.fm-ring svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  transform: rotate(-90deg);
-}
-
-.fm-ring circle {
-  fill: none;
-  stroke-width: 2.6;
-}
-
-.fm-ring .t { stroke: var(--fm-line); }
-
-.fm-ring .p {
-  stroke: var(--accent);
-  stroke-linecap: round;
-  transition: stroke-dashoffset 120ms linear, stroke 200ms;
-}
-
-.fm-ring.is-warn .p { stroke: var(--fm-amber); }
-.fm-ring.is-over .p { stroke: var(--fm-danger); }
-.fm-ring.is-over { color: var(--fm-danger); }
+.fm-count.is-warn { color: var(--fm-amber); }
+.fm-count.is-over { color: var(--fm-danger); }
 
 /* Меню действий */
 
@@ -1957,4 +1933,30 @@ body.fm-open .minihead {
 .sheet--fm-rules {
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+/* Текстовый курсор всегда виден: у темы Telegram он бывает белым на светлом. */
+.sheet--fm textarea,
+.fm-field textarea {
+  caret-color: var(--accent);
+}
+
+/* Имя человека, который пишет под своим именем, ведёт в его Telegram. */
+.fm-name.fm-tg {
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.fm-ava.fm-tg {
+  cursor: pointer;
+}
+
+.fm-ava.fm-tg:active {
+  opacity: 0.7;
+}
+
+.fm-nick {
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
 }

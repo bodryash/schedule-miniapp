@@ -112,6 +112,23 @@
     return a;
   }
 
+  /** Открыть профиль человека в Telegram (только у тех, кто пишет под своим именем). */
+  function openProfile(nick) {
+    haptic("light");
+    const url = `https://t.me/${encodeURIComponent(nick)}`;
+    if (tg?.openTelegramLink) tg.openTelegramLink(url);
+    else window.open(url, "_blank", "noopener");
+  }
+
+  /** Имя и аватар ведут в Telegram, если человек пишет под своим именем и у него есть @ник. */
+  function linkify(item, ...nodes) {
+    if (!item.tg) return;
+    for (const node of nodes) {
+      node.dataset.tg = item.tg;
+      node.classList.add("fm-tg");
+    }
+  }
+
   function animate(node, frames, options) {
     if (REDUCED || !node.animate) return null;
     return node.animate(frames, { easing: EASE, ...options });
@@ -934,7 +951,9 @@
 
     if (S.owner && (post.hidden === 3 || post.hidden === 1)) main.append(modBar("p", post));
 
-    row.append(avatar(post), main);
+    const ava = avatar(post);
+    linkify(post, name, ava);
+    row.append(ava, main);
     return row;
   }
 
@@ -1082,6 +1101,8 @@
       if (!row) return;
       const post = S.posts.get(Number(row.dataset.id));
       if (!post) return;
+      const profile = event.target.closest("[data-tg]");
+      if (profile) return openProfile(profile.dataset.tg);
       const like = event.target.closest(".fm-act--like");
       if (like) return toggleLike(post, "p", like);
       if (event.target.closest(".fm-dots")) return openActions("p", post);
@@ -1523,7 +1544,14 @@
     dots.setAttribute("aria-label", t("Ещё"));
     dots.append(icon("more"));
     dots.addEventListener("click", () => openActions("p", post));
-    head.append(avatar(post, "l"), who, dots);
+    const bigAva = avatar(post, "l");
+    linkify(post, bigAva, who.querySelector(".fm-name"));
+    if (post.tg) {
+      const nick = Object.assign(document.createElement("span"), { className: "fm-nick fm-tg", textContent: `@${post.tg}` });
+      nick.dataset.tg = post.tg;
+      sub.prepend(nick, document.createTextNode(" · "));
+    }
+    head.append(bigAva, who, dots);
     box.append(head);
 
     if (post.pending) box.append(badge("clock", t("На проверке — появится после одобрения")));
@@ -1665,7 +1693,9 @@
     text.textContent = reply.text;
     main.append(text);
     main.append(replyActs(reply));
-        row.append(avatar(reply, "s"), main);
+        const smallAva = avatar(reply, "s");
+    linkify(reply, smallAva, meta.querySelector(".fm-name"));
+    row.append(smallAva, main);
     row.reply = reply;
     return row;
   }
@@ -1728,6 +1758,10 @@
 
   function wireThread() {
     const { area, send, mask } = T;
+    T.wrap.addEventListener("click", (e) => {
+      const profile = e.target.closest("[data-tg]");
+      if (profile) openProfile(profile.dataset.tg);
+    });
     area.addEventListener("input", () => {
       autosize();
       syncReplyBar();
@@ -2081,7 +2115,7 @@
     for (const [name, title, text] of [
       ["shield", t("Без мата и травли"), t("Оскорбления не публикуются. Три жалобы — и пост скрыт.")],
       ["at", t("Без ссылок и чужих контактов"), t("Ни телефонов, ни @ников, ни ссылок: личное остаётся личным.")],
-      ["mask", t("Анонимно — для студентов"), t("Другие не узнают, кто вы. Администратор видит автора, чтобы блокировать травлю и спам.")],
+      ["mask", t("Анонимно — для студентов"), t("Другие не узнают, кто вы. Администратор видит автора, чтобы блокировать травлю и спам. Под своим именем — видно имя и ссылку на ваш Telegram.")],
     ]) {
       const row = document.createElement("div");
       row.className = "fm-rule";
@@ -2192,9 +2226,9 @@
     const tagChip = document.createElement("button");
     tagChip.type = "button";
     tagChip.className = "fm-chip";
+    // Счётчик знаков: пока места много — его нет, чтобы не мозолил глаза.
     const ring = document.createElement("div");
-    ring.className = "fm-ring";
-    ring.innerHTML = '<svg viewBox="0 0 32 32"><circle class="t" cx="16" cy="16" r="13"/><circle class="p" cx="16" cy="16" r="13" stroke-dasharray="81.68" stroke-dashoffset="81.68"/></svg><span></span>';
+    ring.className = "fm-count";
     tools.append(anonChip);
     if (tagLabel) tools.append(tagChip);
     tools.append(ring);
@@ -2211,8 +2245,15 @@
       anonChip.replaceChildren(icon(anon ? "mask" : "person"), document.createTextNode(anon ? t("Анонимно") : me.name));
       tagChip.classList.toggle("is-on", withTag);
       tagChip.replaceChildren(icon("building"), document.createTextNode(tagLabel));
+      const nick = S.user.username;
       as.replaceChildren(
-        document.createTextNode(anon ? t("Другие увидят «Аноним …». ") : t("Другие увидят ваше имя. ")),
+        document.createTextNode(
+          anon
+            ? t("Другие увидят «Аноним …». ")
+            : nick
+              ? t("Другие увидят ваше имя и смогут перейти в ваш Telegram (@{nick}). ", { nick })
+              : t("Другие увидят ваше имя. ")
+        ),
         Object.assign(document.createElement("b"), { textContent: anon ? t("Администратор видит автора.") : "" })
       );
       if (animated) {
@@ -2222,16 +2263,14 @@
         animate(next, [{ transform: "scale(0.6) rotate(-30deg)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 320, easing: "cubic-bezier(0.34,1.56,0.64,1)" });
       }
     };
-    const C = 81.68;
     const update = () => {
       const len = area.value.trim().length;
       const ready = len >= 3 && len <= POST_MAX;
       publish.classList.toggle("is-ready", ready);
-      ring.querySelector(".p").style.strokeDashoffset = String(C * (1 - clamp(len / POST_MAX, 0, 1)));
       const left = POST_MAX - len;
-      ring.classList.toggle("is-warn", left <= 80 && left >= 0);
+      ring.textContent = left <= 100 ? String(left) : "";
+      ring.classList.toggle("is-warn", left <= 40 && left >= 0);
       ring.classList.toggle("is-over", left < 0);
-      ring.querySelector("span").textContent = left <= 80 ? String(left) : "";
     };
     let saveTimer = 0;
     const saveDraft = () => {
