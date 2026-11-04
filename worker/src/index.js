@@ -4461,6 +4461,20 @@ export default {
       });
     }
 
+    // Ссылка на пост Подслушки: короткая карточка и кнопка, открывающая обсуждение.
+    const forumLink = message && text.match(/^\/start(?:@\w+)?\s+f_(\d{1,9})$/);
+    if (forumLink) {
+      const post = await env.STATS.prepare("SELECT id, text, hidden FROM forum_posts WHERE id = ?").bind(Number(forumLink[1])).first().catch(() => null);
+      const live = post && post.hidden === 0;
+      const snippet = live ? String(post.text).replace(/\s+/g, " ").slice(0, 160) + (post.text.length > 160 ? "…" : "") : "";
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: live ? `💬 Подслушка\n\n«${escape(snippet)}»` : "Этого поста уже нет в Подслушке.",
+        parse_mode: "HTML",
+        reply_markup: { inline_keyboard: [[{ text: live ? "💬 Открыть обсуждение" : "💬 Открыть Подслушку", web_app: { url: live ? `${WEB_APP_URL}?forum=${post.id}` : WEB_APP_URL } }]] },
+      });
+    }
+
     // Ссылка-приглашение группы: сразу кнопка, открывающая расписание этой группы.
     const invited = message && text.match(/^\/start(?:@\w+)?\s+g_([a-z0-9]{8})$/);
     if (invited) {
@@ -4483,7 +4497,7 @@ export default {
       });
     }
 
-    if (message && text.startsWith("/start") && !shared && !invited && !/^\/start(?:@\w+)?\s+starosta$/.test(text)) {
+    if (message && text.startsWith("/start") && !shared && !invited && !forumLink && !/^\/start(?:@\w+)?\s+starosta$/.test(text)) {
       // Китайский и корейский — сами по языку Telegram. Английский только
       // подсказкой: многие русские студенты держат Telegram на английском.
       const code = String(message.from?.language_code || "").toLowerCase();
