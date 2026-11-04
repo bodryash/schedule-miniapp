@@ -1,0 +1,60 @@
+name: Команды бота в меню владельца
+
+# Меню команд в чате владельца: обычный список для всех + все команды, которые
+# бот понимает (находим их в коде сами). Новая команда в коде — и после
+# выкладки она появляется в меню без ручной правки. Остальные пользователи
+# видят свой обычный список.
+on:
+  push:
+    branches: [main]
+    paths: ["worker/src/index.js", ".github/workflows/bot-commands.yml"]
+  workflow_dispatch:
+
+jobs:
+  commands:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Обновить меню команд
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          OWNER_ID: ${{ secrets.OWNER_ID }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, urllib.request
+          base = f"https://api.telegram.org/bot{os.environ['BOT_TOKEN']}"
+          def tg(method, payload):
+              req = urllib.request.Request(f"{base}/{method}", data=json.dumps(payload).encode(),
+                                           headers={"content-type": "application/json"})
+              return json.load(urllib.request.urlopen(req, timeout=20))
+          code = open("worker/src/index.js", encoding="utf-8").read()
+          # Команды — то, с чем сравнивают текст сообщения (адреса запросов вроде
+          # /invite и /hit сюда не попадают: их сравнивают с pathname).
+          found = set(re.findall(r'(?:text|command|cmd|body)\w*(?:\.trim\(\))?\.startsWith\("/([a-z_]+)', code))
+          found |= set(re.findall(r'(?:text|command|cmd)\w* === "/([a-z_]+)"', code))
+          found |= set(re.findall(r'/\^\\/([a-z_]+)', code))
+          names = {
+              "start": "Открыть расписание", "casts": "Рассылки: итоги и «Дослать»",
+              "visits": "Заходы человека: /visits @ник", "stats": "Статистика", "who": "Кто пользуется",
+              "broadcast": "Рассылка: /broadcast текст", "beta": "Тестовая версия",
+              "themes": "Темы", "theme": "Выдать тему", "notice": "Объявление группе",
+              "unnotice": "Снять объявление", "cancel": "Отменить пару", "uncancel": "Вернуть пару",
+              "change": "Замена пары", "unchange": "Убрать замену", "starosta": "Назначить старосту",
+              "unstarosta": "Снять старосту", "comments": "Комментарии", "delcomment": "Удалить комментарий",
+              "blocks": "Заблокированные", "unblock": "Разблокировать", "ads": "Реклама", "dm": "Написать человеку",
+              "forget": "Стереть мои данные", "hello": "Надпись на заставке", "hellos": "Надписи на заставке",
+              "updated": "Расписание обновлено — рассылка", "queues": "Очереди", "clicker": "Кликер",
+              "unwatch": "Не следить за чатом", "unimportant": "Снять «важно»",
+          }
+          public = tg("getMyCommands", {})["result"]
+          scope = {"type": "chat", "chat_id": int(os.environ["OWNER_ID"])}
+          mine = tg("getMyCommands", {"scope": scope})["result"]
+          known = {c["command"]: c["description"] for c in public + mine}
+          menu = list(public)
+          have = {c["command"] for c in menu}
+          for name in sorted(found - have):
+              menu.append({"command": name, "description": known.get(name) or names.get(name) or "Служебная команда"})
+          menu = menu[:100]
+          print(tg("setMyCommands", {"commands": menu, "scope": scope}).get("ok"))
+          print("В меню владельца:", " ".join("/" + c["command"] for c in menu))
+          PY
