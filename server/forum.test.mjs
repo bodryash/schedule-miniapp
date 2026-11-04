@@ -209,6 +209,27 @@ r = await api("list", {}, 200); ok(r.status === 503 && r.error === "off", "/foru
 r = await api("list", {}, OWNER); ok(r.ok, "владельцу форум доступен при выключенном");
 await tg("/forum on");
 r = await api("list", {}, 200); ok(r.ok, "/forum on включает");
+// закрытие на ремонт: /fclose переспрашивает, закрывает только «Да»
+const press = (data, from = OWNER) => fetch(`http://127.0.0.1:${PORT}/`, { method: "POST", headers: { "x-telegram-bot-api-secret-token": "w", "content-type": "application/json" }, body: JSON.stringify({ update_id: Math.floor(Math.random() * 1e9), callback_query: { id: "c", from: { id: from }, data, message: { chat: { id: from }, message_id: 9 } } }) });
+sent.length = 0; await tg("/fclose Чиним фильтр"); await settle();
+ok(sent.some((m) => /Закрыть Подслушку на ремонт/.test(m.text || "") && m.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data === "fcl:y"), "/fclose переспрашивает кнопками");
+r = await api("list", {}, 200); ok(r.ok, "до подтверждения форум не закрыт");
+await press("fcl:n"); await settle();
+r = await api("list", {}, 200); ok(r.ok, "«Отмена» — форум работает");
+await tg("/fclose Чиним фильтр"); await settle();
+await press("fcl:y", 777); await settle();
+r = await api("list", {}, 200); ok(r.ok, "чужая кнопка не закрывает");
+await press("fcl:y"); await settle();
+r = await api("list", {}, 200); ok(r.status === 503 && r.error === "off" && r.message === "Чиним фильтр", "«Да» закрывает и отдаёт текст людям", JSON.stringify(r));
+r = await api("status", {}, 200); ok(r.ok && r.off === true && r.message === "Чиним фильтр" && r.owner === false, "status: закрыто, текст, не владелец", JSON.stringify(r));
+r = await api("status", {}, OWNER); ok(r.owner === true, "status узнаёт владельца");
+r = await fetch(`http://127.0.0.1:${PORT}/forum/status`, { method: "POST", body: "{}" }).then((x) => x.json()); ok(r.ok && r.off === true, "status без входа тоже отвечает", JSON.stringify(r));
+r = await api("switch", { off: false }, 200); ok(r.status === 403, "кнопка в приложении — только владельцу");
+r = await api("switch", { off: false }, OWNER); ok(r.ok && r.off === false, "владелец открывает из приложения", JSON.stringify(r));
+r = await api("switch", { off: true, message: "Минутку" }, OWNER); ok(r.off === true && r.message === "Минутку", "и закрывает из приложения");
+await tg("/fopen"); await settle();
+r = await api("list", {}, 200); ok(r.ok, "/fopen открывает");
+r = await api("status", {}, 200); ok(r.off === false && r.message === "", "status после открытия чистый");
 // чужой не владелец
 sent.length = 0; await tg("/forum off", 777); ok(sent.some((m) => /недоступна/.test(m.text || "")), "чужому команда недоступна");
 r = await api("list", {}, 200); ok(r.ok, "и форум не выключился");

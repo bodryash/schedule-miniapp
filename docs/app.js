@@ -11025,16 +11025,18 @@ document.getElementById("forum-btn")?.addEventListener("click", () => {
  */
 const FORUM_FLAG_URLS = ["https://bodryash.github.io/schedule-miniapp/forum-status.json", "forum-status.json"];
 async function forumKill() {
-  const ask = (url) =>
-    fetch(`${url}?t=${Date.now()}`, { cache: "no-store", signal: AbortSignal.timeout(3000) }).then((res) => {
-      if (!res.ok) throw new Error(String(res.status));
-      return res.json();
-    });
-  try {
-    return await Promise.any(FORUM_FLAG_URLS.map(ask));
-  } catch {
-    return null;
-  }
+  const within = (promise) => promise.then((res) => (res.ok ? res.json() : null)).catch(() => null);
+  const timeout = () => AbortSignal.timeout(2500);
+  const flags = await Promise.all([
+    ...FORUM_FLAG_URLS.map((url) => within(fetch(`${url}?t=${Date.now()}`, { cache: "no-store", signal: timeout() }))),
+    // Сервер знает и про /fclose, и про кнопку владельца в приложении; заодно скажет, владелец ли это.
+    within(fetch(`${API_URL}/forum/status`, { method: "POST", body: JSON.stringify({ initData: tg?.initData || "" }), signal: timeout() })),
+  ]);
+  const found = flags.filter(Boolean);
+  const closed = found.find((f) => f.off);
+  const owner = found.some((f) => f.owner);
+  // Владелец проходит всегда: иначе он не смог бы открыть форум обратно.
+  return closed && !owner ? closed : null;
 }
 window.forumKill = forumKill;
 window.forumKillNotice = (flag) =>

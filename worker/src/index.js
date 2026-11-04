@@ -35,7 +35,7 @@ import {
   purgeAuthor,
   unbanCommand,
 } from "./comments.js";
-import { forumApi, forumCommand, forumModerate } from "./forum.js";
+import { forumApi, forumCloseConfirm, forumCommand, forumModerate } from "./forum.js";
 
 let forumErrorAt = 0;
 /** true — владельцу про ошибку форума недавно уже писали. */
@@ -3955,7 +3955,7 @@ export default {
     }
 
     // «Подслушка» — общий форум вузов: список, пост, ответ, лайк, жалоба, удаление.
-    const forumAction = url.pathname.match(/^\/forum\/(list|poll|replies|post|reply|like|vote|delete|report|mod|prefs)$/)?.[1];
+    const forumAction = url.pathname.match(/^\/forum\/(list|poll|replies|post|reply|like|vote|delete|report|mod|prefs|status|switch)$/)?.[1];
     if (forumAction && request.method === "POST") {
       let result;
       try {
@@ -4303,6 +4303,23 @@ export default {
           chat_id: query.message.chat.id,
           message_id: query.message.message_id,
           reply_markup: { inline_keyboard: [[{ text: `✔ ${answer}`, callback_data: "noop" }]] },
+        });
+      }
+      return new Response("ok");
+    }
+
+    // Закрытие Подслушки на ремонт: «Да, закрыть» / «Отмена».
+    const closeBtn = update.callback_query?.data?.match(/^fcl:([yn])$/);
+    if (closeBtn) {
+      const query = update.callback_query;
+      const owner = isOwner(env, query.from?.id);
+      const answer = owner ? await forumCloseConfirm(env, closeBtn[1] === "y") : "Недоступно";
+      await callTelegram(env.BOT_TOKEN, "answerCallbackQuery", { callback_query_id: query.id, text: answer });
+      if (owner && query.message) {
+        await callTelegram(env.BOT_TOKEN, "editMessageText", {
+          chat_id: query.message.chat.id,
+          message_id: query.message.message_id,
+          text: answer,
         });
       }
       return new Response("ok");
@@ -4885,7 +4902,7 @@ ${invite}`,
     }
 
     // Подслушка: сводка, выключатель, кто автор, удалить, бан — только владелец.
-    if (message && /^\/(forum|fwho|fdel|fban|ftester|funtester|fmod|funmod|froles)(?:@\w+)?(?:\s|$)/.test(text)) {
+    if (message && /^\/(forum|fwho|fdel|fban|ftester|funtester|fmod|funmod|froles|fclose|fopen)(?:@\w+)?(?:\s|$)/.test(text)) {
       const answer = isOwner(env, message.chat.id) ? await forumCommand(env, text, findPerson) : { text: "Команда недоступна." };
       await callTelegram(env.BOT_TOKEN, "sendMessage", {
         chat_id: message.chat.id,

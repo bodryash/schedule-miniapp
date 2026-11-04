@@ -2129,3 +2129,20 @@ body.fm-open .minihead {
   .fm-art--done .fm-done-badge,
   .fm-art--done .fm-done-tick { animation: none; stroke-dashoffset: 0; }
 }
+
+.fm-nav-btn--admin {
+  margin-left: 2px;
+}
+
+.fm-admin-field {
+  width: 100%;
+  margin: 12px 0 4px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--fm-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  box-sizing: border-box;
+}

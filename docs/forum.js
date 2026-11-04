@@ -47,6 +47,7 @@
     person: '<circle cx="12" cy="8.3" r="3.6"/><path d="M5 20c.9-3.9 3.7-6 7-6s6.1 2.1 7 6"/>',
     pen: '<path d="M4 20l.9-4L16.3 4.6a2 2 0 0 1 2.8 2.8L7.7 18.8z"/><path d="M14.3 6.6l3 3"/>',
     refresh: '<path d="M19.5 11.5a7.5 7.5 0 1 0-2.2 5.7M19.5 5.5v6h-6"/>',
+    power: '<path d="M12 3.5v8"/><path d="M7.2 6.6a7.2 7.2 0 1 0 9.6 0"/>',
     shield: '<path d="M12 3.2l7 2.8v5.6c0 4.2-2.9 7.7-7 9.4-4.1-1.7-7-5.2-7-9.4V6z"/><path d="M9 12l2.2 2.2L15.2 10"/>',
     at: '<circle cx="12" cy="12" r="3.6"/><path d="M15.6 12v1.4a2.4 2.4 0 0 0 4.8 0V12a8.4 8.4 0 1 0-3.3 6.7"/>',
     clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
@@ -298,7 +299,7 @@
         const body = await res.json().catch(() => ({}));
         if ("banned" in body) setBanned(body.banned || null);
         if (!res.ok || !body.ok) {
-          throw Object.assign(new Error(body.error || String(res.status)), { code: body.error || String(res.status), reason: body.reason || "", status: res.status });
+          throw Object.assign(new Error(body.error || String(res.status)), { code: body.error || String(res.status), reason: body.reason || "", status: res.status, note: body.message || "" });
         }
         return body;
       } catch (error) {
@@ -322,7 +323,7 @@
       case "banned":
         return t("Вам закрыт доступ к записям.");
       case "off":
-        return t("Подслушка временно закрыта.");
+        return error.note ? `🛠 ${error.note}` : t("Подслушка временно закрыта.");
       case "closed":
         return t("Подслушка пока в закрытом тестировании.");
       case "too long":
@@ -805,6 +806,11 @@
       S.top = Math.max(S.top, body.top || 0);
       S.more = Boolean(body.more);
       if (S.owner && !S.seg.querySelector('[data-sort="review"]')) buildSeg();
+      if (S.owner && !S.root.querySelector(".fm-nav-btn--admin")) {
+        const admin = navButton("power", t("Управление"), openAdmin);
+        admin.classList.add("fm-nav-btn--admin");
+        S.root.querySelector(".fm-nav").append(admin);
+      }
       syncSeg();
       setBanned(body.banned || null);
       const known = new Set(S.order);
@@ -2333,6 +2339,81 @@
       S.notify = res.notify;
       toggle.setAttribute("aria-checked", String(res.notify));
     }).catch(() => {});
+  }
+
+  /* ---------- Управление (только владелец): закрыть на ремонт ---------- */
+
+  const GITHUB_SWITCH = "https://github.com/bodryash/schedule-miniapp/actions/workflows/forum-switch.yml";
+
+  async function openAdmin() {
+    const sheet = (S.sheets.admin ||= makeSheet("sheet--fm-admin"));
+    let status = { off: false, message: "" };
+    try {
+      status = await request("status", {});
+    } catch {
+      // Не ответил — показываем обычную кнопку: закрыть всё равно можно.
+    }
+    const head = (title, sub) => {
+      const w = document.createElement("div");
+      w.className = "fm-sheet-in";
+      w.append(Object.assign(document.createElement("h2"), { textContent: title }), Object.assign(document.createElement("p"), { className: "fm-sheet-sub", textContent: sub }));
+      return w;
+    };
+    const home = () => {
+      const list = document.createElement("div");
+      list.className = "fm-actions";
+      if (status.off) {
+        list.append(actionRow("check", t("Открыть для всех"), async () => {
+          try {
+            await request("switch", { off: false });
+            status = { off: false, message: "" };
+            haptic("success");
+            sheet.close();
+            toast(t("Подслушка открыта для всех"));
+          } catch (error) {
+            toast(errorText(error), { tone: "bad", icon: "alert" });
+          }
+        }, { sub: t("Сейчас закрыта на ремонт") }));
+      } else {
+        list.append(actionRow("power", t("Закрыть на ремонт"), () => swap(sheet, ask), { bad: true, sub: t("Мгновенно, для всех, кроме вас") }));
+      }
+      list.append(actionRow("shield", t("Выключатель на GitHub"), () => {
+        sheet.close();
+        if (tg?.openLink) tg.openLink(GITHUB_SWITCH);
+        else window.open(GITHUB_SWITCH, "_blank", "noopener");
+      }, { sub: t("Если бот не отвечает: работает без него") }));
+      fill(sheet.sh, head(t("Управление Подслушкой"), status.off ? t("Сейчас закрыта на ремонт.") : t("Только для вас.")), list);
+    };
+    const ask = () => {
+      const w = head(t("Закрыть на ремонт?"), t("Подслушка закроется у всех, кроме вас. Откроете обратно в любой момент."));
+      const field = document.createElement("input");
+      field.type = "text";
+      field.maxLength = 120;
+      field.placeholder = t("Что написать людям (необязательно)");
+      field.className = "fm-admin-field";
+      w.append(field);
+      const actions = Object.assign(document.createElement("div"), { className: "fm-sheet-actions" });
+      const yes = Object.assign(document.createElement("button"), { type: "button", className: "fm-btn", textContent: t("Да, закрыть") });
+      yes.style.background = "var(--fm-danger)";
+      yes.addEventListener("click", async () => {
+        yes.disabled = true;
+        try {
+          await request("switch", { off: true, message: field.value.trim() });
+          haptic("success");
+          sheet.close();
+          toast(t("Подслушка закрыта на ремонт"), { tone: "warn", icon: "lock" });
+        } catch (error) {
+          yes.disabled = false;
+          toast(errorText(error), { tone: "bad", icon: "alert" });
+        }
+      });
+      const no = Object.assign(document.createElement("button"), { type: "button", className: "fm-btn fm-btn--soft", textContent: t("Отмена") });
+      no.addEventListener("click", () => sheet.close());
+      actions.append(yes, no);
+      fill(sheet.sh, w, actions);
+    };
+    home();
+    sheet.open();
   }
 
   /* ---------- Новый пост ---------- */
