@@ -34,6 +34,7 @@
     back: '<path d="M15 5l-7 7 7 7"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
     heart: '<path d="M12 20.4s-7.4-4.5-7.4-10.1A4.3 4.3 0 0 1 12 7.5a4.3 4.3 0 0 1 7.4 2.8c0 5.6-7.4 10.1-7.4 10.1z"/>',
+    share: '<path d="M12 15V4M7.5 8.3L12 3.8l4.5 4.5M5 12.5v5.3A1.7 1.7 0 0 0 6.7 19.5h10.6a1.7 1.7 0 0 0 1.7-1.7v-5.3"/>',
     arrowUp: '<path d="M12 19.5V5M5.8 11.2L12 5l6.2 6.2"/>',
     arrowDown: '<path d="M12 4.5V19M5.8 12.8L12 19l6.2-6.2"/>',
     comment: '<path d="M5.5 5h13a2 2 0 0 1 2 2v8.2a2 2 0 0 1-2 2H13l-4.2 3.3v-3.3H5.5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/>',
@@ -2095,6 +2096,15 @@
           setReplyTarget(item);
           setTimeout(() => T.area.focus(), 260);
         }));
+      }
+      if (kind === "p" && !item.pending && item.id > 0) {
+        list.append(actionRow("share", t("Поделиться"), () => {
+          sheet.close();
+          const link = `https://t.me/FGPshedulebot?start=f_${item.id}`;
+          const share = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(item.text.replace(/\s+/g, " ").slice(0, 120))}`;
+          if (tg?.openTelegramLink) tg.openTelegramLink(share);
+          else window.open(share, "_blank", "noopener");
+        }, { sub: t("Отправить в чат") }));
       }
       if (!item.mine) list.append(actionRow("flag", t("Пожаловаться"), () => swap(sheet, reasons), { sub: t("Модератор посмотрит") }));
       if (item.canDelete) list.append(actionRow("trash", t("Удалить"), () => swap(sheet, () => confirm({ title: t("Удалить {what}?", { what: noun }), text: t("Это нельзя отменить."), cta: t("Удалить"), run: () => doDelete() })), { bad: true }));
