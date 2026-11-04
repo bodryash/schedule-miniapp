@@ -45,12 +45,14 @@ CREATE INDEX IF NOT EXISTS forum_replies_author ON forum_replies (tg_id, created
 CREATE TABLE IF NOT EXISTS forum_likes (
   post  INTEGER NOT NULL,
   tg_id INTEGER NOT NULL,
+  v     INTEGER NOT NULL DEFAULT 1,
   PRIMARY KEY (post, tg_id)
 );
 
 CREATE TABLE IF NOT EXISTS forum_reply_likes (
   reply INTEGER NOT NULL,
   tg_id INTEGER NOT NULL,
+  v     INTEGER NOT NULL DEFAULT 1,
   PRIMARY KEY (reply, tg_id)
 );
 
