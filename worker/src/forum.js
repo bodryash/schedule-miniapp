@@ -27,8 +27,9 @@ export const REPLY_MAX = 300;
 const PAGE = 20;
 const REPLIES_PAGE = 100;
 const REPORTS_TO_HIDE = 3;
-const POSTS_PER_DAY = 3;
-const REPLIES_PER_DAY = 40;
+// Постов в сутки без лимита: от спама защищают пауза между сообщениями,
+// проверка повторов, проверка первого поста и защита от всплесков.
+const REPLIES_PER_DAY = 200;
 const POST_GAP_SEC = 90;
 const REPLY_GAP_SEC = 8;
 // Больше стольких постов в час на весь форум — это всплеск: всё новое
@@ -524,8 +525,7 @@ async function gate(env, user, who, kind, text, notify) {
       .bind(new Date(Date.now() - 3600 * 1000).toISOString())
       .all(),
   ]);
-  const cap = kind === "p" ? POSTS_PER_DAY : REPLIES_PER_DAY;
-  if (today >= cap) return { fail: fail("limit", 429, { reason: kind === "p" ? `Не больше ${POSTS_PER_DAY} постов в сутки.` : `Не больше ${REPLIES_PER_DAY} ответов в сутки.` }) };
+  if (kind === "r" && today >= REPLIES_PER_DAY) return { fail: fail("limit", 429, { reason: `Не больше ${REPLIES_PER_DAY} ответов в сутки.` }) };
   const gap = kind === "p" ? POST_GAP_SEC : REPLY_GAP_SEC;
   if (last && Date.now() - new Date(last.created).getTime() < gap * 1000) {
     return { fail: fail("slow", 429, { reason: `Подождите ${gap} секунд между сообщениями.` }) };

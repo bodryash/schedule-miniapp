@@ -1,0 +1,71 @@
+name: Подслушка — закрыть на ремонт / открыть
+
+# Аварийный выключатель, который не зависит от бота и сервера: ставит флаг
+# docs/forum-status.json. Приложение читает его с GitHub Pages (и с самого
+# сервера) при каждом открытии Подслушки и раз в 25 секунд, пока она открыта.
+# Запускать кнопкой: Actions → эта запись → Run workflow (есть и в приложении
+# GitHub на телефоне).
+on:
+  workflow_dispatch:
+    inputs:
+      state:
+        description: "Что сделать"
+        type: choice
+        options: ["закрыть на ремонт", "открыть"]
+        default: "закрыть на ремонт"
+      message:
+        description: "Что написать людям (необязательно)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency: forum-switch
+
+jobs:
+  switch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Поставить флаг
+        env:
+          STATE: ${{ inputs.state }}
+          MESSAGE: ${{ inputs.message }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          off = os.environ["STATE"].startswith("закрыть")
+          open("docs/forum-status.json", "w", encoding="utf-8").write(
+              json.dumps({"off": off, "message": os.environ.get("MESSAGE", "").strip()[:200]}, ensure_ascii=False) + "\n")
+          PY
+          cat docs/forum-status.json
+          git config user.name "forum-switch"
+          git config user.email "forum-switch@users.noreply.github.com"
+          git add docs/forum-status.json
+          git diff --cached --quiet && { echo "Флаг уже такой."; exit 0; }
+          git commit -q -m "Подслушка: ${STATE}"
+          for i in 1 2 3 4 5; do
+            git push -q && break
+            git pull -q --rebase origin main
+          done
+      - name: Ждём, пока флаг появится у людей
+        run: |
+          want=$(python3 -c "import json;print(str(json.load(open('docs/forum-status.json'))['off']).lower())")
+          for i in $(seq 1 24); do
+            got=$(curl -fsS -m 10 "https://bodryash.github.io/schedule-miniapp/forum-status.json?t=$(date +%s)" | python3 -c "import json,sys;print(str(json.load(sys.stdin).get('off')).lower())" 2>/dev/null || echo "?")
+            echo "GitHub Pages: off=$got (нужно $want)"
+            [ "$got" = "$want" ] && { echo "Готово: флаг доехал."; break; }
+            sleep 10
+          done
+      - name: Написать владельцу
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          OWNER_ID: ${{ secrets.OWNER_ID }}
+          STATE: ${{ inputs.state }}
+        run: |
+          curl -sS -m 20 "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
+            --data-urlencode "chat_id=$OWNER_ID" \
+            --data-urlencode "text=🛠 Подслушка: $STATE (аварийный выключатель). У людей закроется или откроется в течение 1–2 минут." >/dev/null || true
