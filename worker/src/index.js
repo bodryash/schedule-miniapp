@@ -409,6 +409,14 @@ async function handleButton(env, query) {
         .bind(id)
         .run();
       notice = "Отменено";
+    } else if (action === "resume") {
+      // Дослать остановленную рассылку тем, кто её не получил. Кто получил
+      // (даже по ошибке несколько раз), второй раз не получит: строка «sent».
+      await env.STATS.batch([
+        env.STATS.prepare("UPDATE outbox SET state = 'pending' WHERE broadcast = ? AND state IN ('skipped', 'sending')").bind(id),
+        env.STATS.prepare("UPDATE broadcasts SET status = 'sending' WHERE id = ? AND status IN ('cancelled', 'done')").bind(id),
+      ]);
+      notice = "Досылаю";
     } else if (action === "send") {
       // Очередь наполняем разом, а разбираем порциями по расписанию.
       const draft = await env.STATS.prepare("SELECT audience FROM broadcasts WHERE id = ?").bind(id).first();
@@ -4641,6 +4649,45 @@ ${invite}`,
         const audience = await findAudience("msu-fgp");
         await draftBroadcast(env, message.chat.id, await updatedText(extra), { button: true, audience });
       }
+    }
+
+    // Последние рассылки и их итог — только владельцу. У остановленной с
+    // недосланными — кнопка «Дослать».
+    if (message && /^\/casts(?:@\w+)?$/.test(text.trim())) {
+      if (!isOwner(env, message.chat.id)) {
+        await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: "Команда недоступна." });
+        return new Response("ok");
+      }
+      const { results = [] } = await env.STATS.prepare(
+        `SELECT b.id, b.text, b.created, b.status, b.media_kind,
+                SUM(o.state = 'sent') AS sent, SUM(o.state = 'failed') AS failed,
+                SUM(o.state = 'duplicate') AS twins, SUM(o.state IN ('pending', 'sending')) AS waiting,
+                SUM(o.state = 'skipped') AS skipped
+         FROM broadcasts b LEFT JOIN outbox o ON o.broadcast = b.id
+         WHERE b.status != 'draft' GROUP BY b.id ORDER BY b.id DESC LIMIT 6`
+      ).all();
+      if (!results.length) {
+        await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: "Рассылок ещё не было." });
+        return new Response("ok");
+      }
+      const statusName = { sending: "⏳ идёт", done: "✅ закончена", cancelled: "⛔️ остановлена" };
+      const buttons = [];
+      const lines = results.map((row) => {
+        const when = new Date(row.created).toLocaleString("ru-RU", { timeZone: "Europe/Moscow", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+        const head = String(row.text || "").replace(/\s+/g, " ").slice(0, 60);
+        const parts = [`доставлено ${row.sent || 0}`, `не дошло ${row.failed || 0}`];
+        if (row.twins) parts.push(`повтор не слали ${row.twins}`);
+        if (row.waiting) parts.push(`в очереди ${row.waiting}`);
+        if (row.skipped) parts.push(`не досланы ${row.skipped}`);
+        if (row.status === "cancelled" && row.skipped) buttons.push([{ text: `▶️ Дослать №${row.id} (${row.skipped})`, callback_data: `resume:${row.id}` }]);
+        return `№${row.id} · ${when} · ${statusName[row.status] || row.status}${row.media_kind ? " · 🎬" : ""}\n«${head}…»\n${parts.join(", ")}`;
+      });
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: "📬 Последние рассылки:\n\n" + lines.join("\n\n"),
+        reply_markup: buttons.length ? { inline_keyboard: buttons } : undefined,
+      });
+      return new Response("ok");
     }
 
     // Тестовая версия приложения — только владельцу. Кнопка web_app, а не
