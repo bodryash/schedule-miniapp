@@ -41,6 +41,24 @@ if systemctl is-active -q schedule-bot; then
     fi
   fi
 fi
+# Сторож минутной задачи: бот отвечает, но напоминания и рассылки стоят
+# (задача не запускалась больше 5 минут) — тоже перезапускаем и пишем владельцу.
+if systemctl is-active -q schedule-bot; then
+  AGE=$(curl -fsS -m 10 http://127.0.0.1:8787/healthz 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('tickAge') or 0)" 2>/dev/null || echo 0)
+  if [ "${AGE%.*}" -gt 300 ] 2>/dev/null; then
+    LOG=/var/lib/schedule/tick-$(date +%F-%H%M).log
+    journalctl -u schedule-bot -n 200 --no-pager > "$LOG" 2>&1 || true
+    systemctl restart schedule-bot
+    if [ -f /etc/schedule/env ]; then
+      set -a; . /etc/schedule/env; set +a
+      API="${TELEGRAM_API_BASE:-https://api.telegram.org}/bot$BOT_TOKEN"
+      curl -fsS -m 30 "$API/sendDocument" -F "chat_id=$OWNER_ID" \
+        -F "caption=⚠️ Минутная задача (напоминания, рассылки) стояла ${AGE} с — бот перезапущен сторожем. Журнал — в файле." \
+        -F "document=@$LOG" >/dev/null 2>&1 || true
+    fi
+    echo "Минутная задача стояла ${AGE} с — бот перезапущен."
+  fi
+fi
 # Бета грузилась медленно: без кэша телефон при каждом открытии заново
 # переспрашивал каждый файл. Страница — по-прежнему всегда свежая, файлы
 # кэшируются на минуту: и быстро, и обновления видны почти сразу.
