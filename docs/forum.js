@@ -547,6 +547,7 @@
       return;
     }
     S.open = true;
+    document.body.classList.add("fm-open");
     S.root.hidden = false;
     void S.root.offsetWidth;
     S.root.classList.add("is-open");
@@ -566,6 +567,7 @@
   function closeForum({ instant = false } = {}) {
     if (!S.open) return;
     S.open = false;
+    document.body.classList.remove("fm-open");
     if (T.open) closeThread({ instant: true });
     stopPolling();
     if (instant) {

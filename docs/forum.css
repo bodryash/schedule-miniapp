@@ -1936,3 +1936,8 @@
     animation: none;
   }
 }
+
+/* Плавающая «таблетка» с датой из расписания лежит выше форума: пока он открыт, её не видно. */
+body.fm-open .minihead {
+  display: none !important;
+}
