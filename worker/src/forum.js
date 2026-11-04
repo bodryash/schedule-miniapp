@@ -274,6 +274,9 @@ function viewPost(env, row, user, owner, liked) {
     hue: who.hue,
     anon: Boolean(row.anon),
     tag: row.tag || "",
+    // Под своим именем человек сам выбрал быть узнаваемым: даём ссылку на его
+    // профиль Telegram (если у него есть @ник). У анонимов её нет никогда.
+    tg: !row.anon && row.username ? row.username : undefined,
     text: row.text,
     created: row.created,
     likes: row.likes,
@@ -307,6 +310,7 @@ function viewReply(env, row, user, owner, postRow, byId, liked) {
     hue: who.hue,
     anon: Boolean(row.anon),
     op: row.tg_id === postRow.tg_id,
+    tg: !row.anon && row.username ? row.username : undefined,
     text: row.text,
     created: row.created,
     likes: row.likes || 0,
