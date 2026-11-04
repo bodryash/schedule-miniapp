@@ -230,6 +230,20 @@ r = await api("switch", { off: true, message: "Минутку" }, OWNER); ok(r.o
 await tg("/fopen"); await settle();
 r = await api("list", {}, 200); ok(r.ok, "/fopen открывает");
 r = await api("status", {}, 200); ok(r.off === false && r.message === "", "status после открытия чистый");
+// очистка: только после «Да», посты и модераторы стираются, тестировщики остаются
+await tg("/fmod 450"); await settle();
+r = await api("list", {}, 200); const beforeWipe = r.posts.length; ok(beforeWipe > 0, "до очистки посты есть");
+sent.length = 0; await tg("/fclear"); await settle();
+ok(sent.some((m) => /Стереть ВСЕ/.test(m.text || "") && m.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data === "fwp:y"), "/fclear переспрашивает кнопками");
+r = await api("list", {}, 200); ok(r.posts.length === beforeWipe, "до подтверждения ничего не стёрто");
+await press("fwp:n"); await settle();
+r = await api("list", {}, 200); ok(r.posts.length === beforeWipe, "«Отмена» ничего не стирает");
+await press("fwp:y", 777); await settle();
+r = await api("list", {}, 200); ok(r.posts.length === beforeWipe, "чужая кнопка не стирает");
+await press("fwp:y"); await settle();
+r = await api("list", {}, 200); ok(r.ok && r.posts.length === 0, "«Да» стирает все посты", JSON.stringify(r.posts?.length));
+r = await api("list", {}, 450); ok(r.ok && r.owner === false, "бывший модератор зайти может, но уже без прав");
+r = await api("list", { sort: "review" }, 450); ok(!r.review && !(r.posts || []).length, "модераторской очереди у него нет");
 // чужой не владелец
 sent.length = 0; await tg("/forum off", 777); ok(sent.some((m) => /недоступна/.test(m.text || "")), "чужому команда недоступна");
 r = await api("list", {}, 200); ok(r.ok, "и форум не выключился");
