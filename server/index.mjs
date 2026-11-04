@@ -258,7 +258,7 @@ const stats = { started: Date.now(), requests: 0, errors: 0, slow: 0, limited: 0
  * в минуту — это уже скрипт или атака.
  * Telegram (вебхук с секретом) и проверку «жив ли» не ограничиваем.
  */
-const LIMIT_PER_MINUTE = 600;
+const LIMIT_PER_MINUTE = 3000;
 const hits = new Map();
 
 function clientIp(req) {

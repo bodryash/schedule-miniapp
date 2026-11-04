@@ -33,6 +33,14 @@ jobs:
               print(f'{names.get(k, k)}: {v}')
           " || echo "healthz не ответил"
 
+      - name: Приложение за Cloudflare?
+        run: |
+          for url in https://app.bodryash.ru/ https://api.bodryash.ru/healthz; do
+            h=$(curl -sI -m 20 "$url" | tr -d '\r')
+            echo "$h" | grep -qi '^cf-ray' && echo "$url → через Cloudflare" || echo "$url → напрямую с сервера (Cloudflare не стоит)"
+            echo "$h" | grep -iE '^(server|cache-control|content-encoding):' | sed 's/^/    /'
+          done
+
       - name: Замер отклика (200 запросов, по 20 сразу)
         run: |
           python3 - <<'PY'
