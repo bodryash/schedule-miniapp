@@ -11047,12 +11047,31 @@ function initMenu() {
         pop.querySelector('[data-menu="settings"]')?.before(item);
       }
       pop.querySelector('[data-menu="courses"]').hidden = !mfkAvailable() || Boolean(activeGroup()?.teacher);
-      // Ежедневник — переключатель прямо в меню, без похода в настройки.
-      const plannerItem = pop.querySelector('[data-menu="planner"]');
-      if (plannerItem) {
-        plannerItem.classList.toggle("menu-planner--on", Boolean(prefs.planner));
-        plannerItem.lastElementChild.textContent = prefs.planner ? t("Ежедневник: вкл") : t("Ежедневник: выкл");
+      // Ежедневник — отдельный переключатель вверху меню, не плитка.
+      let modeRow = pop.querySelector(".menu-mode");
+      if (!modeRow) {
+        modeRow = el("div", "menu-mode");
+        const sw = el("button", "mode-switch");
+        sw.type = "button";
+        sw.setAttribute("role", "switch");
+        sw.append(el("i"));
+        modeRow.append(el("span", "menu-mode-text", t("Режим ежедневника")), sw);
+        modeRow.addEventListener("click", (event) => {
+          event.stopPropagation();
+          setPlannerMode(!prefs.planner);
+          sw.setAttribute("aria-checked", String(Boolean(prefs.planner)));
+          setTimeout(() => {
+            close();
+            if (prefs.planner || activeGroup()) openTab("schedule");
+            else {
+              showPicker();
+              openSettingsPage("study");
+            }
+          }, 260);
+        });
+        pop.prepend(modeRow);
       }
+      modeRow.querySelector(".mode-switch").setAttribute("aria-checked", String(Boolean(prefs.planner)));
       // Без группы звать некого, аудиторий и очередей нет.
       for (const item of pop.querySelectorAll("[data-menu]")) {
         const groupOnly = ["invite", "rooms", "queues", "poll", "absences", "exams", "meet", "semester", "courses"].includes(item.dataset.menu);
@@ -11096,12 +11115,6 @@ function initMenu() {
     if (item.dataset.menu === "calendar") openCalendar();
     if (item.dataset.menu === "exams") openExams();
     if (item.dataset.menu === "settings") showPicker();
-    if (item.dataset.menu === "planner") {
-      setPlannerMode(!prefs.planner);
-      // Выключили, а группы нет — setPlannerMode уже открыл выбор группы.
-      if (prefs.planner || activeGroup()) openTab("schedule");
-      else showPicker(), openSettingsPage("study");
-    }
     if (item.dataset.menu === "absences") openAbsences();
     if (item.dataset.menu === "semester") openSemester();
     if (item.dataset.menu === "meet") openMeet();

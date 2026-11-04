@@ -13303,3 +13303,50 @@ html.look-fade body *::after {
   -webkit-mask-image: none;
   mask-image: none;
 }
+
+/* Режим ежедневника — строка с переключателем вверху меню «⋯». */
+.menu-pop .menu-mode {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 6px 10px 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  margin-bottom: 4px;
+}
+
+.menu-pop .menu-mode .mode-switch {
+  all: unset;
+  position: relative;
+  flex: 0 0 auto;
+  width: 50px;
+  height: 30px;
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+  cursor: pointer;
+  transition: background-color 220ms var(--ease-soft, ease);
+}
+
+.menu-pop .menu-mode .mode-switch[aria-checked="true"] {
+  background: var(--accent);
+}
+
+.menu-pop .menu-mode .mode-switch i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: transform 240ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+.menu-pop .menu-mode .mode-switch[aria-checked="true"] i {
+  transform: translateX(20px);
+}
