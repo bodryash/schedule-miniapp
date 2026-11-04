@@ -8913,6 +8913,21 @@ function applyPlannerMode(on) {
   // Выключили, а группы ещё не было: сразу к выбору вуза и группы.
   if (!on && !group && settingsNav.built) openSettingsPage("study");
   else if (settingsNav.built) openSettingsPage(settingsNav.open || "");
+  // Новый режим — с чистого листа: сегодняшний день, экран собирается заново
+  // и подгружает своё (дела или пары), а не остаётся от прошлого режима.
+  const menu = document.getElementById("menu-pop");
+  if (menu) menu.hidden = true;
+  const modeRowSwitch = document.querySelector("#menu-pop .menu-mode .mode-switch");
+  modeRowSwitch?.setAttribute("aria-checked", String(Boolean(prefs.planner)));
+  if (prefs.planner || group) {
+    selectedWeek = 0;
+    selectedDay = ((new Date().getDay() + 6) % 7) + 1;
+    tab = "";
+    openTab("schedule");
+  } else if (!settingsNav.built) {
+    showPicker();
+    openSettingsPage("study");
+  }
 }
 
 function renderPlannerMode() {
@@ -11126,14 +11141,7 @@ function initMenu() {
           event.stopPropagation();
           setPlannerMode(!prefs.planner);
           sw.setAttribute("aria-checked", String(Boolean(prefs.planner)));
-          setTimeout(() => {
-            close();
-            if (prefs.planner || activeGroup()) openTab("schedule");
-            else {
-              showPicker();
-              openSettingsPage("study");
-            }
-          }, 260);
+          close();
         });
         pop.prepend(modeRow);
       }
