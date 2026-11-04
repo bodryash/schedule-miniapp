@@ -190,7 +190,8 @@ export function screenText(text, { allowEmpty = false } = {}) {
   for (const variant of variants(raw)) {
     const padded = ` ${variant} `;
     for (const [re, why] of HOLD_RULES) {
-      if (re.test(padded)) return { hold: why };
+      const m = padded.match(re);
+      if (m) return { hold: why, hit: m[0].trim().slice(0, 40) };
     }
   }
   return {};
@@ -550,7 +551,7 @@ async function gate(env, user, who, kind, text, notify) {
       await notify(`🚨 Подслушка: ${hour} постов за час — всплеск (флуд или атака). Всё новое временно уходит на проверку. Выключить форум: /forum off`, null).catch(() => {});
     }
   }
-  return { hold };
+  return { hold, hit: screen.hold && hold === screen.hold ? screen.hit : "" };
 }
 
 async function createPost(env, body, user, who, notify) {
@@ -566,12 +567,13 @@ async function createPost(env, body, user, who, notify) {
     `INSERT INTO forum_posts (tg_id, name, username, anon, text, created, hidden, held_for, tag)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
   )
-    .bind(user.id, displayName(user), user.username || null, anon, text, nowIso(), hidden, verdict.hold || "", tag)
+    .bind(user.id, displayName(user), user.username || null, anon, text, nowIso(), hidden, verdict.hold ? verdict.hold + (verdict.hit ? ` («${verdict.hit}»)` : "") : "", tag)
     .first();
   if (hidden) {
     await notify(
       [
-        `📝 <b>Подслушка: пост №${result.id} ждёт проверки</b> — ${escape(verdict.hold)}`,
+        `📝 <b>Подслушка: пост №${result.id} ждёт проверки</b>`,
+        `Причина: <b>${escape(verdict.hold)}</b>${verdict.hit ? ` — сработало на «${escape(verdict.hit)}»` : ""}`,
         `Автор: ${AUTHOR_LINK({ tg_id: user.id, name: displayName(user), username: user.username })}`,
         `Показан как: ${anon ? "аноним" : "под именем"}`,
         "",
@@ -610,7 +612,7 @@ async function createReply(env, body, user, who, notify, tell) {
     `INSERT INTO forum_replies (post, tg_id, name, username, anon, text, created, hidden, held_for, parent)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
   )
-    .bind(postId, user.id, displayName(user), user.username || null, anon, text, nowIso(), hidden, verdict.hold || "", parent ? parent.id : 0)
+    .bind(postId, user.id, displayName(user), user.username || null, anon, text, nowIso(), hidden, verdict.hold ? verdict.hold + (verdict.hit ? ` («${verdict.hit}»)` : "") : "", parent ? parent.id : 0)
     .first();
   const row = await env.STATS.prepare("SELECT * FROM forum_replies WHERE id = ?").bind(result.id).first();
   if (!hidden) {
@@ -636,7 +638,8 @@ async function createReply(env, body, user, who, notify, tell) {
   } else {
     await notify(
       [
-        `💬 <b>Подслушка: ответ №${result.id} (к посту №${postId}) ждёт проверки</b> — ${escape(verdict.hold)}`,
+        `💬 <b>Подслушка: ответ №${result.id} (к посту №${postId}) ждёт проверки</b>`,
+        `Причина: <b>${escape(verdict.hold)}</b>${verdict.hit ? ` — сработало на «${escape(verdict.hit)}»` : ""}`,
         `Автор: ${AUTHOR_LINK({ tg_id: user.id, name: displayName(user), username: user.username })}`,
         "",
         snippet(text),
@@ -904,7 +907,7 @@ export async function forumCommand(env, text, findPerson) {
         FORUM_HELP,
       ].join("\n"),
       queue: queue.map((q) => ({
-        text: [`📝 ${q.kind === "p" ? "Пост" : "Ответ"} №${q.id} ждёт — ${escape(q.held_for)}`, `Автор: ${AUTHOR_LINK(q)}`, "", snippet(q.text)].join("\n"),
+        text: [`📝 ${q.kind === "p" ? "Пост" : "Ответ"} №${q.id} ждёт\nПричина: <b>${escape(q.held_for)}</b>`, `Автор: ${AUTHOR_LINK(q)}`, "", snippet(q.text)].join("\n"),
         keyboard: buttons(q.kind, q.id, { review: true }),
       })),
     };
