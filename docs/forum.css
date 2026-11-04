@@ -2106,3 +2106,26 @@ body.fm-open .minihead {
   0%, 35% { opacity: 1; }
   100% { opacity: 0; }
 }
+
+/* «Очередь пуста»: зелёный значок с бликом, галочка дорисовывается. */
+.fm-art--done .fm-done-badge {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: fm-badge-in 520ms cubic-bezier(0.34, 1.5, 0.5, 1) both;
+}
+
+.fm-art--done .fm-done-tick {
+  stroke-dasharray: 52;
+  stroke-dashoffset: 52;
+  animation: fm-draw 380ms 260ms var(--fm-ease) forwards;
+  filter: drop-shadow(0 1.5px 1.5px rgba(0, 80, 30, 0.3));
+}
+
+@keyframes fm-badge-in {
+  from { transform: scale(0.5); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fm-art--done .fm-done-badge,
+  .fm-art--done .fm-done-tick { animation: none; stroke-dashoffset: 0; }
+}
