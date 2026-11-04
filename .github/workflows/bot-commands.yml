@@ -1,0 +1,37 @@
+name: Команды бота в меню владельца
+
+# Добавляет служебные команды (/casts, /visits) в меню команд бота — только
+# в чате владельца: остальные пользователи видят свой обычный список.
+on:
+  workflow_dispatch:
+
+jobs:
+  commands:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Обновить меню команд
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          OWNER_ID: ${{ secrets.OWNER_ID }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          base = f"https://api.telegram.org/bot{os.environ['BOT_TOKEN']}"
+          def tg(method, payload):
+              req = urllib.request.Request(f"{base}/{method}", data=json.dumps(payload).encode(),
+                                           headers={"content-type": "application/json"})
+              return json.load(urllib.request.urlopen(req, timeout=20))
+          scope = {"type": "chat", "chat_id": int(os.environ["OWNER_ID"])}
+          mine = tg("getMyCommands", {"scope": scope})["result"]
+          if not mine:
+              mine = tg("getMyCommands", {})["result"]
+          print("Было:", [c["command"] for c in mine])
+          extra = [
+              {"command": "casts", "description": "Рассылки: итоги и «Дослать»"},
+              {"command": "visits", "description": "Заходы человека: /visits @ник"},
+          ]
+          have = {c["command"] for c in mine}
+          mine += [c for c in extra if c["command"] not in have]
+          print(tg("setMyCommands", {"commands": mine, "scope": scope}))
+          print("Стало:", [c["command"] for c in mine])
+          PY
