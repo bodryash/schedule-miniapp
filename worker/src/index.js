@@ -35,6 +35,15 @@ import {
   purgeAuthor,
   unbanCommand,
 } from "./comments.js";
+import { forumApi, forumCommand, forumModerate } from "./forum.js";
+
+let forumErrorAt = 0;
+/** true — владельцу про ошибку форума недавно уже писали. */
+function forumErrorQuiet() {
+  if (Date.now() - forumErrorAt < 10 * 60 * 1000) return true;
+  forumErrorAt = Date.now();
+  return false;
+}
 
 // На своём сервере адрес приложения задаётся в настройках (APP_URL), в
 // Cloudflare остаётся прежний.
@@ -3902,6 +3911,44 @@ export default {
       });
     }
 
+    // «Подслушка» — общий форум вузов: список, пост, ответ, лайк, жалоба, удаление.
+    const forumAction = url.pathname.match(/^\/forum\/(list|replies|post|reply|like|delete|report)$/)?.[1];
+    if (forumAction && request.method === "POST") {
+      let result;
+      try {
+        const body = JSON.parse(await request.text());
+        const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+        const notify = (text, keyboard) =>
+          callTelegram(env.BOT_TOKEN, "sendMessage", {
+            chat_id: env.OWNER_ID,
+            text,
+            parse_mode: "HTML",
+            link_preview_options: { is_disabled: true },
+            reply_markup: keyboard ? { inline_keyboard: keyboard } : undefined,
+          });
+        try {
+          result = await forumApi(env, forumAction, body, user, notify);
+        } catch (error) {
+          // Ошибку форума владелец узнаёт сразу (не чаще раза в 10 минут).
+          console.error("Подслушка упала:", error);
+          if (!forumErrorQuiet()) {
+            await notify(`🚨 Подслушка: ошибка в «${forumAction}»: ${String(error?.message || error).slice(0, 300)}`, null).catch(() => {});
+          }
+          result = { status: 500, json: { ok: false, error: "server error" } };
+        }
+      } catch {
+        result = { status: 400, json: { ok: false, error: "bad request" } };
+      }
+      return new Response(JSON.stringify(result.json), {
+        status: result.status,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "no-store",
+        },
+      });
+    }
+
     // Комментарии к парам: список, новый, удалить, пожаловаться.
     const commentAction = url.pathname.match(/^\/comments\/(list|add|delete|report)$/)?.[1];
     if (commentAction && request.method === "POST") {
@@ -4186,6 +4233,23 @@ export default {
           chat_id: query.message.chat.id,
           message_id: query.message.message_id,
           reply_markup: { inline_keyboard: [] },
+        });
+      }
+      return new Response("ok");
+    }
+
+    // Кнопки под уведомлениями Подслушки: опубликовать, удалить, бан, всё автора.
+    const forumBtn = update.callback_query?.data?.match(/^(fok|fdl|fbn|fpg):([pr]):(\d+)$/);
+    if (forumBtn) {
+      const query = update.callback_query;
+      const owner = isOwner(env, query.from?.id);
+      const answer = owner ? await forumModerate(env, forumBtn[1], forumBtn[2], Number(forumBtn[3])) : "Недоступно";
+      await callTelegram(env.BOT_TOKEN, "answerCallbackQuery", { callback_query_id: query.id, text: answer });
+      if (owner && query.message) {
+        await callTelegram(env.BOT_TOKEN, "editMessageReplyMarkup", {
+          chat_id: query.message.chat.id,
+          message_id: query.message.message_id,
+          reply_markup: { inline_keyboard: [[{ text: `✔ ${answer}`, callback_data: "noop" }]] },
         });
       }
       return new Response("ok");
@@ -4740,6 +4804,27 @@ ${invite}`,
         link_preview_options: { is_disabled: true },
         reply_markup: reply.keyboard ? { inline_keyboard: reply.keyboard } : undefined,
       });
+    }
+
+    // Подслушка: сводка, выключатель, кто автор, удалить, бан — только владелец.
+    if (message && /^\/(forum|fwho|fdel|fban)(?:@\w+)?(?:\s|$)/.test(text)) {
+      const answer = isOwner(env, message.chat.id) ? await forumCommand(env, text) : { text: "Команда недоступна." };
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: answer.text,
+        parse_mode: "HTML",
+        link_preview_options: { is_disabled: true },
+        reply_markup: answer.keyboard ? { inline_keyboard: answer.keyboard } : undefined,
+      });
+      for (const item of answer.queue || []) {
+        await callTelegram(env.BOT_TOKEN, "sendMessage", {
+          chat_id: message.chat.id,
+          text: item.text,
+          parse_mode: "HTML",
+          link_preview_options: { is_disabled: true },
+          reply_markup: { inline_keyboard: item.keyboard },
+        });
+      }
     }
 
     // Кто, куда и что писал — только владелец.

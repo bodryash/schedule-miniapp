@@ -33,6 +33,9 @@ jobs:
           found = set(re.findall(r'(?:text|command|cmd|body)\w*(?:\.trim\(\))?\.startsWith\("/([a-z_]+)', code))
           found |= set(re.findall(r'(?:text|command|cmd)\w* === "/([a-z_]+)"', code))
           found |= set(re.findall(r'/\^\\/([a-z_]+)', code))
+          # Несколько команд в одной проверке: /^\/(ban|unban|bans)
+          for group in re.findall(r'/\^\\/\(([a-z_|]+)\)', code):
+              found |= {name for name in group.split("|") if len(name) >= 3}
           names = {
               "start": "Открыть расписание", "casts": "Рассылки: итоги и «Дослать»",
               "visits": "Заходы человека: /visits @ник", "stats": "Статистика", "who": "Кто пользуется",
@@ -45,6 +48,9 @@ jobs:
               "forget": "Стереть мои данные", "hello": "Надпись на заставке", "hellos": "Надписи на заставке",
               "updated": "Расписание обновлено — рассылка", "queues": "Очереди", "clicker": "Кликер",
               "unwatch": "Не следить за чатом", "unimportant": "Снять «важно»",
+              "forum": "Подслушка: сводка и проверка", "fwho": "Подслушка: кто автор поста",
+              "fdel": "Подслушка: удалить пост", "fban": "Подслушка: удалить и забанить автора",
+              "ban": "Бан в комментариях и форуме", "unban": "Снять бан", "bans": "Список банов",
           }
           public = tg("getMyCommands", {})["result"]
           scope = {"type": "chat", "chat_id": int(os.environ["OWNER_ID"])}
