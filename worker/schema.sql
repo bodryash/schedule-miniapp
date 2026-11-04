@@ -558,6 +558,9 @@ CREATE TABLE IF NOT EXISTS forum_reports (
   tg_id INTEGER NOT NULL,
   -- Причина, которую выбрал пожаловавшийся: spam, abuse, private, danger, other.
   reason TEXT NOT NULL DEFAULT '',
+  -- Кто пожаловался: владелец должен это знать.
+  name TEXT NOT NULL DEFAULT '',
+  username TEXT,
   PRIMARY KEY (kind, item, tg_id)
 );
 
