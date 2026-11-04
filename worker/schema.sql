@@ -576,3 +576,12 @@ CREATE TABLE IF NOT EXISTS forum_prefs (
   tg_id  INTEGER PRIMARY KEY,
   notify INTEGER NOT NULL DEFAULT 1
 );
+
+-- Кто допущен к Подслушке, пока она закрыта для всех: тестировщики и модераторы.
+CREATE TABLE IF NOT EXISTS forum_roles (
+  tg_id    INTEGER PRIMARY KEY,
+  name     TEXT,
+  username TEXT,
+  role     TEXT NOT NULL,      -- tester | moderator
+  created  TEXT NOT NULL
+);

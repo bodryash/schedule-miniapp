@@ -2589,6 +2589,7 @@ async function forgetUser(env, userId) {
     run("DELETE FROM forum_likes WHERE tg_id = ?", id),
     run("DELETE FROM forum_reply_likes WHERE tg_id = ?", id),
     run("DELETE FROM forum_prefs WHERE tg_id = ?", id),
+    run("DELETE FROM forum_roles WHERE tg_id = ?", id),
     run("DELETE FROM forum_reports WHERE tg_id = ?", id),
     run("DELETE FROM forum_trusted WHERE tg_id = ?", id),
     run("DELETE FROM clicker WHERE user_id = ?", id),
@@ -4833,8 +4834,8 @@ ${invite}`,
     }
 
     // Подслушка: сводка, выключатель, кто автор, удалить, бан — только владелец.
-    if (message && /^\/(forum|fwho|fdel|fban)(?:@\w+)?(?:\s|$)/.test(text)) {
-      const answer = isOwner(env, message.chat.id) ? await forumCommand(env, text) : { text: "Команда недоступна." };
+    if (message && /^\/(forum|fwho|fdel|fban|ftester|funtester|fmod|funmod|froles)(?:@\w+)?(?:\s|$)/.test(text)) {
+      const answer = isOwner(env, message.chat.id) ? await forumCommand(env, text, findPerson) : { text: "Команда недоступна." };
       await callTelegram(env.BOT_TOKEN, "sendMessage", {
         chat_id: message.chat.id,
         text: answer.text,
@@ -4842,6 +4843,14 @@ ${invite}`,
         link_preview_options: { is_disabled: true },
         reply_markup: answer.keyboard ? { inline_keyboard: answer.keyboard } : undefined,
       });
+      // Человеку, которому выдали роль, — сообщение с кнопкой в тестовую версию.
+      if (answer.notify) {
+        await callTelegram(env.BOT_TOKEN, "sendMessage", {
+          chat_id: answer.notify.chat,
+          text: answer.notify.text,
+          reply_markup: { inline_keyboard: [[{ text: answer.notify.button, web_app: { url: BETA_URL } }]] },
+        }).catch(() => {});
+      }
       for (const item of answer.queue || []) {
         await callTelegram(env.BOT_TOKEN, "sendMessage", {
           chat_id: message.chat.id,
