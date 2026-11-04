@@ -442,6 +442,55 @@ async function handleButton(env, query) {
   }
 }
 
+/**
+ * Похожесть двух текстов рассылки, 0…1: доля общих пар букв (коэффициент
+ * Дайса). Регистр, знаки и пробелы не считаются, «/broadcast #фгп» — тоже.
+ */
+function castSimilarity(a, b) {
+  const clean = (text) =>
+    String(text || "")
+      .toLowerCase()
+      .replace(/^\/broadcast\s*/, "")
+      .replace(/[^\p{L}\p{N}]+/gu, "");
+  const pairs = (text) => {
+    const map = new Map();
+    for (let i = 0; i < text.length - 1; i++) {
+      const pair = text.slice(i, i + 2);
+      map.set(pair, (map.get(pair) || 0) + 1);
+    }
+    return map;
+  };
+  const x = clean(a);
+  const y = clean(b);
+  if (!x && !y) return 1;
+  if (x.length < 2 || y.length < 2) return x === y ? 1 : 0;
+  const px = pairs(x);
+  const py = pairs(y);
+  let common = 0;
+  for (const [pair, n] of px) common += Math.min(n, py.get(pair) || 0);
+  return (2 * common) / (x.length - 1 + y.length - 1);
+}
+
+// Сообщение, похожее на уже полученное хотя бы на 90 %, второй раз не шлём.
+const CAST_SIMILAR = 0.9;
+const castTwins = new Map(); // id рассылки → id похожих прошлых рассылок
+
+/** Прошлые рассылки за 60 дней, похожие на эту: им же второй раз не шлём. */
+async function similarCasts(env, job) {
+  if (castTwins.has(job.id)) return castTwins.get(job.id);
+  const since = new Date(Date.now() - 60 * 86400000).toISOString();
+  const { results = [] } = await env.STATS.prepare(
+    "SELECT id, text, media_kind FROM broadcasts WHERE id != ? AND status != 'draft' AND created > ?"
+  )
+    .bind(job.id, since)
+    .all();
+  const twins = results
+    .filter((row) => (row.media_kind || "") === (job.media_kind || "") && castSimilarity(row.text, job.text) >= CAST_SIMILAR)
+    .map((row) => row.id);
+  castTwins.set(job.id, twins);
+  return twins;
+}
+
 /** Разбирает очередь порциями. Вызывается задачей по расписанию. */
 async function drainOutbox(env, limit = BATCH) {
   if (limit <= 0) return;
@@ -458,7 +507,7 @@ async function drainOutbox(env, limit = BATCH) {
 
   if (!results.length) {
     const totals = await env.STATS.prepare(
-      `SELECT SUM(state = 'sent') AS sent, SUM(state = 'failed') AS failed
+      `SELECT SUM(state = 'sent') AS sent, SUM(state = 'failed') AS failed, SUM(state = 'duplicate') AS twins
        FROM outbox WHERE broadcast = ?`
     )
       .bind(job.id)
@@ -472,12 +521,37 @@ async function drainOutbox(env, limit = BATCH) {
 
     await callTelegram(env.BOT_TOKEN, "sendMessage", {
       chat_id: env.OWNER_ID,
-      text: `Рассылка закончена. Доставлено ${totals.sent || 0}, не дошло ${totals.failed || 0}.`,
+      text:
+        `Рассылка закончена. Доставлено ${totals.sent || 0}, не дошло ${totals.failed || 0}.` +
+        (totals.twins ? ` Не отправлено ${totals.twins}: они уже получали почти такое же сообщение.` : ""),
     });
     return;
   }
 
+  const twins = await similarCasts(env, job);
   for (const row of results) {
+    // Сначала «занимаем» строку: если запуски пошли внахлёст, второй её
+    // уже не возьмёт и одному человеку не уйдёт два одинаковых сообщения.
+    const claimed = await env.STATS.prepare(
+      "UPDATE outbox SET state = 'sending' WHERE broadcast = ? AND chat_id = ? AND state = 'pending' RETURNING chat_id"
+    )
+      .bind(job.id, row.chat_id)
+      .first();
+    if (!claimed) continue;
+    // Уже получал почти такое же сообщение — второй раз не шлём.
+    if (twins.length) {
+      const got = await env.STATS.prepare(
+        `SELECT 1 AS got FROM outbox WHERE chat_id = ? AND state = 'sent' AND broadcast IN (${twins.map(() => "?").join(",")}) LIMIT 1`
+      )
+        .bind(row.chat_id, ...twins)
+        .first();
+      if (got) {
+        await env.STATS.prepare("UPDATE outbox SET state = 'duplicate' WHERE broadcast = ? AND chat_id = ?")
+          .bind(job.id, row.chat_id)
+          .run();
+        continue;
+      }
+    }
     let state = "sent";
     try {
       const response = await sendCast(
