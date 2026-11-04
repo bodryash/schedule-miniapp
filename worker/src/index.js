@@ -4462,16 +4462,27 @@ export default {
     }
 
     // Ссылка на пост Подслушки: короткая карточка и кнопка, открывающая обсуждение.
-    const forumLink = message && text.match(/^\/start(?:@\w+)?\s+f_(\d{1,9})$/);
+    const forumLink = message && text.match(/^\/start(?:@\w+)?\s+f_(\d{1,9})(?:_(\d{1,9}))?$/);
     if (forumLink) {
-      const post = await env.STATS.prepare("SELECT id, text, hidden FROM forum_posts WHERE id = ?").bind(Number(forumLink[1])).first().catch(() => null);
-      const live = post && post.hidden === 0;
-      const snippet = live ? String(post.text).replace(/\s+/g, " ").slice(0, 160) + (post.text.length > 160 ? "…" : "") : "";
+      const postId = Number(forumLink[1]);
+      const replyId = forumLink[2] ? Number(forumLink[2]) : 0;
+      const post = await env.STATS.prepare("SELECT id, text, hidden FROM forum_posts WHERE id = ?").bind(postId).first().catch(() => null);
+      let shown = post && post.hidden === 0 ? post : null;
+      let kindName = "пост";
+      if (shown && replyId) {
+        const reply = await env.STATS.prepare("SELECT id, text, hidden FROM forum_replies WHERE id = ? AND post = ?").bind(replyId, postId).first().catch(() => null);
+        if (reply && reply.hidden === 0) {
+          shown = reply;
+          kindName = "ответ";
+        }
+      }
+      const snippet = shown ? String(shown.text).replace(/\s+/g, " ").slice(0, 160) + (shown.text.length > 160 ? "…" : "") : "";
+      const link = `${WEB_APP_URL}?forum=${postId}${shown && kindName === "ответ" ? `&reply=${replyId}` : ""}`;
       await callTelegram(env.BOT_TOKEN, "sendMessage", {
         chat_id: message.chat.id,
-        text: live ? `💬 Подслушка\n\n«${escape(snippet)}»` : "Этого поста уже нет в Подслушке.",
+        text: shown ? `💬 Подслушка · ${kindName}\n\n«${escape(snippet)}»` : "Этого сообщения уже нет в Подслушке.",
         parse_mode: "HTML",
-        reply_markup: { inline_keyboard: [[{ text: live ? "💬 Открыть обсуждение" : "💬 Открыть Подслушку", web_app: { url: live ? `${WEB_APP_URL}?forum=${post.id}` : WEB_APP_URL } }]] },
+        reply_markup: { inline_keyboard: [[{ text: shown ? "💬 Открыть обсуждение" : "💬 Открыть Подслушку", web_app: { url: shown ? link : WEB_APP_URL } }]] },
       });
     }
 
