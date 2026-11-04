@@ -12292,7 +12292,9 @@ function speedUpSplash() {
     for (const anim of splash.getAnimations({ subtree: true })) {
       if (anim.playbackRate !== SPLASH_SPEED) anim.playbackRate = SPLASH_SPEED;
     }
-    if (document.body.contains(splash)) requestAnimationFrame(tick);
+    // Раз в 100 мс, а не каждый кадр: обход всех анимаций дерева на каждом
+    // кадре сам отнимал время у заставки.
+    if (document.body.contains(splash)) setTimeout(tick, 100);
   };
   tick();
 }

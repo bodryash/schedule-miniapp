@@ -101,7 +101,20 @@
     return new Intl.DateTimeFormat(LOCALE, { hour: "2-digit", minute: "2-digit", day: "numeric", month: "long" }).format(new Date(iso));
   }
 
-  function avatar(p, size) {
+  /** Фото из Telegram: только у постов под своим именем; нет фото — остаётся буква. */
+  function addPhoto(a, src) {
+    const img = new Image();
+    img.alt = "";
+    img.decoding = "async";
+    img.className = "fm-ava-img";
+    img.onload = () => {
+      a.append(img);
+      requestAnimationFrame(() => img.classList.add("is-in"));
+    };
+    img.src = src;
+  }
+
+  function avatar(p, size, kind) {
     const a = document.createElement("span");
     a.className = `fm-ava${size ? ` fm-ava--${size}` : ""}`;
     a.style.setProperty("--h", Number.isFinite(p.hue) ? p.hue : hueOf(p.name || "?"));
@@ -110,6 +123,8 @@
       a.textContent = p.emoji;
     } else {
       a.textContent = ([...String(p.name || "?").trim()][0] || "?").toUpperCase();
+      if (p.photo) addPhoto(a, p.photo);
+      else if (p.ava && Number.isInteger(p.id) && p.id > 0) addPhoto(a, `${FORUM_URL}/ava/${kind || "p"}/${p.id}`);
     }
     return a;
   }
@@ -578,6 +593,7 @@
     S.root.hidden = false;
     void S.root.offsetWidth;
     S.root.classList.add("is-open");
+    choreograph();
     tg?.disableVerticalSwipes?.();
     attachBackButton();
     startPolling();
@@ -589,6 +605,17 @@
     }
     if (store(KEY.rules) !== "1") setTimeout(() => openRules(true), 700);
     if (opts.thread) setTimeout(() => openThread({ id: opts.thread }), 450);
+  }
+
+  /** Открытие по очереди: заголовок, переключатель, лента (она сама), кнопка «+». */
+  function choreograph() {
+    if (REDUCED) return;
+    const step = (node, from, delay, ms = 460) =>
+      node && animate(node, [{ opacity: 0, transform: from }, { opacity: 1, transform: "none" }], { duration: ms, delay, easing: EASE, fill: "backwards" });
+    step(S.root.querySelector(".fm-nav-title"), "translate3d(0, 10px, 0)", 140);
+    step(S.root.querySelector(".fm-segwrap"), "translate3d(0, 12px, 0)", 200);
+    const fab = S.root.querySelector(".fm-fab");
+    if (fab) animate(fab, [{ opacity: 0, transform: "scale(0.4) rotate(-40deg)" }, { opacity: 1, transform: "scale(1) rotate(0)" }], { duration: 560, delay: 520, easing: "cubic-bezier(0.34, 1.5, 0.5, 1)", fill: "backwards" });
   }
 
   function closeForum({ instant = false } = {}) {
@@ -688,7 +715,7 @@
 
   function renderPrompt() {
     const name = S.user.first_name || "";
-    const me = avatar({ name: name || "?", hue: hueOf(String(S.user.id || name)) });
+    const me = avatar({ name: name || "?", hue: hueOf(String(S.user.id || name)), photo: tg?.initDataUnsafe?.user?.photo_url });
     const field = document.createElement("span");
     field.className = "fm-prompt-field";
     field.textContent = t("Что у вас на уме?");
@@ -1742,7 +1769,7 @@
     text.textContent = reply.text;
     main.append(text);
     main.append(replyActs(reply));
-        const smallAva = avatar(reply, "s");
+        const smallAva = avatar(reply, "s", "r");
     linkify(reply, smallAva, meta.querySelector(".fm-name"));
     row.append(smallAva, main);
     row.reply = reply;
@@ -2284,7 +2311,7 @@
     box.append(top, body, as, err, tools);
     fill(sheet.sh, box);
 
-    const me = { name: S.user.first_name || t("Вы"), hue: hueOf(String(S.user.id || "me")) };
+    const me = { name: S.user.first_name || t("Вы"), hue: hueOf(String(S.user.id || "me")), photo: tg?.initDataUnsafe?.user?.photo_url };
     const faces = () => (anon ? avatar({ name: "?", emoji: "🕶", hue: 222 }) : avatar(me));
     let face = faces();
     ava.replaceWith(face);

@@ -2545,12 +2545,7 @@ body {
 
 /* Дата проявляется из размытия — мягче, чем простое появление. */
 .splash-day {
-  filter: blur(6px);
-  transition: opacity 420ms var(--ease-soft), transform 420ms var(--ease-soft), filter 420ms var(--ease-soft);
-}
-
-.splash:has(.splash-track--ready) .splash-day {
-  filter: none;
+  transition: opacity 420ms var(--ease-soft), transform 420ms var(--ease-soft);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4689,7 +4684,6 @@ body.champion .card--now {
   from {
     opacity: 0;
     transform: translateY(10px) rotate(-3deg);
-    filter: blur(3px);
   }
 }
 
@@ -9651,7 +9645,6 @@ body.neon .wgrid-cell--parity {
   to {
     opacity: 0;
     transform: scale(1.12);
-    filter: blur(10px);
   }
 }
 
