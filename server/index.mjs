@@ -493,18 +493,6 @@ async function tick() {
   checkAlarms().catch((error) => console.error("Сигналы упали:", error));
   try {
     await new Promise((resolve) => {
-      // Задача может повиснуть на запросе без ответа (так было 04.11, когда
-      // сервер отваливался от сети): тогда ticking оставался true навсегда и
-      // ни напоминания, ни рассылки больше не шли. Через 55 с перестаём ждать.
-      const limit = setTimeout(() => {
-        console.error("Минутная задача не уложилась в 55 с — не ждём её дальше");
-        resolve();
-      }, 55000);
-      const done = resolve;
-      resolve = () => {
-        clearTimeout(limit);
-        done();
-      };
       const pending = [];
       const cronCtx = { ...ctx, waitUntil: (promise) => pending.push(Promise.resolve(promise).catch((e) => console.error("Расписание упало:", e))) };
       Promise.resolve(worker.scheduled({ cron: "* * * * *", scheduledTime: Date.now() }, env, cronCtx))
@@ -522,6 +510,14 @@ function scheduleTick() {
     scheduleTick();
   }, 60000 - (Date.now() % 60000) + 50);
 }
+
+// 04.11: рассылка об обновлении ушла по нескольку раз (задачи шли внахлёст).
+// Всё, что было начато до этой выкладки, останавливаем при запуске.
+env.STATS.prepare("UPDATE broadcasts SET status = 'cancelled' WHERE status = 'sending' AND created < '2026-11-04T16:30:00Z'")
+  .run()
+  .then(() => env.STATS.prepare("UPDATE outbox SET state = 'skipped' WHERE state = 'pending'").run())
+  .then(() => console.log("Начатые рассылки остановлены"))
+  .catch((error) => console.error("Не остановил рассылки:", error));
 
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`Бот слушает 127.0.0.1:${PORT}, база ${DB_PATH}`);

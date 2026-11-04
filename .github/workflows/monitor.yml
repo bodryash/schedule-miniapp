@@ -1,0 +1,104 @@
+name: Сторож бота
+
+# Каждые 5 минут смотрим со стороны, жив ли бот: отвечает ли сервер и идёт ли
+# минутная задача (напоминания, рассылки). Что-то сломалось или починилось —
+# пишем владельцу в Telegram (только при смене состояния, без спама).
+# Сервер лежит — кнопка «Расписание» в боте ведёт на копию в Cloudflare,
+# поднялся — возвращаем как было.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency: monitor
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Прошлое состояние
+        uses: actions/cache/restore@v4
+        with:
+          path: state.json
+          key: monitor-${{ github.run_id }}
+          restore-keys: monitor-
+
+      - name: Проверка
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          OWNER_ID: ${{ secrets.OWNER_ID }}
+        run: |
+          python3 - <<'PY'
+          import json, os, time, urllib.request
+          SPARE = "https://fgp-schedule-app.bodryash.workers.dev/"
+          base = f"https://api.telegram.org/bot{os.environ['BOT_TOKEN']}"
+          def tg(method, payload):
+              req = urllib.request.Request(f"{base}/{method}", data=json.dumps(payload).encode(),
+                                           headers={"content-type": "application/json"})
+              return json.load(urllib.request.urlopen(req, timeout=20))
+          def get(url, tries=3):
+              for i in range(tries):
+                  try:
+                      with urllib.request.urlopen(url, timeout=15) as r:
+                          return r.status, r.read()
+                  except Exception as e:
+                      err = str(e)[:100]
+                      time.sleep(5)
+              return None, err
+          try:
+              state = json.load(open("state.json"))
+          except Exception:
+              state = {}
+          problems = []
+          code, body = get("https://api.bodryash.ru/healthz")
+          server_down = code != 200
+          if server_down:
+              problems.append(f"сервер бота не отвечает ({body})")
+          else:
+              h = json.loads(body)
+              age = h.get("tickAge") or 0
+              if age > 300:
+                  problems.append(f"минутная задача (напоминания, рассылки) стоит {age // 60} мин")
+              if h.get("telegramOk") is False:
+                  problems.append("сервер не может отправлять в Telegram")
+          code, _ = get("https://app.bodryash.ru/")
+          app_down = code != 200
+          if app_down:
+              problems.append("приложение app.bodryash.ru не открывается")
+          now = "; ".join(problems)
+          print("Состояние:", now or "всё в порядке")
+
+          # Кнопка бота: на копию, пока лежит приложение, и обратно, когда поднялось.
+          try:
+              menu = tg("getChatMenuButton", {})["result"]
+              url = (menu.get("web_app") or {}).get("url", "")
+              if app_down and url and url != SPARE:
+                  state["menu"] = menu
+                  tg("setChatMenuButton", {"menu_button": {"type": "web_app", "text": menu.get("text") or "Расписание", "web_app": {"url": SPARE}}})
+                  print("Кнопка бота → запасная копия")
+              elif not app_down and url == SPARE and state.get("menu"):
+                  tg("setChatMenuButton", {"menu_button": state.pop("menu")})
+                  print("Кнопка бота возвращена")
+          except Exception as e:
+              print("Кнопку не трогали:", e)
+
+          if now != state.get("problems", ""):
+              if now:
+                  text = "🚨 С ботом что-то не так:\n• " + "\n• ".join(problems)
+                  if app_down:
+                      text += "\n\nКнопка «Расписание» в боте пока ведёт на запасную копию — расписание у студентов открывается."
+              else:
+                  text = "✅ Бот снова в порядке."
+              try:
+                  tg("sendMessage", {"chat_id": os.environ["OWNER_ID"], "text": text})
+              except Exception as e:
+                  print("Не написал владельцу:", e)
+          state["problems"] = now
+          json.dump(state, open("state.json", "w"))
+          PY
+
+      - name: Запомнить состояние
+        uses: actions/cache/save@v4
+        with:
+          path: state.json
+          key: monitor-${{ github.run_id }}
