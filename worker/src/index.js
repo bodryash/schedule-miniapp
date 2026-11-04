@@ -235,6 +235,8 @@ const REPO = "bodryash/schedule-miniapp";
 const OWN_SERVER = Boolean(globalThis.SCHEDULE_OWN_SERVER);
 const BATCH = OWN_SERVER ? 600 : 40;
 const SEND_BUDGET = OWN_SERVER ? 700 : 44;
+// Сколько сообщений рассылки отправляем одновременно (только свой сервер).
+const CAST_LANES = 8;
 
 /**
  * Получатели рассылки одному факультету — те, кто выбрал у него группу.
@@ -537,7 +539,7 @@ async function drainOutbox(env, limit = BATCH) {
   }
 
   const twins = await similarCasts(env, job);
-  for (const row of results) {
+  const sendOne = async (row) => {
     // Сначала «занимаем» строку: если запуски пошли внахлёст, второй её
     // уже не возьмёт и одному человеку не уйдёт два одинаковых сообщения.
     const claimed = await env.STATS.prepare(
@@ -545,7 +547,7 @@ async function drainOutbox(env, limit = BATCH) {
     )
       .bind(job.id, row.chat_id)
       .first();
-    if (!claimed) continue;
+    if (!claimed) return;
     // Уже получал почти такое же сообщение — второй раз не шлём.
     if (twins.length) {
       const got = await env.STATS.prepare(
@@ -557,7 +559,7 @@ async function drainOutbox(env, limit = BATCH) {
         await env.STATS.prepare("UPDATE outbox SET state = 'duplicate' WHERE broadcast = ? AND chat_id = ?")
           .bind(job.id, row.chat_id)
           .run();
-        continue;
+        return;
       }
     }
     let state = "sent";
@@ -581,7 +583,17 @@ async function drainOutbox(env, limit = BATCH) {
     )
       .bind(state, job.id, row.chat_id)
       .run();
-  }
+  };
+  // По нескольку сразу: по одному с пересыльщиком к Telegram выходило около
+  // секунды на сообщение, и рассылка тянулась полчаса. 8 одновременно — это
+  // всё ещё далеко от потолка Telegram (~30 в секунду).
+  const queue = [...results];
+  const lanes = OWN_SERVER ? CAST_LANES : 1;
+  await Promise.all(
+    Array.from({ length: lanes }, async () => {
+      while (queue.length) await sendOne(queue.shift());
+    })
+  );
 }
 
 /**
