@@ -3929,7 +3929,7 @@ export default {
     }
 
     // «Подслушка» — общий форум вузов: список, пост, ответ, лайк, жалоба, удаление.
-    const forumAction = url.pathname.match(/^\/forum\/(list|poll|replies|post|reply|like|delete|report|mod|prefs)$/)?.[1];
+    const forumAction = url.pathname.match(/^\/forum\/(list|poll|replies|post|reply|like|vote|delete|report|mod|prefs)$/)?.[1];
     if (forumAction && request.method === "POST") {
       let result;
       try {

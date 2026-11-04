@@ -272,7 +272,7 @@ function whoOf(env, row, postId) {
     : { name: row.name, emoji: "", hue: personHue(env, row.tg_id) };
 }
 
-function viewPost(env, row, user, perm, liked) {
+function viewPost(env, row, user, perm, vote) {
   const mine = row.tg_id === user.id;
   const who = whoOf(env, row, row.id);
   return {
@@ -287,9 +287,12 @@ function viewPost(env, row, user, perm, liked) {
     tg: !row.anon && row.username ? row.username : undefined,
     text: row.text,
     created: row.created,
+    // Рейтинг: голосов «за» минус голосов «против» (может быть отрицательным).
+    score: row.likes,
+    vote: Number(vote) || 0,
     likes: row.likes,
     replies: row.replies,
-    liked: Boolean(liked),
+    liked: Number(vote) === 1,
     mine,
     pending: row.hidden === 3,
     canDelete: mine || perm.staff,
@@ -301,7 +304,7 @@ function viewPost(env, row, user, perm, liked) {
   };
 }
 
-function viewReply(env, row, user, perm, postRow, byId, liked) {
+function viewReply(env, row, user, perm, postRow, byId, vote) {
   const mine = row.tg_id === user.id;
   const who = whoOf(env, row, row.post);
   let parent = null;
@@ -321,8 +324,10 @@ function viewReply(env, row, user, perm, postRow, byId, liked) {
     tg: !row.anon && row.username ? row.username : undefined,
     text: row.text,
     created: row.created,
+    score: row.likes || 0,
+    vote: Number(vote) || 0,
     likes: row.likes || 0,
-    liked: Boolean(liked),
+    liked: Number(vote) === 1,
     parent,
     mine,
     pending: row.hidden === 3,
@@ -347,7 +352,7 @@ export async function forumApi(env, action, body, user, notify, tell) {
 
   // Забаненный (общий бан /ban) читает, но не пишет, не жалуется и не лайкает.
   const ban = owner ? null : await activeBan(env, user.id);
-  const writing = ["post", "reply", "like", "report"].includes(action);
+  const writing = ["post", "reply", "like", "vote", "report"].includes(action);
   if (ban && writing) return fail("banned", 403, { banned: ban });
 
   if (action === "list") return list(env, body, user, who, ban);
@@ -355,7 +360,7 @@ export async function forumApi(env, action, body, user, notify, tell) {
   if (action === "replies") return replies(env, body, user, who, ban);
   if (action === "post") return createPost(env, body, user, who, notify);
   if (action === "reply") return createReply(env, body, user, who, notify, tell);
-  if (action === "like") return like(env, body, user);
+  if (action === "like" || action === "vote") return vote(env, body, user, action === "like");
   if (action === "delete") return remove(env, body, user, who);
   if (action === "report") return report(env, body, user, who, notify);
   if (action === "mod") return mod(env, body, who);
@@ -399,14 +404,14 @@ async function list(env, body, user, who, ban) {
   }
   const all = [...mine, ...rows];
   const ids = all.map((p) => p.id);
-  const liked = new Set();
+  const votes = new Map();
   if (ids.length) {
-    const { results: likes = [] } = await env.STATS.prepare(
-      `SELECT post FROM forum_likes WHERE tg_id = ? AND post IN (${ids.map(() => "?").join(",")})`
+    const { results: rows2 = [] } = await env.STATS.prepare(
+      `SELECT post, v FROM forum_likes WHERE tg_id = ? AND post IN (${ids.map(() => "?").join(",")})`
     )
       .bind(user.id, ...ids)
       .all();
-    for (const l of likes) liked.add(l.post);
+    for (const l of rows2) votes.set(l.post, l.v);
   }
   const top = await env.STATS.prepare("SELECT MAX(id) AS id FROM forum_posts WHERE hidden = 0").first();
   let review;
@@ -427,7 +432,7 @@ async function list(env, body, user, who, ban) {
       top: top?.id || 0,
       review,
       more: sort === "new" && rows.length === PAGE,
-      posts: all.map((p) => viewPost(env, p, user, who, liked.has(p.id))),
+      posts: all.map((p) => viewPost(env, p, user, who, votes.get(p.id) || 0)),
     },
   };
 }
@@ -460,15 +465,15 @@ async function replies(env, body, user, who, ban) {
   )
     .bind(id, user.id, REPLIES_PAGE)
     .all();
-  const liked = await env.STATS.prepare("SELECT 1 AS ok FROM forum_likes WHERE post = ? AND tg_id = ?").bind(id, user.id).first();
-  const likedReplies = new Set();
+  const myVote = await env.STATS.prepare("SELECT v FROM forum_likes WHERE post = ? AND tg_id = ?").bind(id, user.id).first();
+  const replyVotes = new Map();
   if (results.length) {
     const { results: rl = [] } = await env.STATS.prepare(
-      `SELECT reply FROM forum_reply_likes WHERE tg_id = ? AND reply IN (${results.map(() => "?").join(",")})`
+      `SELECT reply, v FROM forum_reply_likes WHERE tg_id = ? AND reply IN (${results.map(() => "?").join(",")})`
     )
       .bind(user.id, ...results.map((r) => r.id))
       .all();
-    for (const l of rl) likedReplies.add(l.reply);
+    for (const l of rl) replyVotes.set(l.reply, l.v);
   }
   const byId = new Map(results.map((r) => [r.id, r]));
   const prefsRow = await env.STATS.prepare("SELECT notify FROM forum_prefs WHERE tg_id = ?").bind(user.id).first();
@@ -481,8 +486,8 @@ async function replies(env, body, user, who, ban) {
       // Как зрителя будут звать в этой теме — чтобы свой ответ сразу показать
       // с настоящим именем, не дожидаясь сервера.
       me: { alias: alias(env, id, user.id), name: displayName(user), hue: personHue(env, user.id) },
-      post: viewPost(env, post, user, who, liked),
-      replies: results.map((r) => viewReply(env, r, user, who, post, byId, likedReplies.has(r.id))),
+      post: viewPost(env, post, user, who, myVote?.v || 0),
+      replies: results.map((r) => viewReply(env, r, user, who, post, byId, replyVotes.get(r.id) || 0)),
     },
   };
 }
@@ -630,30 +635,38 @@ async function createReply(env, body, user, who, notify, tell) {
   };
 }
 
-async function like(env, body, user) {
+/**
+ * Голос за (+1) или против (−1) поста или ответа; 0 — снять голос.
+ * `like` (старый способ) — то же самое: голос «за» включается и выключается.
+ */
+async function vote(env, body, user, legacyToggle) {
   const kind = body.kind === "r" ? "r" : "p";
   const id = Number(kind === "r" ? body.id : body.post || body.id);
   if (!Number.isInteger(id) || id < 1) return fail("bad request");
   const table = kind === "r" ? "forum_replies" : "forum_posts";
-  const likes = kind === "r" ? "forum_reply_likes" : "forum_likes";
+  const votes = kind === "r" ? "forum_reply_likes" : "forum_likes";
   const col = kind === "r" ? "reply" : "post";
-  const item = await env.STATS.prepare(`SELECT id FROM ${table} WHERE id = ? AND hidden = 0`).bind(id).first();
+  const item = await env.STATS.prepare(`SELECT id, tg_id FROM ${table} WHERE id = ? AND hidden = 0`).bind(id).first();
   if (!item) return fail("not found", 404);
-  const had = await env.STATS.prepare(`SELECT 1 AS ok FROM ${likes} WHERE ${col} = ? AND tg_id = ?`).bind(id, user.id).first();
-  if (had) {
+  const had = await env.STATS.prepare(`SELECT v FROM ${votes} WHERE ${col} = ? AND tg_id = ?`).bind(id, user.id).first();
+  const old = had ? had.v : 0;
+  const next = legacyToggle ? (old === 1 ? 0 : 1) : clampVote(body.v);
+  if (next === null) return fail("bad request");
+  if (next !== old) {
     await env.STATS.batch([
-      env.STATS.prepare(`DELETE FROM ${likes} WHERE ${col} = ? AND tg_id = ?`).bind(id, user.id),
-      env.STATS.prepare(`UPDATE ${table} SET likes = MAX(likes - 1, 0) WHERE id = ?`).bind(id),
-    ]);
-  } else {
-    await env.STATS.batch([
-      env.STATS.prepare(`INSERT OR IGNORE INTO ${likes} (${col}, tg_id) VALUES (?, ?)`).bind(id, user.id),
-      env.STATS.prepare(`UPDATE ${table} SET likes = likes + 1 WHERE id = ?`).bind(id),
+      next === 0
+        ? env.STATS.prepare(`DELETE FROM ${votes} WHERE ${col} = ? AND tg_id = ?`).bind(id, user.id)
+        : env.STATS.prepare(
+            `INSERT INTO ${votes} (${col}, tg_id, v) VALUES (?, ?, ?) ON CONFLICT(${col}, tg_id) DO UPDATE SET v = excluded.v`
+          ).bind(id, user.id, next),
+      env.STATS.prepare(`UPDATE ${table} SET likes = likes + ? WHERE id = ?`).bind(next - old, id),
     ]);
   }
   const row = await env.STATS.prepare(`SELECT likes FROM ${table} WHERE id = ?`).bind(id).first();
-  return { status: 200, json: { ok: true, liked: !had, likes: row?.likes || 0 } };
+  return { status: 200, json: { ok: true, v: next, vote: next, liked: next === 1, score: row?.likes || 0, likes: row?.likes || 0 } };
 }
+
+const clampVote = (v) => (v === 1 || v === -1 || v === 0 ? v : null);
 
 async function remove(env, body, user, who) {
   const kind = body.kind === "r" ? "r" : "p";
