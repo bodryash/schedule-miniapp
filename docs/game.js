@@ -111,6 +111,16 @@
     const level = el("div", "g2-level");
     S.levelEl = level;
 
+    // Призы и «зови друзей» — на виду, но не мешают игре: тап — подробности.
+    const promo = el("button", "g2-promo");
+    promo.type = "button";
+    promo.append(el("span", "g2-promo-ico", "🏆"), el("span", "g2-promo-text"), el("span", "g2-promo-go", t("Подробнее")));
+    promo.querySelector(".g2-promo-text").append(
+      el("b", "", t("Призы: своя тема и 🥇")),
+      el("small", "", t("Зови друзей — растёт счёт факультета"))
+    );
+    promo.addEventListener("click", () => openPrizes());
+
     const board = el("div", "g2-board");
     for (let i = 0; i < 16; i++) board.append(el("div", "g2-cell"));
     const layer = el("div", "g2-layer");
@@ -126,7 +136,7 @@
     const rating = el("button", "g2-btn g2-btn--main", t("Рейтинг"));
     rating.type = "button";
     rating.addEventListener("click", () => openBoard());
-    const share = el("button", "g2-btn", t("Поделиться"));
+    const share = el("button", "g2-btn", t("Позвать"));
     share.type = "button";
     share.addEventListener("click", () => shareResult());
     actions.append(fresh, rating, share);
@@ -135,7 +145,7 @@
     overlay.hidden = true;
     S.overEl = overlay;
 
-    root.append(nav, stats, level, board, overlay, actions);
+    root.append(nav, promo, stats, level, board, overlay, actions);
     document.body.append(root);
     S.root = root;
 
@@ -484,6 +494,39 @@
     s.sh.replaceChildren(el("h2", "", t("Рейтинг")), tabs, note, list, close);
   }
 
+  function openPrizes() {
+    haptic("light");
+    const s = (S.prizeSheet ||= sheet("g2-prizes"));
+    s.sh.replaceChildren();
+    const until = S.event?.ends ? new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "long" }).format(new Date(S.event.ends)) : "";
+    s.sh.append(el("div", "g2-prize-hero", "🏆"), el("h2", "", t("Призы «Сессии 2048»")));
+    const list = el("div", "g2-prize-list");
+    for (const [ico, title, text] of [
+      ["🥇", t("Лучшему игроку"), t("Эксклюзивная тема приложения, которой больше ни у кого нет, и золотая медаль у имени в Подслушке.")],
+      ["🥈", t("2-е и 3-е место"), t("Серебряная и бронзовая медали у имени в Подслушке.")],
+      ["🏛", t("Лучшему факультету"), t("Особая тема на весь факультет. Счёт факультета — сумма рекордов всех его игроков.")],
+    ]) {
+      const row = el("div", "g2-prize");
+      const copy = el("div");
+      copy.append(el("b", "", title), el("span", "", text));
+      row.append(el("i", "", ico), copy);
+      list.append(row);
+    }
+    s.sh.append(list);
+    s.sh.append(el("p", "g2-muted", until ? t("Турнир идёт до {date} включительно. Итоги дня — каждый вечер в Подслушке.", { date: until }) : t("Итоги дня — каждый вечер в Подслушке.")));
+    const call = el("button", "g2-btn g2-btn--main g2-wide", t("Позвать друзей"));
+    call.type = "button";
+    call.addEventListener("click", () => {
+      s.close();
+      shareResult();
+    });
+    const play = el("button", "g2-btn g2-wide g2-wide--soft", t("Играть"));
+    play.type = "button";
+    play.addEventListener("click", () => s.close());
+    s.sh.append(call, play);
+    s.open();
+  }
+
   function openHelp() {
     haptic("light");
     const s = (S.helpSheet ||= sheet("g2-help"));
@@ -575,6 +618,8 @@
     setTimeout(() => {
       if (!S.open) S.root.hidden = true;
     }, REDUCED ? 0 : 320);
+    // Из игры — в Подслушку: там итоги дня и обсуждение турнира.
+    setTimeout(() => window.openForum?.(), REDUCED ? 0 : 120);
   }
 
   window.showGame = showGame;
