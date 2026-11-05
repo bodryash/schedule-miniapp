@@ -11094,7 +11094,7 @@ async function openForum(opts) {
     forumAssets = null;
     console.error("Подслушка не загрузилась:", error);
   });
-  forumAssets.then(() => window.showForum?.(opts));
+  return forumAssets.then(() => window.showForum?.(opts));
 }
 
 /** «Сессия 2048» — грузится, только когда её открывают (game.js, game.css). */

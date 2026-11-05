@@ -425,11 +425,58 @@
     back.hidden = true;
     const sh = el("div", `sheet sheet--g2 ${cls}`);
     back.append(sh);
-    back.addEventListener("click", (e) => {
-      if (e.target === back) back.hidden = true;
-    });
     document.body.append(back);
-    return { back, sh, open: () => (back.hidden = false), close: () => (back.hidden = true) };
+    // Открытие: окно выезжает с лёгкой пружиной, содержимое поднимается по очереди.
+    const open = () => {
+      back.hidden = false;
+      if (REDUCED) return;
+      sh.animate([{ transform: "translate3d(0, 100%, 0)" }, { transform: "translate3d(0, -6px, 0)", offset: 0.75 }, { transform: "none" }], { duration: 460, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
+      [...sh.children].forEach((child, i) => {
+        child.animate([{ opacity: 0, transform: "translate3d(0, 18px, 0)" }, { opacity: 1, transform: "none" }], { duration: 420, delay: 80 + i * 45, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", fill: "backwards" });
+      });
+    };
+    const close = () => {
+      if (REDUCED || back.hidden) return (back.hidden = true);
+      const a = sh.animate([{ transform: "none" }, { transform: "translate3d(0, 100%, 0)" }], { duration: 260, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" });
+      a.onfinish = () => {
+        back.hidden = true;
+        a.cancel();
+      };
+    };
+    back.addEventListener("click", (e) => {
+      if (e.target === back) close();
+    }, true);
+    return { back, sh, open, close };
+  }
+
+  /** Кубок, который медленно вращается, вокруг кружат точки и вспыхивают искры. */
+  function trophy(emoji = "🏆", size = "") {
+    const hero = el("div", `g2-hero${size ? ` g2-hero--${size}` : ""}`);
+    const glow = el("span", "g2-hero-glow");
+    const orbit = el("span", "g2-hero-orbit");
+    for (let i = 0; i < 10; i++) {
+      const dot = el("i");
+      dot.style.setProperty("--a", `${i * 36}deg`);
+      dot.style.setProperty("--d", `${(i % 3) * 0.25}s`);
+      orbit.append(dot);
+    }
+    const orbit2 = el("span", "g2-hero-orbit g2-hero-orbit--back");
+    for (let i = 0; i < 6; i++) {
+      const dot = el("i");
+      dot.style.setProperty("--a", `${i * 60 + 15}deg`);
+      orbit2.append(dot);
+    }
+    const sparks = el("span", "g2-hero-sparks");
+    for (let i = 0; i < 7; i++) {
+      const sp = el("i", "", "✦");
+      sp.style.setProperty("--x", `${[12, 82, 22, 74, 50, 6, 92][i]}%`);
+      sp.style.setProperty("--y", `${[18, 14, 80, 76, 4, 50, 46][i]}%`);
+      sp.style.setProperty("--d", `${i * 0.37}s`);
+      sparks.append(sp);
+    }
+    const cup = el("span", "g2-hero-cup", emoji);
+    hero.append(glow, orbit2, orbit, cup, sparks);
+    return hero;
   }
 
   async function openBoard() {
@@ -458,16 +505,36 @@
     const tf = mk("facs", t("Факультеты"));
     const tp = mk("players", t("Игроки"));
     const note = el("p", "g2-muted");
+    const podium = el("div", "g2-podium");
+    const renderPodium = (items) => {
+      podium.replaceChildren();
+      podium.hidden = !items.length;
+      // Пьедестал: второе место слева, первое в центре и выше всех, третье справа.
+      for (const place of [2, 1, 3]) {
+        const it = items[place - 1];
+        const col = el("div", `g2-pod g2-pod--${place}${it ? "" : " is-empty"}`);
+        const medal = el("span", "g2-pod-medal", ["🥇", "🥈", "🥉"][place - 1]);
+        col.append(medal, el("b", "g2-pod-name", it ? it.name : "—"), el("small", "", it ? it.sub : ""), el("span", "g2-pod-score", it ? fmt(it.score) : ""), el("span", "g2-pod-step", String(place)));
+        if (it?.me) col.classList.add("is-me");
+        podium.append(col);
+      }
+    };
     const render = () => {
       tf.classList.toggle("is-on", tab === "facs");
       tp.classList.toggle("is-on", tab === "players");
       list.replaceChildren();
+      const mineT = res.me?.tenant || faculty().tenant;
+      renderPodium(
+        tab === "facs"
+          ? res.facs.slice(0, 3).map((f) => ({ name: f.fac, sub: t("игроков: {n}", { n: f.players }), score: f.total, me: f.tenant === mineT }))
+          : res.players.slice(0, 3).map((p) => ({ name: p.name, sub: p.fac, score: p.best, me: p.me }))
+      );
       const medal = (n) => ["🥇", "🥈", "🥉"][n - 1] || String(n);
       if (tab === "facs") {
         note.textContent = t("Счёт факультета — сумма рекордов всех его игроков. Зовите однокурсников!");
         if (!res.facs.length) list.append(el("p", "g2-muted", t("Пока никто не играл — будьте первыми.")));
         const mineTenant = res.me?.tenant || faculty().tenant;
-        for (const f of res.facs) {
+        for (const f of res.facs.slice(3)) {
           const row = el("div", `g2-row${f.tenant === mineTenant ? " is-me" : ""}`);
           row.append(el("span", "g2-place", medal(f.place)), el("span", "g2-name", f.fac), el("small", "", t("игроков: {n}", { n: f.players })), el("b", "", fmt(f.total)));
           list.append(row);
@@ -475,7 +542,7 @@
       } else {
         note.textContent = t("В зачёт идёт лучшая партия. Попыток сколько угодно.");
         if (!res.players.length) list.append(el("p", "g2-muted", t("Пока никто не играл — будьте первыми.")));
-        for (const p of res.players) {
+        for (const p of res.players.slice(3)) {
           const row = el("div", `g2-row${p.me ? " is-me" : ""}`);
           row.append(el("span", "g2-place", medal(p.place)), el("span", "g2-name", p.name), el("small", "", `${p.fac} · ${core.level(p.max).name}`), el("b", "", fmt(p.best)));
           list.append(row);
@@ -491,7 +558,8 @@
     const close = el("button", "g2-btn g2-btn--main g2-wide", t("Играть"));
     close.type = "button";
     close.addEventListener("click", () => s.close());
-    s.sh.replaceChildren(el("h2", "", t("Рейтинг")), tabs, note, list, close);
+    [...list.children].forEach((row, i) => row.style.setProperty("--i", i));
+    s.sh.replaceChildren(trophy("🏆", "small"), el("h2", "", t("Рейтинг")), tabs, podium, note, list, close);
   }
 
   function openPrizes() {
@@ -499,7 +567,7 @@
     const s = (S.prizeSheet ||= sheet("g2-prizes"));
     s.sh.replaceChildren();
     const until = S.event?.ends ? new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "long" }).format(new Date(S.event.ends)) : "";
-    s.sh.append(el("div", "g2-prize-hero", "🏆"), el("h2", "", t("Призы «Сессии 2048»")));
+    s.sh.append(trophy("🏆"), el("h2", "", t("Призы «Сессии 2048»")));
     const list = el("div", "g2-prize-list");
     for (const [ico, title, text] of [
       ["🥇", t("Лучшему игроку"), t("Эксклюзивная тема приложения, которой больше ни у кого нет, и золотая медаль у имени в Подслушке.")],
@@ -509,10 +577,17 @@
       const row = el("div", "g2-prize");
       const copy = el("div");
       copy.append(el("b", "", title), el("span", "", text));
-      row.append(el("i", "", ico), copy);
+      const medal = el("i", "g2-prize-medal", ico);
+      medal.style.setProperty("--d", `${list.children.length * 0.4}s`);
+      row.append(medal, copy);
       list.append(row);
     }
     s.sh.append(list);
+    const badge = el("div", "g2-badge-explain");
+    badge.append(el("span", "g2-badge-demo", ""), el("span"));
+    badge.firstChild.append(el("b", "", t("Аня")), el("span", "g2-badge-medal", "🥇"));
+    badge.lastChild.textContent = t("Значок у имени — это медаль рядом с вашим именем в Подслушке, как синяя галочка у администратора. Её видят все, когда вы пишете под своим именем; у анонимных постов её нет.");
+    s.sh.append(badge);
     s.sh.append(el("p", "g2-muted", until ? t("Турнир идёт до {date} включительно. Итоги дня — каждый вечер в Подслушке.", { date: until }) : t("Итоги дня — каждый вечер в Подслушке.")));
     const call = el("button", "g2-btn g2-btn--main g2-wide", t("Позвать друзей"));
     call.type = "button";
@@ -603,23 +678,21 @@
     refreshMine();
   }
 
-  function closeGame() {
+  async function closeGame() {
     if (!S.open) return;
     flush();
     remember();
+    // Сначала под игрой встаёт Подслушка (сразу, без анимации), потом игра
+    // уезжает вниз и открывает её — расписание между ними не мелькает.
+    await Promise.race([Promise.resolve(window.openForum?.({ instant: true })), new Promise((r) => setTimeout(r, 700))]).catch(() => {});
     S.open = false;
     document.body.classList.remove("g2-open");
     S.root.classList.remove("is-open");
-    tg?.enableVerticalSwipes?.();
-    if (tg?.BackButton && S.backHandler) {
-      tg.BackButton.offClick(S.backHandler);
-      tg.BackButton.hide();
-    }
+    // Кнопку «назад» не прячем: она уже нужна Подслушке под игрой.
+    if (tg?.BackButton && S.backHandler) tg.BackButton.offClick(S.backHandler);
     setTimeout(() => {
       if (!S.open) S.root.hidden = true;
     }, REDUCED ? 0 : 320);
-    // Из игры — в Подслушку: там итоги дня и обсуждение турнира.
-    setTimeout(() => window.openForum?.(), REDUCED ? 0 : 120);
   }
 
   window.showGame = showGame;

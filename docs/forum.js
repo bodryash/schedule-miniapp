@@ -610,10 +610,14 @@
     document.body.classList.add("fm-open");
     S.root.hidden = false;
     S.origin = opts.origin || originOf(document.getElementById("forum-btn"));
-    S.iris = !REDUCED && Boolean(S.root.animate);
-    S.root.classList.toggle("is-iris", S.iris);
+    // instant — появиться сразу, без анимации: так Подслушка встаёт под
+    // уезжающей игрой, и расписание между ними не мелькает.
+    S.iris = !REDUCED && !opts.instant && Boolean(S.root.animate);
+    S.root.classList.toggle("is-iris", S.iris || Boolean(opts.instant));
+    if (opts.instant) S.root.style.transition = "none";
     void S.root.offsetWidth;
     S.root.classList.add("is-open");
+    if (opts.instant) requestAnimationFrame(() => (S.root.style.transition = ""));
     if (S.iris) {
       const { x, y } = S.origin;
       S.irisAnim?.cancel();
@@ -623,7 +627,7 @@
       );
       S.irisAnim.onfinish = () => S.irisAnim?.cancel();
     }
-    choreograph();
+    if (!opts.instant) choreograph();
     tg?.disableVerticalSwipes?.();
     attachBackButton();
     startPolling();
