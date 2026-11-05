@@ -5544,6 +5544,41 @@ function fillDigits() {
     colors.append(chip);
   }
   nodes.push(el("div", "profiles-title profiles-title--next", t("Цвет акцента")), colors);
+
+  // Эффекты: объём и свет. «Авто» сам решает по телефону.
+  const fxMode = (() => {
+    try {
+      return localStorage.getItem("schedule.fx") || "auto";
+    } catch {
+      return "auto";
+    }
+  })();
+  const fxRow = el("div", "look-fx");
+  for (const [id, label] of [["auto", t("Авто")], ["on", t("Максимум")], ["off", t("Выкл")]]) {
+    const chip = el("button", id === fxMode ? "chip chip--on" : "chip", label);
+    chip.type = "button";
+    chip.addEventListener("click", () => {
+      haptic("select");
+      loadFx();
+      const apply = () => window.FX?.set(id);
+      if (window.FX) apply();
+      else {
+        try {
+          localStorage.setItem("schedule.fx", id === "auto" ? "" : id);
+        } catch {
+          // Без памяти — до перезапуска.
+        }
+        document.documentElement.dataset.fx = id === "off" ? "off" : "css";
+      }
+      for (const c of fxRow.children) c.classList.toggle("chip--on", c === chip);
+    });
+    fxRow.append(chip);
+  }
+  nodes.push(
+    el("div", "profiles-title profiles-title--next", t("Эффекты")),
+    fxRow,
+    el("p", "hint", t("Объём и мягкий свет. «Авто» включает шейдер только на мощных телефонах и сам отключает, если начнёт подлагивать."))
+  );
   if (grantedTheme && !(grantedTheme === "volunteer" && volunteerOff())) {
     nodes.push(el("p", "hint", t("Сейчас надета выданная тема — она сильнее. Выбранная включится, когда её снимут.")));
   }
@@ -11097,6 +11132,17 @@ async function openForum(opts) {
   return forumAssets.then(() => window.showForum?.(opts));
 }
 
+/** Слой материалов: объём и свет (fx.js). Сам выбирает уровень по телефону. */
+let fxLoaded = false;
+function loadFx() {
+  if (fxLoaded) return;
+  fxLoaded = true;
+  const js = document.createElement("script");
+  js.src = `fx.js?v=${window.__v || Date.now()}`;
+  js.async = true;
+  document.head.append(js);
+}
+
 /** «Сессия 2048» — грузится, только когда её открывают (game.js, game.css). */
 let gameAssets = null;
 function openGame() {
@@ -12817,18 +12863,38 @@ function addSheetGrab(backdrop) {
   grab.setAttribute("aria-hidden", "true");
   sheet.prepend(grab);
   let start = null;
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  // Окно тянется за пальцем с лёгким сопротивлением, чуть тает и сжимается:
+  // видно, что оно «отпускается», а не просто сдвигается. Только transform и opacity.
+  const drag = (moved) => {
+    const k = Math.min(1, moved / Math.max(200, sheet.offsetHeight * 0.9));
+    const y = moved < 120 ? moved : 120 + (moved - 120) * 0.92;
+    sheet.style.transformOrigin = "50% 0";
+    sheet.style.transform = `translate3d(0, ${y}px, 0) scale(${1 - k * 0.025})`;
+    if (!reduced) sheet.style.opacity = String(1 - k * 0.3);
+  };
+  // Поле ввода открыто — клавиатура уйдёт вместе с окном, а не после него.
+  const dropKeyboard = () => {
+    const active = document.activeElement;
+    if (active && sheet.contains(active) && /^(INPUT|TEXTAREA)$/.test(active.tagName)) active.blur();
+  };
   // Отпустили — окно одним движением уезжает дальше с той же скоростью,
   // а не замирает и не играет вторую анимацию ухода с начала.
   const swipeAway = (moved, speed) => {
     haptic("light");
-    const rest = Math.max(0, sheet.offsetHeight + 40 - moved);
-    // Скорость пальца в px/мс; уходит не медленнее, чем за 260 мс.
-    const ms = Math.round(Math.min(260, Math.max(140, rest / Math.max(speed, 1.2))));
+    dropKeyboard();
+    // Уходит за нижний край экрана целиком (окно с полем ввода стоит наверху —
+    // раньше оно проезжало лишь свою высоту и исчезало посреди экрана).
+    const top = sheet.getBoundingClientRect().top;
+    const rest = Math.max(0, window.innerHeight - top + 30);
+    // Скорость пальца в px/мс; уходит не медленнее, чем за 280 мс.
+    const ms = Math.round(Math.min(300, Math.max(160, rest / Math.max(speed, 1.1))));
     backdrop.classList.add("sheet-swiped");
     backdrop.style.setProperty("--swipe-ms", `${ms}ms`);
     sheet.style.animation = "none";
-    sheet.style.transition = `transform ${ms}ms cubic-bezier(0.25, 0.6, 0.4, 1)`;
-    sheet.style.transform = `translateY(${moved + rest}px)`;
+    sheet.style.transition = `transform ${ms}ms cubic-bezier(0.3, 0.55, 0.45, 1), opacity ${ms}ms ease-out`;
+    sheet.style.transform = `translate3d(0, ${moved + rest}px, 0) scale(0.97)`;
+    sheet.style.opacity = "0";
     // Закрываем так же, как нажатием мимо окна: у каждого окна свой порядок закрытия.
     backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     setTimeout(() => {
@@ -12840,13 +12906,19 @@ function addSheetGrab(backdrop) {
       backdrop.style.removeProperty("--swipe-ms");
       sheet.style.transition = "";
       sheet.style.transform = "";
+      sheet.style.opacity = "";
+      sheet.style.transformOrigin = "";
       sheet.style.animation = "";
-    }, SHEET_OUT + 120);
+    }, Math.max(SHEET_OUT, 300) + 160);
   };
   const reset = () => {
-    sheet.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
+    sheet.style.transition = "transform 280ms cubic-bezier(0.2, 0.9, 0.25, 1), opacity 200ms ease-out";
     sheet.style.transform = "";
-    setTimeout(() => (sheet.style.transition = ""), 240);
+    sheet.style.opacity = "";
+    setTimeout(() => {
+      sheet.style.transition = "";
+      sheet.style.transformOrigin = "";
+    }, 300);
   };
   grab.addEventListener("pointerdown", (event) => {
     start = { y: event.clientY, at: performance.now(), last: 0 };
@@ -12858,7 +12930,7 @@ function addSheetGrab(backdrop) {
   grab.addEventListener("pointermove", (event) => {
     if (!start) return;
     start.last = Math.max(0, event.clientY - start.y);
-    sheet.style.transform = `translateY(${start.last}px)`;
+    drag(start.last);
   });
   const finish = (event) => {
     if (!start) return;
@@ -12904,7 +12976,7 @@ function addSheetGrab(backdrop) {
     }
     event.preventDefault();
     touch.last = Math.max(0, dy);
-    sheet.style.transform = `translateY(${touch.last}px)`;
+    drag(touch.last);
   }, { passive: false });
   const touchEnd = () => {
     if (!touch) return;
@@ -13000,7 +13072,12 @@ async function init() {
   tg?.expand();
   if (htmlIsStale() && reloadFreshPage()) return;
   translatePage();
-  renderSkeleton();
+  // Заглушки-полоски убраны: пока грузится, закрывает заставка.
+  // Режим «только свои дела»: пар в нём нет, значит полоса пар на заставке
+  // не нужна — прячем её с первого кадра, а не после загрузки.
+  try {
+    if (JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")?.planner) els.splash?.classList.add("splash--free");
+  } catch {}
   // Страховка: что бы ни случилось с загрузкой, заставка не зависнет.
   setTimeout(dropSplash, SPLASH_MAX + 1500);
 
@@ -13258,6 +13335,8 @@ async function init() {
   }
   // Расписание уже нарисовано под заставкой — теперь она может собраться и уйти.
   finishSplash();
+  // Материалы (объём, свет, шейдер) — после заставки, чтобы не мешать ей.
+  setTimeout(loadFx, SPLASH_MIN + 500);
   // Пришли по ссылке «поделиться» — спросим, когда заставка уйдёт.
   setTimeout(acceptShared, SPLASH_MIN + 600);
   setTimeout(acceptInvite, SPLASH_MIN + 700);
