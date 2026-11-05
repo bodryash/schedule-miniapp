@@ -385,19 +385,18 @@ body.g2-open .minihead {
   }
 }
 
-/* Плашка призов над счётом. */
+/* Плашка призов над счётом: спокойная, в цвет приложения. */
 .g2-promo {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
   padding: 9px 10px 9px 12px;
-  border: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   border-radius: 16px;
   text-align: left;
-  color: #fff;
-  background: linear-gradient(115deg, #f5a623, #e8494f 55%, #8a4bf0);
-  box-shadow: 0 10px 22px -14px #e8494f;
+  color: var(--text);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 15%, var(--bg)), color-mix(in srgb, var(--accent) 5%, var(--bg)));
   font: inherit;
   cursor: pointer;
 }
@@ -423,19 +422,19 @@ body.g2-open .minihead {
 .g2-promo-text small {
   overflow: hidden;
   font-size: 12px;
-  opacity: 0.92;
+  color: var(--muted);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .g2-promo-go {
   flex: none;
-  padding: 6px 10px;
+  padding: 6px 11px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
-  color: #e8494f;
-  background: #fff;
+  color: #fff;
+  background: var(--accent);
 }
 
 .g2-prize-hero {
@@ -796,7 +795,7 @@ body.g2-open .minihead {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.45) 50%, transparent 65%);
+  background: linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--accent) 14%, transparent) 50%, transparent 65%);
   transform: translateX(-120%);
   animation: g2-shine 3.6s ease-in-out 1s infinite;
   pointer-events: none;

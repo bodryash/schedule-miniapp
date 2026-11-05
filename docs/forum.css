@@ -2286,7 +2286,7 @@ body.fm-open .minihead {
   border-radius: 18px;
   text-align: left;
   color: #fff;
-  background: linear-gradient(120deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #7a5cff));
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 78%, #000));
   box-shadow: 0 10px 24px -14px var(--accent);
   cursor: pointer;
 }
@@ -2312,10 +2312,12 @@ body.fm-open .minihead {
 
 .fm-game-text b {
   font-size: 15px;
+  color: #fff;
 }
 
 .fm-game-text small {
   font-size: 12px;
+  color: #fff;
   opacity: 0.9;
 }
 

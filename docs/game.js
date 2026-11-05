@@ -117,7 +117,7 @@
     promo.append(el("span", "g2-promo-ico", "🏆"), el("span", "g2-promo-text"), el("span", "g2-promo-go", t("Подробнее")));
     promo.querySelector(".g2-promo-text").append(
       el("b", "", t("Призы: своя тема и 🥇")),
-      el("small", "", t("Зови друзей — растёт счёт факультета"))
+      el("small", "", t("Зови друзей — очки факультету"))
     );
     promo.addEventListener("click", () => openPrizes());
 
