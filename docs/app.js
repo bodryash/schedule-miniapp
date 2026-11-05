@@ -13073,6 +13073,11 @@ async function init() {
   if (htmlIsStale() && reloadFreshPage()) return;
   translatePage();
   // Заглушки-полоски убраны: пока грузится, закрывает заставка.
+  // Режим «только свои дела»: пар в нём нет, значит полоса пар на заставке
+  // не нужна — прячем её с первого кадра, а не после загрузки.
+  try {
+    if (JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")?.planner) els.splash?.classList.add("splash--free");
+  } catch {}
   // Страховка: что бы ни случилось с загрузкой, заставка не зависнет.
   setTimeout(dropSplash, SPLASH_MAX + 1500);
 
