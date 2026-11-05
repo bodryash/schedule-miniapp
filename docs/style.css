@@ -13491,7 +13491,7 @@ html.look-fade body *::after {
 }
 
 /* ===================================================================
-   Материалы: объём, зерно, свет (см. fx.js).
+   Материалы: объём и свет (см. fx.js).
    Три уровня на html[data-fx]: off — как раньше, плоско; css — объём без
    шейдера (у всех); gl — то же и поверх живой свет. Свои токены у светлой
    и тёмной темы (html[data-fx-tone]). Всё — полупрозрачными слоями поверх
@@ -13558,22 +13558,6 @@ html[data-fx="gl"][data-fx-tone="dark"] {
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
 }
 
-/* Зерно поверх всего приложения — один слой с готовой текстурой. */
-.fx-grain {
-  position: fixed;
-  inset: 0;
-  z-index: 69;
-  background-image: var(--fx-grain);
-  background-size: 112px 112px;
-  /* Только капля: зерно еле заметно, чтобы смягчить плоскость, но не «пылить». */
-  opacity: 0.1;
-  pointer-events: none;
-}
-
-html[data-fx-tone="dark"] .fx-grain {
-  opacity: 0.16;
-}
-
 /* Свет и виньетка от шейдера: поверх содержимого, но ничего не трогают. */
 .fx-canvas {
   position: fixed;
@@ -13584,7 +13568,7 @@ html[data-fx-tone="dark"] .fx-grain {
   pointer-events: none;
 }
 
-/* Заставка тоже получает зерно и мягкую виньетку (без шейдера). */
+/* Заставка тоже получает мягкую виньетку (без шейдера). */
 :where(html[data-fx="css"], html[data-fx="gl"]) .splash::before {
   content: "";
   position: absolute;
@@ -13595,7 +13579,6 @@ html[data-fx-tone="dark"] .fx-grain {
 }
 
 @media print {
-  .fx-grain,
   .fx-canvas {
     display: none;
   }

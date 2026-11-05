@@ -5545,7 +5545,7 @@ function fillDigits() {
   }
   nodes.push(el("div", "profiles-title profiles-title--next", t("Цвет акцента")), colors);
 
-  // Эффекты: объём, зерно и свет. «Авто» сам решает по телефону.
+  // Эффекты: объём и свет. «Авто» сам решает по телефону.
   const fxMode = (() => {
     try {
       return localStorage.getItem("schedule.fx") || "auto";
@@ -5577,7 +5577,7 @@ function fillDigits() {
   nodes.push(
     el("div", "profiles-title profiles-title--next", t("Эффекты")),
     fxRow,
-    el("p", "hint", t("Объём, зерно и мягкий свет. «Авто» включает шейдер только на мощных телефонах и сам отключает, если начнёт подлагивать."))
+    el("p", "hint", t("Объём и мягкий свет. «Авто» включает шейдер только на мощных телефонах и сам отключает, если начнёт подлагивать."))
   );
   if (grantedTheme && !(grantedTheme === "volunteer" && volunteerOff())) {
     nodes.push(el("p", "hint", t("Сейчас надета выданная тема — она сильнее. Выбранная включится, когда её снимут.")));
@@ -11132,7 +11132,7 @@ async function openForum(opts) {
   return forumAssets.then(() => window.showForum?.(opts));
 }
 
-/** Слой материалов: объём, зерно, свет (fx.js). Сам выбирает уровень по телефону. */
+/** Слой материалов: объём и свет (fx.js). Сам выбирает уровень по телефону. */
 let fxLoaded = false;
 function loadFx() {
   if (fxLoaded) return;
@@ -13304,7 +13304,7 @@ async function init() {
   }
   // Расписание уже нарисовано под заставкой — теперь она может собраться и уйти.
   finishSplash();
-  // Материалы (зерно, свет, шейдер) — после заставки, чтобы не мешать ей.
+  // Материалы (объём, свет, шейдер) — после заставки, чтобы не мешать ей.
   setTimeout(loadFx, SPLASH_MIN + 500);
   // Пришли по ссылке «поделиться» — спросим, когда заставка уйдёт.
   setTimeout(acceptShared, SPLASH_MIN + 600);

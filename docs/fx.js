@@ -1,9 +1,9 @@
-/* Материалы приложения: зерно, свет и объём. Грузится после заставки.
+/* Материалы приложения: свет и объём. Грузится после заставки.
  *
  * Три уровня, чтобы красота не стоила плавности:
  *   off — без эффектов (настройка «Выкл» или телефон их не тянет);
- *   css — объём на CSS (блики, края, зерно): почти бесплатно, у всех;
- *   gl  — поверх ещё один небольшой шейдер: мягкий бегущий свет и живое зерно.
+ *   css — объём на CSS (блики, края): почти бесплатно, у всех;
+ *   gl  — поверх ещё один небольшой шейдер: мягкий бегущий свет.
  * Уровень выбирается сам («Авто»): шейдер включается на мощных телефонах и
  * только если пробный замер кадров чистый. Начнёт подлагивать — тихо
  * опустится до css и до конца недели не вернётся.
@@ -64,44 +64,12 @@
     gl.kick?.();
   }
 
-  /* ---------- Зерно: маленькая текстура шума, один раз ---------- */
-
-  function grain() {
-    if (html.style.getPropertyValue("--fx-grain")) return;
-    const size = 112;
-    const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = size;
-    const ctx = canvas.getContext("2d");
-    const img = ctx.createImageData(size, size);
-    for (let i = 0; i < img.data.length; i += 4) {
-      const v = Math.random();
-      const light = v > 0.5;
-      img.data[i] = img.data[i + 1] = img.data[i + 2] = light ? 255 : 0;
-      img.data[i + 3] = Math.round(Math.abs(v - 0.5) * 2 * 26);
-    }
-    ctx.putImageData(img, 0, 0);
-    html.style.setProperty("--fx-grain", `url(${canvas.toDataURL("image/png")})`);
-  }
-
-  let grainLayer = null;
-  function grainOn(on) {
-    if (on && !grainLayer) {
-      grain();
-      grainLayer = document.createElement("div");
-      grainLayer.className = "fx-grain";
-      grainLayer.setAttribute("aria-hidden", "true");
-      document.body.append(grainLayer);
-    }
-    if (grainLayer) grainLayer.hidden = !on;
-  }
-
-  /* ---------- Шейдер: мягкий свет, виньетка, живое зерно ---------- */
+  /* ---------- Шейдер: мягкий свет и виньетка ---------- */
 
   const VERT = "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}";
   const FRAG = `
     precision mediump float;
     uniform vec2 uRes; uniform vec2 uLight; uniform float uTime; uniform float uTone;
-    float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
     void main(){
       vec2 uv = gl_FragCoord.xy / uRes; uv.y = 1.0 - uv.y;
       vec2 d = (uv - uLight) * vec2(1.0, 0.8);
@@ -110,10 +78,8 @@
       float band = max(0.0, 1.0 - abs(along) * 2.4); band *= band;
       float sheen = spot * 0.6 + band * 0.4;
       float vig = smoothstep(0.5, 1.2, length(uv - 0.5) * 1.35);
-      // Лёгкая дрожь зерна: чтобы градиент не «полосило» на тёмном.
-      float g = hash(gl_FragCoord.xy + floor(uTime * 12.0)) - 0.5;
-      float hi = sheen * mix(0.13, 0.075, uTone) + max(g, 0.0) * 0.004;
-      float lo = vig * mix(0.085, 0.18, uTone) + max(-g, 0.0) * 0.004;
+      float hi = sheen * mix(0.13, 0.075, uTone);
+      float lo = vig * mix(0.085, 0.18, uTone);
       gl_FragColor = vec4(vec3(hi), hi + lo);
     }`;
 
@@ -279,7 +245,6 @@
     FX.tier = tier;
     html.dataset.fx = tier;
     write(TIER_KEY, tier);
-    grainOn(tier !== "off");
     if (tier === "gl") {
       if (!glStart()) apply("css");
     } else glStop();
