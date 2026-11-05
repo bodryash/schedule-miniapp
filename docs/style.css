@@ -13450,3 +13450,42 @@ html.look-fade body *::after {
   font-weight: 800;
   letter-spacing: 0.01em;
 }
+
+/* Кнопка Подслушки «дышит»: чуть подрастает и от неё расходится мягкое
+   кольцо. Только transform и opacity — не грузит телефон. */
+.forum-btn {
+  position: relative;
+  isolation: isolate;
+}
+
+.forum-btn--breathe {
+  animation: forum-breathe 2.6s ease-in-out infinite;
+}
+
+.forum-btn--breathe::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--accent);
+  animation: forum-ring 2.6s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes forum-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+@keyframes forum-ring {
+  0% { transform: scale(1); opacity: 0.45; }
+  70%, 100% { transform: scale(1.35, 1.6); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .forum-btn--breathe,
+  .forum-btn--breathe::after {
+    animation: none;
+  }
+}

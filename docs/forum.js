@@ -486,7 +486,18 @@
     const tail = document.createElement("div");
     tail.className = "fm-tail";
 
-    wrap.append(segwrap, lock, prompt, feed, tail);
+    const gameBanner = document.createElement("button");
+    gameBanner.type = "button";
+    gameBanner.className = "fm-game";
+    gameBanner.hidden = true;
+    gameBanner.addEventListener("click", async () => {
+      haptic("medium");
+      // Сначала игра выезжает поверх Подслушки, потом Подслушка тихо уходит
+      // под ней — расписание между ними не мелькает.
+      await Promise.resolve(window.openGame?.()).catch(() => {});
+      closeForum({ instant: true, under: true });
+    });
+    wrap.append(segwrap, lock, gameBanner, prompt, feed, tail);
     scroll.append(ptr, wrap);
 
     const fab = document.createElement("button");
@@ -554,7 +565,7 @@
     root.append(feedPage, dim, threadPage);
     document.body.append(root);
 
-    Object.assign(S, { feedPage, nav, scroll, wrap, ptr, seg, segwrap, lock, prompt, feed, tail, fab, pill: fresh });
+    Object.assign(S, { feedPage, nav, scroll, wrap, ptr, seg, segwrap, lock, prompt, feed, tail, fab, pill: fresh, gameBanner });
     Object.assign(T, { page: threadPage, dim, nav: tnav, scroll: tscroll, wrap: twrap, bar, replying, mask, area, send, hint });
     S.root = root;
 
@@ -601,11 +612,17 @@
     document.body.classList.add("fm-open");
     S.root.hidden = false;
     S.origin = opts.origin || originOf(document.getElementById("forum-btn"));
+    // instant — появиться сразу, без анимации: так Подслушка встаёт под
+    // уезжающей игрой, и расписание между ними не мелькает.
+    // Закрываться Подслушка должна одинаково красиво, как бы её ни открыли:
+    // iris остаётся, при instant пропускаем только анимацию открытия.
     S.iris = !REDUCED && Boolean(S.root.animate);
-    S.root.classList.toggle("is-iris", S.iris);
+    S.root.classList.toggle("is-iris", S.iris || Boolean(opts.instant));
+    if (opts.instant) S.root.style.transition = "none";
     void S.root.offsetWidth;
     S.root.classList.add("is-open");
-    if (S.iris) {
+    if (opts.instant) requestAnimationFrame(() => (S.root.style.transition = ""));
+    if (S.iris && !opts.instant) {
       const { x, y } = S.origin;
       S.irisAnim?.cancel();
       S.irisAnim = S.root.animate(
@@ -614,7 +631,8 @@
       );
       S.irisAnim.onfinish = () => S.irisAnim?.cancel();
     }
-    choreograph();
+    if (!opts.instant) choreograph();
+    else reveal();
     tg?.disableVerticalSwipes?.();
     attachBackButton();
     startPolling();
@@ -635,6 +653,25 @@
     return { x: innerWidth - 40, y: 44 };
   }
 
+  /**
+   * Подслушка под уезжающей игрой: содержимое мягко поднимается по очереди
+   * (шапка, переключатель, плашка, строка поста, первые посты), пока игра
+   * уходит вниз.
+   */
+  function reveal() {
+    if (REDUCED) return;
+    const parts = [
+      S.root.querySelector(".fm-nav"),
+      S.segwrap,
+      S.gameBanner && !S.gameBanner.hidden ? S.gameBanner : null,
+      S.prompt,
+      ...[...S.feed.children].slice(0, 6),
+    ].filter(Boolean);
+    parts.forEach((node, i) => {
+      animate(node, [{ opacity: 0, transform: "translate3d(0, 22px, 0) scale(0.985)" }, { opacity: 1, transform: "none" }], { duration: 480, delay: 90 + i * 45, fill: "backwards" });
+    });
+  }
+
   /** Открытие по очереди: заголовок, переключатель, лента (она сама), кнопка «+». */
   function choreograph() {
     if (REDUCED) return;
@@ -646,7 +683,9 @@
     if (fab) animate(fab, [{ opacity: 0, transform: "scale(0.4) rotate(-40deg)" }, { opacity: 1, transform: "scale(1) rotate(0)" }], { duration: 560, delay: 700, easing: "cubic-bezier(0.34, 1.5, 0.5, 1)", fill: "backwards" });
   }
 
-  function closeForum({ instant = false } = {}) {
+  /** under — уходим в другой полноэкранный режим (игру): кнопку «назад» и
+   *  запрет системного свайпа не трогаем, они нужны уже ему. */
+  function closeForum({ instant = false, under = false } = {}) {
     if (!S.open) return;
     S.open = false;
     document.body.classList.remove("fm-open");
@@ -677,8 +716,13 @@
       requestAnimationFrame(() => (S.root.style.transition = ""));
     }
     S.root.classList.remove("is-open");
-    detachBackButton();
-    tg?.enableVerticalSwipes?.();
+    if (under) {
+      if (tg?.BackButton && S.backHandler) tg.BackButton.offClick(S.backHandler);
+      S.backHandler = null;
+    } else {
+      detachBackButton();
+      tg?.enableVerticalSwipes?.();
+    }
     const done = () => {
       if (!S.open) S.root.hidden = true;
     };
@@ -761,6 +805,53 @@
 
   const segTop = () => S.segwrap.offsetTop;
 
+  /** Плашка турнира «Сессия 2048» над лентой — пока он идёт. */
+  function renderGameBanner() {
+    const box = S.gameBanner;
+    if (!box) return;
+    const g = S.gameInfo;
+    box.hidden = !(g && (g.on || g.preview));
+    clearInterval(S.gameTimer);
+    if (box.hidden) return;
+    box.replaceChildren(
+      Object.assign(document.createElement("span"), { className: "fm-game-ico", textContent: "🎮" }),
+      Object.assign(document.createElement("span"), { className: "fm-game-text" }),
+      Object.assign(document.createElement("span"), { className: "fm-game-go", textContent: t("Играть") })
+    );
+    const text = box.querySelector(".fm-game-text");
+    const clock = document.createElement("span");
+    clock.className = "fm-game-clock";
+    text.append(
+      Object.assign(document.createElement("b"), { textContent: t("Сессия 2048 — турнир вузов") }),
+      clock,
+      Object.assign(document.createElement("small"), {
+        textContent: g.on ? t("Без потолка · рекорд — в счёт факультета") : t("Видно только вам · запуск: /g2048 start"),
+      })
+    );
+    // Живой отсчёт до конца турнира: дни, часы, минуты, секунды.
+    const two = (n) => String(n).padStart(2, "0");
+    const tick = () => {
+      const left = Math.max(0, g.ends - Date.now());
+      if (!left) {
+        clock.textContent = t("Турнир закончился");
+        clearInterval(S.gameTimer);
+        return;
+      }
+      const d = Math.floor(left / 86400000);
+      const h = Math.floor((left % 86400000) / 3600000);
+      const m = Math.floor((left % 3600000) / 60000);
+      const sec = Math.floor((left % 60000) / 1000);
+      clock.replaceChildren(
+        document.createTextNode(t("До конца") + " "),
+        Object.assign(document.createElement("b"), { textContent: d ? `${d} ${t("д")} ${two(h)}:${two(m)}:${two(sec)}` : `${two(h)}:${two(m)}:${two(sec)}` })
+      );
+    };
+    tick();
+    S.gameTimer = setInterval(() => {
+      if (S.open && !document.hidden) tick();
+    }, 1000);
+  }
+
   /** Текст черновика, если он есть: его показываем прямо в строке «Что у вас на уме?». */
   function draftText() {
     try {
@@ -825,6 +916,8 @@
       if (token !== S.token) return;
       S.owner = Boolean(body.owner);
       S.role = body.role || null;
+      S.gameInfo = body.game || null;
+      renderGameBanner();
       if (body.meAva && !S.meAva) {
         S.meAva = `${API_URL}${body.meAva}`;
         renderPrompt();
@@ -1073,6 +1166,7 @@
     // Галочка — справа от @ника (если его нет — от имени).
     const check = badgeOf(post);
     if (check) meta.append(check);
+    if (post.medal) meta.append(Object.assign(document.createElement("span"), { className: "fm-medal", title: t("Призёр «Сессии 2048»"), textContent: post.medal }));
     if (post.pinned) {
       row.classList.add("is-pinned");
       const badge = document.createElement("span");
@@ -1087,6 +1181,7 @@
     time.dateTime = post.created;
     time.textContent = ago(post.created);
     meta.append(time);
+    if (post.edited) meta.append(Object.assign(document.createElement("span"), { className: "fm-edited", textContent: t("изменено") }));
     const dots = document.createElement("button");
     dots.type = "button";
     dots.className = "fm-dots";
@@ -1738,7 +1833,7 @@
     if (bigCheck && !post.tg) nameLine.append(bigCheck);
     who.append(nameLine);
     const sub = document.createElement("small");
-    sub.textContent = fullTime(post.created);
+    sub.textContent = fullTime(post.created) + (post.edited ? ` · ${t("изменено")}` : "");
     if (post.tag) sub.append(Object.assign(document.createElement("span"), { className: "fm-tag", textContent: post.tag }));
     who.append(sub);
     const dots = document.createElement("button");
@@ -1866,12 +1961,14 @@
     meta.append(Object.assign(document.createElement("span"), { className: "fm-name", textContent: reply.name }));
     const replyCheck = badgeOf(reply);
     if (replyCheck) meta.append(replyCheck);
+    if (reply.medal) meta.append(Object.assign(document.createElement("span"), { className: "fm-medal", title: t("Призёр «Сессии 2048»"), textContent: reply.medal }));
     if (reply.op) meta.append(Object.assign(document.createElement("span"), { className: "fm-op", textContent: t("автор") }));
     const time = document.createElement("time");
     time.className = "fm-time";
     time.dateTime = reply.created;
     time.textContent = ago(reply.created);
     meta.append(time);
+    if (reply.edited) meta.append(Object.assign(document.createElement("span"), { className: "fm-edited", textContent: t("изменено") }));
     if (!reply.tmp) meta.append(replyDots(reply));
     main.append(meta);
     if (reply.pending) main.append(badge("clock", t("На проверке")));
@@ -2193,11 +2290,13 @@
             Object.assign(item, res.post);
             haptic("success");
             toast(item.pinned ? t("Пост закреплён наверху") : t("Пост откреплён"), { icon: "pin" });
-            if (S.sort === "new") load(true, { silent: true });
+            if (T.open && T.id === item.id) closeThread();
+            if (S.sort !== "review") load(true, { silent: true });
+            smoothScroll(S.scroll, 0);
           } catch (error) {
             toast(errorText(error), { tone: "bad", icon: "alert" });
           }
-        }, { sub: item.pinned ? t("Вернуть на своё место в ленте") : t("Первым в «Новом» у всех") }));
+        }, { sub: item.pinned ? t("Вернуть на своё место в ленте") : t("Первым в ленте у всех") }));
       }
       if (kind === "p" && !item.pending && item.id > 0) {
         list.append(actionRow("share", t("Поделиться"), () => {
@@ -2216,6 +2315,12 @@
           if (tg?.openTelegramLink) tg.openTelegramLink(share);
           else window.open(share, "_blank", "noopener");
         }, { sub: t("Отправить в чат") }));
+      }
+      if (item.mine && item.id > 0 && !item.tmp) {
+        list.append(actionRow("pen", t("Изменить"), () => {
+          sheet.close();
+          setTimeout(() => openEditor(kind, item), 200);
+        }));
       }
       if (!item.mine) list.append(actionRow("flag", t("Пожаловаться"), () => swap(sheet, reasons), { sub: t("Модератор посмотрит") }));
       if (item.canDelete) list.append(actionRow("trash", t("Удалить"), () => swap(sheet, () => confirm({ title: t("Удалить {what}?", { what: noun }), text: t("Это нельзя отменить."), cta: t("Удалить"), run: () => doDelete() })), { bad: true }));
@@ -2410,6 +2515,82 @@
     }).catch(() => {});
   }
 
+  /* ---------- Правка своего поста или ответа ---------- */
+
+  function openEditor(kind, item) {
+    const sheet = (S.sheets.editor ||= makeSheet("sheet--fm-composer sheet--fm-editor", { input: true }));
+    const max = kind === "p" ? POST_MAX : REPLY_MAX;
+    const box = document.createElement("div");
+    box.className = "fm-composer";
+    const top = document.createElement("div");
+    top.className = "fm-comp-top";
+    const cancel = Object.assign(document.createElement("button"), { type: "button", className: "fm-link", textContent: t("Отмена") });
+    const title = Object.assign(document.createElement("h2"), { textContent: kind === "p" ? t("Изменить пост") : t("Изменить ответ") });
+    const save = Object.assign(document.createElement("button"), { type: "button", className: "fm-publish is-ready", textContent: t("Сохранить") });
+    top.append(cancel, title, save);
+    const body = document.createElement("div");
+    body.className = "fm-comp-body";
+    const area = document.createElement("textarea");
+    area.maxLength = max + 60;
+    area.value = item.text;
+    body.append(area);
+    const err = document.createElement("div");
+    err.className = "fm-comp-err";
+    const hint = Object.assign(document.createElement("div"), { className: "fm-comp-as", textContent: t("Рядом с текстом появится пометка «изменено».") });
+    box.append(top, body, hint, err);
+    fill(sheet.sh, box);
+    const sync = () => {
+      const len = area.value.trim().length;
+      save.classList.toggle("is-ready", len >= 3 && len <= max && area.value.trim() !== item.text);
+    };
+    const showErr = (message) => {
+      err.replaceChildren(icon("alert"), Object.assign(document.createElement("span"), { textContent: message }));
+      err.classList.add("is-on");
+      haptic("error");
+    };
+    area.addEventListener("input", () => {
+      err.classList.remove("is-on");
+      sync();
+    });
+    cancel.addEventListener("click", () => sheet.close());
+    let busy = false;
+    save.addEventListener("click", async () => {
+      const text = area.value.trim();
+      if (busy || text === item.text) return sheet.close();
+      if (text.length < 3) return showErr(t("Напишите хотя бы пару фраз :P"));
+      if (text.length > max) return showErr(t("Слишком длинно."));
+      busy = true;
+      save.classList.add("is-busy");
+      try {
+        const res = await request("edit", { kind, id: item.id, text });
+        item.text = res.text || text;
+        item.edited = true;
+        if (res.pending) item.pending = true;
+        haptic("success");
+        sheet.close();
+        if (kind === "p") {
+          replaceRow(item);
+          if (T.open && T.id === item.id) {
+            T.wrap.querySelector(".fm-th-post")?.remove();
+            renderThread({});
+          }
+        } else if (T.open) renderThread({});
+        toast(res.pending ? t("Изменено — уйдёт на проверку перед публикацией.") : t("Изменено"), res.pending ? { tone: "warn", icon: "clock", ms: 3600 } : { icon: "check" });
+      } catch (error) {
+        showErr(errorText(error));
+      } finally {
+        busy = false;
+        save.classList.remove("is-busy");
+      }
+    });
+    sync();
+    sheet.open();
+    setTimeout(() => {
+      area.focus();
+      area.setSelectionRange(area.value.length, area.value.length);
+    }, 320);
+  }
+
   /* ---------- Управление (только владелец): закрыть на ремонт ---------- */
 
   const GITHUB_SWITCH = "https://github.com/bodryash/schedule-miniapp/actions/workflows/forum-switch.yml";
@@ -2553,7 +2734,7 @@
     ava.replaceWith(face);
     const redraw = (animated) => {
       anonChip.classList.toggle("is-on", anon);
-      anonChip.replaceChildren(icon(anon ? "mask" : "person"), document.createTextNode(anon ? t("Анонимно") : me.name));
+      anonChip.replaceChildren(icon(anon ? "mask" : "person"), document.createTextNode(anon ? t("Анонимно") : t("От вашего имени")));
       tagChip.classList.toggle("is-on", withTag);
       tagChip.replaceChildren(icon("building"), document.createTextNode(tagLabel));
       const nick = S.user.username;

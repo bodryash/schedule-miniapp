@@ -11013,6 +11013,28 @@ function haptic(kind = "select") {
  */
 let forumAssets = null;
 if (!tg?.initData) document.getElementById("forum-btn")?.setAttribute("hidden", "");
+// Кнопка Подслушки «дышит», пока её сегодня не открывали: мягко привлекает
+// внимание, но не мешает тем, кто уже заходил.
+const FORUM_SEEN_KEY = "schedule.forumSeen";
+(() => {
+  const btn = document.getElementById("forum-btn");
+  if (!btn || btn.hidden) return;
+  let seen = "";
+  try {
+    seen = localStorage.getItem(FORUM_SEEN_KEY) || "";
+  } catch {
+    // Без памяти — дышит каждый раз.
+  }
+  if (seen !== isoDate(new Date())) btn.classList.add("forum-btn--breathe");
+})();
+document.getElementById("forum-btn")?.addEventListener("click", (event) => {
+  event.currentTarget.classList.remove("forum-btn--breathe");
+  try {
+    localStorage.setItem(FORUM_SEEN_KEY, isoDate(new Date()));
+  } catch {
+    // Не запомнилось — завтра снова подышит, не страшно.
+  }
+});
 document.getElementById("forum-btn")?.addEventListener("click", () => {
   haptic("medium");
   openForum();
@@ -11026,7 +11048,13 @@ document.getElementById("forum-btn")?.addEventListener("click", () => {
 const FORUM_FLAG_URLS = ["https://bodryash.github.io/schedule-miniapp/forum-status.json", "forum-status.json"];
 async function forumKill() {
   const within = (promise) => promise.then((res) => (res.ok ? res.json() : null)).catch(() => null);
-  const timeout = () => AbortSignal.timeout(2500);
+  // AbortSignal.timeout есть не во всех Telegram (старые iOS): без него
+  // форум вообще не открывался — делаем таймер сами.
+  const timeout = () => {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 2500);
+    return controller.signal;
+  };
   const flags = await Promise.all([
     ...FORUM_FLAG_URLS.map((url) => within(fetch(`${url}?t=${Date.now()}`, { cache: "no-store", signal: timeout() }))),
     // Сервер знает и про /fclose, и про кнопку владельца в приложении; заодно скажет, владелец ли это.
@@ -11044,7 +11072,8 @@ window.forumKillNotice = (flag) =>
 
 async function openForum(opts) {
   if (!tg?.initData) return;
-  const flag = await forumKill();
+  // Выключатель только закрывает: если проверка сама сломалась — открываем.
+  const flag = await forumKill().catch(() => null);
   if (flag?.off) return window.forumKillNotice(flag);
   if (typeof window.showForum === "function") return window.showForum(opts);
   forumAssets ||= new Promise((resolve, reject) => {
@@ -11065,8 +11094,35 @@ async function openForum(opts) {
     forumAssets = null;
     console.error("Подслушка не загрузилась:", error);
   });
-  forumAssets.then(() => window.showForum?.(opts));
+  return forumAssets.then(() => window.showForum?.(opts));
 }
+
+/** «Сессия 2048» — грузится, только когда её открывают (game.js, game.css). */
+let gameAssets = null;
+function openGame() {
+  if (!tg?.initData) return;
+  if (typeof window.showGame === "function") return window.showGame();
+  gameAssets ||= new Promise((resolve, reject) => {
+    const v = window.__v || Date.now();
+    let left = 2;
+    const done = () => (--left === 0 ? resolve() : null);
+    const css = document.createElement("link");
+    css.rel = "stylesheet";
+    css.href = `game.css?v=${v}`;
+    css.onload = done;
+    css.onerror = reject;
+    const js = document.createElement("script");
+    js.src = `game.js?v=${v}`;
+    js.onload = done;
+    js.onerror = reject;
+    document.head.append(css, js);
+  }).catch((error) => {
+    gameAssets = null;
+    console.error("Игра не загрузилась:", error);
+  });
+  return gameAssets.then(() => window.showGame?.());
+}
+window.openGame = openGame;
 
 /** Меню «⋯» в шапке: свободные аудитории и настройки. */
 /* ---------- Нижние окна и системный свайп Telegram ----------
@@ -11079,7 +11135,12 @@ function initSheetSwipe() {
   // жест до окна не доходил. Пока открыто любое окно снизу, этот системный
   // свайп выключаем, закрылись все — включаем обратно.
   const syncTelegramSwipes = () => {
-    const open = [...document.querySelectorAll(".sheet-backdrop")].some((b) => !b.hidden);
+    // Подслушка и игра — отдельные режимы на весь экран: там свайп по полю
+    // или по ленте тоже не должен сворачивать приложение.
+    const open =
+      [...document.querySelectorAll(".sheet-backdrop")].some((b) => !b.hidden) ||
+      document.body.classList.contains("g2-open") ||
+      document.body.classList.contains("fm-open");
     try {
       if (open) tg?.disableVerticalSwipes?.();
       else if (!lessonView) tg?.enableVerticalSwipes?.();
@@ -13204,6 +13265,8 @@ async function init() {
   const talk = Number(new URLSearchParams(location.search).get("forum"));
   const talkReply = Number(new URLSearchParams(location.search).get("reply")) || 0;
   if (talk > 0) setTimeout(() => openForum({ thread: talk, reply: talkReply }), SPLASH_MIN + 900);
+  // Из «Поделиться результатом» в 2048 — сразу в игру.
+  if (new URLSearchParams(location.search).get("game")) setTimeout(openGame, SPLASH_MIN + 900);
 }
 
 init();

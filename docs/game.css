@@ -1,0 +1,856 @@
+/* «Сессия 2048» — экран игры (см. game.js). */
+.g2 {
+  --g2-gap: 7px;
+  --g2-cell: color-mix(in srgb, var(--text) 9%, var(--bg));
+  --g2-board: color-mix(in srgb, var(--text) 18%, var(--bg));
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: calc(env(safe-area-inset-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 16px);
+  overflow: hidden auto;
+  color: var(--text);
+  background: var(--bg);
+  transform: translate3d(0, 100%, 0);
+  transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.g2.is-open {
+  transform: none;
+}
+
+body.g2-open .minihead {
+  display: none;
+}
+
+.g2-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.g2-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text);
+}
+
+.g2-icon svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.g2-title {
+  display: grid;
+  flex: 1;
+  text-align: center;
+}
+
+.g2-title b {
+  font-family: "Unbounded", system-ui, sans-serif;
+  font-size: 18px;
+}
+
+.g2-title small {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.g2-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.g2-stat {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  text-align: center;
+  background: var(--g2-cell);
+}
+
+.g2-stat span {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.g2-stat b {
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+}
+
+.g2-level {
+  min-height: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--muted);
+}
+
+.g2-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--g2-gap);
+  width: min(100%, 440px, calc(100dvh - 370px));
+  min-width: 260px;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  padding: var(--g2-gap);
+  border-radius: 20px;
+  background: var(--g2-board);
+  touch-action: none;
+  user-select: none;
+}
+
+.g2-cell {
+  border-radius: 12px;
+  background: var(--g2-cell);
+}
+
+.g2-layer {
+  position: absolute;
+  inset: var(--g2-gap);
+  pointer-events: none;
+}
+
+.g2-tile {
+  --lv: 1;
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  width: calc((100% - 3 * var(--g2-gap)) / 4);
+  height: calc((100% - 3 * var(--g2-gap)) / 4);
+  border-radius: 12px;
+  overflow: hidden;
+  text-align: center;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  transform: translate(calc(var(--c) * (100% + var(--g2-gap))), calc(var(--r) * (100% + var(--g2-gap))));
+  transition: transform 110ms ease-out;
+  will-change: transform;
+}
+
+.g2-tile[data-lv="17"] {
+  box-shadow: inset 0 0 0 2px #ffd76a;
+}
+
+.g2-tile i {
+  font-style: normal;
+  font-size: clamp(18px, 7vw, 28px);
+  line-height: 1.1;
+}
+
+.g2-tile b {
+  max-width: 94%;
+  font-weight: 800;
+  font-size: clamp(9px, 2.7vw, 12px);
+  line-height: 1.1;
+}
+
+.g2-tile small {
+  font-size: clamp(8px, 2.2vw, 10px);
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.g2-tile.is-new {
+  animation: g2-new 160ms ease-out both;
+}
+
+.g2-tile.is-merged {
+  animation: g2-merge 200ms ease-out;
+  z-index: 2;
+}
+
+.g2-tile.is-gone {
+  z-index: 0;
+}
+
+@keyframes g2-new {
+  from { opacity: 0; scale: 0.3; }
+}
+
+@keyframes g2-merge {
+  0% { scale: 1; }
+  45% { scale: 1.16; }
+  100% { scale: 1; }
+}
+
+.g2-actions,
+.g2-over-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: 8px;
+  width: min(100%, 440px);
+  margin: 0 auto;
+}
+
+.g2-over-actions {
+  grid-template-columns: 1fr 1fr;
+  margin-top: 14px;
+}
+
+.g2-btn {
+  height: 46px;
+  border: 0;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--g2-cell);
+}
+
+.g2-btn--main {
+  color: #fff;
+  background: var(--accent);
+}
+
+.g2-btn:active {
+  transform: scale(0.96);
+}
+
+.g2-wide {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.g2-over {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.g2-over[hidden] {
+  display: none;
+}
+
+.g2-over-card {
+  width: min(100%, 360px);
+  padding: 22px 18px 18px;
+  border-radius: 22px;
+  text-align: center;
+  background: var(--bg);
+  box-shadow: 0 18px 50px -12px rgba(0, 0, 0, 0.35);
+}
+
+.g2-over-emoji {
+  font-size: 54px;
+}
+
+.g2-over-card h2 {
+  margin: 6px 0;
+  font-family: "Unbounded", system-ui, sans-serif;
+  font-size: 22px;
+}
+
+.g2-over-card p {
+  margin: 4px 0;
+}
+
+.g2-over-sub,
+.g2-muted {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.sheet--g2 h2 {
+  margin: 4px 0 10px;
+  font-size: 20px;
+}
+
+.g2-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--text) 7%, var(--bg));
+}
+
+.g2-tabs button {
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--muted);
+  background: none;
+}
+
+.g2-tabs button.is-on {
+  color: var(--text);
+  background: var(--bg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.g2-list {
+  display: grid;
+  max-height: 46dvh;
+  overflow-y: auto;
+}
+
+.g2-row {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  grid-template-areas: "place name score" "place sub score";
+  align-items: center;
+  column-gap: 10px;
+  padding: 9px 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.g2-row.is-me {
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.g2-place {
+  grid-area: place;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.g2-name {
+  grid-area: name;
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.g2-row small {
+  grid-area: sub;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.g2-row b {
+  grid-area: score;
+  font-variant-numeric: tabular-nums;
+}
+
+.g2-ladder {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.g2-ladder span {
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 13px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g2,
+  .g2-tile {
+    transition: none;
+  }
+
+  .g2-tile.is-new,
+  .g2-tile.is-merged {
+    animation: none;
+  }
+}
+
+/* Плашка призов над счётом: спокойная, в цвет приложения. */
+.g2-promo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: 16px;
+  text-align: left;
+  color: var(--text);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 15%, var(--bg)), color-mix(in srgb, var(--accent) 5%, var(--bg)));
+  font: inherit;
+  cursor: pointer;
+}
+
+.g2-promo:active {
+  transform: scale(0.98);
+}
+
+.g2-promo-ico {
+  font-size: 24px;
+}
+
+.g2-promo-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.g2-promo-text b {
+  font-size: 14px;
+}
+
+.g2-promo-text small {
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.g2-promo-go {
+  flex: none;
+  padding: 6px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+}
+
+.g2-prize-hero {
+  font-size: 46px;
+  text-align: center;
+}
+
+.g2-prizes h2 {
+  text-align: center;
+}
+
+.g2-prize-list {
+  display: grid;
+  gap: 10px;
+  margin: 6px 0 10px;
+}
+
+.g2-prize {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
+}
+
+.g2-prize i {
+  font-style: normal;
+  font-size: 26px;
+}
+
+.g2-prize div {
+  display: grid;
+  gap: 2px;
+}
+
+.g2-prize span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.g2-wide--soft {
+  margin-top: 8px;
+}
+
+/* ===== Окна игры: перерисованы ===== */
+.sheet--g2 {
+  position: relative;
+  overflow: hidden auto;
+  padding: 26px 18px calc(18px + env(safe-area-inset-bottom));
+  border-radius: 28px 28px 0 0;
+  background:
+    radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%),
+    var(--bg);
+  box-shadow: 0 -20px 50px -20px rgba(0, 0, 0, 0.35);
+}
+
+.sheet--g2::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 40px;
+  height: 5px;
+  margin-left: -20px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--text) 18%, transparent);
+}
+
+.sheet--g2 h2 {
+  font-family: "Unbounded", system-ui, sans-serif;
+  font-size: 21px;
+  text-align: center;
+}
+
+/* Кубок: вращается вокруг вертикальной оси, за ним свечение, вокруг кружат
+   точки, рядом вспыхивают искры. Только transform и opacity. */
+.g2-hero {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  margin: 0 auto 2px;
+  perspective: 500px;
+}
+
+.g2-hero--small {
+  width: 88px;
+  height: 88px;
+}
+
+.g2-hero-glow {
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 196, 64, 0.75), rgba(255, 140, 40, 0.25) 60%, transparent);
+  animation: g2-glow 2.4s ease-in-out infinite;
+}
+
+.g2-hero-cup {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 64px;
+  line-height: 1;
+  transform-style: preserve-3d;
+  animation: g2-breathe 3.2s ease-in-out infinite;
+  filter: drop-shadow(0 8px 10px rgba(180, 110, 0, 0.35));
+}
+
+.g2-hero--small .g2-hero-cup {
+  font-size: 42px;
+}
+
+.g2-hero-orbit {
+  position: absolute;
+  inset: 0;
+  animation: g2-orbit 7s linear infinite;
+}
+
+.g2-hero-orbit--back {
+  inset: 12%;
+  animation-duration: 11s;
+  animation-direction: reverse;
+  opacity: 0.7;
+}
+
+.g2-hero-orbit i {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px;
+  border-radius: 50%;
+  background: #ffc940;
+  box-shadow: 0 0 6px #ffb020;
+  transform: rotate(var(--a)) translateY(-56px);
+  animation: g2-twinkle 1.8s ease-in-out var(--d, 0s) infinite;
+}
+
+.g2-hero--small .g2-hero-orbit i {
+  width: 4px;
+  height: 4px;
+  margin: -2px;
+  transform: rotate(var(--a)) translateY(-38px);
+}
+
+.g2-hero-orbit--back i {
+  width: 4px;
+  height: 4px;
+  margin: -2px;
+  background: #ff7a59;
+  transform: rotate(var(--a)) translateY(-40px);
+}
+
+.g2-hero-sparks i {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  font-style: normal;
+  font-size: 12px;
+  color: #ffbf2e;
+  opacity: 0;
+  animation: g2-spark 2.2s ease-in-out var(--d) infinite;
+}
+
+@keyframes g2-spin {
+  0%, 18% { transform: rotateY(0deg); }
+  50%, 68% { transform: rotateY(180deg); }
+  100% { transform: rotateY(360deg); }
+}
+
+@keyframes g2-float {
+  50% { translate: 0 -5px; }
+}
+
+@keyframes g2-glow {
+  50% { transform: scale(1.18); opacity: 0.7; }
+}
+
+@keyframes g2-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes g2-twinkle {
+  50% { opacity: 0.25; scale: 0.6; }
+}
+
+@keyframes g2-spark {
+  0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
+  40% { opacity: 1; transform: scale(1.1) rotate(40deg); }
+  70% { opacity: 0; transform: scale(0.5) rotate(80deg); }
+}
+
+/* Медали в списке призов покачиваются. */
+.g2-prize-medal {
+  display: inline-block;
+  transform-origin: 50% 10%;
+  animation: g2-swing 2.6s ease-in-out var(--d, 0s) infinite;
+}
+
+@keyframes g2-swing {
+  0%, 100% { transform: rotate(-9deg); }
+  50% { transform: rotate(9deg); }
+}
+
+.g2-prize {
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--bg)), var(--bg));
+}
+
+.g2-prize b {
+  font-size: 15px;
+}
+
+/* «Что такое значок у имени» — с примером. */
+.g2-badge-explain {
+  display: grid;
+  gap: 8px;
+  margin: 2px 0 6px;
+  padding: 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--text) 5%, var(--bg));
+}
+
+.g2-badge-demo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 15px;
+  color: var(--accent);
+  background: var(--bg);
+  box-shadow: 0 2px 10px -4px rgba(0, 0, 0, 0.25);
+}
+
+.g2-badge-medal {
+  display: inline-block;
+  animation: g2-swing 2.6s ease-in-out infinite;
+}
+
+/* Пьедестал в рейтинге. */
+.g2-podium {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr 1fr;
+  align-items: end;
+  gap: 8px;
+  margin: 14px 0 6px;
+}
+
+.g2-podium[hidden] {
+  display: none;
+}
+
+.g2-pod {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+}
+
+.g2-pod-medal {
+  font-size: 30px;
+  animation: g2-float 2.4s ease-in-out infinite;
+}
+
+.g2-pod--1 .g2-pod-medal {
+  font-size: 40px;
+  animation: g2-breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes g2-spin-soft {
+  0%, 70% { transform: rotateY(0); }
+  100% { transform: rotateY(360deg); }
+}
+
+.g2-pod-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.g2-pod small {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.g2-pod-score {
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.g2-pod-step {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  margin-top: 4px;
+  border-radius: 12px 12px 4px 4px;
+  font-family: "Unbounded", system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.g2-pod--1 .g2-pod-step {
+  height: 64px;
+  background: linear-gradient(#ffcf4a, #f0a315);
+}
+
+.g2-pod--2 .g2-pod-step {
+  height: 46px;
+  background: linear-gradient(#d9dee6, #a8b0bd);
+}
+
+.g2-pod--3 .g2-pod-step {
+  height: 34px;
+  background: linear-gradient(#f2b48a, #c97b4a);
+}
+
+.g2-pod.is-empty {
+  opacity: 0.45;
+}
+
+.g2-pod.is-me .g2-pod-name {
+  color: var(--accent);
+}
+
+.g2-list .g2-row {
+  animation: g2-row-in 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 35ms + 200ms);
+}
+
+@keyframes g2-row-in {
+  from { opacity: 0; transform: translate3d(0, 12px, 0); }
+}
+
+/* Плашка призов: блик пробегает раз в несколько секунд, кубок крутится. */
+.g2-promo {
+  position: relative;
+  overflow: hidden;
+}
+
+.g2-promo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--accent) 14%, transparent) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: g2-shine 3.6s ease-in-out 1s infinite;
+  pointer-events: none;
+}
+
+.g2-promo-ico {
+  display: inline-block;
+  animation: g2-breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes g2-shine {
+  0%, 60% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g2-hero-cup,
+  .g2-hero-glow,
+  .g2-hero-orbit,
+  .g2-hero-orbit i,
+  .g2-hero-sparks i,
+  .g2-prize-medal,
+  .g2-badge-medal,
+  .g2-pod-medal,
+  .g2-list .g2-row,
+  .g2-promo::after,
+  .g2-promo-ico {
+    animation: none;
+  }
+}
+
+/* Кубок не вращается (он плоский), а медленно «дышит». */
+@keyframes g2-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+.g2-ask-ico {
+  font-size: 40px;
+  text-align: center;
+}
+
+.g2-center {
+  text-align: center;
+}
+
+/* «Без потолка» рядом со ступенью. */
+.g2-nocap {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  vertical-align: 1px;
+}
