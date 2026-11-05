@@ -13539,8 +13539,7 @@ html[data-fx="gl"][data-fx-tone="dark"] {
 
 /* Плашки Подслушки и игры. */
 :where(html[data-fx="css"], html[data-fx="gl"]) :is(.fm-game, .g2-promo) {
-  background-image: var(--fx-gloss), var(--fx-grain);
-  background-size: 100% 100%, 112px 112px;
+  background-image: var(--fx-gloss);
 }
 
 /* Плитки 2048: объём как у фишек. */
@@ -13566,12 +13565,13 @@ html[data-fx="gl"][data-fx-tone="dark"] {
   z-index: 69;
   background-image: var(--fx-grain);
   background-size: 112px 112px;
-  opacity: 0.32;
+  /* Только капля: зерно еле заметно, чтобы смягчить плоскость, но не «пылить». */
+  opacity: 0.1;
   pointer-events: none;
 }
 
 html[data-fx-tone="dark"] .fx-grain {
-  opacity: 0.5;
+  opacity: 0.16;
 }
 
 /* Свет и виньетка от шейдера: поверх содержимого, но ничего не трогают. */
@@ -13590,10 +13590,7 @@ html[data-fx-tone="dark"] .fx-grain {
   position: absolute;
   inset: 0;
   z-index: -1;
-  background:
-    radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(0, 0, 0, 0.07)),
-    var(--fx-grain);
-  background-size: 100% 100%, 112px 112px;
+  background: radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(0, 0, 0, 0.06));
   pointer-events: none;
 }
 

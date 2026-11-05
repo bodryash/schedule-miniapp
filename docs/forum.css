@@ -2350,3 +2350,84 @@ body.fm-open .minihead {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
 }
+
+/* Плашка турнира: дышит, светится и блестит — главная приманка Подслушки.
+   Двигаются только transform и opacity (кроме тонкого блика). */
+.fm-game {
+  position: relative;
+  isolation: isolate;
+  animation: fm-game-breathe 3.6s ease-in-out infinite;
+}
+
+.fm-game::before {
+  content: "";
+  position: absolute;
+  inset: -4px -2px -8px;
+  z-index: -1;
+  border-radius: 24px;
+  background: var(--accent);
+  filter: blur(16px);
+  opacity: 0.3;
+  animation: fm-game-halo 3.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.fm-game::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.38) 50%, transparent 62%) -160% 0 / 60% 100% no-repeat;
+  animation: fm-game-shine 4.8s ease-in-out 1.2s infinite;
+  pointer-events: none;
+}
+
+.fm-game-ico {
+  display: inline-block;
+  animation: fm-game-bob 3.6s ease-in-out infinite;
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.25));
+}
+
+.fm-game-go {
+  position: relative;
+  animation: fm-game-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes fm-game-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.018); }
+}
+
+@keyframes fm-game-halo {
+  0%, 100% { opacity: 0.22; transform: scale(0.97); }
+  50% { opacity: 0.5; transform: scale(1.03); }
+}
+
+@keyframes fm-game-shine {
+  0% { background-position: -160% 0; }
+  45%, 100% { background-position: 260% 0; }
+}
+
+@keyframes fm-game-bob {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-3px) rotate(4deg); }
+}
+
+@keyframes fm-game-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.07); }
+}
+
+.fm-game:active {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fm-game,
+  .fm-game::before,
+  .fm-game::after,
+  .fm-game-ico,
+  .fm-game-go {
+    animation: none;
+  }
+}

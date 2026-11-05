@@ -112,8 +112,8 @@
       float vig = smoothstep(0.5, 1.2, length(uv - 0.5) * 1.35);
       // Лёгкая дрожь зерна: чтобы градиент не «полосило» на тёмном.
       float g = hash(gl_FragCoord.xy + floor(uTime * 12.0)) - 0.5;
-      float hi = sheen * mix(0.13, 0.075, uTone) + max(g, 0.0) * 0.008;
-      float lo = vig * mix(0.085, 0.18, uTone) + max(-g, 0.0) * 0.008;
+      float hi = sheen * mix(0.13, 0.075, uTone) + max(g, 0.0) * 0.004;
+      float lo = vig * mix(0.085, 0.18, uTone) + max(-g, 0.0) * 0.004;
       gl_FragColor = vec4(vec3(hi), hi + lo);
     }`;
 
