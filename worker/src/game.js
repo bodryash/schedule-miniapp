@@ -181,11 +181,43 @@ async function standings(env, limit = 3) {
   return { facs, players };
 }
 
+async function personalRecaps(env, dm, left) {
+  const { results: all = [] } = await env.STATS.prepare(
+    "SELECT tg_id, fac, tenant, best FROM game_best WHERE event = ? AND best > 0 ORDER BY best DESC, updated"
+  )
+    .bind(EVENT.id)
+    .all();
+  const { results: facs = [] } = await env.STATS.prepare(
+    "SELECT tenant, SUM(best) AS total FROM game_best WHERE event = ? GROUP BY tenant ORDER BY total DESC"
+  )
+    .bind(EVENT.id)
+    .all();
+  const facRank = new Map(facs.map((f, i) => [f.tenant, i + 1]));
+  const days = `${left} ${left === 1 ? "день" : left < 5 ? "дня" : "дней"}`;
+  for (const [i, p] of all.entries()) {
+    const place = i + 1;
+    const fr = facRank.get(p.tenant) || facs.length;
+    const ahead = i > 0 ? all[i - 1].best - p.best : 0;
+    const text = [
+      `🎮 <b>${EVENT.title}</b> — ваши итоги дня`,
+      "",
+      `${MEDALS[i] || "🏅"} Вы на <b>${place}</b> месте из ${all.length} · рекорд ${fmt(p.best)}`,
+      `🏛 ${p.fac || "Ваш факультет"} — <b>${fr}</b> место из ${facs.length}`,
+      place > 1 ? `До ${place - 1}-го места — ${fmt(ahead + 1)} очков.` : "Вы лидер турнира — держите позицию!",
+      "",
+      `До конца — ${days}. Позовите однокурсников: их рекорды добавляются к счёту факультета.`,
+    ].join("\n");
+    await dm(p.tg_id, text).catch(() => {});
+    // Telegram разрешает ~30 сообщений в секунду — идём с запасом.
+    await new Promise((r) => setTimeout(r, 60));
+  }
+}
+
 const MEDALS = ["🥇", "🥈", "🥉"];
 const fmt = (n) => Number(n || 0).toLocaleString("ru-RU");
 
 /** Раз в минуту: анонс в начале, итоги дня в 21:00, победители в конце. */
-export async function gameTick(env, notify) {
+export async function gameTick(env, notify, dm) {
   const t = now();
   if (t < EVENT.starts || !(await gameLaunched(env))) return;
   if (!(await setting(env, `${EVENT.id}:announced`))) {
@@ -227,6 +259,8 @@ export async function gameTick(env, notify) {
         "Ваш факультет ниже? Зовите однокурсников — каждый рекорд добавляется к счёту факультета.",
       ].join("\n")
     );
+    // Каждому игроку — личные итоги: его место и место факультета.
+    if (dm) await personalRecaps(env, dm, left).catch((e) => console.log("2048 recaps failed", String(e?.message || e)));
     return;
   }
   if (t > EVENT.ends && !(await setting(env, `${EVENT.id}:final`))) {
