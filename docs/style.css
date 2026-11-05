@@ -13489,3 +13489,203 @@ html.look-fade body *::after {
     animation: none;
   }
 }
+
+/* ===================================================================
+   Материалы: объём и свет (см. fx.js).
+   Три уровня на html[data-fx]: off — как раньше, плоско; css — объём без
+   шейдера (у всех); gl — то же и поверх живой свет. Свои токены у светлой
+   и тёмной темы (html[data-fx-tone]). Всё — полупрозрачными слоями поверх
+   цвета, поэтому работает с любой темой и акцентом. :where() держит
+   специфичность на уровне старых правил: исключения вроде «идёт сейчас»
+   по-прежнему сильнее.
+   =================================================================== */
+html[data-fx="css"],
+html[data-fx="gl"] {
+  --fx-rim: rgba(255, 255, 255, 0.6);
+  --fx-hi: rgba(255, 255, 255, 0.4);
+  --fx-lo: rgba(20, 24, 44, 0.04);
+  --fx-gloss: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 40%);
+}
+
+html[data-fx="css"][data-fx-tone="dark"],
+html[data-fx="gl"][data-fx-tone="dark"] {
+  --fx-rim: rgba(255, 255, 255, 0.11);
+  --fx-hi: rgba(255, 255, 255, 0.055);
+  --fx-lo: rgba(0, 0, 0, 0.2);
+  --fx-gloss: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 40%);
+}
+
+/* Карточки и плитки: свет сверху, тень снизу, тонкая кромка. */
+:where(html[data-fx="css"], html[data-fx="gl"]) :is(.card, .day:not(.active), .g2-stat, .menu-pop, .sheet) {
+  background-image:
+    linear-gradient(var(--fx-rim), var(--fx-rim)),
+    linear-gradient(180deg, var(--fx-hi), transparent 52%),
+    linear-gradient(0deg, var(--fx-lo), transparent 46%);
+  background-size: 100% 1px, 100% 100%, 100% 100%;
+  background-position: top, 0 0, 0 0;
+  background-repeat: no-repeat;
+}
+
+/* Нижняя панель и ручки окон: тот же свет, но стекло остаётся стеклом. */
+:where(html[data-fx="css"], html[data-fx="gl"]) .tabs {
+  background-image: linear-gradient(180deg, var(--fx-hi), transparent 70%);
+}
+
+/* Выпуклые кнопки: глянцевый верх. */
+:where(html[data-fx="css"], html[data-fx="gl"]) :is(.primary, .fm-fab, .fm-publish.is-ready, .g2-btn--main) {
+  background-image: var(--fx-gloss);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.12), 0 8px 18px -10px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+/* Плашки Подслушки и игры. */
+:where(html[data-fx="css"], html[data-fx="gl"]) :is(.fm-game, .g2-promo) {
+  background-image: var(--fx-gloss);
+}
+
+/* Плитки 2048: объём как у фишек. */
+:where(html[data-fx="css"], html[data-fx="gl"]) .g2-tile {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 45%), linear-gradient(0deg, rgba(0, 0, 0, 0.14), transparent 40%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 3px 6px -3px rgba(0, 0, 0, 0.35);
+}
+
+:where(html[data-fx="css"], html[data-fx="gl"]) .g2-board {
+  box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.16), inset 0 -1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* Ступени пьедестала — металл. */
+:where(html[data-fx="css"], html[data-fx="gl"]) .g2-pod-step {
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.55), inset 0 -3px 6px rgba(0, 0, 0, 0.18);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+
+/* Свет и виньетка от шейдера: поверх содержимого, но ничего не трогают. */
+body.fm-open .fx-canvas {
+  display: none;
+}
+
+.fx-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 68;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Заставка тоже получает мягкую виньетку (без шейдера). */
+:where(html[data-fx="css"], html[data-fx="gl"]) .splash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(0, 0, 0, 0.06));
+  pointer-events: none;
+}
+
+@media print {
+  .fx-canvas {
+    display: none;
+  }
+}
+
+.look-fx {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ===================================================================
+   Рельеф кнопок: выпуклые «клавиши» со светом сверху, кромкой, тенью снизу
+   и вдавливанием при нажатии. Только при включённых материалах (fx.js).
+   =================================================================== */
+/* Токены считаются на body: именно там живёт акцент недели. */
+:where(html[data-fx="css"], html[data-fx="gl"]) body {
+  --fx-key-hi: color-mix(in srgb, var(--accent) 88%, #fff);
+  --fx-key-lo: color-mix(in srgb, var(--accent) 80%, #000);
+}
+
+/* Кнопка Подслушки — главная: объёмная капсула с бликом. */
+:where(html[data-fx="css"], html[data-fx="gl"]) .forum-btn {
+  background: linear-gradient(180deg, var(--fx-key-hi) 0%, var(--accent) 48%, var(--fx-key-lo) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.18),
+    0 0 0 0.5px color-mix(in srgb, var(--fx-key-lo) 80%, transparent),
+    0 1px 0 rgba(0, 0, 0, 0.1),
+    0 9px 16px -7px color-mix(in srgb, var(--accent) 75%, transparent);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+/* Блик: светлое «стекло» на верхней половине капсулы. */
+:where(html[data-fx="css"], html[data-fx="gl"]) .forum-btn::before {
+  content: "";
+  position: absolute;
+  inset: 1px 3px auto;
+  height: 46%;
+  border-radius: 999px 999px 40% 40%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+
+:where(html[data-fx="css"], html[data-fx="gl"]) .forum-btn:active {
+  transform: translateY(1px) scale(0.97);
+  box-shadow:
+    inset 0 2px 3px rgba(0, 0, 0, 0.25),
+    0 0 0 0.5px color-mix(in srgb, var(--fx-key-lo) 80%, transparent),
+    0 3px 8px -5px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+/* Круглые кнопки («⋯», иконки шапки): шарики, подсвеченные сверху. */
+:where(html[data-fx="css"], html[data-fx="gl"]) .icon:not(.icon--old) {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 45%);
+  box-shadow:
+    inset 0 1px 0 var(--fx-rim),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.07),
+    0 1px 1px rgba(18, 22, 40, 0.06),
+    0 6px 12px -7px rgba(18, 22, 40, 0.35);
+}
+
+:where(html[data-fx="css"][data-fx-tone="dark"], html[data-fx="gl"][data-fx-tone="dark"]) .icon:not(.icon--old) {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 45%);
+  box-shadow: inset 0 1px 0 var(--fx-rim), inset 0 -2px 3px rgba(0, 0, 0, 0.3), 0 6px 12px -7px rgba(0, 0, 0, 0.7);
+}
+
+/* Выбранный день и пилюля активной вкладки. */
+:where(html[data-fx="css"], html[data-fx="gl"]) .day.active {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.14),
+    0 12px 22px -10px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+:where(html[data-fx="css"], html[data-fx="gl"]) .tabs-drop {
+  background-image: linear-gradient(180deg, var(--fx-hi), transparent 60%);
+  box-shadow: inset 0 1px 0 var(--fx-rim), 0 4px 10px -6px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* Чипы и выбранные чипы. */
+:where(html[data-fx="css"], html[data-fx="gl"]) .chip {
+  box-shadow: inset 0 1px 0 var(--fx-rim), 0 1px 2px rgba(18, 22, 40, 0.07);
+}
+
+:where(html[data-fx="css"], html[data-fx="gl"]) .chip--on {
+  background-image: var(--fx-gloss);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.12), 0 6px 12px -8px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+/* Игра: обычные кнопки — мягкие клавиши, главная выше. */
+:where(html[data-fx="css"], html[data-fx="gl"]) .g2-btn:not(.g2-btn--main) {
+  background-image: linear-gradient(180deg, var(--fx-hi), transparent 60%);
+  box-shadow: inset 0 1px 0 var(--fx-rim), inset 0 -2px 0 rgba(0, 0, 0, 0.07), 0 4px 10px -6px rgba(18, 22, 40, 0.3);
+}
+
+:where(html[data-fx="css"], html[data-fx="gl"]) :is(.g2-btn, .fm-fab, .primary):active {
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.22);
+  transform: translateY(1px) scale(0.98);
+}
+
+/* Метка «Подслушка» в плашке и кнопки «Играть» — белые выпуклые пилюли. */
+:where(html[data-fx="css"], html[data-fx="gl"]) :is(.fm-game-go, .g2-promo-go) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 0 rgba(0, 0, 0, 0.08), 0 4px 8px -4px rgba(0, 0, 0, 0.3);
+}

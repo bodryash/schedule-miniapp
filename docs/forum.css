@@ -2351,8 +2351,8 @@ body.fm-open .minihead {
   letter-spacing: 0.02em;
 }
 
-/* Плашка турнира: дышит и блестит — главная приманка Подслушки.
-   Двигаются только transform и opacity . */
+/* Плашка турнира: дышит, светится и блестит — главная приманка Подслушки.
+   Двигаются только transform и opacity (кроме тонкого блика). */
 .fm-game {
   position: relative;
   isolation: isolate;
