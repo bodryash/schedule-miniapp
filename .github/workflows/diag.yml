@@ -80,7 +80,6 @@ jobs:
 
       - name: Подслушка (форум) на сервере отвечает?
         continue-on-error: true
-        continue-on-error: true
         run: |
           # Без подписи Telegram форум должен ответить 401: значит, код форума на сервере живой.
           curl -s -m 20 -X POST https://api.bodryash.ru/forum/list -d '{}' -w "\n/forum/list без подписи → HTTP %{http_code} (ждём 401)\n" || echo "форум не ответил"
