@@ -1733,7 +1733,7 @@ function rememberLook() {
 // Темы, привязанные к нику прямо в приложении: работают и без команды
 // /theme у бота. Личный подарок сильнее темы с сервера: та бывает выдана
 // на весь вуз («МГУ» всем студентам МГУ) и перекрывала бы его.
-const GIFTED_THEMES = { shizoemerald: "trump", bblamee: "putin" };
+const GIFTED_THEMES = { shizoemerald: "trump", bblamee: "putin", shzo: "trump", hellyeah: "putin" };
 
 // День рождения: тема «Именинник» сама включается каждый год в этот день
 // (месяц-день) — по нику или по id Telegram.
@@ -2023,10 +2023,15 @@ function showEmojiRain(kinds) {
   setTimeout(() => box.remove(), 5200);
 }
 
+let previewedFlag = "";
+
 function renderFlagTheme(name, on) {
   const theme = FLAG_THEMES[name];
   let ribbon = document.querySelector(`.flag-ribbon--${name}`);
-  if (!on) return ribbon?.remove();
+  if (!on) {
+    if (previewedFlag === name) previewedFlag = "";
+    return ribbon?.remove();
+  }
   const party = () => {
     haptic("success");
     showConfetti();
@@ -2039,6 +2044,13 @@ function renderFlagTheme(name, on) {
     ribbon.addEventListener("click", party);
     els.freedom.after(ribbon);
   }
+  // Владелец примеряет тему в настройках — показываем и приветствие, каждый раз.
+  const preview = notices.owner && ownerTheme() === name;
+  if (preview && previewedFlag !== name) {
+    previewedFlag = name;
+    return afterSplash(() => showHypeIntro(name, party));
+  }
+  if (!preview && previewedFlag === name) previewedFlag = "";
   const key = `schedule.${name}Salute`;
   const today = isoDate(new Date());
   let last = "";
@@ -2050,9 +2062,44 @@ function renderFlagTheme(name, on) {
     // Без хранилища праздник при каждом открытии — не беда.
   }
   afterSplash(() => {
+    // Хозяину подарка — торжественный выход: раз в день, на весь экран.
+    if (giftedTheme() === name) return showHypeIntro(name, party);
     party();
     if (!last) toast(t(theme.hello));
   });
+}
+
+/** Приветствие владельцу подарочной темы: фото наплывом, вспышка, титр. */
+const HYPE_INTRO = {
+  trump: { kicker: "🇺🇸 BREAKING NEWS 🇺🇸", title: "WELCOME,\nMR. PRESIDENT", sub: "Make studying great again" },
+  putin: { kicker: "🇷🇺 СРОЧНО 🇷🇺", title: "ДОБРО\nПОЖАЛОВАТЬ,\nГОСПОДИН ПРЕЗИДЕНТ", sub: "Учёба идёт по плану" },
+};
+
+function showHypeIntro(name, party) {
+  const copy = HYPE_INTRO[name];
+  const user = tg?.initDataUnsafe?.user || {};
+  const box = el("div", `hype-intro hype-intro--${name}`);
+  box.append(
+    el("div", "hype-intro-photo"),
+    el("div", "hype-intro-flash"),
+    el("div", "hype-intro-kicker", copy.kicker),
+    el("div", "hype-intro-title", copy.title),
+    el("div", "hype-intro-sub", user.username ? `@${user.username} · ${copy.sub}` : copy.sub),
+    el("div", "hype-intro-tap", "нажмите, чтобы войти")
+  );
+  let gone = false;
+  const close = () => {
+    if (gone) return;
+    gone = true;
+    box.classList.add("hype-intro--out");
+    party();
+    setTimeout(() => box.remove(), 520);
+  };
+  box.addEventListener("click", close);
+  document.body.append(box);
+  haptic("heavy");
+  setTimeout(() => haptic("success"), 700);
+  setTimeout(close, 4200);
 }
 
 /* Тема «Волонтёр» — спасибо тем, кто разносит расписание по своим. Кроме

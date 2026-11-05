@@ -13696,3 +13696,226 @@ body.fm-open .fx-canvas {
 .splash--free .splash-times {
   transition: none !important;
 }
+
+/* ===== Трамп и Путин: на фоне — только присланное фото =====
+   Общее правило выше убирает фоны у всех тем; подарочным темам фото
+   возвращаем. Фото медленно «дышит» (наплыв камеры), по нему раз в
+   несколько секунд проходит золотой блик; лёгкая вуаль снизу и сверху —
+   чтобы дата и карточки читались. */
+body.trump::before,
+body.putin::before {
+  content: "" !important;
+  position: fixed;
+  inset: -4%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0.35) 22%, rgba(0, 0, 0, 0.05) 42%, rgba(0, 0, 0, 0.1) 62%, rgba(0, 0, 0, 0.45) 100%),
+    url("themes/trump-putin.jpg") center 30% / cover no-repeat !important;
+  opacity: 1 !important;
+  filter: saturate(1.15) contrast(1.05);
+  animation: hype-zoom 18s ease-in-out infinite alternate;
+}
+
+body.trump::after,
+body.putin::after {
+  content: "" !important;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 215, 120, 0.32) 48%, rgba(255, 255, 255, 0.45) 50%, rgba(255, 215, 120, 0.32) 52%, transparent 65%) !important;
+  background-size: 300% 100% !important;
+  animation: hype-sheen 7s ease-in-out infinite;
+  mix-blend-mode: soft-light;
+}
+
+@keyframes hype-zoom {
+  from { transform: scale(1) translate3d(0, 0, 0); }
+  to { transform: scale(1.08) translate3d(-1.5%, 1%, 0); }
+}
+
+@keyframes hype-sheen {
+  0%, 55% { background-position: 120% 0; }
+  100% { background-position: -20% 0; }
+}
+
+/* Карточки на фото — стеклянные, чтобы фон было видно, а текст читался. */
+body.trump .card,
+body.putin .card,
+body.trump .own-card,
+body.putin .own-card,
+body.trump .day,
+body.putin .day {
+  background: color-mix(in srgb, var(--card, #fff) 78%, transparent) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+}
+
+/* Свободный день — без подложки, фото видно целиком; надписи белые с тенью. */
+body.trump .free-day,
+body.putin .free-day,
+body.trump .free-day-title,
+body.putin .free-day-title,
+body.trump .free-day-line,
+body.putin .free-day-line,
+body.trump .minihead,
+body.putin .minihead,
+body.trump .month,
+body.putin .month,
+body.trump .context,
+body.putin .context,
+body.trump .group-name,
+body.putin .group-name,
+body.trump .month-label,
+body.putin .month-label {
+  color: #fff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 0, 0, 0.45);
+}
+
+/* Лозунг — пульсирует и переливается, как неоновая вывеска. */
+body.trump .flag-ribbon,
+body.putin .flag-ribbon {
+  position: relative;
+  overflow: hidden;
+  animation: hype-pulse 1.6s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(255, 200, 80, 0.6), 0 6px 22px rgba(0, 0, 0, 0.35);
+}
+
+body.trump .flag-ribbon::after,
+body.putin .flag-ribbon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.75) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: hype-glint 2.8s ease-in-out infinite;
+}
+
+@keyframes hype-pulse {
+  50% { transform: scale(1.045); box-shadow: 0 0 0 8px rgba(255, 200, 80, 0), 0 8px 28px rgba(0, 0, 0, 0.4); }
+}
+
+@keyframes hype-glint {
+  60%, 100% { transform: translateX(120%); }
+}
+
+/* Дата — с золотым свечением. */
+body.trump .date-old,
+body.trump .date-new,
+body.putin .date-old,
+body.putin .date-new {
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 14px rgba(255, 210, 90, 0.55));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.trump::before, body.putin::before, body.trump::after, body.putin::after,
+  body.trump .flag-ribbon, body.putin .flag-ribbon, body.trump .flag-ribbon::after, body.putin .flag-ribbon::after {
+    animation: none;
+  }
+}
+
+/* ===== Приветствие владельцу подарочной темы ===== */
+.hype-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0 24px calc(env(safe-area-inset-bottom) + 64px);
+  overflow: hidden;
+  color: #fff;
+  text-align: center;
+  background: #000;
+  animation: hype-in 300ms ease-out both;
+}
+
+.hype-intro--out {
+  animation: hype-out 500ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.hype-intro-photo {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.1) 30%, rgba(0, 0, 0, 0.85) 100%),
+    url("themes/trump-putin.jpg") center 25% / cover no-repeat;
+  animation: hype-photo 4.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.hype-intro--trump .hype-intro-photo { box-shadow: inset 0 0 120px rgba(200, 30, 50, 0.55); }
+.hype-intro--putin .hype-intro-photo { box-shadow: inset 0 0 120px rgba(30, 80, 190, 0.55); }
+
+.hype-intro-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  animation: hype-flash 900ms ease-out 200ms both;
+  pointer-events: none;
+}
+
+.hype-intro > :not(.hype-intro-photo):not(.hype-intro-flash) {
+  position: relative;
+}
+
+.hype-intro-kicker {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  background: #e0313b;
+  box-shadow: 0 0 24px rgba(224, 49, 59, 0.8);
+  animation: hype-rise 500ms cubic-bezier(0.2, 1.4, 0.4, 1) 500ms both, hype-blink 900ms steps(2) 1100ms infinite;
+}
+
+.hype-intro--putin .hype-intro-kicker {
+  background: #1f57b5;
+  box-shadow: 0 0 24px rgba(31, 87, 181, 0.85);
+}
+
+.hype-intro-title {
+  white-space: pre-line;
+  font-family: var(--digits, system-ui);
+  font-size: clamp(38px, 12vw, 64px);
+  font-weight: 900;
+  line-height: 0.95;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, #fff 0%, #ffe7a3 55%, #f5b63a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.8));
+  animation: hype-slam 650ms cubic-bezier(0.2, 1.5, 0.35, 1) 750ms both;
+}
+
+.hype-intro-sub {
+  font-size: 16px;
+  font-weight: 700;
+  opacity: 0.92;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  animation: hype-rise 500ms ease-out 1250ms both;
+}
+
+.hype-intro-tap {
+  margin-top: 18px;
+  font-size: 12px;
+  opacity: 0.6;
+  animation: hype-rise 500ms ease-out 1800ms both;
+}
+
+@keyframes hype-in { from { opacity: 0; } }
+@keyframes hype-out { to { opacity: 0; transform: scale(1.08); filter: blur(6px); } }
+@keyframes hype-photo { from { transform: scale(1.35); filter: blur(8px) brightness(0.4); } 40% { filter: none; } to { transform: scale(1.05); } }
+@keyframes hype-flash { 0% { opacity: 0; } 15% { opacity: 0.85; } 100% { opacity: 0; } }
+@keyframes hype-rise { from { opacity: 0; transform: translateY(18px); } }
+@keyframes hype-slam { from { opacity: 0; transform: scale(2.4) rotate(-4deg); } }
+@keyframes hype-blink { 50% { opacity: 0.55; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hype-intro, .hype-intro * { animation-duration: 1ms !important; animation-delay: 0ms !important; }
+}
