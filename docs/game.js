@@ -426,26 +426,21 @@
     const sh = el("div", `sheet sheet--g2 ${cls}`);
     back.append(sh);
     document.body.append(back);
-    // Открытие: окно выезжает с лёгкой пружиной, содержимое поднимается по очереди.
+    // Само окно выезжает и уезжает общей механикой приложения (одним
+    // движением, со свайпом вниз); здесь — только содержимое по очереди.
     const open = () => {
       back.hidden = false;
       if (REDUCED) return;
-      sh.animate([{ transform: "translate3d(0, 100%, 0)" }, { transform: "translate3d(0, -6px, 0)", offset: 0.75 }, { transform: "none" }], { duration: 460, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" });
       [...sh.children].forEach((child, i) => {
-        child.animate([{ opacity: 0, transform: "translate3d(0, 18px, 0)" }, { opacity: 1, transform: "none" }], { duration: 420, delay: 80 + i * 45, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", fill: "backwards" });
+        child.animate([{ opacity: 0, transform: "translate3d(0, 16px, 0)" }, { opacity: 1, transform: "none" }], { duration: 400, delay: 60 + i * 40, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", fill: "backwards" });
       });
     };
     const close = () => {
-      if (REDUCED || back.hidden) return (back.hidden = true);
-      const a = sh.animate([{ transform: "none" }, { transform: "translate3d(0, 100%, 0)" }], { duration: 260, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" });
-      a.onfinish = () => {
-        back.hidden = true;
-        a.cancel();
-      };
+      back.hidden = true;
     };
     back.addEventListener("click", (e) => {
       if (e.target === back) close();
-    }, true);
+    });
     return { back, sh, open, close };
   }
 
