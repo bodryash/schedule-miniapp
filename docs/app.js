@@ -11013,6 +11013,28 @@ function haptic(kind = "select") {
  */
 let forumAssets = null;
 if (!tg?.initData) document.getElementById("forum-btn")?.setAttribute("hidden", "");
+// Кнопка Подслушки «дышит», пока её сегодня не открывали: мягко привлекает
+// внимание, но не мешает тем, кто уже заходил.
+const FORUM_SEEN_KEY = "schedule.forumSeen";
+(() => {
+  const btn = document.getElementById("forum-btn");
+  if (!btn || btn.hidden) return;
+  let seen = "";
+  try {
+    seen = localStorage.getItem(FORUM_SEEN_KEY) || "";
+  } catch {
+    // Без памяти — дышит каждый раз.
+  }
+  if (seen !== isoDate(new Date())) btn.classList.add("forum-btn--breathe");
+})();
+document.getElementById("forum-btn")?.addEventListener("click", (event) => {
+  event.currentTarget.classList.remove("forum-btn--breathe");
+  try {
+    localStorage.setItem(FORUM_SEEN_KEY, isoDate(new Date()));
+  } catch {
+    // Не запомнилось — завтра снова подышит, не страшно.
+  }
+});
 document.getElementById("forum-btn")?.addEventListener("click", () => {
   haptic("medium");
   openForum();
