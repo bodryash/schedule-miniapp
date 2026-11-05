@@ -11135,7 +11135,12 @@ function initSheetSwipe() {
   // жест до окна не доходил. Пока открыто любое окно снизу, этот системный
   // свайп выключаем, закрылись все — включаем обратно.
   const syncTelegramSwipes = () => {
-    const open = [...document.querySelectorAll(".sheet-backdrop")].some((b) => !b.hidden);
+    // Подслушка и игра — отдельные режимы на весь экран: там свайп по полю
+    // или по ленте тоже не должен сворачивать приложение.
+    const open =
+      [...document.querySelectorAll(".sheet-backdrop")].some((b) => !b.hidden) ||
+      document.body.classList.contains("g2-open") ||
+      document.body.classList.contains("fm-open");
     try {
       if (open) tg?.disableVerticalSwipes?.();
       else if (!lessonView) tg?.enableVerticalSwipes?.();

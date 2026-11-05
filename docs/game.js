@@ -155,6 +155,8 @@
   function wireSwipes(board) {
     let start = null;
     board.addEventListener("pointerdown", (e) => {
+      // На всякий случай ещё раз: свайп по полю не должен сворачивать приложение.
+      tg?.disableVerticalSwipes?.();
       start = { x: e.clientX, y: e.clientY };
       board.setPointerCapture?.(e.pointerId);
     });
@@ -167,6 +169,7 @@
       play(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "R" : "L") : dy > 0 ? "D" : "U");
     });
     board.addEventListener("pointercancel", () => (start = null));
+    board.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
   }
 
   /* ---------- Плитки ---------- */
