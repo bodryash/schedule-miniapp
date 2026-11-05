@@ -21,6 +21,7 @@
  */
 
 import { activeBan } from "./comments.js";
+import { eventInfo, gameLaunched, gameMedals } from "./game.js";
 
 export const POST_MAX = 600;
 export const REPLY_MAX = 300;
@@ -305,6 +306,8 @@ function viewPost(env, row, user, perm, vote) {
     ava: !row.anon && row.tg_id ? 1 : undefined,
     // Галочка — у владельца, когда он пишет под своим именем (у анонимных её нет: иначе раскрылся бы).
     verified: !row.anon && isOwner(env, row.tg_id) ? true : undefined,
+    // Медаль призёра «Сессии 2048» — только под своим именем.
+    medal: !row.anon && perm.medals?.[row.tg_id] ? perm.medals[row.tg_id] : undefined,
     text: row.text,
     created: row.created,
     edited: row.edited ? true : undefined,
@@ -346,6 +349,8 @@ function viewReply(env, row, user, perm, postRow, byId, vote) {
     ava: !row.anon && row.tg_id ? 1 : undefined,
     // Галочка — у владельца, когда он пишет под своим именем (у анонимных её нет: иначе раскрылся бы).
     verified: !row.anon && isOwner(env, row.tg_id) ? true : undefined,
+    // Медаль призёра «Сессии 2048» — только под своим именем.
+    medal: !row.anon && perm.medals?.[row.tg_id] ? perm.medals[row.tg_id] : undefined,
     text: row.text,
     created: row.created,
     edited: row.edited ? true : undefined,
@@ -402,8 +407,9 @@ export async function forumApi(env, action, body, user, notify, tell) {
     return forumStatus(env, user);
   }
   const role = owner ? "owner" : await roleOf(env, user.id);
+  const medals = await gameMedals(env).catch(() => ({}));
   // staff — владелец и модераторы: видят очередь проверки и решают судьбу записей.
-  const who = { owner, staff: owner || role === "moderator", role };
+  const who = { owner, staff: owner || role === "moderator", role, medals };
   if (!owner && (await setting(env, "forum_on", "1")) !== "1") return fail("off", 503, { message: await setting(env, "forum_off_msg", "") });
   // Закрытое тестирование: пока форум не открыт для всех, пускаем только своих.
   if (!owner && !role && (await setting(env, "forum_access", "testers")) !== "all") return fail("closed", 403);
@@ -495,6 +501,7 @@ async function list(env, body, user, who, ban) {
       // Для приложения «owner» значит «есть права проверять»: так показываются вкладка «Проверка» и кнопки.
       owner: who.staff,
       // Своя аватарка: в Telegram photo_url приходит не всем, поэтому — через сервер.
+      game: { ...eventInfo(), on: eventInfo().live && (await gameLaunched(env)) },
       meAva: `/forum/ava/u/${user.id}.${await avaSig(env, user.id)}`,
       role: who.role || null,
       banned: ban,

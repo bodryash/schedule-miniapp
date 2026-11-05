@@ -2273,3 +2273,65 @@ body.fm-open .minihead {
 .sheet--fm-editor .fm-comp-as {
   margin-left: 16px;
 }
+
+/* Плашка турнира «Сессия 2048» над лентой. */
+.fm-game {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - 32px);
+  margin: 4px 16px 6px;
+  padding: 12px 12px 12px 14px;
+  border: 0;
+  border-radius: 18px;
+  text-align: left;
+  color: #fff;
+  background: linear-gradient(120deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #7a5cff));
+  box-shadow: 0 10px 24px -14px var(--accent);
+  cursor: pointer;
+}
+
+.fm-game[hidden] {
+  display: none;
+}
+
+.fm-game:active {
+  transform: scale(0.98);
+}
+
+.fm-game-ico {
+  font-size: 28px;
+}
+
+.fm-game-text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.fm-game-text b {
+  font-size: 15px;
+}
+
+.fm-game-text small {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.fm-game-go {
+  flex: none;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  background: #fff;
+}
+
+/* Медаль призёра «Сессии 2048» у имени. */
+.fm-medal {
+  flex: none;
+  font-size: 14px;
+  line-height: 1;
+}

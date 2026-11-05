@@ -11090,6 +11090,33 @@ async function openForum(opts) {
   forumAssets.then(() => window.showForum?.(opts));
 }
 
+/** «Сессия 2048» — грузится, только когда её открывают (game.js, game.css). */
+let gameAssets = null;
+function openGame() {
+  if (!tg?.initData) return;
+  if (typeof window.showGame === "function") return window.showGame();
+  gameAssets ||= new Promise((resolve, reject) => {
+    const v = window.__v || Date.now();
+    let left = 2;
+    const done = () => (--left === 0 ? resolve() : null);
+    const css = document.createElement("link");
+    css.rel = "stylesheet";
+    css.href = `game.css?v=${v}`;
+    css.onload = done;
+    css.onerror = reject;
+    const js = document.createElement("script");
+    js.src = `game.js?v=${v}`;
+    js.onload = done;
+    js.onerror = reject;
+    document.head.append(css, js);
+  }).catch((error) => {
+    gameAssets = null;
+    console.error("Игра не загрузилась:", error);
+  });
+  gameAssets.then(() => window.showGame?.());
+}
+window.openGame = openGame;
+
 /** Меню «⋯» в шапке: свободные аудитории и настройки. */
 /* ---------- Нижние окна и системный свайп Telegram ----------
  * Само перетаскивание окон — в addSheetGrab (ниже, у механики окон). Здесь
@@ -13226,6 +13253,8 @@ async function init() {
   const talk = Number(new URLSearchParams(location.search).get("forum"));
   const talkReply = Number(new URLSearchParams(location.search).get("reply")) || 0;
   if (talk > 0) setTimeout(() => openForum({ thread: talk, reply: talkReply }), SPLASH_MIN + 900);
+  // Из «Поделиться результатом» в 2048 — сразу в игру.
+  if (new URLSearchParams(location.search).get("game")) setTimeout(openGame, SPLASH_MIN + 900);
 }
 
 init();

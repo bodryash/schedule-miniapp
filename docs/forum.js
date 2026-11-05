@@ -486,7 +486,16 @@
     const tail = document.createElement("div");
     tail.className = "fm-tail";
 
-    wrap.append(segwrap, lock, prompt, feed, tail);
+    const gameBanner = document.createElement("button");
+    gameBanner.type = "button";
+    gameBanner.className = "fm-game";
+    gameBanner.hidden = true;
+    gameBanner.addEventListener("click", () => {
+      haptic("medium");
+      closeForum({ instant: true });
+      setTimeout(() => window.openGame?.(), 60);
+    });
+    wrap.append(segwrap, lock, gameBanner, prompt, feed, tail);
     scroll.append(ptr, wrap);
 
     const fab = document.createElement("button");
@@ -554,7 +563,7 @@
     root.append(feedPage, dim, threadPage);
     document.body.append(root);
 
-    Object.assign(S, { feedPage, nav, scroll, wrap, ptr, seg, segwrap, lock, prompt, feed, tail, fab, pill: fresh });
+    Object.assign(S, { feedPage, nav, scroll, wrap, ptr, seg, segwrap, lock, prompt, feed, tail, fab, pill: fresh, gameBanner });
     Object.assign(T, { page: threadPage, dim, nav: tnav, scroll: tscroll, wrap: twrap, bar, replying, mask, area, send, hint });
     S.root = root;
 
@@ -761,6 +770,26 @@
 
   const segTop = () => S.segwrap.offsetTop;
 
+  /** Плашка турнира «Сессия 2048» над лентой — пока он идёт. */
+  function renderGameBanner() {
+    const box = S.gameBanner;
+    if (!box) return;
+    const g = S.gameInfo;
+    box.hidden = !(g && g.on);
+    if (box.hidden) return;
+    const until = new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "long" }).format(new Date(g.ends));
+    box.replaceChildren(
+      Object.assign(document.createElement("span"), { className: "fm-game-ico", textContent: "🎮" }),
+      Object.assign(document.createElement("span"), { className: "fm-game-text" }),
+      Object.assign(document.createElement("span"), { className: "fm-game-go", textContent: t("Играть") })
+    );
+    const text = box.querySelector(".fm-game-text");
+    text.append(
+      Object.assign(document.createElement("b"), { textContent: t("Сессия 2048 — турнир вузов") }),
+      Object.assign(document.createElement("small"), { textContent: t("До {date} · ваш рекорд — в счёт факультета", { date: until }) })
+    );
+  }
+
   /** Текст черновика, если он есть: его показываем прямо в строке «Что у вас на уме?». */
   function draftText() {
     try {
@@ -825,6 +854,8 @@
       if (token !== S.token) return;
       S.owner = Boolean(body.owner);
       S.role = body.role || null;
+      S.gameInfo = body.game || null;
+      renderGameBanner();
       if (body.meAva && !S.meAva) {
         S.meAva = `${API_URL}${body.meAva}`;
         renderPrompt();
@@ -1073,6 +1104,7 @@
     // Галочка — справа от @ника (если его нет — от имени).
     const check = badgeOf(post);
     if (check) meta.append(check);
+    if (post.medal) meta.append(Object.assign(document.createElement("span"), { className: "fm-medal", title: t("Призёр «Сессии 2048»"), textContent: post.medal }));
     if (post.pinned) {
       row.classList.add("is-pinned");
       const badge = document.createElement("span");
@@ -1867,6 +1899,7 @@
     meta.append(Object.assign(document.createElement("span"), { className: "fm-name", textContent: reply.name }));
     const replyCheck = badgeOf(reply);
     if (replyCheck) meta.append(replyCheck);
+    if (reply.medal) meta.append(Object.assign(document.createElement("span"), { className: "fm-medal", title: t("Призёр «Сессии 2048»"), textContent: reply.medal }));
     if (reply.op) meta.append(Object.assign(document.createElement("span"), { className: "fm-op", textContent: t("автор") }));
     const time = document.createElement("time");
     time.className = "fm-time";
