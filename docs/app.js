@@ -3763,7 +3763,7 @@ function semesterLessons() {
       seen.add(id);
       const time = timesOf(lesson, bells);
       const done = iso < todayIso || (iso === todayIso && time && minutes(time.end) <= nowMinutes);
-      out.push({ iso, weekday, slot: lesson.slot, subject: lesson.subject, type: lesson.type || "", done: Boolean(done) });
+      out.push({ iso, weekday, slot: lesson.slot, subject: lesson.subject, note: lesson.note, teacher: lesson.teacher, type: lesson.type || "", done: Boolean(done) });
     }
   }
   return out;
@@ -3778,10 +3778,11 @@ function semesterStats() {
   const done = all.filter((l) => l.done).length;
   const bySubject = new Map();
   for (const l of lessons) {
-    const item = bySubject.get(l.subject) || { subject: l.subject, total: 0, done: 0 };
+    const name = shownSubject(l);
+    const item = bySubject.get(name) || { subject: name, total: 0, done: 0 };
     item.total += 1;
     if (l.done) item.done += 1;
-    bySubject.set(l.subject, item);
+    bySubject.set(name, item);
   }
   const days = new Map();
   for (const l of all) {
@@ -12174,8 +12175,30 @@ const MIR_BY_TEACHER = {
   "msu-ffl": {
     "Бунтман Н.В.": "литература",
     "Ратникова Е.И.": "история",
+    // Испанский — со слов того же студента: одна пара история, другая культура.
+    "Коваленко А.С.": "история",
+    "Кузьмина Е.В.": "культура",
   },
 };
+
+/**
+ * Настоящее название пары второго языка (ФИЯР). В расписании все они —
+ * «2-ой Французский язык», а на деле это разные предметы: «МИР» (у каждого
+ * языка свой: литература, история…) и практика речи. Студенты просили видеть
+ * в названии, что именно идёт, и считать их отдельно в итогах семестра.
+ * Исходное название не меняем — по нему работает выбор языка и подгруппы.
+ */
+function shownSubject(lesson) {
+  const lang = /^2-ой (\S+) язык$/.exec(lesson.subject || "");
+  if (!lang) return lesson.subject;
+  if (lesson.note === "МИР") {
+    const byTeacher = MIR_BY_TEACHER[tenantId()] || {};
+    const hit = Object.keys(byTeacher).find((name) => String(lesson.teacher || "").includes(name));
+    return `${lang[1]} язык: ${hit ? byTeacher[hit] : "мир языка"}`;
+  }
+  if (lesson.note === "теория и практика речевого общения") return `${lang[1]} язык: практика речи`;
+  return lesson.subject;
+}
 
 // Пометки, которые на деле — вид пары (ФИЯР): показываем меткой, а не серой строкой.
 const NOTE_KINDS = {
@@ -12233,9 +12256,10 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
   // «2-ой Французский язык» бывает разной парой: практика речи или курс «МИР».
   // В расписании ФИЯР это различает только пометка, и под одинаковым названием
   // пары путали. Выносим её цветной меткой рядом с номером пары.
-  let kindTag = NOTE_KINDS[first.note];
+  // Вид пары уже в названии (shownSubject) — метку не дублируем.
+  let kindTag = shownSubject(first) !== first.subject ? "" : NOTE_KINDS[first.note];
   // «МИР» у каждого языка свой («культура и история»): по преподавателю видно, что именно.
-  if (first.note === "МИР") {
+  if (kindTag && first.note === "МИР") {
     const byTeacher = MIR_BY_TEACHER[tenantId()] || {};
     const hit = Object.keys(byTeacher).find((name) => String(first.teacher || "").includes(name));
     if (hit) kindTag = `Мир: ${byTeacher[hit]}`;
@@ -12245,7 +12269,7 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
   // на всю карточку. У подгрупп аудитории разные, и в списке они остаются.
   const single = entries.length === 1;
   const body = el("div", "card-body");
-  body.append(head, el("div", "subject", withFlag(first.subject)));
+  body.append(head, el("div", "subject", withFlag(shownSubject(first))));
 
   if (single) {
     // В карточке — полное имя преподавателя, если оно известно: «доц.
