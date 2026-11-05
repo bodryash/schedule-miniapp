@@ -35,6 +35,7 @@ import {
   purgeAuthor,
   unbanCommand,
 } from "./comments.js";
+import { gameApi, gameCommand, gameTick } from "./game.js";
 import { avaSig, forumApi, forumCloseConfirm, forumCommand, forumModerate, forumWipe } from "./forum.js";
 
 let forumErrorAt = 0;
@@ -3984,6 +3985,25 @@ export default {
       }
     }
 
+    // «Сессия 2048»: начать партию, сохранить ходы, таблица.
+    const gameAction = url.pathname.match(/^\/game\/(start|save|board)$/)?.[1];
+    if (gameAction && request.method === "POST") {
+      let result;
+      try {
+        const body = JSON.parse(await request.text());
+        const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+        const notify = (text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text, parse_mode: "HTML", disable_notification: true });
+        result = await gameApi(env, gameAction, body, user, notify);
+      } catch (error) {
+        console.error("2048 упала:", error);
+        result = { status: 500, json: { ok: false, error: "server error" } };
+      }
+      return new Response(JSON.stringify(result.json), {
+        status: result.status,
+        headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*", "cache-control": "no-store" },
+      });
+    }
+
     // «Подслушка» — общий форум вузов: список, пост, ответ, лайк, жалоба, удаление.
     const forumAction = url.pathname.match(/^\/forum\/(list|poll|replies|post|reply|like|vote|delete|report|mod|prefs|status|switch|pin|edit)$/)?.[1];
     if (forumAction && request.method === "POST") {
@@ -4506,6 +4526,16 @@ export default {
         .catch(() => {});
     }
 
+    // Ссылка из «Поделиться результатом» в 2048: сразу кнопка в игру.
+    const gameLink = message && /^\/start(?:@\w+)?\s+g2048$/.test(text);
+    if (gameLink) {
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: "🎮 «Сессия 2048» — турнир вузов в приложении расписания.\n\nСобирайте плитки от «Пары» до «Аспирантуры» и выше: попыток сколько угодно, ваш рекорд идёт в счёт вашего факультета.",
+        reply_markup: { inline_keyboard: [[{ text: "🎮 Играть", web_app: { url: `${WEB_APP_URL}?game=1` } }]] },
+      });
+    }
+
     const shared = message && text.match(/^\/start(?:@\w+)?\s+p_([a-z0-9]{8})$/);
     if (shared) {
       const found = await shareLoad(env, shared[1]).catch(() => ({ ok: false }));
@@ -4568,7 +4598,7 @@ export default {
       });
     }
 
-    if (message && text.startsWith("/start") && !shared && !invited && !forumLink && !/^\/start(?:@\w+)?\s+starosta$/.test(text)) {
+    if (message && text.startsWith("/start") && !shared && !invited && !forumLink && !gameLink && !/^\/start(?:@\w+)?\s+starosta$/.test(text)) {
       // Китайский и корейский — сами по языку Telegram. Английский только
       // подсказкой: многие русские студенты держат Telegram на английском.
       const code = String(message.from?.language_code || "").toLowerCase();
@@ -4888,6 +4918,12 @@ ${invite}`,
 
     // Последние рассылки и их итог — только владельцу. У остановленной с
     // недосланными — кнопка «Дослать».
+    if (message && /^\/g2048(?:@\w+)?(?:\s|$)/.test(text.trim())) {
+      const answer = isOwner(env, message.chat.id) ? await gameCommand(env, text) : "Команда недоступна.";
+      await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: answer, parse_mode: "HTML" });
+      return new Response("ok");
+    }
+
     if (message && /^\/casts(?:@\w+)?$/.test(text.trim())) {
       if (!isOwner(env, message.chat.id)) {
         await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: "Команда недоступна." });
@@ -5225,6 +5261,7 @@ ${invite}`,
         // Уведомления об изменениях — только на своём сервере: в облаке не
         // хватило бы лимита обращений.
         if (OWN_SERVER) await runAlerts(env).catch((error) => console.log("alerts failed", String(error?.message || error)));
+        await gameTick(env, (text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text, parse_mode: "HTML" })).catch((error) => console.log("2048 tick failed", String(error?.message || error)));
       })()
     );
   },
