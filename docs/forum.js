@@ -47,7 +47,7 @@
     person: '<circle cx="12" cy="8.3" r="3.6"/><path d="M5 20c.9-3.9 3.7-6 7-6s6.1 2.1 7 6"/>',
     pen: '<path d="M4 20l.9-4L16.3 4.6a2 2 0 0 1 2.8 2.8L7.7 18.8z"/><path d="M14.3 6.6l3 3"/>',
     refresh: '<path d="M19.5 11.5a7.5 7.5 0 1 0-2.2 5.7M19.5 5.5v6h-6"/>',
-    verified: '<path d="M12 2.6l2.3 1.7 2.8-.2.9 2.7 2.4 1.5-.8 2.7.8 2.7-2.4 1.5-.9 2.7-2.8-.2L12 21.4l-2.3-1.7-2.8.2-.9-2.7-2.4-1.5.8-2.7-.8-2.7 2.4-1.5.9-2.7 2.8.2z" fill="currentColor" stroke="none"/><path d="M8.4 12.2l2.4 2.4 4.8-5" stroke="#fff" stroke-width="2" fill="none"/>',
+    verified: '<circle cx="12" cy="12" r="10" fill="currentColor" stroke="none"/><path d="M7.6 12.3l3 3 5.8-6.1" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
     pin: '<path d="M9 3.5h6l-1 5.5 3.5 3.5v1.5h-11V12.5L10 9z"/><path d="M12 14v6.5"/>',
     power: '<path d="M12 3.5v8"/><path d="M7.2 6.6a7.2 7.2 0 1 0 9.6 0"/>',
     shield: '<path d="M12 3.2l7 2.8v5.6c0 4.2-2.9 7.7-7 9.4-4.1-1.7-7-5.2-7-9.4V6z"/><path d="M9 12l2.2 2.2L15.2 10"/>',
@@ -1069,9 +1069,10 @@
     name.className = "fm-name";
     name.textContent = post.name;
     meta.append(name);
+    if (post.tg) meta.append(Object.assign(document.createElement("span"), { className: "fm-nick fm-nick--row fm-tg", textContent: `@${post.tg}` }));
+    // Галочка — справа от @ника (если его нет — от имени).
     const check = badgeOf(post);
     if (check) meta.append(check);
-    if (post.tg) meta.append(Object.assign(document.createElement("span"), { className: "fm-nick fm-nick--row fm-tg", textContent: `@${post.tg}` }));
     if (post.pinned) {
       row.classList.add("is-pinned");
       const badge = document.createElement("span");
@@ -1734,7 +1735,7 @@
     who.className = "fm-th-who";
     const nameLine = Object.assign(document.createElement("span"), { className: "fm-name", textContent: post.name });
     const bigCheck = badgeOf(post);
-    if (bigCheck) nameLine.append(bigCheck);
+    if (bigCheck && !post.tg) nameLine.append(bigCheck);
     who.append(nameLine);
     const sub = document.createElement("small");
     sub.textContent = fullTime(post.created);
@@ -1751,7 +1752,8 @@
     if (post.tg) {
       const nick = Object.assign(document.createElement("span"), { className: "fm-nick fm-tg", textContent: `@${post.tg}` });
       nick.dataset.tg = post.tg;
-      sub.prepend(nick, document.createTextNode(" · "));
+      if (bigCheck) sub.prepend(nick, bigCheck, document.createTextNode(" · "));
+      else sub.prepend(nick, document.createTextNode(" · "));
     }
     head.append(bigAva, who, dots);
     box.append(head);
