@@ -632,6 +632,7 @@
       S.irisAnim.onfinish = () => S.irisAnim?.cancel();
     }
     if (!opts.instant) choreograph();
+    else reveal();
     tg?.disableVerticalSwipes?.();
     attachBackButton();
     startPolling();
@@ -650,6 +651,25 @@
     const r = node?.getBoundingClientRect?.();
     if (r && r.width) return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     return { x: innerWidth - 40, y: 44 };
+  }
+
+  /**
+   * Подслушка под уезжающей игрой: содержимое мягко поднимается по очереди
+   * (шапка, переключатель, плашка, строка поста, первые посты), пока игра
+   * уходит вниз.
+   */
+  function reveal() {
+    if (REDUCED) return;
+    const parts = [
+      S.root.querySelector(".fm-nav"),
+      S.segwrap,
+      S.gameBanner && !S.gameBanner.hidden ? S.gameBanner : null,
+      S.prompt,
+      ...[...S.feed.children].slice(0, 6),
+    ].filter(Boolean);
+    parts.forEach((node, i) => {
+      animate(node, [{ opacity: 0, transform: "translate3d(0, 22px, 0) scale(0.985)" }, { opacity: 1, transform: "none" }], { duration: 480, delay: 90 + i * 45, fill: "backwards" });
+    });
   }
 
   /** Открытие по очереди: заголовок, переключатель, лента (она сама), кнопка «+». */
