@@ -775,7 +775,7 @@
     const box = S.gameBanner;
     if (!box) return;
     const g = S.gameInfo;
-    box.hidden = !(g && g.on);
+    box.hidden = !(g && (g.on || g.preview));
     if (box.hidden) return;
     const until = new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "long" }).format(new Date(g.ends));
     box.replaceChildren(
@@ -786,7 +786,9 @@
     const text = box.querySelector(".fm-game-text");
     text.append(
       Object.assign(document.createElement("b"), { textContent: t("Сессия 2048 — турнир вузов") }),
-      Object.assign(document.createElement("small"), { textContent: t("До {date} · ваш рекорд — в счёт факультета", { date: until }) })
+      Object.assign(document.createElement("small"), {
+        textContent: g.on ? t("До {date} · ваш рекорд — в счёт факультета", { date: until }) : t("Видно только вам · запуск: /g2048 start"),
+      })
     );
   }
 
