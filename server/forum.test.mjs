@@ -230,6 +230,23 @@ r = await api("switch", { off: true, message: "Минутку" }, OWNER); ok(r.o
 await tg("/fopen"); await settle();
 r = await api("list", {}, 200); ok(r.ok, "/fopen открывает");
 r = await api("status", {}, 200); ok(r.off === false && r.message === "", "status после открытия чистый");
+// галочка владельца: только под своим именем
+r = await api("post", { text: "Официально: проверка галочки владельца в ленте", anon: false }, OWNER, "Владелец");
+const vPost = r.post; ok(vPost?.verified === true, "у поста владельца под именем — галочка", JSON.stringify(r).slice(0, 200));
+r = await api("post", { text: "Анонимный пост владельца, без галочки тут", anon: true }, OWNER, "Владелец");
+ok(r.post && r.post.verified === undefined, "у анонимного поста владельца галочки нет");
+r = await api("list", {}, 200); ok(r.posts.find((p) => p.id === vPost.id)?.verified === true, "другие тоже видят галочку");
+// статистика форума
+sent.length = 0; await tg("/fstats"); await settle();
+ok(sent.some((m) => /Подслушка — статистика/.test(m.text || "") && /Посты:/.test(m.text) && /Голоса:/.test(m.text)), "/fstats присылает статистику", JSON.stringify(sent.slice(-1)).slice(0, 300));
+// закрепление: только владелец, закреплённый пост первым в «Новом»
+r = await api("list", {}, 200); const oldest = r.posts[r.posts.length - 1];
+r = await api("pin", { post: oldest.id, on: true }, 200); ok(r.status === 403, "закреплять может только владелец");
+r = await api("pin", { post: oldest.id, on: true }, OWNER); ok(r.ok && r.post.pinned === true, "владелец закрепил пост", JSON.stringify(r).slice(0, 200));
+r = await api("list", {}, 200); ok(r.posts[0].id === oldest.id && r.posts[0].pinned, "закреплённый пост — первый в ленте", JSON.stringify(r.posts.map((p) => p.id)));
+ok(r.posts.filter((p) => p.id === oldest.id).length === 1, "и не повторяется ниже");
+r = await api("pin", { post: oldest.id, on: false }, OWNER); ok(r.ok && r.post.pinned === false, "открепил");
+r = await api("list", {}, 200); ok(r.posts[0].id !== oldest.id, "после открепления — на своём месте");
 // снять всех модераторов одной командой
 await tg("/fmod 451"); await tg("/fmod 452"); await settle();
 r = await api("list", {}, 451); ok(r.ok && r.role === "moderator", "модератор назначен (до /funmod all)");

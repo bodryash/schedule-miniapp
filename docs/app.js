@@ -12676,12 +12676,21 @@ function pinSheetsToViewport() {
   } catch {
     // Память недоступна — возьмём оценку.
   }
+  // Переменные на корне страницы пересчитывают стили всего приложения —
+  // ставим их, только когда значение правда поменялось (иначе пока
+  // выезжает клавиатура, это происходило каждый кадр и окно подлагивало).
+  const last = {};
+  const put = (name, value) => {
+    if (last[name] === value) return;
+    last[name] = value;
+    style.setProperty(name, value);
+  };
   const reserve = () => {
     // Сколько места оставить клавиатуре: её настоящую высоту, если уже
     // видели, иначе — чуть меньше половины экрана, с запасом.
     const guess = keyboard > 150 && keyboard < full * 0.7 ? keyboard : Math.round(full * 0.46);
-    style.setProperty("--full-height", `${full}px`);
-    style.setProperty("--keyboard", `${guess}px`);
+    put("--full-height", `${full}px`);
+    put("--keyboard", `${guess}px`);
   };
   reserve();
   const viewport = window.visualViewport;
@@ -12689,8 +12698,8 @@ function pinSheetsToViewport() {
   let frame = 0;
   const apply = () => {
     frame = 0;
-    style.setProperty("--vv-top", `${Math.max(0, Math.round(viewport.offsetTop))}px`);
-    style.setProperty("--vv-height", `${Math.round(viewport.height)}px`);
+    put("--vv-top", `${Math.max(0, Math.round(viewport.offsetTop))}px`);
+    put("--vv-height", `${Math.round(viewport.height)}px`);
     if (window.innerHeight > full) full = window.innerHeight;
     // Печатают — значит, разница между полной и видимой высотой и есть
     // клавиатура. Запоминаем самую высокую: в следующий раз окно встанет точно.
