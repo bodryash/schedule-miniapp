@@ -292,6 +292,22 @@ globalThis.SCHEDULE_SAVE_NOTE = async (from, text, withFile) => {
   );
 };
 
+// Чтение сообщений студентов для владельца и его помощника: ключ создаёт
+// команда /readkey (бот присылает его только владельцу), хранится рядом с базой.
+const READ_KEY_FILE = join(dirname(DB_PATH), "read.key");
+globalThis.SCHEDULE_READ_KEY = async () => {
+  const key = (await import("node:crypto")).randomBytes(24).toString("hex");
+  writeFileSync(READ_KEY_FILE, key, { mode: 0o600 });
+  return key;
+};
+globalThis.SCHEDULE_READ_NOTES = (limit = 20) => {
+  const file = join(INBOX, "messages.jsonl");
+  if (!existsSync(file)) return [];
+  return readFileSync(file, "utf8").trim().split("\n").filter(Boolean).slice(-limit).map((l) => {
+    try { return JSON.parse(l); } catch { return null; }
+  }).filter(Boolean);
+};
+
 // В Cloudflare фоновую работу доживает сама платформа. Здесь процесс живёт
 // постоянно, так что достаточно не потерять ошибку.
 const ctx = {
@@ -411,6 +427,22 @@ const server = createServer(async (req, res) => {
       STATS.raw.prepare("SELECT 1").get();
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ ok: true, uptime: Math.round((Date.now() - stats.started) / 1000), ...stats, ...vitals() }));
+      return;
+    }
+
+    // Закрытый адрес: последние сообщения студентов боту. Только по ключу.
+    if (String(req.url).startsWith("/admin/messages")) {
+      let key = "";
+      try { key = readFileSync(READ_KEY_FILE, "utf8").trim(); } catch {}
+      const given = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      if (!key || given.length !== key.length || !(await import("node:crypto")).timingSafeEqual(Buffer.from(given), Buffer.from(key))) {
+        res.writeHead(404, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false }));
+        return;
+      }
+      const limit = Math.min(500, Math.max(1, Number(new URL(req.url, "http://x").searchParams.get("limit")) || 100));
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: true, messages: globalThis.SCHEDULE_READ_NOTES(limit) }));
       return;
     }
 

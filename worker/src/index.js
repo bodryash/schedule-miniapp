@@ -5031,6 +5031,26 @@ ${invite}`,
       });
     }
 
+    // Что студенты пишут боту: /messages [N] — последние; /readkey — ключ чтения
+    // для закрытого адреса (новый ключ отменяет прежний). Только владелец.
+    if (message && /^\/(messages|readkey)(?:@\w+)?(?:\s|$)/.test(text)) {
+      let reply = "Команда недоступна.";
+      if (isOwner(env, message.chat.id)) {
+        if (/^\/readkey/.test(text)) {
+          const key = await Promise.resolve(globalThis.SCHEDULE_READ_KEY?.()).catch(() => null);
+          reply = key ? `Ключ чтения (прежний больше не работает):\n<code>${key}</code>\n\nНикому не пересылайте.` : "Недоступно на этом сервере.";
+        } else {
+          const n = Math.min(40, Math.max(1, Number(text.split(/\s+/)[1]) || 15));
+          const rows = (await Promise.resolve(globalThis.SCHEDULE_READ_NOTES?.(n)).catch(() => [])) || [];
+          const esc = (v) => String(v).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+          reply = rows.length
+            ? rows.map((r) => `<b>${esc(r.name || r.id)}</b>${r.username ? ` @${esc(r.username)}` : ""} · ${esc(String(r.at).slice(5, 16).replace("T", " "))}${r.file ? " 📎" : ""}\n${esc(r.text || "(без текста)")}`).join("\n\n").slice(0, 3900)
+            : "Сообщений пока нет.";
+        }
+      }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: reply, parse_mode: "HTML" });
+    }
+
     // Подслушка: сводка, выключатель, кто автор, удалить, бан — только владелец.
     if (message && /^\/(forum|fwho|fdel|fban|ftester|funtester|fmod|funmod|froles|fclose|fopen|fclear|fstats)(?:@\w+)?(?:\s|$)/.test(text)) {
       const answer = isOwner(env, message.chat.id) ? await forumCommand(env, text, findPerson) : { text: "Команда недоступна." };
