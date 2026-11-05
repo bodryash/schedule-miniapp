@@ -63,6 +63,47 @@ const NOTICE_DAYS = 7;
 // пару десять раз посмотрел расписание, перевесит целую группу.
 const HIT_COOLDOWN = 3600;
 
+const avatarMemo = new Map();
+let avatarBusy = 0;
+async function avatarPhoto(env, tgId) {
+  const hit = avatarMemo.get(tgId);
+  if (hit && Date.now() < hit.until) return hit.data ? hit.data : hit.pending ? hit.pending : null;
+  if (avatarBusy >= 4) return null;
+  avatarBusy += 1;
+  const pending = (async () => {
+    const api = async (method, query) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      try {
+        return await (await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/${method}?${query}`, { signal: controller.signal })).json();
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+    const photos = await api("getUserProfilePhotos", `user_id=${tgId}&limit=1`);
+    const sizes = photos?.result?.photos?.[0];
+    if (!sizes?.length) return null;
+    const pick = sizes.find((x) => x.width >= 160) || sizes[sizes.length - 1];
+    const info = await api("getFile", `file_id=${encodeURIComponent(pick.file_id)}`);
+    if (!info?.result?.file_path) return null;
+    if (globalThis.SCHEDULE_TG_PHOTO) return globalThis.SCHEDULE_TG_PHOTO(pick.file_unique_id || pick.file_id, info.result.file_path, pick.file_size || info.result.file_size);
+    const img = await fetch(`https://api.telegram.org/file/bot${env.BOT_TOKEN}/${info.result.file_path}`);
+    return img.ok ? new Uint8Array(await img.arrayBuffer()) : null;
+  })();
+  avatarMemo.set(tgId, { until: Date.now() + 60000, pending });
+  try {
+    const data = await pending;
+    if (avatarMemo.size > 2000) avatarMemo.delete(avatarMemo.keys().next().value);
+    avatarMemo.set(tgId, { until: Date.now() + (data ? 6 * 3600000 : 30 * 60000), data });
+    return data;
+  } catch {
+    avatarMemo.set(tgId, { until: Date.now() + 10 * 60000, data: null });
+    return null;
+  } finally {
+    avatarBusy -= 1;
+  }
+}
+
 async function callTelegram(token, method, payload) {
   // Связь с Telegram идёт через прокси и иногда рвётся на секунду. Обрыв —
   // не повод сдаваться: повторяем через паузу. «Слишком часто» (429) —
@@ -3961,22 +4002,11 @@ export default {
           row = await env.STATS.prepare(`SELECT tg_id, anon, hidden FROM ${table} WHERE id = ?`).bind(Number(avaMatch[2])).first();
         }
         if (!row || row.anon || row.hidden || !row.tg_id) return miss();
-        const api = (method, query) => fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/${method}?${query}`).then((r) => r.json());
-        const photos = await api("getUserProfilePhotos", `user_id=${row.tg_id}&limit=1`);
-        const sizes = photos?.result?.photos?.[0];
-        if (!sizes?.length) return miss();
-        const pick = sizes.find((x) => x.width >= 160) || sizes[sizes.length - 1];
-        const info = await api("getFile", `file_id=${encodeURIComponent(pick.file_id)}`);
-        if (!info?.result?.file_path) return miss();
-        // На своём сервере — кусками и с кэшем: через пересыльщик Telegram файл целиком обрывается.
-        let body;
-        if (globalThis.SCHEDULE_TG_PHOTO) {
-          body = await globalThis.SCHEDULE_TG_PHOTO(pick.file_unique_id || pick.file_id, info.result.file_path, pick.file_size || info.result.file_size);
-        } else {
-          const img = await fetch(`https://api.telegram.org/file/bot${env.BOT_TOKEN}/${info.result.file_path}`);
-          if (!img.ok) return miss();
-          body = img.body;
-        }
+        // Фото человека один раз на 6 часов (нет фото — на 30 минут), одновременно
+        // не больше 4 загрузок: лента с десятками аватарок не должна заваливать
+        // сервер запросами к Telegram.
+        const body = await avatarPhoto(env, row.tg_id);
+        if (!body) return miss();
         return new Response(body, {
           headers: { "content-type": "image/jpeg", "access-control-allow-origin": "*", "cache-control": "public, max-age=86400" },
         });
