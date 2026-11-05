@@ -614,13 +614,15 @@
     S.origin = opts.origin || originOf(document.getElementById("forum-btn"));
     // instant — появиться сразу, без анимации: так Подслушка встаёт под
     // уезжающей игрой, и расписание между ними не мелькает.
-    S.iris = !REDUCED && !opts.instant && Boolean(S.root.animate);
+    // Закрываться Подслушка должна одинаково красиво, как бы её ни открыли:
+    // iris остаётся, при instant пропускаем только анимацию открытия.
+    S.iris = !REDUCED && Boolean(S.root.animate);
     S.root.classList.toggle("is-iris", S.iris || Boolean(opts.instant));
     if (opts.instant) S.root.style.transition = "none";
     void S.root.offsetWidth;
     S.root.classList.add("is-open");
     if (opts.instant) requestAnimationFrame(() => (S.root.style.transition = ""));
-    if (S.iris) {
+    if (S.iris && !opts.instant) {
       const { x, y } = S.origin;
       S.irisAnim?.cancel();
       S.irisAnim = S.root.animate(
