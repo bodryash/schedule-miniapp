@@ -12194,7 +12194,8 @@ function shownSubject(lesson) {
   if (lesson.note === "МИР") {
     const byTeacher = MIR_BY_TEACHER[tenantId()] || {};
     const hit = Object.keys(byTeacher).find((name) => String(lesson.teacher || "").includes(name));
-    return `${lang[1]} язык: ${hit ? byTeacher[hit] : "мир языка"}`;
+    // «МИР» — не языковая пара, а свой предмет: «МИР: литература», «МИР: история».
+    return hit ? `МИР: ${byTeacher[hit]}` : `МИР (${lang[1].toLowerCase()})`;
   }
   if (lesson.note === "теория и практика речевого общения") return `${lang[1]} язык: практика речи`;
   return lesson.subject;
