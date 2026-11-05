@@ -841,3 +841,16 @@ body.g2-open .minihead {
 .g2-center {
   text-align: center;
 }
+
+/* «Без потолка» рядом со ступенью. */
+.g2-nocap {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  vertical-align: 1px;
+}

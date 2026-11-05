@@ -302,7 +302,12 @@
     S.bestEl.textContent = fmt(S.best);
     const top = Math.max(2, ...(S.game?.board || [2]));
     const lv = core.level(top);
-    S.levelEl.textContent = `${lv.emoji} ${t("Вы дошли до")}: ${lv.name}`;
+    // Ступень и следующая — и напоминание, что потолка нет: после 2048 игра идёт дальше.
+    const next = core.level(top * 2);
+    S.levelEl.replaceChildren(
+      document.createTextNode(`${lv.emoji} ${lv.name} → ${next.emoji} ${next.name}`),
+      el("span", "g2-nocap", t("∞ без потолка"))
+    );
   }
 
   /* ---------- Сохранение на сервере ---------- */
@@ -602,6 +607,11 @@
       list.append(row);
     }
     s.sh.append(list);
+    const nocap = el("div", "g2-prize");
+    const nocapCopy = el("div");
+    nocapCopy.append(el("b", "", t("Потолка нет")), el("span", "", t("После «Аспирантуры» (2048) игра идёт дальше: Кандидат, Доктор, Профессор, Академик, Нобелевка, а потом «Легенда ×2», «×4»… Рекорд можно бить бесконечно.")));
+    nocap.append(el("i", "g2-prize-medal", "∞"), nocapCopy);
+    s.sh.append(nocap);
     const badge = el("div", "g2-badge-explain");
     badge.append(el("span", "g2-badge-demo", ""), el("span"));
     badge.firstChild.append(el("b", "", t("Аня")), el("span", "g2-badge-medal", "🥇"));

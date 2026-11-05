@@ -825,7 +825,7 @@
       Object.assign(document.createElement("b"), { textContent: t("Сессия 2048 — турнир вузов") }),
       clock,
       Object.assign(document.createElement("small"), {
-        textContent: g.on ? t("Ваш рекорд — в счёт факультета") : t("Видно только вам · запуск: /g2048 start"),
+        textContent: g.on ? t("Без потолка · рекорд — в счёт факультета") : t("Видно только вам · запуск: /g2048 start"),
       })
     );
     // Живой отсчёт до конца турнира: дни, часы, минуты, секунды.
