@@ -12188,14 +12188,24 @@ const MIR_BY_TEACHER = {
  * в названии, что именно идёт, и считать их отдельно в итогах семестра.
  * Исходное название не меняем — по нему работает выбор языка и подгруппы.
  */
+const MIR_WORLDS = {
+  Французский: "Мир Франции",
+  Испанский: "Мир Испании",
+  Итальянский: "Мир Италии",
+  Немецкий: "Мир Германии",
+  Китайский: "Мир Китая",
+  Английский: "Мир англоязычных стран",
+};
+
 function shownSubject(lesson) {
   const lang = /^2-ой (\S+) язык$/.exec(lesson.subject || "");
   if (!lang) return lesson.subject;
   if (lesson.note === "МИР") {
     const byTeacher = MIR_BY_TEACHER[tenantId()] || {};
     const hit = Object.keys(byTeacher).find((name) => String(lesson.teacher || "").includes(name));
-    // «МИР» — не языковая пара, а свой предмет: «МИР: литература», «МИР: история».
-    return hit ? `МИР: ${byTeacher[hit]}` : `МИР (${lang[1].toLowerCase()})`;
+    // «МИР» — не языковая пара, а свой предмет: «Мир Франции: литература».
+    const world = MIR_WORLDS[lang[1]] || `Мир языка (${lang[1].toLowerCase()})`;
+    return hit ? `${world}: ${byTeacher[hit]}` : world;
   }
   if (lesson.note === "теория и практика речевого общения") return `${lang[1]} язык: практика речи`;
   return lesson.subject;
