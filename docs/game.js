@@ -82,6 +82,38 @@
     for (const type of ["pointerdown", "touchstart"]) root.addEventListener(type, (e) => e.stopPropagation());
 
     const nav = el("header", "g2-nav");
+    // Смахнули шапку вниз — игра тянется за пальцем и уезжает, открывая Подслушку.
+    let sw = null;
+    nav.addEventListener("touchstart", (e) => {
+      sw = { y: e.touches[0].clientY, t: Date.now(), d: 0 };
+    }, { passive: true });
+    nav.addEventListener("touchmove", (e) => {
+      if (!sw) return;
+      sw.d = Math.max(0, e.touches[0].clientY - sw.y);
+      root.style.transition = "none";
+      root.style.transform = `translate3d(0, ${sw.d}px, 0)`;
+      root.style.opacity = String(1 - Math.min(1, sw.d / 600) * 0.3);
+      e.preventDefault();
+    }, { passive: false });
+    const endSwipe = () => {
+      if (!sw) return;
+      const { d, t } = sw; sw = null;
+      const fast = d / Math.max(1, Date.now() - t) > 0.5;
+      if (d > 110 || (fast && d > 40)) {
+        root.style.transition = "transform 260ms cubic-bezier(0.3, 0.55, 0.45, 1), opacity 260ms ease-out";
+        root.style.transform = `translate3d(0, ${window.innerHeight}px, 0)`;
+        root.style.opacity = "0";
+        closeGame().finally(() => setTimeout(() => {
+          root.style.transition = ""; root.style.transform = ""; root.style.opacity = "";
+        }, 400));
+      } else {
+        root.style.transition = "transform 280ms cubic-bezier(0.2, 0.9, 0.25, 1), opacity 200ms";
+        root.style.transform = ""; root.style.opacity = "";
+        setTimeout(() => (root.style.transition = ""), 300);
+      }
+    };
+    nav.addEventListener("touchend", endSwipe);
+    nav.addEventListener("touchcancel", endSwipe);
     const back = el("button", "g2-icon");
     back.type = "button";
     back.setAttribute("aria-label", t("Назад"));
