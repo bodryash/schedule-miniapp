@@ -13072,7 +13072,9 @@ async function init() {
   tg?.expand();
   if (htmlIsStale() && reloadFreshPage()) return;
   translatePage();
-  renderSkeleton();
+  // Заглушки — только если загрузка затянулась: иначе в день без пар они
+  // на долю секунды мелькают полосками и тут же исчезают.
+  setTimeout(renderSkeleton, 700);
   // Страховка: что бы ни случилось с загрузкой, заставка не зависнет.
   setTimeout(dropSplash, SPLASH_MAX + 1500);
 
