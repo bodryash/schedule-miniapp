@@ -2689,7 +2689,7 @@
     ava.replaceWith(face);
     const redraw = (animated) => {
       anonChip.classList.toggle("is-on", anon);
-      anonChip.replaceChildren(icon(anon ? "mask" : "person"), document.createTextNode(anon ? t("Анонимно") : me.name));
+      anonChip.replaceChildren(icon(anon ? "mask" : "person"), document.createTextNode(anon ? t("Анонимно") : t("От вашего имени")));
       tagChip.classList.toggle("is-on", withTag);
       tagChip.replaceChildren(icon("building"), document.createTextNode(tagLabel));
       const nick = S.user.username;
