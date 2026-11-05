@@ -699,6 +699,7 @@
 
   async function closeGame() {
     if (!S.open) return;
+    haptic("light");
     flush();
     remember();
     // Сначала под игрой встаёт Подслушка (сразу, без анимации), потом игра
