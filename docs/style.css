@@ -13609,3 +13609,110 @@ html[data-fx-tone="dark"] .fx-grain {
   gap: 8px;
   flex-wrap: wrap;
 }
+
+/* ===================================================================
+   Рельеф кнопок: выпуклые «клавиши» со светом сверху, кромкой, тенью снизу
+   и вдавливанием при нажатии. Только при включённых материалах (fx.js).
+   =================================================================== */
+/* Токены считаются на body: именно там живёт акцент недели. */
+:where(html[data-fx="css"], html[data-fx="gl"]) body {
+  --fx-key-hi: color-mix(in srgb, var(--accent) 72%, #fff);
+  --fx-key-lo: color-mix(in srgb, var(--accent) 80%, #000);
+}
+
+/* Кнопка Подслушки — главная: объёмная капсула с бликом. */
+:where(html[data-fx="css"], html[data-fx="gl"]) .forum-btn {
+  background: linear-gradient(180deg, var(--fx-key-hi) 0%, var(--accent) 48%, var(--fx-key-lo) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+    0 0 0 0.5px color-mix(in srgb, var(--fx-key-lo) 80%, transparent),
+    0 1px 0 rgba(0, 0, 0, 0.1),
+    0 9px 16px -7px color-mix(in srgb, var(--accent) 75%, transparent);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+/* Блик: светлое «стекло» на верхней половине капсулы. */
+:where(html[data-fx="css"], html[data-fx="gl"]) .forum-btn::before {
+  content: "";
+  position: absolute;
+  inset: 1px 3px auto;
+  height: 46%;
+  border-radius: 999px 999px 40% 40%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.08));
+  pointer-events: none;
+}
+
+:where(html[data-fx="css"], html[data-fx="gl"]) .forum-btn:active {
+  transform: translateY(1px) scale(0.97);
+  box-shadow:
+    inset 0 2px 3px rgba(0, 0, 0, 0.25),
+    0 0 0 0.5px color-mix(in srgb, var(--fx-key-lo) 80%, transparent),
+    0 3px 8px -5px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+/* Круглые кнопки («⋯», иконки шапки): шарики, подсвеченные сверху. */
+:where(html[data-fx="css"], html[data-fx="gl"]) .icon:not(.icon--old) {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 55%);
+  box-shadow:
+    inset 0 1px 0 var(--fx-rim),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.07),
+    0 1px 1px rgba(18, 22, 40, 0.06),
+    0 6px 12px -7px rgba(18, 22, 40, 0.35);
+}
+
+:where(html[data-fx="css"][data-fx-tone="dark"], html[data-fx="gl"][data-fx-tone="dark"]) .icon:not(.icon--old) {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0) 55%);
+  box-shadow: inset 0 1px 0 var(--fx-rim), inset 0 -2px 3px rgba(0, 0, 0, 0.3), 0 6px 12px -7px rgba(0, 0, 0, 0.7);
+}
+
+/* Выбранный день и пилюля активной вкладки. */
+:where(html[data-fx="css"], html[data-fx="gl"]) .day.active {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.14),
+    0 12px 22px -10px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+:where(html[data-fx="css"], html[data-fx="gl"]) .tabs-drop {
+  background-image: linear-gradient(180deg, var(--fx-hi), transparent 60%);
+  box-shadow: inset 0 1px 0 var(--fx-rim), 0 4px 10px -6px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* Чипы и выбранные чипы. */
+:where(html[data-fx="css"], html[data-fx="gl"]) .chip {
+  box-shadow: inset 0 1px 0 var(--fx-rim), 0 1px 2px rgba(18, 22, 40, 0.07);
+}
+
+:where(html[data-fx="css"], html[data-fx="gl"]) .chip--on {
+  background-image: var(--fx-gloss);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -2px 0 rgba(0, 0, 0, 0.12), 0 6px 12px -8px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+/* Подслушка: переключатель, выбранная вкладка, кнопки шапки. */
+:where(html[data-fx="css"], html[data-fx="gl"]) .fm-seg button[aria-selected="true"] {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 70%);
+  box-shadow: inset 0 1px 0 var(--fx-rim), 0 2px 6px -2px rgba(18, 22, 40, 0.25);
+}
+
+:where(html[data-fx="css"], html[data-fx="gl"]) .fm-nav-btn {
+  background-image: linear-gradient(180deg, var(--fx-hi), transparent 60%);
+  box-shadow: inset 0 1px 0 var(--fx-rim), 0 4px 10px -6px rgba(18, 22, 40, 0.3);
+}
+
+/* Игра: обычные кнопки — мягкие клавиши, главная выше. */
+:where(html[data-fx="css"], html[data-fx="gl"]) .g2-btn:not(.g2-btn--main) {
+  background-image: linear-gradient(180deg, var(--fx-hi), transparent 60%);
+  box-shadow: inset 0 1px 0 var(--fx-rim), inset 0 -2px 0 rgba(0, 0, 0, 0.07), 0 4px 10px -6px rgba(18, 22, 40, 0.3);
+}
+
+:where(html[data-fx="css"], html[data-fx="gl"]) :is(.g2-btn, .fm-fab, .primary):active {
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.22);
+  transform: translateY(1px) scale(0.98);
+}
+
+/* Метка «Подслушка» в плашке и кнопки «Играть» — белые выпуклые пилюли. */
+:where(html[data-fx="css"], html[data-fx="gl"]) :is(.fm-game-go, .g2-promo-go) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -2px 0 rgba(0, 0, 0, 0.08), 0 4px 8px -4px rgba(0, 0, 0, 0.3);
+}
