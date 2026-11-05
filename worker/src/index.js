@@ -35,7 +35,7 @@ import {
   purgeAuthor,
   unbanCommand,
 } from "./comments.js";
-import { forumApi, forumCloseConfirm, forumCommand, forumModerate, forumWipe } from "./forum.js";
+import { avaSig, forumApi, forumCloseConfirm, forumCommand, forumModerate, forumWipe } from "./forum.js";
 
 let forumErrorAt = 0;
 /** true — владельцу про ошибку форума недавно уже писали. */
@@ -3946,12 +3946,19 @@ export default {
 
     // Аватарка автора под своим именем: фото профиля из Telegram. У анонимов и
     // у тех, кто скрыл фото, ответа нет — приложение рисует букву.
-    const avaMatch = url.pathname.match(/^\/forum\/ava\/([pr])\/(\d+)$/);
+    const avaMatch = url.pathname.match(/^\/forum\/ava\/([pru])\/(\d+)(?:\.([0-9a-f]{16}))?$/);
     if (avaMatch && request.method === "GET") {
       const miss = () => new Response("", { status: 404, headers: { "access-control-allow-origin": "*", "cache-control": "public, max-age=300" } });
       try {
-        const table = avaMatch[1] === "r" ? "forum_replies" : "forum_posts";
-        const row = await env.STATS.prepare(`SELECT tg_id, anon, hidden FROM ${table} WHERE id = ?`).bind(Number(avaMatch[2])).first();
+        let row;
+        if (avaMatch[1] === "u") {
+          // Своя аватарка — только по подписанному адресу, который сервер выдал этому человеку.
+          if (avaMatch[3] !== (await avaSig(env, avaMatch[2]))) return miss();
+          row = { tg_id: Number(avaMatch[2]), anon: 0, hidden: 0 };
+        } else {
+          const table = avaMatch[1] === "r" ? "forum_replies" : "forum_posts";
+          row = await env.STATS.prepare(`SELECT tg_id, anon, hidden FROM ${table} WHERE id = ?`).bind(Number(avaMatch[2])).first();
+        }
         if (!row || row.anon || row.hidden || !row.tg_id) return miss();
         const api = (method, query) => fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/${method}?${query}`).then((r) => r.json());
         const photos = await api("getUserProfilePhotos", `user_id=${row.tg_id}&limit=1`);
