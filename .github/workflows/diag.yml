@@ -15,12 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Сервер бота отвечает?
+        continue-on-error: true
         run: |
           for url in https://api.bodryash.ru/healthz https://app.bodryash.ru/; do
             curl -s -o /dev/null -m 20 -w "$url → HTTP %{http_code} за %{time_total} с\n" "$url" || echo "$url → не отвечает"
           done
 
       - name: Что бот говорит о себе
+        continue-on-error: true
         run: |
           curl -fsS -m 20 https://api.bodryash.ru/healthz | python3 -c "
           import json, sys
@@ -34,6 +36,7 @@ jobs:
           " || echo "healthz не ответил"
 
       - name: Приложение за Cloudflare?
+        continue-on-error: true
         run: |
           for url in https://app.bodryash.ru/ https://api.bodryash.ru/healthz; do
             h=$(curl -sI -m 20 "$url" | tr -d '\r')
@@ -42,6 +45,7 @@ jobs:
           done
 
       - name: Замер отклика (200 запросов, по 20 сразу)
+        continue-on-error: true
         run: |
           python3 - <<'PY'
           import time, urllib.request, concurrent.futures as cf
@@ -63,6 +67,7 @@ jobs:
           PY
 
       - name: Ссылка-приглашение группы создаётся?
+        continue-on-error: true
         run: |
           # Тот же запрос, что шлёт кнопка «Позвать группу». Код зависит только
           # от факультета и группы, повторный запрос ничего не дублирует.
@@ -70,10 +75,11 @@ jobs:
             echo "с $origin:"
             curl -sS -m 20 -X POST https://api.bodryash.ru/invite -H "Origin: $origin" \
               -d '{"tenant":"msu-fgp","group":"321гид","name":"321гид"}' -D - -o /tmp/r.txt | grep -i "^HTTP\|access-control" || true
-            cat /tmp/r.txt; echo
+            cat /tmp/r.txt 2>/dev/null; echo
           done
 
       - name: Подслушка (форум) на сервере отвечает?
+        continue-on-error: true
         continue-on-error: true
         run: |
           # Без подписи Telegram форум должен ответить 401: значит, код форума на сервере живой.
@@ -84,6 +90,7 @@ jobs:
           curl -fsS -m 20 "https://app.bodryash.ru/forum.js?v=$(date +%s)" >/dev/null 2>&1 && echo "app.bodryash.ru: экран форума ЕСТЬ у студентов" || echo "app.bodryash.ru: экрана форума нет (так и надо, пока не выкатили)"
 
       - name: Что Telegram знает о вебхуке
+        continue-on-error: true
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         run: |
@@ -104,6 +111,7 @@ jobs:
           PY
 
       - name: Чей сервер бота
+        continue-on-error: true
         run: |
           sudo apt-get install -y -qq whois dnsutils netcat-openbsd >/dev/null 2>&1 || true
           ip=$(dig +short api.bodryash.ru | tail -1)
@@ -114,6 +122,7 @@ jobs:
           done
 
       - name: Какая версия приложения у пользователей
+        continue-on-error: true
         run: |
           for url in https://app.bodryash.ru https://beta.bodryash.ru https://bodryash.github.io/schedule-miniapp; do
             js=$(curl -fsS -m 20 "$url/app.js?v=$(date +%s)" || true)
@@ -125,6 +134,7 @@ jobs:
           done
 
       - name: Свежие ли расписания на сервере
+        continue-on-error: true
         run: |
           python3 - <<'PY'
           import json, time, urllib.request
