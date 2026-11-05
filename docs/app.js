@@ -2023,10 +2023,15 @@ function showEmojiRain(kinds) {
   setTimeout(() => box.remove(), 5200);
 }
 
+let previewedFlag = "";
+
 function renderFlagTheme(name, on) {
   const theme = FLAG_THEMES[name];
   let ribbon = document.querySelector(`.flag-ribbon--${name}`);
-  if (!on) return ribbon?.remove();
+  if (!on) {
+    if (previewedFlag === name) previewedFlag = "";
+    return ribbon?.remove();
+  }
   const party = () => {
     haptic("success");
     showConfetti();
@@ -2039,6 +2044,13 @@ function renderFlagTheme(name, on) {
     ribbon.addEventListener("click", party);
     els.freedom.after(ribbon);
   }
+  // Владелец примеряет тему в настройках — показываем и приветствие, каждый раз.
+  const preview = notices.owner && ownerTheme() === name;
+  if (preview && previewedFlag !== name) {
+    previewedFlag = name;
+    return afterSplash(() => showHypeIntro(name, party));
+  }
+  if (!preview && previewedFlag === name) previewedFlag = "";
   const key = `schedule.${name}Salute`;
   const today = isoDate(new Date());
   let last = "";
