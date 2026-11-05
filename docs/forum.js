@@ -47,6 +47,8 @@
     person: '<circle cx="12" cy="8.3" r="3.6"/><path d="M5 20c.9-3.9 3.7-6 7-6s6.1 2.1 7 6"/>',
     pen: '<path d="M4 20l.9-4L16.3 4.6a2 2 0 0 1 2.8 2.8L7.7 18.8z"/><path d="M14.3 6.6l3 3"/>',
     refresh: '<path d="M19.5 11.5a7.5 7.5 0 1 0-2.2 5.7M19.5 5.5v6h-6"/>',
+    verified: '<path d="M12 2.6l2.3 1.7 2.8-.2.9 2.7 2.4 1.5-.8 2.7.8 2.7-2.4 1.5-.9 2.7-2.8-.2L12 21.4l-2.3-1.7-2.8.2-.9-2.7-2.4-1.5.8-2.7-.8-2.7 2.4-1.5.9-2.7 2.8.2z" fill="currentColor" stroke="none"/><path d="M8.4 12.2l2.4 2.4 4.8-5" stroke="#fff" stroke-width="2" fill="none"/>',
+    pin: '<path d="M9 3.5h6l-1 5.5 3.5 3.5v1.5h-11V12.5L10 9z"/><path d="M12 14v6.5"/>',
     power: '<path d="M12 3.5v8"/><path d="M7.2 6.6a7.2 7.2 0 1 0 9.6 0"/>',
     shield: '<path d="M12 3.2l7 2.8v5.6c0 4.2-2.9 7.7-7 9.4-4.1-1.7-7-5.2-7-9.4V6z"/><path d="M9 12l2.2 2.2L15.2 10"/>',
     at: '<circle cx="12" cy="12" r="3.6"/><path d="M15.6 12v1.4a2.4 2.4 0 0 0 4.8 0V12a8.4 8.4 0 1 0-3.3 6.7"/>',
@@ -104,8 +106,9 @@
   }
 
   /** Фото из Telegram: только у постов под своим именем; нет фото — остаётся буква. */
-  function addPhoto(a, src) {
+  function addPhoto(a, src, fallback) {
     const img = new Image();
+    if (fallback) img.onerror = () => addPhoto(a, fallback);
     img.alt = "";
     img.decoding = "async";
     img.className = "fm-ava-img";
@@ -125,8 +128,12 @@
       a.textContent = p.emoji;
     } else {
       a.textContent = ([...String(p.name || "?").trim()][0] || "?").toUpperCase();
+      // Свой пост под своим именем — фото сразу из Telegram, без запроса к серверу.
+      const own = p.mine && p.ava ? tg?.initDataUnsafe?.user?.photo_url : "";
+      const server = p.ava && Number.isInteger(p.id) && p.id > 0 ? `${FORUM_URL}/ava/${kind || "p"}/${p.id}` : "";
       if (p.photo) addPhoto(a, p.photo);
-      else if (p.ava && Number.isInteger(p.id) && p.id > 0) addPhoto(a, `${FORUM_URL}/ava/${kind || "p"}/${p.id}`);
+      else if (own) addPhoto(a, own, server);
+      else if (server) addPhoto(a, server);
     }
     return a;
   }
@@ -754,12 +761,27 @@
 
   const segTop = () => S.segwrap.offsetTop;
 
+  /** Текст черновика, если он есть: его показываем прямо в строке «Что у вас на уме?». */
+  function draftText() {
+    try {
+      return String(JSON.parse(store(KEY.draft) || "{}").text || "").trim();
+    } catch {
+      return "";
+    }
+  }
+
   function renderPrompt() {
     const name = S.user.first_name || "";
     const me = avatar({ name: name || "?", hue: hueOf(String(S.user.id || name)), photo: tg?.initDataUnsafe?.user?.photo_url });
     const field = document.createElement("span");
     field.className = "fm-prompt-field";
-    field.textContent = t("Что у вас на уме?");
+    const draft = draftText();
+    S.prompt.classList.toggle("has-draft", Boolean(draft));
+    if (draft) {
+      const label = Object.assign(document.createElement("b"), { className: "fm-draft-label", textContent: t("У вас есть неопубликованный черновик") });
+      const quote = Object.assign(document.createElement("span"), { className: "fm-draft-text", textContent: draft.replace(/\s+/g, " ") });
+      field.append(label, quote);
+    } else field.textContent = t("Что у вас на уме?");
     const pen = document.createElement("span");
     pen.className = "fm-prompt-pen";
     pen.append(icon("pen"));
@@ -802,6 +824,7 @@
       const body = await request("list", { sort: S.sort, before }, { retry: true });
       if (token !== S.token) return;
       S.owner = Boolean(body.owner);
+      S.role = body.role || null;
       S.review = body.review || 0;
       S.top = Math.max(S.top, body.top || 0);
       S.more = Boolean(body.more);
@@ -1018,6 +1041,17 @@
     return b;
   }
 
+  /** Галочка владельца рядом с именем. */
+  function badgeOf(item) {
+    if (!item.verified) return null;
+    const b = document.createElement("span");
+    b.className = "fm-verified";
+    b.title = t("Администратор Подслушки");
+    b.setAttribute("aria-label", t("Администратор"));
+    b.append(icon("verified"));
+    return b;
+  }
+
   function rowNode(post) {
     const row = document.createElement("article");
     row.className = `fm-row${post.pending ? " is-pending" : ""}`;
@@ -1031,7 +1065,17 @@
     name.className = "fm-name";
     name.textContent = post.name;
     meta.append(name);
+    const check = badgeOf(post);
+    if (check) meta.append(check);
     if (post.tg) meta.append(Object.assign(document.createElement("span"), { className: "fm-nick fm-nick--row fm-tg", textContent: `@${post.tg}` }));
+    if (post.pinned) {
+      row.classList.add("is-pinned");
+      const badge = document.createElement("span");
+      badge.className = "fm-pin";
+      badge.append(icon("pin"), document.createTextNode(t("Закреплено")));
+      // Отдельной строкой над именем: в строке с именем ему не хватало места.
+      main.prepend(badge);
+    }
     if (post.tag) meta.append(Object.assign(document.createElement("span"), { className: "fm-tag", textContent: post.tag }));
     const time = document.createElement("time");
     time.className = "fm-time";
@@ -1684,7 +1728,10 @@
     head.className = "fm-th-head";
     const who = document.createElement("div");
     who.className = "fm-th-who";
-    who.append(Object.assign(document.createElement("span"), { className: "fm-name", textContent: post.name }));
+    const nameLine = Object.assign(document.createElement("span"), { className: "fm-name", textContent: post.name });
+    const bigCheck = badgeOf(post);
+    if (bigCheck) nameLine.append(bigCheck);
+    who.append(nameLine);
     const sub = document.createElement("small");
     sub.textContent = fullTime(post.created);
     if (post.tag) sub.append(Object.assign(document.createElement("span"), { className: "fm-tag", textContent: post.tag }));
@@ -1811,6 +1858,8 @@
     const meta = document.createElement("header");
     meta.className = "fm-meta";
     meta.append(Object.assign(document.createElement("span"), { className: "fm-name", textContent: reply.name }));
+    const replyCheck = badgeOf(reply);
+    if (replyCheck) meta.append(replyCheck);
     if (reply.op) meta.append(Object.assign(document.createElement("span"), { className: "fm-op", textContent: t("автор") }));
     const time = document.createElement("time");
     time.className = "fm-time";
@@ -2129,6 +2178,20 @@
           setReplyTarget(item);
           setTimeout(() => T.area.focus(), 260);
         }));
+      }
+      if (kind === "p" && !item.pending && item.id > 0 && S.role === "owner") {
+        list.append(actionRow("pin", item.pinned ? t("Открепить") : t("Закрепить наверху"), async () => {
+          sheet.close();
+          try {
+            const res = await request("pin", { post: item.id, on: !item.pinned });
+            Object.assign(item, res.post);
+            haptic("success");
+            toast(item.pinned ? t("Пост закреплён наверху") : t("Пост откреплён"), { icon: "pin" });
+            if (S.sort === "new") load(true, { silent: true });
+          } catch (error) {
+            toast(errorText(error), { tone: "bad", icon: "alert" });
+          }
+        }, { sub: item.pinned ? t("Вернуть на своё место в ленте") : t("Первым в «Новом» у всех") }));
       }
       if (kind === "p" && !item.pending && item.id > 0) {
         list.append(actionRow("share", t("Поделиться"), () => {
@@ -2595,6 +2658,20 @@
       }
     };
     publish.addEventListener("click", submit);
+    // Окно закрыли любым способом (кнопкой, свайпом, тапом мимо) — черновик
+    // сохраняем сразу и показываем его в строке «Что у вас на уме?».
+    sheet.onHide = () => {
+      clearTimeout(saveTimer);
+      const text = area.value;
+      store(KEY.draft, text.trim() ? JSON.stringify({ text, anon }) : null);
+      renderPrompt();
+    };
+    if (!sheet.watching) {
+      sheet.watching = new MutationObserver(() => {
+        if (sheet.backdrop.hidden) sheet.onHide?.();
+      });
+      sheet.watching.observe(sheet.backdrop, { attributes: true, attributeFilter: ["hidden"] });
+    }
     redraw(false);
     update();
     sheet.open();

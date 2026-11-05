@@ -2146,3 +2146,114 @@ body.fm-open .minihead {
   font-size: 16px;
   box-sizing: border-box;
 }
+
+/* Закреплённый пост */
+.fm-pin {
+  display: flex;
+  width: max-content;
+  margin: 0 0 4px;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  padding: 2px 7px 2px 5px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.fm-pin .fm-i svg {
+  width: 13px;
+  height: 13px;
+}
+
+.fm-row.is-pinned {
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+
+/* Черновик прямо в строке «Что у вас на уме?» */
+.fm-prompt.has-draft .fm-prompt-field {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.fm-draft-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.fm-draft-text {
+  overflow: hidden;
+  font-size: 15px;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Окно нового поста: поле ввода сжимается, а шапка с «Опубликовать» и
+   нижняя строка всегда на месте — окно не обрезается и не прокручивается. */
+.sheet-backdrop--input .sheet.sheet--fm-composer {
+  overflow: hidden;
+  padding-bottom: 12px;
+  animation-duration: 200ms;
+}
+
+.sheet--fm-composer .fm-composer {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.sheet--fm-composer .fm-comp-top,
+.sheet--fm-composer .fm-comp-as,
+.sheet--fm-composer .fm-comp-err,
+.sheet--fm-composer .fm-comp-tools {
+  flex: none;
+}
+
+.sheet--fm-composer .fm-comp-body {
+  flex: 1 1 150px;
+  min-height: 0;
+}
+
+.sheet--fm-composer .fm-comp-body > .fm-ava {
+  align-self: flex-start;
+}
+
+.sheet--fm .sheet--fm-composer .fm-comp-body textarea,
+.sheet--fm-composer .fm-comp-body textarea {
+  min-height: 44px;
+  max-height: none;
+  height: auto;
+  overflow-y: auto;
+}
+
+/* Без размытия под окном: размывать всю ленту каждый кадр, пока выезжает
+   клавиатура, — главная причина подлагиваний. */
+.sheet-backdrop:has(> .sheet--fm) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: rgba(8, 10, 20, 0.45);
+}
+
+/* Галочка администратора у имени — как у подтверждённых аккаунтов. */
+.fm-verified {
+  display: inline-flex;
+  flex: none;
+  align-self: center;
+  margin-left: -2px;
+  color: #3b9cf5;
+}
+
+.fm-name .fm-verified {
+  margin-left: 4px;
+  vertical-align: -3px;
+}
+
+.fm-verified .fm-i svg {
+  width: 17px;
+  height: 17px;
+  stroke: none;
+}
