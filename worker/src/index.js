@@ -5311,7 +5311,17 @@ ${invite}`,
         // Уведомления об изменениях — только на своём сервере: в облаке не
         // хватило бы лимита обращений.
         if (OWN_SERVER) await runAlerts(env).catch((error) => console.log("alerts failed", String(error?.message || error)));
-        await gameTick(env, (text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text, parse_mode: "HTML" })).catch((error) => console.log("2048 tick failed", String(error?.message || error)));
+        await gameTick(
+          env,
+          (text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text, parse_mode: "HTML" }),
+          (chat, text) =>
+            callTelegram(env.BOT_TOKEN, "sendMessage", {
+              chat_id: chat,
+              text,
+              parse_mode: "HTML",
+              reply_markup: { inline_keyboard: [[{ text: "🎮 Играть", url: "https://t.me/FGPshedulebot?start=g2048" }]] },
+            })
+        ).catch((error) => console.log("2048 tick failed", String(error?.message || error)));
       })()
     );
   },
