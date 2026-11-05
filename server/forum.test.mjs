@@ -230,6 +230,18 @@ r = await api("switch", { off: true, message: "Минутку" }, OWNER); ok(r.o
 await tg("/fopen"); await settle();
 r = await api("list", {}, 200); ok(r.ok, "/fopen открывает");
 r = await api("status", {}, 200); ok(r.off === false && r.message === "", "status после открытия чистый");
+// правка своего поста
+r = await api("post", { text: "Пост для правки, исходный текст тут", anon: true }, 610, "Петя");
+const eid = r.post.id;
+if (r.pending) await api("mod", { kind: "p", id: eid, op: "ok" }, OWNER);
+r = await api("edit", { kind: "p", id: eid, text: "Пост для правки — исправленный текст" }, 611); ok(r.status === 403, "чужой пост править нельзя");
+r = await api("edit", { kind: "p", id: eid, text: "Пост для правки — исправленный текст" }, 610); ok(r.ok && r.edited, "свой пост правится", JSON.stringify(r));
+r = await api("list", {}, 200); const ed = r.posts.find((p) => p.id === eid);
+ok(ed?.text === "Пост для правки — исправленный текст" && ed.edited === true, "новый текст и пометка «изменено» видны всем", JSON.stringify(ed));
+r = await api("edit", { kind: "p", id: eid, text: "пишите на t.me/spam" }, 610); ok(r.status === 422, "правка проходит фильтр (ссылки нельзя)");
+sent.length = 0; r = await api("edit", { kind: "p", id: eid, text: "Куплю закладку срочно" }, 610); await settle();
+ok(r.ok && r.pending, "опасная правка уходит на проверку", JSON.stringify(r));
+ok(sent.some((m) => /изменён и ждёт проверки/.test(m.text || "")), "владельцу пришло уведомление о правке");
 // галочка владельца: только под своим именем
 r = await api("post", { text: "Официально: проверка галочки владельца в ленте", anon: false }, OWNER, "Владелец");
 const vPost = r.post; ok(vPost?.verified === true, "у поста владельца под именем — галочка", JSON.stringify(r).slice(0, 200));
