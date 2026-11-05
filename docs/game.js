@@ -174,10 +174,34 @@
 
   /* ---------- Плитки ---------- */
 
+  // Свой яркий цвет у каждой ступени, текст — тёмный на светлых плитках и
+  // белый на тёмных: соседние ступени не путаются, надписи читаются.
+  const PALETTE = [
+    ["#fff4d6", "#5c4300"],
+    ["#ffe09a", "#5c4300"],
+    ["#ffbe5c", "#4d3200"],
+    ["#ff8f3f", "#fff"],
+    ["#ff5d4d", "#fff"],
+    ["#ee3d7d", "#fff"],
+    ["#c23fd8", "#fff"],
+    ["#8452f5", "#fff"],
+    ["#4e63f5", "#fff"],
+    ["#c8152f", "#fff"],
+    ["#0fb3c6", "#fff"],
+    ["#14ad6e", "#fff"],
+    ["#5fb52f", "#fff"],
+    ["#e7b400", "#3d2e00"],
+    ["#f07c00", "#fff"],
+    ["#b8860b", "#fff"],
+    ["#1d1b2e", "#ffd76a"],
+  ];
+
   function tileNode(value) {
     const lv = core.level(value);
     const node = el("div", "g2-tile");
-    node.style.setProperty("--lv", lv.n);
+    const [bg, fg] = PALETTE[Math.min(lv.n, PALETTE.length) - 1];
+    node.style.background = bg;
+    node.style.color = fg;
     node.dataset.lv = Math.min(lv.n, 17);
     node.append(el("i", "", lv.emoji), el("b", "", lv.name), el("small", "", fmt(value)));
     return node;

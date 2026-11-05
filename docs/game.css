@@ -1,8 +1,8 @@
 /* «Сессия 2048» — экран игры (см. game.js). */
 .g2 {
   --g2-gap: 8px;
-  --g2-cell: color-mix(in srgb, var(--text) 7%, var(--bg));
-  --g2-board: color-mix(in srgb, var(--text) 12%, var(--bg));
+  --g2-cell: color-mix(in srgb, var(--text) 9%, var(--bg));
+  --g2-board: color-mix(in srgb, var(--text) 18%, var(--bg));
   position: fixed;
   inset: 0;
   z-index: 35;
@@ -145,22 +145,14 @@ body.g2-open .minihead {
   border-radius: 12px;
   overflow: hidden;
   text-align: center;
-  color: #fff;
-  background: hsl(calc(28 + var(--lv) * 23) 78% calc(62% - var(--lv) * 1.6%));
-  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.06);
   transform: translate(calc(var(--c) * (100% + var(--g2-gap))), calc(var(--r) * (100% + var(--g2-gap))));
   transition: transform 110ms ease-out;
   will-change: transform;
 }
 
-.g2-tile[data-lv="1"] {
-  color: var(--text);
-  background: color-mix(in srgb, var(--accent) 16%, var(--bg));
-}
-
-.g2-tile[data-lv="2"] {
-  color: var(--text);
-  background: color-mix(in srgb, var(--accent) 30%, var(--bg));
+.g2-tile[data-lv="17"] {
+  box-shadow: inset 0 0 0 2px #ffd76a;
 }
 
 .g2-tile i {
@@ -171,13 +163,15 @@ body.g2-open .minihead {
 
 .g2-tile b {
   max-width: 94%;
+  font-weight: 800;
   font-size: clamp(9px, 2.7vw, 12px);
   line-height: 1.1;
 }
 
 .g2-tile small {
   font-size: clamp(8px, 2.2vw, 10px);
-  opacity: 0.75;
+  font-weight: 700;
+  opacity: 0.8;
 }
 
 .g2-tile.is-new {
