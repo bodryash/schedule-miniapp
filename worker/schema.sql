@@ -512,6 +512,8 @@ CREATE TABLE IF NOT EXISTS forum_posts (
   replies  INTEGER NOT NULL DEFAULT 0,
   -- Почему отправлен на проверку: «новичок», «стоп-слово: …» и т. п.
   -- Закреплён владельцем: когда (мс), 0 — не закреплён.
+  -- Когда автор последний раз правил текст.
+  edited   TEXT,
   pinned   INTEGER NOT NULL DEFAULT 0,
   held_for  TEXT NOT NULL DEFAULT '',
   -- Необязательная подпись автора («МГУ · ФГП»); чисто для красоты.
@@ -522,6 +524,7 @@ CREATE INDEX IF NOT EXISTS forum_posts_author ON forum_posts (tg_id, created);
 
 CREATE TABLE IF NOT EXISTS forum_replies (
   id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  edited   TEXT,
   post     INTEGER NOT NULL,
   tg_id    INTEGER NOT NULL,
   name     TEXT NOT NULL,

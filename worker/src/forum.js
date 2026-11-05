@@ -307,6 +307,7 @@ function viewPost(env, row, user, perm, vote) {
     verified: !row.anon && isOwner(env, row.tg_id) ? true : undefined,
     text: row.text,
     created: row.created,
+    edited: row.edited ? true : undefined,
     // Рейтинг: голосов «за» минус голосов «против» (может быть отрицательным).
     score: row.likes,
     vote: Number(vote) || 0,
@@ -347,6 +348,7 @@ function viewReply(env, row, user, perm, postRow, byId, vote) {
     verified: !row.anon && isOwner(env, row.tg_id) ? true : undefined,
     text: row.text,
     created: row.created,
+    edited: row.edited ? true : undefined,
     score: row.likes || 0,
     vote: Number(vote) || 0,
     likes: row.likes || 0,
@@ -408,7 +410,7 @@ export async function forumApi(env, action, body, user, notify, tell) {
 
   // Забаненный (общий бан /ban) читает, но не пишет, не жалуется и не лайкает.
   const ban = owner ? null : await activeBan(env, user.id);
-  const writing = ["post", "reply", "like", "vote", "report"].includes(action);
+  const writing = ["post", "reply", "like", "vote", "report", "edit"].includes(action);
   if (ban && writing) return fail("banned", 403, { banned: ban });
 
   if (action === "list") return list(env, body, user, who, ban);
@@ -418,6 +420,7 @@ export async function forumApi(env, action, body, user, notify, tell) {
   if (action === "reply") return createReply(env, body, user, who, notify, tell);
   if (action === "like" || action === "vote") return vote(env, body, user, action === "like");
   if (action === "delete") return remove(env, body, user, who);
+  if (action === "edit") return edit(env, body, user, who, notify);
   if (action === "report") return report(env, body, user, who, notify);
   if (action === "mod") return mod(env, body, who);
   if (action === "pin") return pin(env, body, user, who);
@@ -438,7 +441,7 @@ async function list(env, body, user, who, ban) {
       .all());
   } else if (sort === "top") {
     ({ results: rows = [] } = await env.STATS.prepare(
-      "SELECT * FROM forum_posts WHERE hidden = 0 AND created > ? ORDER BY likes * 3 + replies DESC, id DESC LIMIT ?"
+      "SELECT * FROM forum_posts WHERE hidden = 0 AND pinned = 0 AND created > ? ORDER BY likes * 3 + replies DESC, id DESC LIMIT ?"
     )
       .bind(since, PAGE)
       .all());
@@ -459,9 +462,9 @@ async function list(env, body, user, who, ban) {
       .bind(user.id)
       .all());
   }
-  // Закреплённые владельцем — самые первые в «Новом», в порядке закрепления.
+  // Закреплённые владельцем — самые первые и в «Новом», и в «Горячем», в порядке закрепления.
   let pinned = [];
-  if (!before && sort === "new") {
+  if (!before && sort !== "review") {
     ({ results: pinned = [] } = await env.STATS.prepare(
       "SELECT * FROM forum_posts WHERE hidden = 0 AND pinned > 0 ORDER BY pinned DESC LIMIT 5"
     ).all());
@@ -744,6 +747,46 @@ async function remove(env, body, user, who) {
   if (row.tg_id !== user.id && !who.staff) return fail("forbidden", 403);
   await applyAction(env, "del", kind, row);
   return { status: 200, json: { ok: true } };
+}
+
+/**
+ * Правка своего поста или ответа. Текст проходит тот же фильтр, что и новый:
+ * то, что попало бы на проверку, после правки тоже уходит на проверку
+ * (иначе фильтр обходили бы правкой опубликованного).
+ */
+async function edit(env, body, user, who, notify) {
+  const kind = body.kind === "r" ? "r" : "p";
+  const id = Number(body.id);
+  if (!Number.isInteger(id) || id < 1) return fail("bad request");
+  const text = String(body.text || "").trim();
+  if (text.length > (kind === "p" ? POST_MAX : REPLY_MAX)) return fail("too long");
+  const row = await authorOf(env, kind, id);
+  if (!row || row.hidden === 2 || row.hidden === 1) return fail("not found", 404);
+  if (row.tg_id !== user.id) return fail("forbidden", 403);
+  if (text === row.text) return { status: 200, json: { ok: true, same: true } };
+  const screen = screenText(text);
+  if (screen.block) return fail("blocked", 422, { reason: screen.block });
+  const table = kind === "p" ? "forum_posts" : "forum_replies";
+  const hold = screen.hold && !who.owner ? screen.hold : "";
+  const hidden = hold ? 3 : row.hidden;
+  await env.STATS.prepare(`UPDATE ${table} SET text = ?, edited = ?, hidden = ?, held_for = CASE WHEN ? != '' THEN ? ELSE held_for END WHERE id = ?`)
+    .bind(text, nowIso(), hidden, hold, `${hold}${screen.hit ? ` («${screen.hit}»)` : ""} — после правки`, id)
+    .run();
+  if (hold) {
+    if (kind === "r" && row.hidden === 0) await env.STATS.prepare("UPDATE forum_posts SET replies = MAX(replies - 1, 0) WHERE id = ?").bind(row.post).run();
+    await notify(
+      [
+        `✏️ <b>Подслушка: ${kind === "p" ? "пост" : "ответ"} №${id} изменён и ждёт проверки</b>`,
+        `Причина: <b>${escape(hold)}</b>${screen.hit ? ` — сработало на «${escape(screen.hit)}»` : ""}`,
+        `Автор: ${AUTHOR_LINK(row)}`,
+        "",
+        `Было: ${snippet(row.text, 200)}`,
+        `Стало: ${snippet(text, 300)}`,
+      ].join("\n"),
+      buttons(kind, id, { review: true })
+    ).catch(() => {});
+  }
+  return { status: 200, json: { ok: true, text, edited: true, pending: hidden === 3 } };
 }
 
 async function report(env, body, user, who, notify) {
