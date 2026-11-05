@@ -100,8 +100,8 @@
       const { d, t } = sw; sw = null;
       const fast = d / Math.max(1, Date.now() - t) > 0.5;
       if (d > 110 || (fast && d > 40)) {
-        root.style.transition = "transform 260ms cubic-bezier(0.3, 0.55, 0.45, 1), opacity 260ms ease-out";
-        root.style.transform = `translate3d(0, ${window.innerHeight}px, 0)`;
+        root.style.transition = "transform 380ms cubic-bezier(0.3, 0.55, 0.45, 1), opacity 380ms ease-out";
+        root.style.transform = `translate3d(0, ${d + 60}px, 0) scale(0.97)`;
         root.style.opacity = "0";
         closeGame().finally(() => setTimeout(() => {
           root.style.transition = ""; root.style.transform = ""; root.style.opacity = "";
@@ -750,12 +750,14 @@
     await Promise.race([Promise.resolve(window.openForum?.({ instant: true })), new Promise((r) => setTimeout(r, 700))]).catch(() => {});
     S.open = false;
     document.body.classList.remove("g2-open");
+    S.root.classList.add("g2--dissolve");
     S.root.classList.remove("is-open");
     // Кнопку «назад» не прячем: она уже нужна Подслушке под игрой.
     if (tg?.BackButton && S.backHandler) tg.BackButton.offClick(S.backHandler);
     setTimeout(() => {
       if (!S.open) S.root.hidden = true;
-    }, REDUCED ? 0 : 320);
+      S.root.classList.remove("g2--dissolve");
+    }, REDUCED ? 0 : 420);
   }
 
   window.showGame = showGame;
