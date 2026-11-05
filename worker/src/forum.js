@@ -298,10 +298,13 @@ function viewPost(env, row, user, perm, vote) {
     hue: who.hue,
     anon: Boolean(row.anon),
     tag: row.tag || "",
+    pinned: Boolean(row.pinned),
     // Под своим именем человек сам выбрал быть узнаваемым: даём ссылку на его
     // профиль Telegram (если у него есть @ник). У анонимов её нет никогда.
     tg: !row.anon && row.username ? row.username : undefined,
     ava: !row.anon && row.tg_id ? 1 : undefined,
+    // Галочка — у владельца, когда он пишет под своим именем (у анонимных её нет: иначе раскрылся бы).
+    verified: !row.anon && isOwner(env, row.tg_id) ? true : undefined,
     text: row.text,
     created: row.created,
     // Рейтинг: голосов «за» минус голосов «против» (может быть отрицательным).
@@ -340,6 +343,8 @@ function viewReply(env, row, user, perm, postRow, byId, vote) {
     op: row.tg_id === postRow.tg_id,
     tg: !row.anon && row.username ? row.username : undefined,
     ava: !row.anon && row.tg_id ? 1 : undefined,
+    // Галочка — у владельца, когда он пишет под своим именем (у анонимных её нет: иначе раскрылся бы).
+    verified: !row.anon && isOwner(env, row.tg_id) ? true : undefined,
     text: row.text,
     created: row.created,
     score: row.likes || 0,
@@ -405,6 +410,7 @@ export async function forumApi(env, action, body, user, notify, tell) {
   if (action === "delete") return remove(env, body, user, who);
   if (action === "report") return report(env, body, user, who, notify);
   if (action === "mod") return mod(env, body, who);
+  if (action === "pin") return pin(env, body, user, who);
   if (action === "prefs") return prefs(env, body, user);
   return fail("bad request");
 }
@@ -428,7 +434,7 @@ async function list(env, body, user, who, ban) {
       .all());
   } else {
     ({ results: rows = [] } = await env.STATS.prepare(
-      `SELECT * FROM forum_posts WHERE hidden = 0 ${before ? "AND id < ?" : ""} ORDER BY id DESC LIMIT ?`
+      `SELECT * FROM forum_posts WHERE hidden = 0 AND pinned = 0 ${before ? "AND id < ?" : ""} ORDER BY id DESC LIMIT ?`
     )
       .bind(...(before ? [before] : []), PAGE)
       .all());
@@ -443,7 +449,14 @@ async function list(env, body, user, who, ban) {
       .bind(user.id)
       .all());
   }
-  const all = [...mine, ...rows];
+  // Закреплённые владельцем — самые первые в «Новом», в порядке закрепления.
+  let pinned = [];
+  if (!before && sort === "new") {
+    ({ results: pinned = [] } = await env.STATS.prepare(
+      "SELECT * FROM forum_posts WHERE hidden = 0 AND pinned > 0 ORDER BY pinned DESC LIMIT 5"
+    ).all());
+  }
+  const all = [...pinned, ...mine, ...rows];
   const ids = all.map((p) => p.id);
   const votes = new Map();
   if (ids.length) {
@@ -768,6 +781,18 @@ async function report(env, body, user, who, notify) {
   return { status: 200, json: { ok: true } };
 }
 
+/** Закрепить пост наверху «Нового» или открепить — только владелец. */
+async function pin(env, body, user, who) {
+  if (!who.owner) return fail("forbidden", 403);
+  const id = Number(body.post || body.id);
+  if (!Number.isInteger(id) || id < 1) return fail("bad request");
+  const row = await env.STATS.prepare("SELECT id, hidden FROM forum_posts WHERE id = ?").bind(id).first();
+  if (!row || row.hidden !== 0) return fail("not found", 404);
+  await env.STATS.prepare("UPDATE forum_posts SET pinned = ? WHERE id = ?").bind(body.on ? Date.now() : 0, id).run();
+  const fresh = await env.STATS.prepare("SELECT * FROM forum_posts WHERE id = ?").bind(id).first();
+  return { status: 200, json: { ok: true, post: viewPost(env, fresh, user, who, 0) } };
+}
+
 /** Решения владельца прямо в приложении: те же, что кнопки под уведомлениями. */
 async function mod(env, body, who) {
   if (!who.staff) return fail("forbidden", 403);
@@ -868,6 +893,7 @@ export async function forumModerate(env, action, kind, id) {
 export const FORUM_HELP = [
   "<b>Подслушка</b> — общий форум вузов.",
   "/forum — сводка и посты на проверке",
+  "/fstats — статистика Подслушки",
   "/fclear — стереть все посты и ответы и снять модераторов (переспросит)",
   "/fclose [текст людям] — закрыть Подслушку на ремонт (переспросит) · /fopen — открыть",
   "/forum off · /forum on — то же без переспроса",
@@ -909,6 +935,48 @@ export async function forumWipe(env) {
   return `Стёр: постов ${posts}, ответов ${replies}. Модераторов снято: ${mods}. Выдать заново: /fmod @ник`;
 }
 
+/** /fstats: статистика только по Подслушке. */
+async function forumStats(env) {
+  const one = async (sql, ...args) => (await env.STATS.prepare(sql).bind(...args).first()) || {};
+  const day = new Date(Date.now() - 86400000).toISOString();
+  const week = new Date(Date.now() - 7 * 86400000).toISOString();
+  const posts = await one(
+    `SELECT COUNT(*) AS all_, SUM(hidden = 0) AS shown, SUM(hidden = 3) AS waiting, SUM(hidden = 1) AS reported,
+            SUM(hidden = 2) AS deleted, SUM(anon = 1) AS anon, SUM(created > ?) AS day, SUM(created > ?) AS week
+     FROM forum_posts`, day, week);
+  const replies = await one(
+    "SELECT COUNT(*) AS all_, SUM(hidden = 0) AS shown, SUM(created > ?) AS day, SUM(created > ?) AS week FROM forum_replies", day, week);
+  const authors = await one(
+    `SELECT COUNT(DISTINCT tg_id) AS n, COUNT(DISTINCT CASE WHEN created > ? THEN tg_id END) AS week
+     FROM (SELECT tg_id, created FROM forum_posts WHERE tg_id > 0 UNION ALL SELECT tg_id, created FROM forum_replies WHERE tg_id > 0)`, week);
+  const votes = await one(
+    "SELECT (SELECT COUNT(*) FROM forum_likes WHERE v = 1) + (SELECT COUNT(*) FROM forum_reply_likes WHERE v = 1) AS up, (SELECT COUNT(*) FROM forum_likes WHERE v = -1) + (SELECT COUNT(*) FROM forum_reply_likes WHERE v = -1) AS down");
+  const voters = await one("SELECT COUNT(DISTINCT tg_id) AS n FROM (SELECT tg_id FROM forum_likes UNION SELECT tg_id FROM forum_reply_likes)");
+  const reports = await one("SELECT COUNT(*) AS n, COUNT(DISTINCT tg_id) AS people FROM forum_reports");
+  const roles = await one("SELECT SUM(role = 'tester') AS testers, SUM(role = 'moderator') AS mods FROM forum_roles");
+  const notify = await one("SELECT SUM(notify = 1) AS on_, SUM(notify = 0) AS off FROM forum_prefs");
+  const { results: top = [] } = await env.STATS.prepare(
+    "SELECT id, text, likes, replies FROM forum_posts WHERE hidden = 0 ORDER BY likes * 3 + replies DESC, id DESC LIMIT 3"
+  ).all();
+  const n = (v) => Number(v) || 0;
+  const access = await setting(env, "forum_access", "testers");
+  const on = (await setting(env, "forum_on", "1")) === "1";
+  return [
+    "📊 <b>Подслушка — статистика</b>",
+    `Форум: ${on ? "работает" : "⛔ закрыт на ремонт"}, доступ: ${access === "all" ? "всем" : "только своим (тестирование)"}`,
+    "",
+    `<b>Посты:</b> ${n(posts.all_)} (на виду ${n(posts.shown)}, ждут проверки ${n(posts.waiting)}, скрыты жалобами ${n(posts.reported)}, удалены ${n(posts.deleted)})`,
+    `  анонимно ${n(posts.anon)} из ${n(posts.all_)} · за сутки ${n(posts.day)} · за неделю ${n(posts.week)}`,
+    `<b>Ответы:</b> ${n(replies.all_)} (на виду ${n(replies.shown)}) · за сутки ${n(replies.day)} · за неделю ${n(replies.week)}`,
+    `<b>Пишут:</b> ${n(authors.n)} человек всего, ${n(authors.week)} за неделю`,
+    `<b>Голоса:</b> ▲ ${n(votes.up)} · ▼ ${n(votes.down)} · голосовали ${n(voters.n)} человек`,
+    `<b>Жалобы:</b> ${n(reports.n)} от ${n(reports.people)} человек`,
+    `<b>Роли:</b> тестировщиков ${n(roles.testers)}, модераторов ${n(roles.mods)}`,
+    `<b>Ответы в бота:</b> включены у ${n(notify.on_)}, выключены у ${n(notify.off)}`,
+    ...(top.length ? ["", "<b>Самые обсуждаемые:</b>", ...top.map((p) => `№${p.id} · рейтинг ${p.likes} · ответов ${p.replies} — ${escape(String(p.text).replace(/\s+/g, " ").slice(0, 60))}`)] : []),
+  ].join("\n");
+}
+
 /** Ответ на кнопки «Да, закрыть» / «Отмена» под /fclose. */
 export async function forumCloseConfirm(env, yes) {
   const pending = await setting(env, "forum_close_pending", "");
@@ -934,6 +1002,7 @@ export async function forumCommand(env, text, findPerson) {
       keyboard: [[{ text: "⛔ Да, закрыть", callback_data: "fcl:y" }, { text: "Отмена", callback_data: "fcl:n" }]],
     };
   }
+  if (cmd === "fstats") return { text: await forumStats(env) };
   if (cmd === "fclear") {
     // Необратимо — только после кнопки «Да».
     return {

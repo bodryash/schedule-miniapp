@@ -85,6 +85,7 @@ for (const change of [
   "ALTER TABLE forum_replies ADD COLUMN likes INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE forum_reports ADD COLUMN reason TEXT NOT NULL DEFAULT ''",
   "ALTER TABLE forum_reports ADD COLUMN name TEXT NOT NULL DEFAULT ''",
+  "ALTER TABLE forum_posts ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE forum_reports ADD COLUMN username TEXT",
   // Голосование стрелками: +1 «за», −1 «против». Прежние лайки остаются голосами «за».
   "ALTER TABLE forum_likes ADD COLUMN v INTEGER NOT NULL DEFAULT 1",
@@ -171,6 +172,20 @@ async function inboxSync(botEnv, sendToInbox) {
   }
   return `Отправил на разбор:\n${report.join("\n")}`;
 }
+
+/**
+ * Фото профиля для аватарок Подслушки: качаем так же кусками (через
+ * пересыльщик целиком не проходит) и держим в памяти 6 часов.
+ */
+const photoCache = new Map();
+globalThis.SCHEDULE_TG_PHOTO = async (key, filePath, size) => {
+  const hit = photoCache.get(key);
+  if (hit && Date.now() - hit.at < 6 * 3600000) return hit.data;
+  const data = await downloadTelegramFile(`https://api.telegram.org/file/bot${env.BOT_TOKEN}/${filePath}`, size || 0);
+  if (photoCache.size > 400) photoCache.delete(photoCache.keys().next().value);
+  photoCache.set(key, { at: Date.now(), data });
+  return data;
+};
 
 /**
  * Файл из Telegram. Через пересыльщик на Cloudflare длинное скачивание из
