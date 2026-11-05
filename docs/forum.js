@@ -811,20 +811,45 @@
     if (!box) return;
     const g = S.gameInfo;
     box.hidden = !(g && (g.on || g.preview));
+    clearInterval(S.gameTimer);
     if (box.hidden) return;
-    const until = new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "long" }).format(new Date(g.ends));
     box.replaceChildren(
       Object.assign(document.createElement("span"), { className: "fm-game-ico", textContent: "🎮" }),
       Object.assign(document.createElement("span"), { className: "fm-game-text" }),
       Object.assign(document.createElement("span"), { className: "fm-game-go", textContent: t("Играть") })
     );
     const text = box.querySelector(".fm-game-text");
+    const clock = document.createElement("span");
+    clock.className = "fm-game-clock";
     text.append(
       Object.assign(document.createElement("b"), { textContent: t("Сессия 2048 — турнир вузов") }),
+      clock,
       Object.assign(document.createElement("small"), {
-        textContent: g.on ? t("До {date} · ваш рекорд — в счёт факультета", { date: until }) : t("Видно только вам · запуск: /g2048 start"),
+        textContent: g.on ? t("Ваш рекорд — в счёт факультета") : t("Видно только вам · запуск: /g2048 start"),
       })
     );
+    // Живой отсчёт до конца турнира: дни, часы, минуты, секунды.
+    const two = (n) => String(n).padStart(2, "0");
+    const tick = () => {
+      const left = Math.max(0, g.ends - Date.now());
+      if (!left) {
+        clock.textContent = t("Турнир закончился");
+        clearInterval(S.gameTimer);
+        return;
+      }
+      const d = Math.floor(left / 86400000);
+      const h = Math.floor((left % 86400000) / 3600000);
+      const m = Math.floor((left % 3600000) / 60000);
+      const sec = Math.floor((left % 60000) / 1000);
+      clock.replaceChildren(
+        document.createTextNode(t("До конца") + " "),
+        Object.assign(document.createElement("b"), { textContent: d ? `${d} ${t("д")} ${two(h)}:${two(m)}:${two(sec)}` : `${two(h)}:${two(m)}:${two(sec)}` })
+      );
+    };
+    tick();
+    S.gameTimer = setInterval(() => {
+      if (S.open && !document.hidden) tick();
+    }, 1000);
   }
 
   /** Текст черновика, если он есть: его показываем прямо в строке «Что у вас на уме?». */

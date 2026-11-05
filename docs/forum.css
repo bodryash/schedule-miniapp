@@ -2337,3 +2337,16 @@ body.fm-open .minihead {
   font-size: 14px;
   line-height: 1;
 }
+
+/* Живой отсчёт до конца турнира в плашке. */
+.fm-game-clock {
+  font-size: 13px;
+  color: #fff;
+  opacity: 0.95;
+}
+
+.fm-game-clock b {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
