@@ -542,7 +542,7 @@ body.g2-open .minihead {
   font-size: 64px;
   line-height: 1;
   transform-style: preserve-3d;
-  animation: g2-spin 4.8s cubic-bezier(0.45, 0, 0.55, 1) infinite, g2-float 2.4s ease-in-out infinite;
+  animation: g2-breathe 3.2s ease-in-out infinite;
   filter: drop-shadow(0 8px 10px rgba(180, 110, 0, 0.35));
 }
 
@@ -711,7 +711,7 @@ body.g2-open .minihead {
 
 .g2-pod--1 .g2-pod-medal {
   font-size: 40px;
-  animation: g2-float 2.4s ease-in-out infinite, g2-spin-soft 5s ease-in-out infinite;
+  animation: g2-breathe 3.2s ease-in-out infinite;
 }
 
 @keyframes g2-spin-soft {
@@ -804,7 +804,7 @@ body.g2-open .minihead {
 
 .g2-promo-ico {
   display: inline-block;
-  animation: g2-spin 4.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  animation: g2-breathe 3.2s ease-in-out infinite;
 }
 
 @keyframes g2-shine {
@@ -826,4 +826,10 @@ body.g2-open .minihead {
   .g2-promo-ico {
     animation: none;
   }
+}
+
+/* Кубок не вращается (он плоский), а медленно «дышит». */
+@keyframes g2-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
 }
