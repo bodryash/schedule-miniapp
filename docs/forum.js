@@ -2631,7 +2631,7 @@
     const submit = async () => {
       if (busy) return;
       const text = area.value.trim();
-      if (text.length < 3) return showErr(t("Напишите хотя бы пару слов."));
+      if (text.length < 3) return showErr(t("Напишите хотя бы пару фраз :P"));
       const bad = precheck(text);
       if (bad) return showErr(bad);
       busy = true;
