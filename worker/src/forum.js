@@ -501,7 +501,8 @@ async function list(env, body, user, who, ban) {
       // Для приложения «owner» значит «есть права проверять»: так показываются вкладка «Проверка» и кнопки.
       owner: who.staff,
       // Своя аватарка: в Telegram photo_url приходит не всем, поэтому — через сервер.
-      game: { ...eventInfo(), on: eventInfo().live && (await gameLaunched(env)) },
+      // Плашка турнира: всем — после /g2048 start; владельцу — сразу, чтобы проверить до запуска.
+      game: { ...eventInfo(), on: eventInfo().live && (await gameLaunched(env)), preview: who.owner && eventInfo().live },
       meAva: `/forum/ava/u/${user.id}.${await avaSig(env, user.id)}`,
       role: who.role || null,
       banned: ban,
