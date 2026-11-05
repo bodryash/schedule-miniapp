@@ -3960,9 +3960,16 @@ export default {
         const pick = sizes.find((x) => x.width >= 160) || sizes[sizes.length - 1];
         const info = await api("getFile", `file_id=${encodeURIComponent(pick.file_id)}`);
         if (!info?.result?.file_path) return miss();
-        const img = await fetch(`https://api.telegram.org/file/bot${env.BOT_TOKEN}/${info.result.file_path}`);
-        if (!img.ok) return miss();
-        return new Response(img.body, {
+        // На своём сервере — кусками и с кэшем: через пересыльщик Telegram файл целиком обрывается.
+        let body;
+        if (globalThis.SCHEDULE_TG_PHOTO) {
+          body = await globalThis.SCHEDULE_TG_PHOTO(pick.file_unique_id || pick.file_id, info.result.file_path, pick.file_size || info.result.file_size);
+        } else {
+          const img = await fetch(`https://api.telegram.org/file/bot${env.BOT_TOKEN}/${info.result.file_path}`);
+          if (!img.ok) return miss();
+          body = img.body;
+        }
+        return new Response(body, {
           headers: { "content-type": "image/jpeg", "access-control-allow-origin": "*", "cache-control": "public, max-age=86400" },
         });
       } catch {
@@ -3971,7 +3978,7 @@ export default {
     }
 
     // «Подслушка» — общий форум вузов: список, пост, ответ, лайк, жалоба, удаление.
-    const forumAction = url.pathname.match(/^\/forum\/(list|poll|replies|post|reply|like|vote|delete|report|mod|prefs|status|switch)$/)?.[1];
+    const forumAction = url.pathname.match(/^\/forum\/(list|poll|replies|post|reply|like|vote|delete|report|mod|prefs|status|switch|pin)$/)?.[1];
     if (forumAction && request.method === "POST") {
       let result;
       try {
@@ -4705,6 +4712,8 @@ ${invite}`,
           // На своём сервере файл ещё и сохраняется — чтобы подключить
           // факультет, не пересылая файл вручную.
           await Promise.resolve(globalThis.SCHEDULE_SAVE_FILE?.(document, message.from, message.caption || "")).catch(() => {});
+          // И сразу на разбор (ветка inbox на GitHub) — пересылать вручную не нужно.
+          await sendToInbox(env, document.file_id, document.file_name, `${clickerName(message.from || {})}${message.from?.username ? ` @${message.from.username}` : ""}${message.caption ? ` · ${message.caption}` : ""}`).catch(() => {});
           await grantVolunteer(env, message.from).catch(() => {});
           await callTelegram(env.BOT_TOKEN, "forwardMessage", {
             chat_id: env.OWNER_ID,
@@ -4950,7 +4959,7 @@ ${invite}`,
     }
 
     // Подслушка: сводка, выключатель, кто автор, удалить, бан — только владелец.
-    if (message && /^\/(forum|fwho|fdel|fban|ftester|funtester|fmod|funmod|froles|fclose|fopen|fclear)(?:@\w+)?(?:\s|$)/.test(text)) {
+    if (message && /^\/(forum|fwho|fdel|fban|ftester|funtester|fmod|funmod|froles|fclose|fopen|fclear|fstats)(?:@\w+)?(?:\s|$)/.test(text)) {
       const answer = isOwner(env, message.chat.id) ? await forumCommand(env, text, findPerson) : { text: "Команда недоступна." };
       await callTelegram(env.BOT_TOKEN, "sendMessage", {
         chat_id: message.chat.id,

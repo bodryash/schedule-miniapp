@@ -511,6 +511,8 @@ CREATE TABLE IF NOT EXISTS forum_posts (
   likes    INTEGER NOT NULL DEFAULT 0,
   replies  INTEGER NOT NULL DEFAULT 0,
   -- Почему отправлен на проверку: «новичок», «стоп-слово: …» и т. п.
+  -- Закреплён владельцем: когда (мс), 0 — не закреплён.
+  pinned   INTEGER NOT NULL DEFAULT 0,
   held_for  TEXT NOT NULL DEFAULT '',
   -- Необязательная подпись автора («МГУ · ФГП»); чисто для красоты.
   tag       TEXT NOT NULL DEFAULT ''
