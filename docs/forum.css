@@ -2351,25 +2351,12 @@ body.fm-open .minihead {
   letter-spacing: 0.02em;
 }
 
-/* Плашка турнира: дышит, светится и блестит — главная приманка Подслушки.
-   Двигаются только transform и opacity (кроме тонкого блика). */
+/* Плашка турнира: дышит и блестит — главная приманка Подслушки.
+   Двигаются только transform и opacity . */
 .fm-game {
   position: relative;
   isolation: isolate;
   animation: fm-game-breathe 3.6s ease-in-out infinite;
-}
-
-.fm-game::before {
-  content: "";
-  position: absolute;
-  inset: -4px -2px -8px;
-  z-index: -1;
-  border-radius: 24px;
-  background: var(--accent);
-  filter: blur(16px);
-  opacity: 0.3;
-  animation: fm-game-halo 3.6s ease-in-out infinite;
-  pointer-events: none;
 }
 
 .fm-game::after {
@@ -2398,11 +2385,6 @@ body.fm-open .minihead {
   50% { transform: scale(1.018); }
 }
 
-@keyframes fm-game-halo {
-  0%, 100% { opacity: 0.22; transform: scale(0.97); }
-  50% { opacity: 0.5; transform: scale(1.03); }
-}
-
 @keyframes fm-game-shine {
   0% { background-position: -160% 0; }
   45%, 100% { background-position: 260% 0; }
@@ -2424,7 +2406,6 @@ body.fm-open .minihead {
 
 @media (prefers-reduced-motion: reduce) {
   .fm-game,
-  .fm-game::before,
   .fm-game::after,
   .fm-game-ico,
   .fm-game-go {

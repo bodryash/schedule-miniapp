@@ -5544,41 +5544,6 @@ function fillDigits() {
     colors.append(chip);
   }
   nodes.push(el("div", "profiles-title profiles-title--next", t("Цвет акцента")), colors);
-
-  // Эффекты: объём и свет. «Авто» сам решает по телефону.
-  const fxMode = (() => {
-    try {
-      return localStorage.getItem("schedule.fx") || "auto";
-    } catch {
-      return "auto";
-    }
-  })();
-  const fxRow = el("div", "look-fx");
-  for (const [id, label] of [["auto", t("Авто")], ["on", t("Максимум")], ["off", t("Выкл")]]) {
-    const chip = el("button", id === fxMode ? "chip chip--on" : "chip", label);
-    chip.type = "button";
-    chip.addEventListener("click", () => {
-      haptic("select");
-      loadFx();
-      const apply = () => window.FX?.set(id);
-      if (window.FX) apply();
-      else {
-        try {
-          localStorage.setItem("schedule.fx", id === "auto" ? "" : id);
-        } catch {
-          // Без памяти — до перезапуска.
-        }
-        document.documentElement.dataset.fx = id === "off" ? "off" : "css";
-      }
-      for (const c of fxRow.children) c.classList.toggle("chip--on", c === chip);
-    });
-    fxRow.append(chip);
-  }
-  nodes.push(
-    el("div", "profiles-title profiles-title--next", t("Эффекты")),
-    fxRow,
-    el("p", "hint", t("Объём и мягкий свет. «Авто» включает шейдер только на мощных телефонах и сам отключает, если начнёт подлагивать."))
-  );
   if (grantedTheme && !(grantedTheme === "volunteer" && volunteerOff())) {
     nodes.push(el("p", "hint", t("Сейчас надета выданная тема — она сильнее. Выбранная включится, когда её снимут.")));
   }
@@ -11132,17 +11097,6 @@ async function openForum(opts) {
   return forumAssets.then(() => window.showForum?.(opts));
 }
 
-/** Слой материалов: объём и свет (fx.js). Сам выбирает уровень по телефону. */
-let fxLoaded = false;
-function loadFx() {
-  if (fxLoaded) return;
-  fxLoaded = true;
-  const js = document.createElement("script");
-  js.src = `fx.js?v=${window.__v || Date.now()}`;
-  js.async = true;
-  document.head.append(js);
-}
-
 /** «Сессия 2048» — грузится, только когда её открывают (game.js, game.css). */
 let gameAssets = null;
 function openGame() {
@@ -13304,8 +13258,6 @@ async function init() {
   }
   // Расписание уже нарисовано под заставкой — теперь она может собраться и уйти.
   finishSplash();
-  // Материалы (объём, свет, шейдер) — после заставки, чтобы не мешать ей.
-  setTimeout(loadFx, SPLASH_MIN + 500);
   // Пришли по ссылке «поделиться» — спросим, когда заставка уйдёт.
   setTimeout(acceptShared, SPLASH_MIN + 600);
   setTimeout(acceptInvite, SPLASH_MIN + 700);
