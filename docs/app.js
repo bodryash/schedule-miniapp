@@ -11048,7 +11048,13 @@ document.getElementById("forum-btn")?.addEventListener("click", () => {
 const FORUM_FLAG_URLS = ["https://bodryash.github.io/schedule-miniapp/forum-status.json", "forum-status.json"];
 async function forumKill() {
   const within = (promise) => promise.then((res) => (res.ok ? res.json() : null)).catch(() => null);
-  const timeout = () => AbortSignal.timeout(2500);
+  // AbortSignal.timeout есть не во всех Telegram (старые iOS): без него
+  // форум вообще не открывался — делаем таймер сами.
+  const timeout = () => {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 2500);
+    return controller.signal;
+  };
   const flags = await Promise.all([
     ...FORUM_FLAG_URLS.map((url) => within(fetch(`${url}?t=${Date.now()}`, { cache: "no-store", signal: timeout() }))),
     // Сервер знает и про /fclose, и про кнопку владельца в приложении; заодно скажет, владелец ли это.
@@ -11066,7 +11072,8 @@ window.forumKillNotice = (flag) =>
 
 async function openForum(opts) {
   if (!tg?.initData) return;
-  const flag = await forumKill();
+  // Выключатель только закрывает: если проверка сама сломалась — открываем.
+  const flag = await forumKill().catch(() => null);
   if (flag?.off) return window.forumKillNotice(flag);
   if (typeof window.showForum === "function") return window.showForum(opts);
   forumAssets ||= new Promise((resolve, reject) => {
