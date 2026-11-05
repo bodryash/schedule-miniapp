@@ -361,6 +361,16 @@ function viewReply(env, row, user, perm, postRow, byId, vote) {
   };
 }
 
+/**
+ * Подпись адреса своей аватарки: /forum/ava/u/<id>.<sig>. Без подписи по
+ * адресу можно было бы перебрать чужие фото по номерам.
+ */
+export async function avaSig(env, id) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(`ava:${env.BOT_TOKEN}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(String(id))));
+  return [...mac.slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 /* ---------- API ---------- */
 
 /** Закрыта ли Подслушка на ремонт и что написать людям. */
@@ -481,6 +491,8 @@ async function list(env, body, user, who, ban) {
       ok: true,
       // Для приложения «owner» значит «есть права проверять»: так показываются вкладка «Проверка» и кнопки.
       owner: who.staff,
+      // Своя аватарка: в Telegram photo_url приходит не всем, поэтому — через сервер.
+      meAva: `/forum/ava/u/${user.id}.${await avaSig(env, user.id)}`,
       role: who.role || null,
       banned: ban,
       top: top?.id || 0,
