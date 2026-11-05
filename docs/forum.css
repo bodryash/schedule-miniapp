@@ -2259,3 +2259,17 @@ body.fm-open .minihead {
   width: 16px;
   height: 16px;
 }
+
+.fm-edited {
+  flex: none;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.fm-edited::before {
+  content: "· ";
+}
+
+.sheet--fm-editor .fm-comp-as {
+  margin-left: 16px;
+}

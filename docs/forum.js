@@ -1087,6 +1087,7 @@
     time.dateTime = post.created;
     time.textContent = ago(post.created);
     meta.append(time);
+    if (post.edited) meta.append(Object.assign(document.createElement("span"), { className: "fm-edited", textContent: t("изменено") }));
     const dots = document.createElement("button");
     dots.type = "button";
     dots.className = "fm-dots";
@@ -1738,7 +1739,7 @@
     if (bigCheck && !post.tg) nameLine.append(bigCheck);
     who.append(nameLine);
     const sub = document.createElement("small");
-    sub.textContent = fullTime(post.created);
+    sub.textContent = fullTime(post.created) + (post.edited ? ` · ${t("изменено")}` : "");
     if (post.tag) sub.append(Object.assign(document.createElement("span"), { className: "fm-tag", textContent: post.tag }));
     who.append(sub);
     const dots = document.createElement("button");
@@ -1872,6 +1873,7 @@
     time.dateTime = reply.created;
     time.textContent = ago(reply.created);
     meta.append(time);
+    if (reply.edited) meta.append(Object.assign(document.createElement("span"), { className: "fm-edited", textContent: t("изменено") }));
     if (!reply.tmp) meta.append(replyDots(reply));
     main.append(meta);
     if (reply.pending) main.append(badge("clock", t("На проверке")));
@@ -2193,11 +2195,13 @@
             Object.assign(item, res.post);
             haptic("success");
             toast(item.pinned ? t("Пост закреплён наверху") : t("Пост откреплён"), { icon: "pin" });
-            if (S.sort === "new") load(true, { silent: true });
+            if (T.open && T.id === item.id) closeThread();
+            if (S.sort !== "review") load(true, { silent: true });
+            smoothScroll(S.scroll, 0);
           } catch (error) {
             toast(errorText(error), { tone: "bad", icon: "alert" });
           }
-        }, { sub: item.pinned ? t("Вернуть на своё место в ленте") : t("Первым в «Новом» у всех") }));
+        }, { sub: item.pinned ? t("Вернуть на своё место в ленте") : t("Первым в ленте у всех") }));
       }
       if (kind === "p" && !item.pending && item.id > 0) {
         list.append(actionRow("share", t("Поделиться"), () => {
@@ -2216,6 +2220,12 @@
           if (tg?.openTelegramLink) tg.openTelegramLink(share);
           else window.open(share, "_blank", "noopener");
         }, { sub: t("Отправить в чат") }));
+      }
+      if (item.mine && item.id > 0 && !item.tmp) {
+        list.append(actionRow("pen", t("Изменить"), () => {
+          sheet.close();
+          setTimeout(() => openEditor(kind, item), 200);
+        }));
       }
       if (!item.mine) list.append(actionRow("flag", t("Пожаловаться"), () => swap(sheet, reasons), { sub: t("Модератор посмотрит") }));
       if (item.canDelete) list.append(actionRow("trash", t("Удалить"), () => swap(sheet, () => confirm({ title: t("Удалить {what}?", { what: noun }), text: t("Это нельзя отменить."), cta: t("Удалить"), run: () => doDelete() })), { bad: true }));
@@ -2408,6 +2418,82 @@
       S.notify = res.notify;
       toggle.setAttribute("aria-checked", String(res.notify));
     }).catch(() => {});
+  }
+
+  /* ---------- Правка своего поста или ответа ---------- */
+
+  function openEditor(kind, item) {
+    const sheet = (S.sheets.editor ||= makeSheet("sheet--fm-composer sheet--fm-editor", { input: true }));
+    const max = kind === "p" ? POST_MAX : REPLY_MAX;
+    const box = document.createElement("div");
+    box.className = "fm-composer";
+    const top = document.createElement("div");
+    top.className = "fm-comp-top";
+    const cancel = Object.assign(document.createElement("button"), { type: "button", className: "fm-link", textContent: t("Отмена") });
+    const title = Object.assign(document.createElement("h2"), { textContent: kind === "p" ? t("Изменить пост") : t("Изменить ответ") });
+    const save = Object.assign(document.createElement("button"), { type: "button", className: "fm-publish is-ready", textContent: t("Сохранить") });
+    top.append(cancel, title, save);
+    const body = document.createElement("div");
+    body.className = "fm-comp-body";
+    const area = document.createElement("textarea");
+    area.maxLength = max + 60;
+    area.value = item.text;
+    body.append(area);
+    const err = document.createElement("div");
+    err.className = "fm-comp-err";
+    const hint = Object.assign(document.createElement("div"), { className: "fm-comp-as", textContent: t("Рядом с текстом появится пометка «изменено».") });
+    box.append(top, body, hint, err);
+    fill(sheet.sh, box);
+    const sync = () => {
+      const len = area.value.trim().length;
+      save.classList.toggle("is-ready", len >= 3 && len <= max && area.value.trim() !== item.text);
+    };
+    const showErr = (message) => {
+      err.replaceChildren(icon("alert"), Object.assign(document.createElement("span"), { textContent: message }));
+      err.classList.add("is-on");
+      haptic("error");
+    };
+    area.addEventListener("input", () => {
+      err.classList.remove("is-on");
+      sync();
+    });
+    cancel.addEventListener("click", () => sheet.close());
+    let busy = false;
+    save.addEventListener("click", async () => {
+      const text = area.value.trim();
+      if (busy || text === item.text) return sheet.close();
+      if (text.length < 3) return showErr(t("Напишите хотя бы пару фраз :P"));
+      if (text.length > max) return showErr(t("Слишком длинно."));
+      busy = true;
+      save.classList.add("is-busy");
+      try {
+        const res = await request("edit", { kind, id: item.id, text });
+        item.text = res.text || text;
+        item.edited = true;
+        if (res.pending) item.pending = true;
+        haptic("success");
+        sheet.close();
+        if (kind === "p") {
+          replaceRow(item);
+          if (T.open && T.id === item.id) {
+            T.wrap.querySelector(".fm-th-post")?.remove();
+            renderThread({});
+          }
+        } else if (T.open) renderThread({});
+        toast(res.pending ? t("Изменено — уйдёт на проверку перед публикацией.") : t("Изменено"), res.pending ? { tone: "warn", icon: "clock", ms: 3600 } : { icon: "check" });
+      } catch (error) {
+        showErr(errorText(error));
+      } finally {
+        busy = false;
+        save.classList.remove("is-busy");
+      }
+    });
+    sync();
+    sheet.open();
+    setTimeout(() => {
+      area.focus();
+      area.setSelectionRange(area.value.length, area.value.length);
+    }, 320);
   }
 
   /* ---------- Управление (только владелец): закрыть на ремонт ---------- */
