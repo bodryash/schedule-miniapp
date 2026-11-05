@@ -11120,7 +11120,7 @@ function openGame() {
     gameAssets = null;
     console.error("Игра не загрузилась:", error);
   });
-  gameAssets.then(() => window.showGame?.());
+  return gameAssets.then(() => window.showGame?.());
 }
 window.openGame = openGame;
 

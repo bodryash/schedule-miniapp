@@ -490,10 +490,12 @@
     gameBanner.type = "button";
     gameBanner.className = "fm-game";
     gameBanner.hidden = true;
-    gameBanner.addEventListener("click", () => {
+    gameBanner.addEventListener("click", async () => {
       haptic("medium");
-      closeForum({ instant: true });
-      setTimeout(() => window.openGame?.(), 60);
+      // Сначала игра выезжает поверх Подслушки, потом Подслушка тихо уходит
+      // под ней — расписание между ними не мелькает.
+      await Promise.resolve(window.openGame?.()).catch(() => {});
+      closeForum({ instant: true, under: true });
     });
     wrap.append(segwrap, lock, gameBanner, prompt, feed, tail);
     scroll.append(ptr, wrap);
@@ -659,7 +661,9 @@
     if (fab) animate(fab, [{ opacity: 0, transform: "scale(0.4) rotate(-40deg)" }, { opacity: 1, transform: "scale(1) rotate(0)" }], { duration: 560, delay: 700, easing: "cubic-bezier(0.34, 1.5, 0.5, 1)", fill: "backwards" });
   }
 
-  function closeForum({ instant = false } = {}) {
+  /** under — уходим в другой полноэкранный режим (игру): кнопку «назад» и
+   *  запрет системного свайпа не трогаем, они нужны уже ему. */
+  function closeForum({ instant = false, under = false } = {}) {
     if (!S.open) return;
     S.open = false;
     document.body.classList.remove("fm-open");
@@ -690,8 +694,13 @@
       requestAnimationFrame(() => (S.root.style.transition = ""));
     }
     S.root.classList.remove("is-open");
-    detachBackButton();
-    tg?.enableVerticalSwipes?.();
+    if (under) {
+      if (tg?.BackButton && S.backHandler) tg.BackButton.offClick(S.backHandler);
+      S.backHandler = null;
+    } else {
+      detachBackButton();
+      tg?.enableVerticalSwipes?.();
+    }
     const done = () => {
       if (!S.open) S.root.hidden = true;
     };
