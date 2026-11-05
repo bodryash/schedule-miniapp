@@ -2246,7 +2246,7 @@ body.fm-open .minihead {
   width: 16px;
   height: 16px;
   margin-left: 2px;
-  color: #2f8ff0;
+  color: #0095f6;
   vertical-align: -3px;
 }
 
@@ -2258,5 +2258,4 @@ body.fm-open .minihead {
 .fm-verified .fm-i svg {
   width: 16px;
   height: 16px;
-  stroke: none;
 }
