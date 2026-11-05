@@ -2238,22 +2238,24 @@ body.fm-open .minihead {
   background: rgba(8, 10, 20, 0.45);
 }
 
-/* Галочка администратора у имени — как у подтверждённых аккаунтов. */
+/* Галочка администратора — ровный синий кружок с белой галочкой, справа от @ника. */
 .fm-verified {
   display: inline-flex;
   flex: none;
   align-self: center;
-  margin-left: -2px;
-  color: #3b9cf5;
+  width: 16px;
+  height: 16px;
+  margin-left: 2px;
+  color: #0095f6;
+  vertical-align: -3px;
 }
 
 .fm-name .fm-verified {
   margin-left: 4px;
-  vertical-align: -3px;
 }
 
+.fm-verified .fm-i,
 .fm-verified .fm-i svg {
-  width: 17px;
-  height: 17px;
-  stroke: none;
+  width: 16px;
+  height: 16px;
 }

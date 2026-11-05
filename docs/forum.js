@@ -47,7 +47,7 @@
     person: '<circle cx="12" cy="8.3" r="3.6"/><path d="M5 20c.9-3.9 3.7-6 7-6s6.1 2.1 7 6"/>',
     pen: '<path d="M4 20l.9-4L16.3 4.6a2 2 0 0 1 2.8 2.8L7.7 18.8z"/><path d="M14.3 6.6l3 3"/>',
     refresh: '<path d="M19.5 11.5a7.5 7.5 0 1 0-2.2 5.7M19.5 5.5v6h-6"/>',
-    verified: '<path d="M12 2.6l2.3 1.7 2.8-.2.9 2.7 2.4 1.5-.8 2.7.8 2.7-2.4 1.5-.9 2.7-2.8-.2L12 21.4l-2.3-1.7-2.8.2-.9-2.7-2.4-1.5.8-2.7-.8-2.7 2.4-1.5.9-2.7 2.8.2z" fill="currentColor" stroke="none"/><path d="M8.4 12.2l2.4 2.4 4.8-5" stroke="#fff" stroke-width="2" fill="none"/>',
+    verified: '<path d="M22.65 12.00 L22.50 12.69 L22.09 13.33 L21.51 13.89 L20.91 14.39 L20.41 14.85 L20.08 15.35 L19.96 15.93 L19.99 16.61 L20.07 17.39 L20.07 18.19 L19.91 18.94 L19.53 19.53 L18.94 19.91 L18.19 20.07 L17.39 20.07 L16.61 19.99 L15.93 19.96 L15.35 20.08 L14.85 20.41 L14.39 20.91 L13.89 21.51 L13.33 22.09 L12.69 22.50 L12.00 22.65 L11.31 22.50 L10.67 22.09 L10.11 21.51 L9.61 20.91 L9.15 20.41 L8.65 20.08 L8.07 19.96 L7.39 19.99 L6.61 20.07 L5.81 20.07 L5.06 19.91 L4.47 19.53 L4.09 18.94 L3.93 18.19 L3.93 17.39 L4.01 16.61 L4.04 15.93 L3.92 15.35 L3.59 14.85 L3.09 14.39 L2.49 13.89 L1.91 13.33 L1.50 12.69 L1.35 12.00 L1.50 11.31 L1.91 10.67 L2.49 10.11 L3.09 9.61 L3.59 9.15 L3.92 8.65 L4.04 8.07 L4.01 7.39 L3.93 6.61 L3.93 5.81 L4.09 5.06 L4.47 4.47 L5.06 4.09 L5.81 3.93 L6.61 3.93 L7.39 4.01 L8.07 4.04 L8.65 3.92 L9.15 3.59 L9.61 3.09 L10.11 2.49 L10.67 1.91 L11.31 1.50 L12.00 1.35 L12.69 1.50 L13.33 1.91 L13.89 2.49 L14.39 3.09 L14.85 3.59 L15.35 3.92 L15.93 4.04 L16.61 4.01 L17.39 3.93 L18.19 3.93 L18.94 4.09 L19.53 4.47 L19.91 5.06 L20.07 5.81 L20.07 6.61 L19.99 7.39 L19.96 8.07 L20.08 8.65 L20.41 9.15 L20.91 9.61 L21.51 10.11 L22.09 10.67 L22.50 11.31Z" fill="currentColor" stroke="currentColor" stroke-width="0.6" stroke-linejoin="round"/><path d="M8 12.3l2.8 2.8 5.3-5.6" stroke="#fff" stroke-width="2.1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
     pin: '<path d="M9 3.5h6l-1 5.5 3.5 3.5v1.5h-11V12.5L10 9z"/><path d="M12 14v6.5"/>',
     power: '<path d="M12 3.5v8"/><path d="M7.2 6.6a7.2 7.2 0 1 0 9.6 0"/>',
     shield: '<path d="M12 3.2l7 2.8v5.6c0 4.2-2.9 7.7-7 9.4-4.1-1.7-7-5.2-7-9.4V6z"/><path d="M9 12l2.2 2.2L15.2 10"/>',
@@ -129,7 +129,7 @@
     } else {
       a.textContent = ([...String(p.name || "?").trim()][0] || "?").toUpperCase();
       // Свой пост под своим именем — фото сразу из Telegram, без запроса к серверу.
-      const own = p.mine && p.ava ? tg?.initDataUnsafe?.user?.photo_url : "";
+      const own = p.mine && p.ava ? tg?.initDataUnsafe?.user?.photo_url || S.meAva || "" : "";
       const server = p.ava && Number.isInteger(p.id) && p.id > 0 ? `${FORUM_URL}/ava/${kind || "p"}/${p.id}` : "";
       if (p.photo) addPhoto(a, p.photo);
       else if (own) addPhoto(a, own, server);
@@ -772,7 +772,7 @@
 
   function renderPrompt() {
     const name = S.user.first_name || "";
-    const me = avatar({ name: name || "?", hue: hueOf(String(S.user.id || name)), photo: tg?.initDataUnsafe?.user?.photo_url });
+    const me = avatar({ name: name || "?", hue: hueOf(String(S.user.id || name)), photo: tg?.initDataUnsafe?.user?.photo_url || S.meAva });
     const field = document.createElement("span");
     field.className = "fm-prompt-field";
     const draft = draftText();
@@ -825,6 +825,10 @@
       if (token !== S.token) return;
       S.owner = Boolean(body.owner);
       S.role = body.role || null;
+      if (body.meAva && !S.meAva) {
+        S.meAva = `${API_URL}${body.meAva}`;
+        renderPrompt();
+      }
       S.review = body.review || 0;
       S.top = Math.max(S.top, body.top || 0);
       S.more = Boolean(body.more);
@@ -1065,9 +1069,10 @@
     name.className = "fm-name";
     name.textContent = post.name;
     meta.append(name);
+    if (post.tg) meta.append(Object.assign(document.createElement("span"), { className: "fm-nick fm-nick--row fm-tg", textContent: `@${post.tg}` }));
+    // Галочка — справа от @ника (если его нет — от имени).
     const check = badgeOf(post);
     if (check) meta.append(check);
-    if (post.tg) meta.append(Object.assign(document.createElement("span"), { className: "fm-nick fm-nick--row fm-tg", textContent: `@${post.tg}` }));
     if (post.pinned) {
       row.classList.add("is-pinned");
       const badge = document.createElement("span");
@@ -1730,7 +1735,7 @@
     who.className = "fm-th-who";
     const nameLine = Object.assign(document.createElement("span"), { className: "fm-name", textContent: post.name });
     const bigCheck = badgeOf(post);
-    if (bigCheck) nameLine.append(bigCheck);
+    if (bigCheck && !post.tg) nameLine.append(bigCheck);
     who.append(nameLine);
     const sub = document.createElement("small");
     sub.textContent = fullTime(post.created);
@@ -1747,7 +1752,8 @@
     if (post.tg) {
       const nick = Object.assign(document.createElement("span"), { className: "fm-nick fm-tg", textContent: `@${post.tg}` });
       nick.dataset.tg = post.tg;
-      sub.prepend(nick, document.createTextNode(" · "));
+      if (bigCheck) sub.prepend(nick, bigCheck, document.createTextNode(" · "));
+      else sub.prepend(nick, document.createTextNode(" · "));
     }
     head.append(bigAva, who, dots);
     box.append(head);
@@ -2541,7 +2547,7 @@
     box.append(top, body, as, err, tools);
     fill(sheet.sh, box);
 
-    const me = { name: S.user.first_name || t("Вы"), hue: hueOf(String(S.user.id || "me")), photo: tg?.initDataUnsafe?.user?.photo_url };
+    const me = { name: S.user.first_name || t("Вы"), hue: hueOf(String(S.user.id || "me")), photo: tg?.initDataUnsafe?.user?.photo_url || S.meAva };
     const faces = () => (anon ? avatar({ name: "?", emoji: "🕶", hue: 222 }) : avatar(me));
     let face = faces();
     ava.replaceWith(face);
