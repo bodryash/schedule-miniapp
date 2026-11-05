@@ -129,7 +129,7 @@
     } else {
       a.textContent = ([...String(p.name || "?").trim()][0] || "?").toUpperCase();
       // Свой пост под своим именем — фото сразу из Telegram, без запроса к серверу.
-      const own = p.mine && p.ava ? tg?.initDataUnsafe?.user?.photo_url : "";
+      const own = p.mine && p.ava ? tg?.initDataUnsafe?.user?.photo_url || S.meAva || "" : "";
       const server = p.ava && Number.isInteger(p.id) && p.id > 0 ? `${FORUM_URL}/ava/${kind || "p"}/${p.id}` : "";
       if (p.photo) addPhoto(a, p.photo);
       else if (own) addPhoto(a, own, server);
@@ -772,7 +772,7 @@
 
   function renderPrompt() {
     const name = S.user.first_name || "";
-    const me = avatar({ name: name || "?", hue: hueOf(String(S.user.id || name)), photo: tg?.initDataUnsafe?.user?.photo_url });
+    const me = avatar({ name: name || "?", hue: hueOf(String(S.user.id || name)), photo: tg?.initDataUnsafe?.user?.photo_url || S.meAva });
     const field = document.createElement("span");
     field.className = "fm-prompt-field";
     const draft = draftText();
@@ -825,6 +825,10 @@
       if (token !== S.token) return;
       S.owner = Boolean(body.owner);
       S.role = body.role || null;
+      if (body.meAva && !S.meAva) {
+        S.meAva = `${API_URL}${body.meAva}`;
+        renderPrompt();
+      }
       S.review = body.review || 0;
       S.top = Math.max(S.top, body.top || 0);
       S.more = Boolean(body.more);
@@ -2541,7 +2545,7 @@
     box.append(top, body, as, err, tools);
     fill(sheet.sh, box);
 
-    const me = { name: S.user.first_name || t("Вы"), hue: hueOf(String(S.user.id || "me")), photo: tg?.initDataUnsafe?.user?.photo_url };
+    const me = { name: S.user.first_name || t("Вы"), hue: hueOf(String(S.user.id || "me")), photo: tg?.initDataUnsafe?.user?.photo_url || S.meAva };
     const faces = () => (anon ? avatar({ name: "?", emoji: "🕶", hue: 222 }) : avatar(me));
     let face = faces();
     ava.replaceWith(face);

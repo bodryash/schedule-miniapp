@@ -199,8 +199,9 @@ async function downloadTelegramFile(url, size) {
     if (!file.ok) throw new Error(`HTTP ${file.status}`);
     return Buffer.from(await file.arrayBuffer());
   }
-  const { request } = await import("node:https");
   const target = new URL(TELEGRAM_BASE + url.slice(TELEGRAM_API.length));
+  // https — в работе; http — только у заглушки Telegram в проверках.
+  const { request } = await import(target.protocol === "http:" ? "node:http" : "node:https");
   const piece = (from, to) =>
     new Promise((resolve, reject) => {
       const req = request(
