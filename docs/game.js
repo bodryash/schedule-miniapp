@@ -132,7 +132,7 @@
     const actions = el("div", "g2-actions");
     const fresh = el("button", "g2-btn", t("Заново"));
     fresh.type = "button";
-    fresh.addEventListener("click", () => restart());
+    fresh.addEventListener("click", () => askRestart());
     const rating = el("button", "g2-btn g2-btn--main", t("Рейтинг"));
     rating.type = "button";
     rating.addEventListener("click", () => openBoard());
@@ -353,6 +353,30 @@
     S.game = core.newGame(seed);
     drawAll();
     remember();
+  }
+
+  /** «Заново» с переспросом, если партия уже идёт: случайно не сбросить. */
+  function askRestart() {
+    if (!S.game || !S.game.moves.length || S.over) return restart();
+    haptic("light");
+    const s = (S.restartSheet ||= sheet("g2-ask"));
+    s.sh.replaceChildren();
+    s.sh.append(
+      el("div", "g2-ask-ico", "🔄"),
+      el("h2", "", t("Начать заново?")),
+      el("p", "g2-muted g2-center", t("Текущая партия закончится и пойдёт в зачёт со счётом {n}. Рекорд не пропадёт.", { n: fmt(S.game.score) }))
+    );
+    const yes = el("button", "g2-btn g2-btn--main g2-wide", t("Начать заново"));
+    yes.type = "button";
+    yes.addEventListener("click", () => {
+      s.close();
+      restart();
+    });
+    const no = el("button", "g2-btn g2-wide g2-wide--soft", t("Продолжить партию"));
+    no.type = "button";
+    no.addEventListener("click", () => s.close());
+    s.sh.append(yes, no);
+    s.open();
   }
 
   async function restart() {

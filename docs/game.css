@@ -832,3 +832,12 @@ body.g2-open .minihead {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.08); }
 }
+
+.g2-ask-ico {
+  font-size: 40px;
+  text-align: center;
+}
+
+.g2-center {
+  text-align: center;
+}
