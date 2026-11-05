@@ -146,6 +146,15 @@
        сайта приложение само перезагружается с новой меткой в адресе. -->
   <script>
     window.__v = new URLSearchParams(location.search).get("v") || Math.floor(Date.now() / 1800000);
+    // Материалы (объём и зерно): уровень с прошлого запуска, чтобы заставка
+    // рисовалась сразу как надо. Настоящий выбирает fx.js после заставки.
+    try {
+      var fxMode = localStorage.getItem("schedule.fx") || "auto";
+      var fxTier = fxMode === "off" ? "off" : localStorage.getItem("schedule.fxTier") || "css";
+      document.documentElement.dataset.fx = fxTier === "gl" ? "css" : fxTier;
+    } catch (e) {
+      document.documentElement.dataset.fx = "css";
+    }
     // Стили грузятся, не задерживая первую отрисовку: заставка выше уже
     // оформлена и видна сразу. Приложение ждёт их само, прежде чем что-то
     // показывать и мерить (window.__cssReady).
