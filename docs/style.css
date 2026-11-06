@@ -14336,3 +14336,110 @@ body.magnate .menu-pop {
 body.magnate .menu-pop button {
   color: var(--text);
 }
+
+/* ===== NFT-приз: парит и поворачивается ===== */
+.pot-banner-coin {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  perspective: 300px;
+}
+.pot-banner-coin img {
+  width: 52px;
+  height: 52px;
+  filter: drop-shadow(0 4px 8px rgba(90, 50, 0, 0.35));
+  animation: nft-float 3s ease-in-out infinite, nft-turn 6s ease-in-out infinite;
+}
+.pot-nft {
+  height: auto;
+  padding: 14px 0 6px;
+}
+.pot-nft-label {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #3a2600;
+  background: linear-gradient(135deg, #ffe27a, #f59e0b);
+}
+.pot-nft-stage {
+  position: relative;
+  width: 210px;
+  height: 210px;
+  margin: 6px auto 0;
+  perspective: 700px;
+}
+.pot-nft-glow {
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 210, 90, 0.75), rgba(255, 170, 40, 0.25) 45%, transparent 70%);
+  filter: blur(6px);
+  animation: nft-glow 3s ease-in-out infinite;
+}
+.pot-nft-gift {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 18px 18px rgba(90, 50, 0, 0.35));
+  animation: nft-float 3.4s ease-in-out infinite, nft-turn 7s ease-in-out infinite;
+}
+.pot-nft-gift img,
+.pot-nft-gift svg {
+  width: 100% !important;
+  height: 100% !important;
+}
+.pot-nft-spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff, #ffd23f 60%, transparent);
+  box-shadow: 0 0 10px #ffd23f;
+  animation: nft-orbit 6s linear infinite;
+  animation-delay: calc(var(--i) * -0.75s);
+}
+.pot-nft-tag {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+  padding: 8px 16px;
+  border: 1px solid rgba(245, 158, 11, 0.55);
+  border-radius: 14px;
+  font: inherit;
+  color: var(--text);
+  background: rgba(255, 226, 122, 0.14);
+  cursor: pointer;
+}
+.pot-nft-tag b {
+  font-size: 17px;
+  font-weight: 900;
+}
+.pot-nft-tag span {
+  font-size: 12px;
+  color: var(--muted);
+}
+@keyframes nft-float { 50% { transform: translateY(-10px); } }
+@keyframes nft-turn {
+  0%, 100% { rotate: y -22deg; }
+  50% { rotate: y 22deg; }
+}
+@keyframes nft-glow { 50% { opacity: 0.6; transform: scale(1.08); } }
+@keyframes nft-orbit {
+  from { transform: rotate(0deg) translateX(108px) rotate(0deg) scale(0.6); opacity: 0.3; }
+  25% { opacity: 1; transform: rotate(90deg) translateX(108px) rotate(-90deg) scale(1); }
+  50% { opacity: 0.3; transform: rotate(180deg) translateX(108px) rotate(-180deg) scale(0.6); }
+  to { transform: rotate(360deg) translateX(108px) rotate(-360deg) scale(0.6); opacity: 0.3; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pot-banner-coin img, .pot-nft-glow, .pot-nft-gift, .pot-nft-spark { animation: none; }
+}
