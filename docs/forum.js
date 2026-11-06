@@ -2148,7 +2148,7 @@
       emoji: anon ? me?.alias?.emoji || "" : "",
       hue: anon ? me?.alias?.hue : me?.hue,
       anon,
-      op: Boolean(post.mine),
+      op: Boolean(post.mine) && !anon,
       text,
       created: new Date().toISOString(),
       likes: 0,

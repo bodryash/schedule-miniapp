@@ -9412,16 +9412,27 @@ function pinTabs() {
   const height = window.innerHeight;
   // Экран стал ниже при той же ширине — это клавиатура, а не новый экран.
   if (width === tabsPin.width && height <= tabsPin.height) return;
+  document.body.classList.remove("tabs-pinned");
+  const rect = tabs.getBoundingClientRect();
+  const top = Math.round(rect.top);
+  // Полоса ещё не видна (первая настройка, заставка, переход в ежедневник) —
+  // её «место» тогда 0, и она прилипала к верху экрана. Не запоминаем такой
+  // замер: остаёмся у нижнего края и перемеряем, когда полоса появится.
+  if (!rect.height || top < height * 0.5) {
+    tabsPin.width = 0;
+    tabsPin.height = 0;
+    return;
+  }
   tabsPin.width = width;
   tabsPin.height = height;
-  document.body.classList.remove("tabs-pinned");
-  const top = Math.round(tabs.getBoundingClientRect().top);
   document.documentElement.style.setProperty("--tabs-top", `${top}px`);
   document.body.classList.add("tabs-pinned");
 }
 
 // Поворот экрана и раскрытие окна Telegram на всю высоту — повод перемерить.
 window.addEventListener("resize", pinTabs);
+// Полоса появилась (после первой настройки, смены режима) — меряем по-настоящему.
+if (window.ResizeObserver && els.tabs) new ResizeObserver(() => requestAnimationFrame(pinTabs)).observe(els.tabs);
 window.addEventListener("orientationchange", () => setTimeout(pinTabs, 300));
 
 function moveDrop(name, animate = true) {
