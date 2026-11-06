@@ -22,6 +22,7 @@
 
 import { activeBan } from "./comments.js";
 import { eventInfo, gameLaunched, gameMedals } from "./game.js";
+import { refMedals } from "./referral.js";
 
 export const POST_MAX = 600;
 export const REPLY_MAX = 300;
@@ -408,7 +409,8 @@ export async function forumApi(env, action, body, user, notify, tell) {
     return forumStatus(env, user);
   }
   const role = owner ? "owner" : await roleOf(env, user.id);
-  const medals = await gameMedals(env).catch(() => ({}));
+  // Медали: игровые и «Недели магната» (💰 у победителя важнее).
+  const medals = { ...(await gameMedals(env).catch(() => ({}))), ...(await refMedals(env).catch(() => ({}))) };
   // staff — владелец и модераторы: видят очередь проверки и решают судьбу записей.
   const who = { owner, staff: owner || role === "moderator", role, medals };
   if (!owner && (await setting(env, "forum_on", "1")) !== "1") return fail("off", 503, { message: await setting(env, "forum_off_msg", "") });
