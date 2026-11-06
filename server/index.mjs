@@ -87,6 +87,8 @@ for (const change of [
   "ALTER TABLE forum_reports ADD COLUMN name TEXT NOT NULL DEFAULT ''",
   "ALTER TABLE forum_posts ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE forum_posts ADD COLUMN edited TEXT",
+  "ALTER TABLE forum_posts ADD COLUMN challenge TEXT",
+  "ALTER TABLE forum_posts ADD COLUMN best INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE forum_replies ADD COLUMN edited TEXT",
   "ALTER TABLE forum_reports ADD COLUMN username TEXT",
   // Голосование стрелками: +1 «за», −1 «против». Прежние лайки остаются голосами «за».

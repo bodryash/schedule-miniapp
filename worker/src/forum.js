@@ -23,6 +23,7 @@
 import { activeBan } from "./comments.js";
 import { eventInfo, gameLaunched, gameMedals } from "./game.js";
 import { refMedals } from "./referral.js";
+import { challengeInfo, dropKarmaCache, forumFunTick, karmaMap, levelOf, mskDay } from "./forum-fun.js";
 
 export const POST_MAX = 600;
 export const REPLY_MAX = 300;
@@ -290,6 +291,12 @@ function whoOf(env, row, postId) {
     : { name: row.name, emoji: "", hue: personHue(env, row.tg_id) };
 }
 
+/** Значок уровня у имени: «🔥 Звезда». */
+const levelBadge = (karma) => {
+  const l = levelOf(karma);
+  return { icon: l.icon, name: l.name };
+};
+
 function viewPost(env, row, user, perm, vote) {
   const mine = row.tg_id === user.id;
   const who = whoOf(env, row, row.id);
@@ -309,6 +316,10 @@ function viewPost(env, row, user, perm, vote) {
     verified: !row.anon && isOwner(env, row.tg_id) ? true : undefined,
     // Медаль призёра «Сессии 2048» — только под своим именем.
     medal: !row.anon && perm.medals?.[row.tg_id] ? perm.medals[row.tg_id] : undefined,
+    // Уровень автора — только под своим именем, у анонима он раскрыл бы автора.
+    level: !row.anon && perm.karma ? levelBadge(perm.karma.get(row.tg_id) || 0) : undefined,
+    challenge: row.challenge ? true : undefined,
+    best: row.best ? true : undefined,
     text: row.text,
     created: row.created,
     edited: row.edited ? true : undefined,
@@ -353,6 +364,7 @@ function viewReply(env, row, user, perm, postRow, byId, vote) {
     verified: !row.anon && isOwner(env, row.tg_id) ? true : undefined,
     // Медаль призёра «Сессии 2048» — только под своим именем.
     medal: !row.anon && perm.medals?.[row.tg_id] ? perm.medals[row.tg_id] : undefined,
+    level: !row.anon && perm.karma ? levelBadge(perm.karma.get(row.tg_id) || 0) : undefined,
     text: row.text,
     created: row.created,
     edited: row.edited ? true : undefined,
@@ -412,7 +424,8 @@ export async function forumApi(env, action, body, user, notify, tell) {
   // Медали: игровые и «Недели магната» (💰 у победителя важнее).
   const medals = { ...(await gameMedals(env).catch(() => ({}))), ...(await refMedals(env).catch(() => ({}))) };
   // staff — владелец и модераторы: видят очередь проверки и решают судьбу записей.
-  const who = { owner, staff: owner || role === "moderator", role, medals };
+  const karma = await karmaMap(env).catch(() => new Map());
+  const who = { owner, staff: owner || role === "moderator", role, medals, karma };
   if (!owner && (await setting(env, "forum_on", "1")) !== "1") return fail("off", 503, { message: await setting(env, "forum_off_msg", "") });
   // Закрытое тестирование: пока форум не открыт для всех, пускаем только своих.
   if (!owner && !role && (await setting(env, "forum_access", "testers")) !== "all") return fail("closed", 403);
@@ -507,6 +520,8 @@ async function list(env, body, user, who, ban) {
       // Плашка турнира: всем — после /g2048 start; владельцу — сразу, чтобы проверить до запуска.
       game: { ...eventInfo(), on: eventInfo().live && (await gameLaunched(env)), preview: who.owner && eventInfo().live },
       meAva: `/forum/ava/u/${user.id}.${await avaSig(env, user.id)}`,
+      me: levelOf(who.karma?.get(user.id) || 0),
+      challenge: await challengeInfo(env).catch(() => null),
       role: who.role || null,
       banned: ban,
       top: top?.id || 0,
@@ -626,10 +641,10 @@ async function createPost(env, body, user, who, notify) {
   const anon = body.anon === false ? 0 : 1;
   const hidden = verdict.hold ? 3 : 0;
   const result = await env.STATS.prepare(
-    `INSERT INTO forum_posts (tg_id, name, username, anon, text, created, hidden, held_for, tag)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+    `INSERT INTO forum_posts (tg_id, name, username, anon, text, created, hidden, held_for, tag, challenge)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
   )
-    .bind(user.id, displayName(user), user.username || null, anon, text, nowIso(), hidden, verdict.hold ? verdict.hold + (verdict.hit ? ` («${verdict.hit}»)` : "") : "", tag)
+    .bind(user.id, displayName(user), user.username || null, anon, text, nowIso(), hidden, verdict.hold ? verdict.hold + (verdict.hit ? ` («${verdict.hit}»)` : "") : "", tag, body.challenge && body.challenge === mskDay() ? mskDay() : null)
     .first();
   if (hidden) {
     await notify(
@@ -1245,4 +1260,9 @@ async function rolesCommand(env, cmd, args, findPerson) {
   }
   await env.STATS.prepare("DELETE FROM forum_roles WHERE tg_id = ?").bind(person.tg_id).run();
   return { text: `${label} больше не ${ROLE_NAME[role]} Подслушки.` };
+}
+
+/** Для минутной задачи: лучший ответ на «Задание дня». */
+export function forumFun(env, dm) {
+  return forumFunTick(env, dm, setting, putSetting);
 }
