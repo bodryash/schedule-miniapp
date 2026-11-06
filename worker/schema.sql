@@ -508,6 +508,9 @@ CREATE TABLE IF NOT EXISTS forum_posts (
   -- 0 — виден, 1 — скрыт жалобами, 2 — удалён, 3 — ждёт проверки владельца
   hidden   INTEGER NOT NULL DEFAULT 0,
   reports  INTEGER NOT NULL DEFAULT 0,
+  -- «Задание дня»: день задания (ответ на него) и лучший ответ дня.
+  challenge TEXT,
+  best     INTEGER NOT NULL DEFAULT 0,
   likes    INTEGER NOT NULL DEFAULT 0,
   replies  INTEGER NOT NULL DEFAULT 0,
   -- Почему отправлен на проверку: «новичок», «стоп-слово: …» и т. п.
