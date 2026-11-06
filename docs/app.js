@@ -13222,6 +13222,36 @@ function addSheetGrab(backdrop) {
   sheet.addEventListener("touchcancel", touchEnd);
 }
 
+/**
+ * Всплывающие окна: когда содержимое прокрутили, у верхнего края появляется
+ * полоса размытия — текст уходит под неё мягко, а не обрезается краем.
+ * Полоса — липкий элемент внутри прокрутки, во всю ширину окна.
+ */
+function initSheetFade() {
+  document.addEventListener(
+    "scroll",
+    (event) => {
+      const box = event.target;
+      if (!(box instanceof HTMLElement) || !box.closest(".sheet, .sheet-backdrop")) return;
+      let fade = box.firstElementChild?.classList.contains("sheet-fade") ? box.firstElementChild : null;
+      if (!fade) {
+        if (box.scrollTop < 4) return;
+        const css = getComputedStyle(box);
+        fade = document.createElement("div");
+        fade.className = "sheet-fade";
+        fade.setAttribute("aria-hidden", "true");
+        fade.style.top = `-${css.paddingTop}`;
+        fade.style.marginLeft = `-${css.paddingLeft}`;
+        fade.style.marginRight = `-${css.paddingRight}`;
+        fade.style.marginTop = `-${css.paddingTop}`;
+        box.prepend(fade);
+      }
+      box.classList.toggle("sheet-scrolled", box.scrollTop > 4);
+    },
+    true
+  );
+}
+
 function watchSheets() {
   if (!("MutationObserver" in window)) return;
   const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -13382,6 +13412,7 @@ async function init() {
   initPhotos();
   initFlash();
   initNeon();
+  initSheetFade();
   // «Неделя магната»: плашка с конкурсом, когда заставка уйдёт; раз в минуту — обратный отсчёт.
   afterSplash(() => {
     loadRef();
