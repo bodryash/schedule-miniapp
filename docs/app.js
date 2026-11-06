@@ -195,9 +195,13 @@ function renderRefBanner() {
     });
     (document.querySelector(".flag-ribbon") || els.freedom).after(node);
   }
-  const coin = el("span", "pot-banner-coin", "💰");
+  const coin = el("span", "pot-banner-coin");
+  const img = el("img");
+  img.src = "img/moneypot-8875.png";
+  img.alt = "";
+  coin.append(img);
   const body = el("span", "pot-banner-body");
-  body.append(el("b", "", t("Неделя магната")), el("span", "", refState.count ? t("Вы привели: {n} · место {p}", { n: refState.count, p: refState.place || "—" }) : t("Позови друзей — выиграй NFT")));
+  body.append(el("b", "", t("Выиграй NFT Money Pot #8875")), el("span", "", refState.count ? t("Вы привели: {n} · место {p}", { n: refState.count, p: refState.place || "—" }) : t("Неделя магната · позови друзей")));
   node.replaceChildren(coin, body, el("span", "pot-banner-left", refLeft(refState.ends)));
 }
 
@@ -207,6 +211,26 @@ async function openRefFresh() {
   await loadRef();
   if (refState?.ok) openRef();
   else toast(t("Не удалось получить ссылку — попробуйте ещё раз"));
+}
+
+/** Живая анимация подарка: lottie грузим только при открытии окна. */
+let lottieLoad = null;
+function playGift(box, still) {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  lottieLoad ||= new Promise((resolve, reject) => {
+    if (window.lottie) return resolve(window.lottie);
+    const script = document.createElement("script");
+    script.src = "vendor/lottie_light-5.12.2.min.js";
+    script.onload = () => resolve(window.lottie);
+    script.onerror = reject;
+    document.head.append(script);
+  });
+  lottieLoad
+    .then((lottie) => {
+      const anim = lottie.loadAnimation({ container: box, renderer: "svg", loop: true, autoplay: true, path: "img/moneypot-8875.json" });
+      anim.addEventListener("DOMLoaded", () => still.remove());
+    })
+    .catch(() => {});
 }
 
 /** Монета с номером места — вместо эмодзи-медалей. */
@@ -228,15 +252,31 @@ function openRef() {
   const sheet = el("div", "sheet pot-sheet");
   sheet.setAttribute("role", "dialog");
   sheet.setAttribute("aria-modal", "true");
-  // Шапка: горшок с монетами
-  const hero = el("div", "pot-hero");
-  const pot = el("div", "pot-pot", "💰");
-  hero.append(pot);
-  for (let i = 0; i < 9; i++) {
-    const c = el("span", "pot-coin", i % 3 ? "🪙" : "💵");
-    c.style.setProperty("--i", i);
-    hero.append(c);
+  // Шапка: сам приз — NFT, живой (анимация подарка), парит и поворачивается.
+  const hero = el("div", "pot-hero pot-nft");
+  const stage = el("div", "pot-nft-stage");
+  const gift = el("div", "pot-nft-gift");
+  const still = el("img", "pot-nft-still");
+  still.src = "img/moneypot-8875.png";
+  still.alt = "Money Pot #8875";
+  gift.append(still);
+  stage.append(el("span", "pot-nft-glow"), gift);
+  for (let i = 0; i < 8; i++) {
+    const sp = el("span", "pot-nft-spark");
+    sp.style.setProperty("--i", i);
+    stage.append(sp);
   }
+  const tag = el("button", "pot-nft-tag");
+  tag.type = "button";
+  tag.append(el("b", "", "Money Pot #8875"), el("span", "", t("NFT-подарок Telegram · посмотреть →")));
+  tag.addEventListener("click", () => {
+    haptic("light");
+    const url = "https://t.me/nft/MoneyPot-8875";
+    if (tg?.openTelegramLink) tg.openTelegramLink(url);
+    else window.open(url, "_blank");
+  });
+  hero.append(el("span", "pot-nft-label", t("Главный приз")), stage, tag);
+  playGift(gift, still);
   const x = el("button", "sheet-x", "×");
   x.type = "button";
   x.setAttribute("aria-label", t("Закрыть"));
@@ -255,7 +295,7 @@ function openRef() {
     return row;
   };
   prizes.append(
-    prize([1], t("NFT «Money Pot» №8875"), t("+ тема «Магнат» и 💰 у имени в Подслушке"), true),
+    prize([1], t("NFT Money Pot #8875"), t("сам подарок + тема «Магнат» и 💰 у имени в Подслушке"), true),
     prize([2, 3], t("2 и 3 место"), t("тема «Магнат» и знак у имени в Подслушке")),
   );
   sheet.append(prizes);
