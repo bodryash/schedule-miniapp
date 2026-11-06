@@ -13919,3 +13919,408 @@ body.putin .date-new {
 @media (prefers-reduced-motion: reduce) {
   .hype-intro, .hype-intro * { animation-duration: 1ms !important; animation-delay: 0ms !important; }
 }
+
+/* ===== «Неделя магната»: плашка и окно конкурса ===== */
+.pot-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 9px 14px 9px 10px;
+  border: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  font: inherit;
+  text-align: left;
+  color: #3a2600;
+  background: linear-gradient(135deg, #ffe27a 0%, #ffc23a 45%, #f59e0b 100%);
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  animation: pot-breathe 2.8s ease-in-out infinite;
+}
+.pot-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.7) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: pot-shine 3.4s ease-in-out infinite;
+}
+.pot-banner-coin {
+  font-size: 26px;
+  animation: pot-bob 2s ease-in-out infinite;
+}
+.pot-banner-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.2;
+}
+.pot-banner-body b {
+  font-size: 14px;
+  font-weight: 900;
+}
+.pot-banner-body span {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+.pot-banner-left {
+  flex-shrink: 0;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  background: rgba(58, 38, 0, 0.14);
+}
+@keyframes pot-breathe { 50% { transform: scale(1.015); box-shadow: 0 8px 26px rgba(245, 158, 11, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.6); } }
+@keyframes pot-shine { 60%, 100% { transform: translateX(120%); } }
+@keyframes pot-bob { 50% { transform: translateY(-3px) rotate(-6deg); } }
+
+.pot-sheet {
+  max-height: 88vh;
+  overflow-y: auto;
+  text-align: center;
+}
+.pot-hero {
+  position: relative;
+  height: 130px;
+  margin: 4px 0 6px;
+}
+.pot-pot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  font-size: 84px;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 8px 24px rgba(245, 158, 11, 0.55));
+  animation: pot-pot 2.6s ease-in-out infinite;
+}
+@keyframes pot-pot { 50% { transform: translate(-50%, -54%) scale(1.06); } }
+.pot-coin {
+  position: absolute;
+  left: calc(10% + var(--i) * 10%);
+  top: -20px;
+  font-size: 20px;
+  opacity: 0;
+  animation: pot-fall 2.4s ease-in infinite;
+  animation-delay: calc(var(--i) * 0.27s);
+}
+@keyframes pot-fall {
+  10% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(150px) rotate(320deg); }
+}
+.pot-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 900;
+  background: linear-gradient(180deg, #f5b63a, #d97706);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.pot-sub {
+  margin: 6px 0 14px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.pot-prizes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+  text-align: left;
+}
+.pot-prize {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface, var(--card));
+  border: 1px solid var(--line);
+}
+.pot-prize--gold {
+  border-color: rgba(245, 158, 11, 0.6);
+  background: linear-gradient(135deg, rgba(255, 226, 122, 0.28), rgba(245, 158, 11, 0.12));
+}
+.pot-prize-medal {
+  font-size: 26px;
+}
+.pot-prize-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pot-prize-text b {
+  font-size: 15px;
+}
+.pot-prize-text span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.pot-mine-count {
+  font-size: 54px;
+  font-weight: 900;
+  line-height: 1;
+  color: #d97706;
+}
+.pot-mine-label {
+  margin: 4px 0 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.pot-link {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  border: 1px dashed rgba(245, 158, 11, 0.7);
+  border-radius: 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  background: rgba(255, 226, 122, 0.12);
+  cursor: pointer;
+}
+.pot-share {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 15px;
+  border: 0;
+  border-radius: 16px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  color: #3a2600;
+  background: linear-gradient(135deg, #ffe27a, #f59e0b);
+  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.4);
+  cursor: pointer;
+}
+.pot-top {
+  margin-top: 18px;
+  text-align: left;
+}
+.pot-top-title {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pot-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 12px;
+}
+.pot-row--me {
+  background: rgba(245, 158, 11, 0.16);
+}
+.pot-row-place {
+  width: 28px;
+  text-align: center;
+  font-weight: 800;
+}
+.pot-row-name {
+  flex: 1;
+  font-weight: 600;
+}
+.pot-row-n {
+  font-weight: 900;
+  color: #d97706;
+}
+.pot-rules {
+  margin: 16px 0 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pot-banner, .pot-banner::after, .pot-banner-coin, .pot-pot, .pot-coin { animation: none; }
+}
+
+/* ===== Тема «Магнат»: тёмный изумруд, золотая фольга, бархат =====
+   Всегда тёмная: золото по-настоящему смотрится только на глубоком фоне. */
+body.magnate {
+  --gold-1: #fff1b8;
+  --gold-2: #f5c542;
+  --gold-3: #c8901a;
+  --gold-4: #7a5208;
+  --bg: #07170f;
+  --card: rgba(22, 52, 37, 0.78);
+  --surface: rgba(22, 52, 37, 0.78);
+  --text: #f6efd9;
+  --muted: #a9b9a6;
+  --line: rgba(245, 197, 66, 0.22);
+  --accent: var(--gold-2);
+  --accent-soft: rgba(245, 197, 66, 0.16);
+  --accent-text: #1a1200;
+  color-scheme: dark;
+  background: var(--bg);
+}
+body.magnate::before {
+  content: "" !important;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(110% 55% at 50% -12%, rgba(245, 197, 66, 0.32), transparent 62%),
+    radial-gradient(70% 40% at -10% 100%, rgba(32, 120, 78, 0.45), transparent 70%),
+    radial-gradient(70% 40% at 110% 80%, rgba(20, 90, 60, 0.4), transparent 70%),
+    linear-gradient(180deg, #0c2418 0%, #06140d 100%) !important;
+}
+/* Тонкий узор-«ёлочка» как на дорогой бумаге и медленно плывущие искры. */
+body.magnate::after {
+  content: "" !important;
+  position: fixed;
+  inset: -50% 0 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.55;
+  background:
+    radial-gradient(1.6px 1.6px at 12% 18%, rgba(255, 230, 150, 0.9), transparent 60%),
+    radial-gradient(1.2px 1.2px at 68% 34%, rgba(255, 230, 150, 0.8), transparent 60%),
+    radial-gradient(1.8px 1.8px at 40% 62%, rgba(255, 230, 150, 0.85), transparent 60%),
+    radial-gradient(1.2px 1.2px at 86% 76%, rgba(255, 230, 150, 0.7), transparent 60%),
+    radial-gradient(1.4px 1.4px at 22% 88%, rgba(255, 230, 150, 0.8), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(245, 197, 66, 0.035) 0 2px, transparent 2px 14px),
+    repeating-linear-gradient(-45deg, rgba(245, 197, 66, 0.035) 0 2px, transparent 2px 14px) !important;
+  background-size: 100% 50%, 100% 50%, 100% 50%, 100% 50%, 100% 50%, auto, auto !important;
+  animation: magnate-drift 28s linear infinite;
+}
+@keyframes magnate-drift { to { transform: translateY(50%); } }
+
+/* Золотая фольга: дата и заголовки переливаются. */
+body.magnate .date,
+body.magnate .date-old,
+body.magnate .date-new {
+  background: linear-gradient(100deg, var(--gold-3) 0%, var(--gold-1) 22%, var(--gold-2) 40%, var(--gold-3) 60%, var(--gold-1) 80%, var(--gold-2) 100%) 0 0 / 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 10px rgba(245, 197, 66, 0.25));
+  animation: magnate-foil 6s linear infinite;
+}
+@keyframes magnate-foil { to { background-position: -220% 0; } }
+
+/* Карточки — бархат с золотым кантом и бликом сверху. */
+body.magnate .card,
+body.magnate .own-card,
+body.magnate .day,
+body.magnate .settings-nav,
+body.magnate .sheet {
+  border: 1px solid rgba(245, 197, 66, 0.28) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 241, 184, 0.12), 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+}
+body.magnate .sheet {
+  background: linear-gradient(180deg, #102a1d, #0a1d14) !important;
+}
+body.magnate .day.active {
+  background: linear-gradient(160deg, var(--gold-1), var(--gold-2) 45%, var(--gold-3)) !important;
+  color: #1a1200 !important;
+}
+body.magnate .tabs {
+  background: rgba(8, 24, 16, 0.82) !important;
+  border-color: rgba(245, 197, 66, 0.3) !important;
+}
+
+/* Лента «Магнат недели»: чёрный лак, золотые буквы, корона. */
+.flag-ribbon--magnate {
+  background: linear-gradient(180deg, #1b1b1b, #050505);
+  color: var(--gold-2, #f5c542);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 0 0 1px rgba(245, 197, 66, 0.55), 0 4px 18px rgba(245, 197, 66, 0.3);
+}
+.flag-ribbon--magnate .flag-ribbon-icon {
+  font-size: 0;
+  width: 18px;
+  height: 14px;
+  background: linear-gradient(160deg, #fff1b8, #f5c542 50%, #c8901a);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cpath d='M2 16h20l-2-11-5 5-3-8-3 8-5-5z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cpath d='M2 16h20l-2-11-5 5-3-8-3 8-5-5z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+@media (prefers-reduced-motion: reduce) {
+  body.magnate::after, body.magnate .date, body.magnate .date-old, body.magnate .date-new { animation: none; }
+}
+
+/* Значки мест: монета с номером, у первого — корона. Вместо эмодзи-медалей. */
+.pot-badge {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 15px;
+  font-weight: 900;
+  color: #3a2600;
+  background: radial-gradient(circle at 35% 30%, #fff6cf, #f5c542 45%, #b9800f 100%);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.45), inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 3px 10px rgba(185, 128, 15, 0.45);
+}
+.pot-badge--2 {
+  color: #2b2f36;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #c9d0d8 45%, #8a94a0 100%);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5), inset 0 -3px 0 rgba(0, 0, 0, 0.15), 0 3px 10px rgba(120, 130, 145, 0.4);
+}
+.pot-badge--3 {
+  color: #3a1d08;
+  background: radial-gradient(circle at 35% 30%, #ffe0c2, #d98b4a 45%, #8c4d1c 100%);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.4), inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 3px 10px rgba(140, 77, 28, 0.4);
+}
+.pot-badge--1::before {
+  content: "";
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  width: 20px;
+  height: 13px;
+  transform: translateX(-50%);
+  background: linear-gradient(160deg, #fff1b8, #f5c542 50%, #c8901a);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cpath d='M2 16h20l-2-11-5 5-3-8-3 8-5-5z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cpath d='M2 16h20l-2-11-5 5-3-8-3 8-5-5z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.pot-badges {
+  display: inline-flex;
+}
+.pot-badges .pot-badge + .pot-badge {
+  margin-left: -10px;
+}
+.pot-row .pot-badge {
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+}
+.pot-row .pot-badge--1::before {
+  top: -9px;
+  width: 16px;
+  height: 10px;
+}
+
+/* Полоса размытия у верхнего края прокрученного окна (initSheetFade). */
+.sheet-fade {
+  position: sticky;
+  z-index: 6;
+  display: block;
+  height: 34px;
+  margin-bottom: -34px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 75%, transparent) 45%, transparent 100%);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  -webkit-mask-image: linear-gradient(180deg, #000 40%, transparent);
+  mask-image: linear-gradient(180deg, #000 40%, transparent);
+  transition: opacity 180ms ease-out;
+}
+.sheet-scrolled > .sheet-fade {
+  opacity: 1;
+}
