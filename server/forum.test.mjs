@@ -121,7 +121,7 @@ ok(r.ok && !r.pending, "ответ публикуется сразу", JSON.stri
 const rep1 = r.reply;
 r = await api("reply", { post: postId, text: "Спасибо большое!", anon: true }, 100);
 r = await api("replies", { post: postId }, 100);
-ok(r.replies.length === 2 && r.replies[1].op === true, "автор поста помечен «автор» в ответах", JSON.stringify(r.replies));
+ok(r.replies.length === 2 && r.replies[1].op === false, "анонимный ответ автора поста без плашки «автор»", JSON.stringify(r.replies));
 ok(r.replies[0].name !== r.replies[1].name, "у разных анонимов разные имена");
 r = await api("list", {}, 200); ok(r.posts[0].replies === 2, "счётчик ответов растёт");
 // лайк

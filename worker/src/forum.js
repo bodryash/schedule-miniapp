@@ -344,7 +344,8 @@ function viewReply(env, row, user, perm, postRow, byId, vote) {
     emoji: who.emoji,
     hue: who.hue,
     anon: Boolean(row.anon),
-    op: row.tg_id === postRow.tg_id,
+    // «автор» только у ответов под своим именем: у анонимного ответа плашка раскрыла бы, кто писал.
+    op: !row.anon && row.tg_id === postRow.tg_id,
     tg: !row.anon && row.username ? row.username : undefined,
     ava: !row.anon && row.tg_id ? 1 : undefined,
     // Галочка — у владельца, когда он пишет под своим именем (у анонимных её нет: иначе раскрылся бы).
