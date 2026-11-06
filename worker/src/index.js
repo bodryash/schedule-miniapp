@@ -37,7 +37,7 @@ import {
 } from "./comments.js";
 import { gameApi, gameCommand, gameTick } from "./game.js";
 import { refActivate, refApi, refCommand, refStart, refTick } from "./referral.js";
-import { avaSig, forumApi, forumCloseConfirm, forumCommand, forumModerate, forumWipe } from "./forum.js";
+import { avaSig, forumApi, forumCloseConfirm, forumCommand, forumFun, forumModerate, forumWipe } from "./forum.js";
 
 let forumErrorAt = 0;
 /** true — владельцу про ошибку форума недавно уже писали. */
@@ -5352,6 +5352,7 @@ ${invite}`,
         // Уведомления об изменениях — только на своём сервере: в облаке не
         // хватило бы лимита обращений.
         if (OWN_SERVER) await runAlerts(env).catch((error) => console.log("alerts failed", String(error?.message || error)));
+        await forumFun(env, (chat, text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: chat, text })).catch((error) => console.log("forum fun failed", String(error?.message || error)));
         await refTick(env, (text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text, parse_mode: "HTML" })).catch((error) => console.log("ref tick failed", String(error?.message || error)));
         await gameTick(
           env,
