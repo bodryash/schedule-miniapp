@@ -36,6 +36,7 @@ import {
   unbanCommand,
 } from "./comments.js";
 import { gameApi, gameCommand, gameTick } from "./game.js";
+import { refActivate, refApi, refCommand, refStart, refTick } from "./referral.js";
 import { avaSig, forumApi, forumCloseConfirm, forumCommand, forumModerate, forumWipe } from "./forum.js";
 
 let forumErrorAt = 0;
@@ -2325,6 +2326,8 @@ const THEME_NAMES = {
   "именинница": "birthday",
   "др": "birthday",
   birthday: "birthday",
+  "магнат": "magnate",
+  magnate: "magnate",
   "трамп": "trump",
   "trump": "trump",
   "америка": "trump",
@@ -4015,6 +4018,23 @@ export default {
       }
     }
 
+    // «Неделя магната»: своя ссылка, счёт и таблица.
+    if (url.pathname === "/ref" && request.method === "POST") {
+      let result;
+      try {
+        const body = JSON.parse(await request.text());
+        const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+        result = await refApi(env, user);
+      } catch (error) {
+        console.error("ref упала:", error);
+        result = { status: 500, json: { ok: false, error: "server error" } };
+      }
+      return new Response(JSON.stringify(result.json), {
+        status: result.status,
+        headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*", "cache-control": "no-store" },
+      });
+    }
+
     // «Сессия 2048»: начать партию, сохранить ходы, таблица.
     const gameAction = url.pathname.match(/^\/game\/(start|save|board)$/)?.[1];
     if (gameAction && request.method === "POST") {
@@ -4253,6 +4273,7 @@ export default {
         const body = JSON.parse(await request.text());
         const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
         if (user) await recordOpen(env, user, body.group || {});
+        if (user) await refActivate(env, user, body.group || {}, (chat, text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: chat, text })).catch(() => {});
       } catch {
         // Счётчик не должен ронять ничего и никого.
       }
@@ -4628,7 +4649,21 @@ export default {
       });
     }
 
-    if (message && text.startsWith("/start") && !shared && !invited && !forumLink && !gameLink && !/^\/start(?:@\w+)?\s+starosta$/.test(text)) {
+    // «Неделя магната»: личная ссылка друга.
+    const refLink = message && text.match(/^\/start(?:@\w+)?\s+r_([a-z0-9]{6})$/);
+    if (refLink) {
+      const res = await refStart(env, message.from, refLink[1]).catch(() => ({ ok: false }));
+      const who = res.owner?.name ? String(res.owner.name).split(/\s+/)[0] : "";
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: res.ok
+          ? `👋 Тебя позвал${who ? ` ${escape(who)}` : " друг"}!\n\nЗдесь расписание твоей группы: пары, замены, аудитории и напоминания — без PDF и чатов на 47 сообщений.\n\nОткрой и выбери свою группу 👇`
+          : "Открывай расписание 👇",
+        reply_markup: { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] },
+      });
+    }
+
+    if (message && text.startsWith("/start") && !refLink && !shared && !invited && !forumLink && !gameLink && !/^\/start(?:@\w+)?\s+starosta$/.test(text)) {
       // Китайский и корейский — сами по языку Telegram. Английский только
       // подсказкой: многие русские студенты держат Telegram на английском.
       const code = String(message.from?.language_code || "").toLowerCase();
@@ -5051,6 +5086,12 @@ ${invite}`,
       await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: reply, parse_mode: "HTML" });
     }
 
+    // «Неделя магната»: /ref, /ref start, /ref stop — только владелец.
+    if (message && /^\/ref(?:@\w+)?(?:\s|$)/.test(text)) {
+      const answer = isOwner(env, message.chat.id) ? await refCommand(env, text).catch((e) => `Ошибка: ${escape(String(e?.message || e))}`) : "Команда недоступна.";
+      await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: answer, parse_mode: "HTML" });
+    }
+
     // Подслушка: сводка, выключатель, кто автор, удалить, бан — только владелец.
     if (message && /^\/(forum|fwho|fdel|fban|ftester|funtester|fmod|funmod|froles|fclose|fopen|fclear|fstats)(?:@\w+)?(?:\s|$)/.test(text)) {
       const answer = isOwner(env, message.chat.id) ? await forumCommand(env, text, findPerson) : { text: "Команда недоступна." };
@@ -5311,6 +5352,7 @@ ${invite}`,
         // Уведомления об изменениях — только на своём сервере: в облаке не
         // хватило бы лимита обращений.
         if (OWN_SERVER) await runAlerts(env).catch((error) => console.log("alerts failed", String(error?.message || error)));
+        await refTick(env, (text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text, parse_mode: "HTML" })).catch((error) => console.log("ref tick failed", String(error?.message || error)));
         await gameTick(
           env,
           (text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text, parse_mode: "HTML" }),
