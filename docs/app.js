@@ -159,6 +159,135 @@ function countOpen(group) {
   }
 }
 
+/* ---------- «Неделя магната»: конкурс приглашений ---------- */
+const REF_URL = `${API_URL}/ref`;
+let refState = null;
+
+async function loadRef() {
+  if (!tg?.initData) return;
+  try {
+    const res = await fetch(REF_URL, { method: "POST", body: JSON.stringify({ initData: tg.initData }) });
+    refState = await res.json();
+  } catch {
+    refState = null;
+  }
+  renderRefBanner();
+}
+
+function refLeft(ends) {
+  const ms = Math.max(0, ends - Date.now());
+  const d = Math.floor(ms / 86400000);
+  const h = Math.floor((ms % 86400000) / 3600000);
+  return d ? t("{d} д {h} ч", { d, h }) : t("{h} ч {m} мин", { h, m: Math.floor((ms % 3600000) / 60000) });
+}
+
+/** Плашка под датой — пока идёт неделя. */
+function renderRefBanner() {
+  let node = document.getElementById("pot-banner");
+  if (!refState?.ok || !refState.live || !els.freedom) return node?.remove();
+  if (!node) {
+    node = el("button", "pot-banner");
+    node.id = "pot-banner";
+    node.type = "button";
+    node.addEventListener("click", () => {
+      haptic("medium");
+      openRef();
+    });
+    (document.querySelector(".flag-ribbon") || els.freedom).after(node);
+  }
+  const coin = el("span", "pot-banner-coin", "💰");
+  const body = el("span", "pot-banner-body");
+  body.append(el("b", "", t("Неделя магната")), el("span", "", refState.count ? t("Вы привели: {n} · место {p}", { n: refState.count, p: refState.place || "—" }) : t("Позови друзей — выиграй NFT")));
+  node.replaceChildren(coin, body, el("span", "pot-banner-left", refLeft(refState.ends)));
+}
+
+function refShareText() {
+  return t("Расписание нашей группы прямо в Telegram: пары, замены, аудитории и напоминания. Открывай 👇");
+}
+
+function openRef() {
+  const st = refState;
+  if (!st?.ok) return;
+  document.getElementById("pot-sheet")?.remove();
+  const back = el("div", "sheet-backdrop pot-backdrop");
+  back.id = "pot-sheet";
+  back.hidden = true;
+  const sheet = el("div", "sheet pot-sheet");
+  sheet.setAttribute("role", "dialog");
+  sheet.setAttribute("aria-modal", "true");
+  // Шапка: горшок с монетами
+  const hero = el("div", "pot-hero");
+  const pot = el("div", "pot-pot", "💰");
+  hero.append(pot);
+  for (let i = 0; i < 9; i++) {
+    const c = el("span", "pot-coin", i % 3 ? "🪙" : "💵");
+    c.style.setProperty("--i", i);
+    hero.append(c);
+  }
+  const x = el("button", "sheet-x", "×");
+  x.type = "button";
+  x.setAttribute("aria-label", t("Закрыть"));
+  x.addEventListener("click", () => (back.hidden = true));
+  sheet.append(x, hero, el("h2", "pot-title", t("Неделя магната")));
+  sheet.append(el("p", "pot-sub", st.live ? t("До конца — {left}. Кто приведёт больше всех друзей, тот и магнат.", { left: refLeft(st.ends) }) : t("Конкурс завершён — итоги скоро.")));
+  // Призы
+  const prizes = el("div", "pot-prizes");
+  const prize = (medal, title, text, gold) => {
+    const row = el("div", `pot-prize${gold ? " pot-prize--gold" : ""}`);
+    const txt = el("div", "pot-prize-text");
+    txt.append(el("b", "", title), el("span", "", text));
+    row.append(el("span", "pot-prize-medal", medal), txt);
+    return row;
+  };
+  prizes.append(
+    prize("🥇", t("NFT «Money Pot» №8875"), t("+ тема «Магнат» с золотым дождём и 💰 у имени в Подслушке"), true),
+    prize("🥈🥉", t("2 и 3 место"), t("тема «Магнат» и медаль у имени в Подслушке")),
+  );
+  sheet.append(prizes);
+  // Своя ссылка
+  const mine = el("div", "pot-mine");
+  mine.append(el("div", "pot-mine-count", String(st.count || 0)), el("div", "pot-mine-label", st.count ? t("друзей привели · {p} место из {n}", { p: st.place || "—", n: st.players || 1 }) : t("друзей пока не привели")));
+  sheet.append(mine);
+  const link = el("button", "pot-link", st.link.replace("https://", ""));
+  link.type = "button";
+  link.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(st.link);
+      haptic("success");
+      toast(t("Ссылка скопирована"));
+    } catch {
+      toast(st.link);
+    }
+  });
+  const share = el("button", "pot-share", t("Отправить друзьям"));
+  share.type = "button";
+  share.addEventListener("click", () => {
+    haptic("medium");
+    const url = `https://t.me/share/url?url=${encodeURIComponent(st.link)}&text=${encodeURIComponent(refShareText())}`;
+    if (tg?.openTelegramLink) tg.openTelegramLink(url);
+    else window.open(url, "_blank");
+  });
+  sheet.append(link, share);
+  // Таблица
+  if (st.top?.length) {
+    const list = el("div", "pot-top");
+    list.append(el("div", "pot-top-title", t("Топ магнатов")));
+    for (const r of st.top) {
+      const row = el("div", `pot-row${r.me ? " pot-row--me" : ""}`);
+      row.append(el("span", "pot-row-place", ["🥇", "🥈", "🥉"][r.place - 1] || String(r.place)), el("span", "pot-row-name", r.me ? t("Вы") : r.name), el("span", "pot-row-n", String(r.count)));
+      list.append(row);
+    }
+    sheet.append(list);
+  }
+  sheet.append(el("p", "pot-rules", t("Засчитывается друг, который впервые открыл расписание по вашей ссылке и выбрал свою группу. Накрутки не считаются.")));
+  back.append(sheet);
+  back.addEventListener("click", (e) => {
+    if (e.target === back) back.hidden = true;
+  });
+  document.body.append(back);
+  requestAnimationFrame(() => (back.hidden = false));
+}
+
 /* ---------- Объявления ---------- */
 
 // Объявления об изменениях публикует владелец командой /notice боту. Сайт
@@ -1507,7 +1636,7 @@ function initReminders() {
 
 // Брутал выдаёт владелец командой /theme, гламур человек находит сам —
 // словом «гламур» в поиске по МФК. Тема с сервера сильнее найденной.
-const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", devil: "devil", msu: "msu", birthday: "birthday", halloween: "halloween", trump: "trump", putin: "putin" };
+const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", devil: "devil", msu: "msu", birthday: "birthday", halloween: "halloween", trump: "trump", putin: "putin", magnate: "magnate" };
 const GLAM_KEY = "schedule.glam";
 // Зелёную тему волонтёра человек может выключить сам и вернуть обратно.
 // Остальные выданные темы так не умеют.
@@ -1604,7 +1733,7 @@ function setOwnGlam(on) {
 const OWNER_THEME_KEY = "schedule.ownerTheme";
 const THEME_TITLES = {
   "": "Обычная", glam: "Гламур", brutal: "Брутал", champion: "Чемпион", volunteer: "Волонтёр", cska: "ЦСКА", nokia: "Нокия",
-  ocean: "Океан", sunset: "Закат", mint: "Мята", lavender: "Лаванда", graphite: "Графит", cherry: "Вишня", devil: "Дьявол", msu: "МГУ", trump: "Трамп", putin: "Путин",
+  ocean: "Океан", sunset: "Закат", mint: "Мята", lavender: "Лаванда", graphite: "Графит", cherry: "Вишня", devil: "Дьявол", msu: "МГУ", trump: "Трамп", putin: "Путин", magnate: "Магнат",
 };
 
 function ownerTheme() {
@@ -1759,6 +1888,7 @@ function applyTheme(granted = grantedTheme) {
     renderCska(tried === "cska");
     renderFlagTheme("trump", tried === "trump");
     renderFlagTheme("putin", tried === "putin");
+    renderFlagTheme("magnate", tried === "magnate");
     renderNokia(tried === "nokia");
     return;
   }
@@ -1784,6 +1914,7 @@ function applyTheme(granted = grantedTheme) {
   renderCska(name === "cska");
   renderFlagTheme("trump", name === "trump");
   renderFlagTheme("putin", name === "putin");
+  renderFlagTheme("magnate", name === "magnate");
   renderNokia(name === "nokia");
   // Именинник: салют один раз за день, когда заставка ушла.
   if (name === "birthday") {
@@ -1997,6 +2128,12 @@ const FLAG_THEMES = {
     text: "Make studying great again",
     rain: ["🇺🇸", "⭐", "🦅", "💵", "🇺🇸", "⭐"],
     hello: "🇺🇸 Тема «Трамп» включена. Let's make this week great again!",
+  },
+  magnate: {
+    icon: "💰",
+    text: "Магнат недели",
+    rain: ["💰", "🪙", "💵", "💎", "🪙", "💰"],
+    hello: "💰 Тема «Магнат» — за друзей, которых вы привели. Богатеем!",
   },
   putin: {
     icon: "🐻",
@@ -13245,6 +13382,11 @@ async function init() {
   initPhotos();
   initFlash();
   initNeon();
+  // «Неделя магната»: плашка с конкурсом, когда заставка уйдёт; раз в минуту — обратный отсчёт.
+  afterSplash(() => {
+    loadRef();
+    setInterval(renderRefBanner, 60000);
+  });
   document.getElementById("bg-pick")?.addEventListener("change", (event) => {
     haptic("select");
     try {
