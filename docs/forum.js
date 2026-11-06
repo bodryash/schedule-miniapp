@@ -497,7 +497,11 @@
       await Promise.resolve(window.openGame?.()).catch(() => {});
       closeForum({ instant: true, under: true });
     });
-    wrap.append(segwrap, lock, gameBanner, prompt, feed, tail);
+    // «Задание дня» и свой уровень — карточкой над лентой.
+    const chal = document.createElement("section");
+    chal.className = "fm-chal";
+    chal.hidden = true;
+    wrap.append(segwrap, lock, gameBanner, chal, prompt, feed, tail);
     scroll.append(ptr, wrap);
 
     const fab = document.createElement("button");
@@ -565,7 +569,7 @@
     root.append(feedPage, dim, threadPage);
     document.body.append(root);
 
-    Object.assign(S, { feedPage, nav, scroll, wrap, ptr, seg, segwrap, lock, prompt, feed, tail, fab, pill: fresh, gameBanner });
+    Object.assign(S, { feedPage, nav, scroll, wrap, ptr, seg, segwrap, lock, prompt, feed, tail, fab, pill: fresh, gameBanner, chal });
     Object.assign(T, { page: threadPage, dim, nav: tnav, scroll: tscroll, wrap: twrap, bar, replying, mask, area, send, hint });
     S.root = root;
 
@@ -664,6 +668,7 @@
       S.root.querySelector(".fm-nav"),
       S.segwrap,
       S.gameBanner && !S.gameBanner.hidden ? S.gameBanner : null,
+      S.chal && !S.chal.hidden ? S.chal : null,
       S.prompt,
       ...[...S.feed.children].slice(0, 6),
     ].filter(Boolean);
@@ -852,6 +857,53 @@
     }, 1000);
   }
 
+  /** «Задание дня» и свой уровень: что написать сегодня и сколько до следующего уровня. */
+  function renderChallenge() {
+    const box = S.chal;
+    if (!box) return;
+    const c = S.challenge;
+    const me = S.me;
+    box.hidden = !c && !me;
+    if (box.hidden) return;
+    const parts = [];
+    if (c) {
+      const head = document.createElement("div");
+      head.className = "fm-chal-head";
+      head.append(
+        Object.assign(document.createElement("span"), { className: "fm-chal-kicker", textContent: t("🎯 Задание дня") }),
+        Object.assign(document.createElement("span"), { className: "fm-chal-count", textContent: c.answers ? t("ответов: {n}", { n: c.answers }) : t("будь первым") })
+      );
+      const text = Object.assign(document.createElement("p"), { className: "fm-chal-text", textContent: c.text });
+      const go = Object.assign(document.createElement("button"), { type: "button", className: "fm-chal-go", textContent: t("Ответить") });
+      go.addEventListener("click", () => openComposer({ challenge: c }));
+      const note = Object.assign(document.createElement("small"), { className: "fm-chal-note", textContent: t("Лучший ответ в 21:00 получит «🔥 Ответ дня» и +25 кармы") });
+      parts.push(head, text, go, note);
+    }
+    if (me) {
+      const lvl = document.createElement("div");
+      lvl.className = "fm-lvl";
+      const bar = document.createElement("span");
+      bar.className = "fm-lvl-bar";
+      const fill = document.createElement("i");
+      const span = me.next ? me.next.need + me.karma : 1;
+      fill.style.width = `${me.next ? Math.max(4, Math.round((me.karma / span) * 100)) : 100}%`;
+      bar.append(fill);
+      lvl.append(
+        Object.assign(document.createElement("span"), { className: "fm-lvl-ico", textContent: me.icon }),
+        Object.assign(document.createElement("span"), { className: "fm-lvl-text", textContent: me.next ? t("Вы — {name} · {k} кармы · до {icon} {need}", { name: me.name, k: me.karma, icon: me.next.icon, need: me.next.need }) : t("Вы — {name} · {k} кармы", { name: me.name, k: me.karma }) }),
+        bar
+      );
+      parts.push(lvl);
+    }
+    box.replaceChildren(...parts);
+  }
+
+  /** Значок уровня у имени (только под своим именем — это решает сервер). */
+  function levelNode(item) {
+    if (!item.level) return null;
+    return Object.assign(document.createElement("span"), { className: "fm-level", title: item.level.name, textContent: item.level.icon });
+  }
+
   /** Текст черновика, если он есть: его показываем прямо в строке «Что у вас на уме?». */
   function draftText() {
     try {
@@ -918,6 +970,9 @@
       S.role = body.role || null;
       S.gameInfo = body.game || null;
       renderGameBanner();
+      S.challenge = body.challenge || null;
+      S.me = body.me || null;
+      renderChallenge();
       if (body.meAva && !S.meAva) {
         S.meAva = `${API_URL}${body.meAva}`;
         renderPrompt();
@@ -1167,6 +1222,12 @@
     const check = badgeOf(post);
     if (check) meta.append(check);
     if (post.medal) meta.append(Object.assign(document.createElement("span"), { className: "fm-medal", title: t("Призёр «Сессии 2048»"), textContent: post.medal }));
+    const lvl = levelNode(post);
+    if (lvl) meta.append(lvl);
+    if (post.best || post.challenge) {
+      const chip = Object.assign(document.createElement("span"), { className: `fm-chal-chip${post.best ? " is-best" : ""}`, textContent: post.best ? t("🔥 Ответ дня") : t("🎯 Задание дня") });
+      main.prepend(chip);
+    }
     if (post.pinned) {
       row.classList.add("is-pinned");
       const badge = document.createElement("span");
@@ -1962,6 +2023,8 @@
     const replyCheck = badgeOf(reply);
     if (replyCheck) meta.append(replyCheck);
     if (reply.medal) meta.append(Object.assign(document.createElement("span"), { className: "fm-medal", title: t("Призёр «Сессии 2048»"), textContent: reply.medal }));
+    const replyLvl = levelNode(reply);
+    if (replyLvl) meta.append(replyLvl);
     if (reply.op) meta.append(Object.assign(document.createElement("span"), { className: "fm-op", textContent: t("автор") }));
     const time = document.createElement("time");
     time.className = "fm-time";
@@ -2668,7 +2731,7 @@
 
   /* ---------- Новый пост ---------- */
 
-  function openComposer() {
+  function openComposer(opts = {}) {
     if (S.banned) return toast(t("Вам закрыт доступ к записям."), { tone: "warn", icon: "lock" });
     haptic("light");
     const sheet = (S.sheets.composer ||= makeSheet("sheet--fm-composer", { input: true }));
@@ -2690,6 +2753,8 @@
     const title = Object.assign(document.createElement("h2"), { textContent: t("Новый пост") });
     const publish = Object.assign(document.createElement("button"), { type: "button", className: "fm-publish", textContent: t("Опубликовать") });
     top.append(cancel, title, publish);
+    // Ответ на «Задание дня» — тема видна прямо над полем.
+    const chalNote = opts.challenge ? Object.assign(document.createElement("div"), { className: "fm-comp-chal", textContent: `🎯 ${opts.challenge.text}` }) : null;
 
     const body = document.createElement("div");
     body.className = "fm-comp-body";
@@ -2725,7 +2790,7 @@
     if (tagLabel) tools.append(tagChip);
     tools.append(ring);
 
-    box.append(top, body, as, err, tools);
+    box.append(...[top, chalNote, body, as, err, tools].filter(Boolean));
     fill(sheet.sh, box);
 
     const me = { name: S.user.first_name || t("Вы"), hue: hueOf(String(S.user.id || "me")), photo: tg?.initDataUnsafe?.user?.photo_url || S.meAva };
@@ -2819,7 +2884,7 @@
       publish.classList.add("is-busy");
       clearErr();
       try {
-        const res = await request("post", { text, anon, tag: withTag ? tagLabel : "" });
+        const res = await request("post", { text, anon, tag: withTag ? tagLabel : "", challenge: opts.challenge?.day || undefined });
         haptic("success");
         store(KEY.draft, null);
         area.value = "";

@@ -2412,3 +2412,117 @@ body.fm-open .minihead {
     animation: none;
   }
 }
+
+/* «Задание дня» и свой уровень над лентой. */
+.fm-chal {
+  margin: 10px 14px 4px;
+  padding: 14px 14px 12px;
+  border-radius: 20px;
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, #ff8a3d 22%, transparent), transparent 60%),
+    color-mix(in srgb, var(--card) 92%, var(--bg));
+  border: 1px solid color-mix(in srgb, #ff8a3d 30%, var(--line));
+}
+.fm-chal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.fm-chal-kicker {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ff7a2f;
+}
+.fm-chal-count {
+  font-size: 12px;
+  color: var(--muted);
+}
+.fm-chal-text {
+  margin: 0 0 10px;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.fm-chal-go {
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #ff9a4d, #ff5a3d);
+  box-shadow: 0 6px 16px rgba(255, 90, 61, 0.3);
+  cursor: pointer;
+}
+.fm-chal-note {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.fm-lvl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 8px;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.fm-chal > .fm-lvl:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.fm-lvl-ico {
+  grid-row: span 2;
+  font-size: 24px;
+}
+.fm-lvl-text {
+  font-size: 13px;
+  font-weight: 600;
+}
+.fm-lvl-bar {
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+.fm-lvl-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #ffd23f, #ff7a2f);
+}
+.fm-level {
+  font-size: 13px;
+  line-height: 1;
+}
+.fm-chal-chip {
+  display: inline-block;
+  align-self: flex-start;
+  margin-bottom: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #ff7a2f;
+  background: color-mix(in srgb, #ff7a2f 14%, transparent);
+}
+.fm-chal-chip.is-best {
+  color: #fff;
+  background: linear-gradient(135deg, #ff9a4d, #ff3d3d);
+}
+.fm-comp-chal {
+  margin: 6px 16px 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ff7a2f;
+  background: color-mix(in srgb, #ff7a2f 12%, transparent);
+}
