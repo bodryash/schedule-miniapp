@@ -14146,11 +14146,24 @@ body.putin .date-new {
   .pot-banner, .pot-banner::after, .pot-banner-coin, .pot-pot, .pot-coin { animation: none; }
 }
 
-/* ===== Тема «Магнат»: золото на тёмно-зелёном ===== */
+/* ===== Тема «Магнат»: тёмный изумруд, золотая фольга, бархат =====
+   Всегда тёмная: золото по-настоящему смотрится только на глубоком фоне. */
 body.magnate {
-  --accent: #e0a100;
-  --accent-soft: rgba(224, 161, 0, 0.18);
-  --accent-text: #2a1b00;
+  --gold-1: #fff1b8;
+  --gold-2: #f5c542;
+  --gold-3: #c8901a;
+  --gold-4: #7a5208;
+  --bg: #07170f;
+  --card: rgba(22, 52, 37, 0.78);
+  --surface: rgba(22, 52, 37, 0.78);
+  --text: #f6efd9;
+  --muted: #a9b9a6;
+  --line: rgba(245, 197, 66, 0.22);
+  --accent: var(--gold-2);
+  --accent-soft: rgba(245, 197, 66, 0.16);
+  --accent-text: #1a1200;
+  color-scheme: dark;
+  background: var(--bg);
 }
 body.magnate::before {
   content: "" !important;
@@ -14159,28 +14172,137 @@ body.magnate::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(120% 60% at 50% -10%, rgba(255, 214, 90, 0.45), transparent 60%),
-    radial-gradient(90% 50% at 110% 110%, rgba(24, 140, 80, 0.35), transparent 70%),
-    linear-gradient(180deg, #fff8e1, #fff1c4) !important;
+    radial-gradient(110% 55% at 50% -12%, rgba(245, 197, 66, 0.32), transparent 62%),
+    radial-gradient(70% 40% at -10% 100%, rgba(32, 120, 78, 0.45), transparent 70%),
+    radial-gradient(70% 40% at 110% 80%, rgba(20, 90, 60, 0.4), transparent 70%),
+    linear-gradient(180deg, #0c2418 0%, #06140d 100%) !important;
 }
-body[data-tone="dark"].magnate::before {
+/* Тонкий узор-«ёлочка» как на дорогой бумаге и медленно плывущие искры. */
+body.magnate::after {
+  content: "" !important;
+  position: fixed;
+  inset: -50% 0 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.55;
   background:
-    radial-gradient(120% 60% at 50% -10%, rgba(255, 196, 40, 0.35), transparent 60%),
-    radial-gradient(90% 50% at 110% 110%, rgba(24, 140, 80, 0.4), transparent 70%),
-    linear-gradient(180deg, #10241a, #0b1a12) !important;
+    radial-gradient(1.6px 1.6px at 12% 18%, rgba(255, 230, 150, 0.9), transparent 60%),
+    radial-gradient(1.2px 1.2px at 68% 34%, rgba(255, 230, 150, 0.8), transparent 60%),
+    radial-gradient(1.8px 1.8px at 40% 62%, rgba(255, 230, 150, 0.85), transparent 60%),
+    radial-gradient(1.2px 1.2px at 86% 76%, rgba(255, 230, 150, 0.7), transparent 60%),
+    radial-gradient(1.4px 1.4px at 22% 88%, rgba(255, 230, 150, 0.8), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(245, 197, 66, 0.035) 0 2px, transparent 2px 14px),
+    repeating-linear-gradient(-45deg, rgba(245, 197, 66, 0.035) 0 2px, transparent 2px 14px) !important;
+  background-size: 100% 50%, 100% 50%, 100% 50%, 100% 50%, 100% 50%, auto, auto !important;
+  animation: magnate-drift 28s linear infinite;
 }
-.flag-ribbon--magnate {
-  background: linear-gradient(135deg, #ffe27a, #f59e0b 60%, #b45309);
-  color: #2a1b00;
-  box-shadow: 0 2px 14px rgba(245, 158, 11, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-}
+@keyframes magnate-drift { to { transform: translateY(50%); } }
+
+/* Золотая фольга: дата и заголовки переливаются. */
 body.magnate .date,
 body.magnate .date-old,
 body.magnate .date-new {
-  background: linear-gradient(180deg, #ffd23f 0%, #f59e0b 55%, #b45309 100%);
+  background: linear-gradient(100deg, var(--gold-3) 0%, var(--gold-1) 22%, var(--gold-2) 40%, var(--gold-3) 60%, var(--gold-1) 80%, var(--gold-2) 100%) 0 0 / 220% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  filter: drop-shadow(0 2px 10px rgba(245, 197, 66, 0.25));
+  animation: magnate-foil 6s linear infinite;
+}
+@keyframes magnate-foil { to { background-position: -220% 0; } }
+
+/* Карточки — бархат с золотым кантом и бликом сверху. */
+body.magnate .card,
+body.magnate .own-card,
+body.magnate .day,
+body.magnate .settings-nav,
+body.magnate .sheet {
+  border: 1px solid rgba(245, 197, 66, 0.28) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 241, 184, 0.12), 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+}
+body.magnate .sheet {
+  background: linear-gradient(180deg, #102a1d, #0a1d14) !important;
+}
+body.magnate .day.active {
+  background: linear-gradient(160deg, var(--gold-1), var(--gold-2) 45%, var(--gold-3)) !important;
+  color: #1a1200 !important;
+}
+body.magnate .tabs {
+  background: rgba(8, 24, 16, 0.82) !important;
+  border-color: rgba(245, 197, 66, 0.3) !important;
+}
+
+/* Лента «Магнат недели»: чёрный лак, золотые буквы, корона. */
+.flag-ribbon--magnate {
+  background: linear-gradient(180deg, #1b1b1b, #050505);
+  color: var(--gold-2, #f5c542);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 0 0 1px rgba(245, 197, 66, 0.55), 0 4px 18px rgba(245, 197, 66, 0.3);
+}
+.flag-ribbon--magnate .flag-ribbon-icon {
+  font-size: 0;
+  width: 18px;
+  height: 14px;
+  background: linear-gradient(160deg, #fff1b8, #f5c542 50%, #c8901a);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cpath d='M2 16h20l-2-11-5 5-3-8-3 8-5-5z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cpath d='M2 16h20l-2-11-5 5-3-8-3 8-5-5z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+@media (prefers-reduced-motion: reduce) {
+  body.magnate::after, body.magnate .date, body.magnate .date-old, body.magnate .date-new { animation: none; }
+}
+
+/* Значки мест: монета с номером, у первого — корона. Вместо эмодзи-медалей. */
+.pot-badge {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 15px;
+  font-weight: 900;
+  color: #3a2600;
+  background: radial-gradient(circle at 35% 30%, #fff6cf, #f5c542 45%, #b9800f 100%);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.45), inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 3px 10px rgba(185, 128, 15, 0.45);
+}
+.pot-badge--2 {
+  color: #2b2f36;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #c9d0d8 45%, #8a94a0 100%);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5), inset 0 -3px 0 rgba(0, 0, 0, 0.15), 0 3px 10px rgba(120, 130, 145, 0.4);
+}
+.pot-badge--3 {
+  color: #3a1d08;
+  background: radial-gradient(circle at 35% 30%, #ffe0c2, #d98b4a 45%, #8c4d1c 100%);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.4), inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 3px 10px rgba(140, 77, 28, 0.4);
+}
+.pot-badge--1::before {
+  content: "";
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  width: 20px;
+  height: 13px;
+  transform: translateX(-50%);
+  background: linear-gradient(160deg, #fff1b8, #f5c542 50%, #c8901a);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cpath d='M2 16h20l-2-11-5 5-3-8-3 8-5-5z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cpath d='M2 16h20l-2-11-5 5-3-8-3 8-5-5z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.pot-badges {
+  display: inline-flex;
+}
+.pot-badges .pot-badge + .pot-badge {
+  margin-left: -10px;
+}
+.pot-row .pot-badge {
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+}
+.pot-row .pot-badge--1::before {
+  top: -9px;
+  width: 16px;
+  height: 10px;
 }
 
 /* Полоса размытия у верхнего края прокрученного окна (initSheetFade). */

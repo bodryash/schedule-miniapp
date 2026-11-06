@@ -201,6 +201,11 @@ function renderRefBanner() {
   node.replaceChildren(coin, body, el("span", "pot-banner-left", refLeft(refState.ends)));
 }
 
+/** Монета с номером места — вместо эмодзи-медалей. */
+function potBadge(n) {
+  return el("span", `pot-badge pot-badge--${n}`, String(n));
+}
+
 function refShareText() {
   return t("Расписание нашей группы прямо в Telegram: пары, замены, аудитории и напоминания. Открывай 👇");
 }
@@ -232,16 +237,18 @@ function openRef() {
   sheet.append(el("p", "pot-sub", st.live ? t("До конца — {left}. Кто приведёт больше всех друзей, тот и магнат.", { left: refLeft(st.ends) }) : t("Конкурс завершён — итоги скоро.")));
   // Призы
   const prizes = el("div", "pot-prizes");
-  const prize = (medal, title, text, gold) => {
+  const prize = (places, title, text, gold) => {
     const row = el("div", `pot-prize${gold ? " pot-prize--gold" : ""}`);
     const txt = el("div", "pot-prize-text");
     txt.append(el("b", "", title), el("span", "", text));
-    row.append(el("span", "pot-prize-medal", medal), txt);
+    const medals = el("span", "pot-prize-medal pot-badges");
+    for (const n of places) medals.append(potBadge(n));
+    row.append(medals, txt);
     return row;
   };
   prizes.append(
-    prize("🥇", t("NFT «Money Pot» №8875"), t("+ тема «Магнат» с золотым дождём и 💰 у имени в Подслушке"), true),
-    prize("🥈🥉", t("2 и 3 место"), t("тема «Магнат» и медаль у имени в Подслушке")),
+    prize([1], t("NFT «Money Pot» №8875"), t("+ тема «Магнат» и 💰 у имени в Подслушке"), true),
+    prize([2, 3], t("2 и 3 место"), t("тема «Магнат» и знак у имени в Подслушке")),
   );
   sheet.append(prizes);
   // Своя ссылка
@@ -274,7 +281,9 @@ function openRef() {
     list.append(el("div", "pot-top-title", t("Топ магнатов")));
     for (const r of st.top) {
       const row = el("div", `pot-row${r.me ? " pot-row--me" : ""}`);
-      row.append(el("span", "pot-row-place", ["🥇", "🥈", "🥉"][r.place - 1] || String(r.place)), el("span", "pot-row-name", r.me ? t("Вы") : r.name), el("span", "pot-row-n", String(r.count)));
+      const place = el("span", "pot-row-place");
+      place.append(r.place <= 3 ? potBadge(r.place) : document.createTextNode(String(r.place)));
+      row.append(place, el("span", "pot-row-name", r.me ? t("Вы") : r.name), el("span", "pot-row-n", String(r.count)));
       list.append(row);
     }
     sheet.append(list);
