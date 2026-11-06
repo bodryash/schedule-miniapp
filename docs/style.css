@@ -14324,3 +14324,15 @@ body.magnate .tabs {
 .sheet-scrolled > .sheet-fade {
   opacity: 1;
 }
+
+/* «Магнат»: меню «⋯» и подсказки — плотные, иначе сквозь них просвечивает фон. */
+body.magnate .menu-pop {
+  background: linear-gradient(180deg, #123323, #0b2117) !important;
+  border: 1px solid rgba(245, 197, 66, 0.4) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 241, 184, 0.1) !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+body.magnate .menu-pop button {
+  color: var(--text);
+}

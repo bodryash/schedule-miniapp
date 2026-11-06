@@ -201,6 +201,14 @@ function renderRefBanner() {
   node.replaceChildren(coin, body, el("span", "pot-banner-left", refLeft(refState.ends)));
 }
 
+/** Из меню «⋯»: свежие цифры с сервера, потом окно. Ссылка есть и до старта конкурса. */
+async function openRefFresh() {
+  if (!tg?.initData) return toast(t("Откройте расписание в Telegram — там будет ваша ссылка"));
+  await loadRef();
+  if (refState?.ok) openRef();
+  else toast(t("Не удалось получить ссылку — попробуйте ещё раз"));
+}
+
 /** Монета с номером места — вместо эмодзи-медалей. */
 function potBadge(n) {
   return el("span", `pot-badge pot-badge--${n}`, String(n));
@@ -234,7 +242,7 @@ function openRef() {
   x.setAttribute("aria-label", t("Закрыть"));
   x.addEventListener("click", () => (back.hidden = true));
   sheet.append(x, hero, el("h2", "pot-title", t("Неделя магната")));
-  sheet.append(el("p", "pot-sub", st.live ? t("До конца — {left}. Кто приведёт больше всех друзей, тот и магнат.", { left: refLeft(st.ends) }) : t("Конкурс завершён — итоги скоро.")));
+  sheet.append(el("p", "pot-sub", st.live ? t("До конца — {left}. Кто приведёт больше всех друзей, тот и магнат.", { left: refLeft(st.ends) }) : st.ends ? t("Конкурс завершён — итоги скоро.") : t("Скоро старт! Ссылка уже ваша — делитесь заранее: засчитаются друзья, которые откроют расписание после старта.")));
   // Призы
   const prizes = el("div", "pot-prizes");
   const prize = (places, title, text, gold) => {
@@ -11517,6 +11525,7 @@ function initMenu() {
     haptic("select");
     pop.hidden = true;
     if (item.dataset.menu === "invite") inviteGroup(item);
+    if (item.dataset.menu === "ref") openRefFresh();
     if (item.dataset.menu === "rooms") showFree();
     if (item.dataset.menu === "queues") openTab("queues");
     if (item.dataset.menu === "courses") {
