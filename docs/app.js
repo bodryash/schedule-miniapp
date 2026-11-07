@@ -11617,33 +11617,35 @@ function webForumButton() {
   return btn;
 }
 
-/** Компьютер: при открытии — коротко, сколько сегодня пар. */
-let pcSummaryShown = false;
+/** Компьютер: на заставке под «Добрый день» — сколько сегодня пар. */
 function pcDaySummary(group) {
-  if (pcSummaryShown || !PC_WIDE?.matches || !group || group.planner) return;
-  pcSummaryShown = true;
+  // matchMedia напрямую: заставка рисуется раньше, чем объявлен PC_WIDE.
+  if (!window.matchMedia?.("(min-width: 900px)").matches) return;
+  try {
+    if (!group || group.planner || !data) return;
+  } catch {
+    return; // данные ещё не объявлены — допишем, когда загрузятся
+  }
+  const box = els.splash?.isConnected && els.splash.querySelector(".splash-hello");
+  if (!box || box.querySelector(".splash-today")) return;
   const now = new Date();
   const day = ((now.getDay() + 6) % 7) + 1;
   let text;
-  if (day === 7) text = t("Сегодня воскресенье — пар нет");
+  if (day === 7) text = t("Сегодня пар нет — отдыхай");
   else {
     const list = ownLessonsForDay(group, day, 0);
     const slots = new Set(list.map((l) => l.slot)).size;
     const bells = new Map((data.bells || []).map((b) => [b.n, b]));
-    const n10 = slots % 10, n100 = slots % 100;
+    const n10 = slots % 10;
+    const n100 = slots % 100;
     const word = n10 === 1 && n100 !== 11 ? "пара" : n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14) ? "пары" : "пар";
     if (!slots) text = t("Сегодня пар нет — отдыхай");
     else {
-      const first = timesOf(list.reduce((a, b) => (a.slot <= b.slot ? a : b)), bells);
+      const first = timesOf(list.reduce((x, y) => (x.slot <= y.slot ? x : y)), bells);
       text = `${t("Сегодня")} ${slots} ${word}${first?.start ? ` · ${t("с")} ${first.start}` : ""}`;
     }
   }
-  setTimeout(() => {
-    const node = el("div", "pc-summary", text);
-    document.body.append(node);
-    setTimeout(() => node.classList.add("pc-summary--out"), 3200);
-    setTimeout(() => node.remove(), 3800);
-  }, 900);
+  box.append(el("div", "splash-hello-wish splash-today", text));
 }
 
 function initWebLogin() {
@@ -13105,6 +13107,11 @@ function renderHello() {
   };
   // На заставке — только приветствие и дата, без пожелания.
   box.replaceChildren(words(title, "splash-hello-title"));
+  try {
+    pcDaySummary(activeGroup());
+  } catch {
+    // рано — renderPcAside допишет позже
+  }
   if (isHalloween() && !custom) box.prepend(halloweenArt());
 }
 

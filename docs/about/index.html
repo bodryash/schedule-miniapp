@@ -260,16 +260,17 @@ footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
 @media (max-width:920px){.feat{grid-template-columns:1fr;gap:28px;margin-bottom:100px}.feat.flip .mock{order:0}}
 
 /* Кликабельные карточки: нажатие пружинит. */
-.tile,.mock,.stage .panel,.private{cursor:pointer}
+.tile,.mock,.stage .panel,.private{cursor:pointer;user-select:none}
 .press{animation:press .5s cubic-bezier(.2,1.6,.4,1)}
 @keyframes press{30%{scale:.95}100%{scale:1}}
 /* Переход в приложение: круг заливает экран от места клика. */
-.portal{position:fixed;z-index:100;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;background:var(--bg);pointer-events:none;transform:scale(0);will-change:transform;transition:transform .7s cubic-bezier(.7,0,.2,1)}
+.portal{position:fixed;z-index:100;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;background:#fff;pointer-events:none;transform:scale(0);will-change:transform;transition:transform .7s cubic-bezier(.7,0,.2,1)}
 .portal.go{transform:scale(var(--s))}
-.portal-mark{position:fixed;left:50%;top:50%;z-index:101;translate:-50% -50%;font:800 44px/1 "Manrope";letter-spacing:-.06em;color:var(--ink);opacity:0;scale:.6;transition:opacity .35s .35s,scale .6s .35s cubic-bezier(.2,1.4,.4,1);pointer-events:none}
+.portal-mark{position:fixed;left:50%;top:50%;z-index:101;translate:-50% -50%;font:800 44px/1 "Manrope";letter-spacing:-.06em;color:#15131a;opacity:0;scale:.6;transition:opacity .35s .35s,scale .6s .35s cubic-bezier(.2,1.4,.4,1);pointer-events:none}
 .portal-mark.go{opacity:1;scale:1}
-body.jump main,body.jump section,body.jump footer{transition:opacity .22s}
-body.jump section,body.jump footer{opacity:0}
+section,footer{transition:opacity .5s cubic-bezier(.4,0,.2,1),transform .7s cubic-bezier(.16,1,.3,1)}
+body.jump section,body.jump footer{opacity:0;transform:translateY(-24px);transition-duration:.3s}
+body.land section,body.land footer{opacity:0;transform:translateY(32px);transition:none}
 /* Цифры: секция «приклеена», числа сменяют друг друга от прокрутки. */
 .numbers{height:300vh;position:relative}
 .numbers .pin{position:sticky;top:0;height:100vh;display:grid;place-items:center;overflow:hidden}
@@ -277,9 +278,34 @@ body.jump section,body.jump footer{opacity:0}
 .num.on{opacity:1;scale:1;filter:none}
 .num.past{opacity:0;scale:1.6;filter:blur(14px)}
 .num b{display:block;font:800 clamp(120px,22vw,300px)/.9 "Manrope";letter-spacing:-.06em;background:linear-gradient(100deg,var(--accent),#ff3d7f 55%,var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent;padding-bottom:.08em}
-.num span{display:block;margin-top:10px;font:700 clamp(22px,2.6vw,34px) "Manrope";letter-spacing:-.02em}
+.num b .rub{display:inline;margin:0 0 0 .08em;font:inherit;font-family:"Segoe UI","SF Pro Display","Helvetica Neue",Arial,sans-serif;font-weight:700;letter-spacing:0}
+.num b{padding-right:.08em}
+.rub{font-family:"Segoe UI","SF Pro Display","Helvetica Neue",Arial,sans-serif}
+.num > span{display:block;margin-top:10px;font:700 clamp(22px,2.6vw,34px) "Manrope";letter-spacing:-.02em}
 .nums-bar{position:absolute;bottom:60px;left:50%;translate:-50% 0;width:160px;height:4px;border-radius:4px;background:color-mix(in srgb,var(--ink) 12%,transparent);overflow:hidden}
 .nums-bar i{display:block;height:100%;width:100%;background:var(--ink);transform-origin:left;transform:scaleX(0)}
+
+/* Интерактив карточек */
+.swap{animation:swapIn .45s cubic-bezier(.16,1,.3,1)!important;opacity:1!important}
+.lesson.swap{transform:none}
+@keyframes swapIn{from{opacity:0;transform:translateY(8px);filter:blur(4px)}}
+.week .c.swap{animation:cellPop .4s cubic-bezier(.2,1.5,.4,1)}
+@keyframes cellPop{from{transform:scale(.5);opacity:.3}}
+.msg.msg-new{opacity:1;transform:none;animation:msgIn .5s cubic-bezier(.2,1.4,.4,1) both!important;animation-delay:0s!important}
+@keyframes msgIn{from{opacity:0;transform:translateY(20px) scale(.9)}}
+.msg.msg-gone{transition:opacity .3s,transform .3s;opacity:0!important;transform:translateY(-12px) scale(.96)!important}
+.chip-now.bad{color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent)}
+.heart{position:absolute;z-index:3;color:#ff3d7f;font-size:28px;pointer-events:none;translate:-50% -50%;animation:heart .9s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes heart{0%{opacity:0;scale:.3}25%{opacity:1;scale:1.3}100%{opacity:0;scale:1;transform:translateY(-70px)}}
+.tile{position:relative;transform-style:preserve-3d}
+.tile > *:not(.tile-back){transition:opacity .35s}
+.tile-back{position:absolute;inset:0;margin:0;padding:28px;display:flex;align-items:center;border-radius:inherit;font:700 18px/1.3 "Manrope"!important;letter-spacing:-.01em;color:#fff!important;background:linear-gradient(135deg,var(--accent),#ff3d7f 60%,var(--violet));opacity:0;transform:rotateY(-90deg);transition:opacity .3s,transform .5s cubic-bezier(.16,1,.3,1)}
+.tile.flipped .tile-back{opacity:1;transform:none}
+.tile.flipped > *:not(.tile-back){opacity:0}
+.private .shield{transition:transform .3s}
+.private.locked .shield{animation:lockIt .6s cubic-bezier(.2,1.6,.4,1)}
+@keyframes lockIt{30%{transform:scale(.8) rotate(-10deg)}60%{transform:scale(1.15) rotate(6deg)}}
+.mock{overflow:hidden}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.reveal,.lesson,.msg,.toast,.words .w{opacity:1!important;transform:none!important;filter:none!important}.statement .sw{opacity:1}.week .c{opacity:1;transform:none}.typed{width:auto;border:0}.sem-bar i{width:58%}.sem-bar em{width:4%}}
 </style>
 </head>
@@ -308,7 +334,7 @@ body.jump section,body.jump footer{opacity:0}
     <div class="stats">
       <div><b data-count="61">61</b><span>факультет</span></div>
       <div><b data-count="15">15</b><span>вузов</span></div>
-      <div><b>0 ₽</b><span>навсегда</span></div>
+      <div><b>0<span class="rub">₽</span></b><span>навсегда</span></div>
     </div>
   </div>
   <div class="stage reveal d1" aria-hidden="true">
@@ -410,7 +436,7 @@ body.jump section,body.jump footer{opacity:0}
 <section class="numbers" aria-label="В цифрах"><div class="pin">
   <div class="num"><b>61</b><span>факультет</span></div>
   <div class="num"><b>15</b><span>вузов</span></div>
-  <div class="num"><b>0 ₽</b><span>навсегда</span></div>
+  <div class="num"><b>0<span class="rub">₽</span></b><span>навсегда</span></div>
   <div class="nums-bar"><i></i></div>
 </div></section>
 
@@ -596,11 +622,16 @@ body.jump section,body.jump footer{opacity:0}
     a.addEventListener("click", function (e) {
       var id = a.getAttribute("href"), target = id.length > 1 && document.querySelector(id);
       e.preventDefault();
-      document.body.classList.add("jump");
+      var body = document.body;
+      body.classList.add("jump");
       setTimeout(function () {
         scrollTo(0, target ? target.getBoundingClientRect().top + scrollY - 80 : 0);
-        requestAnimationFrame(function () { document.body.classList.remove("jump"); });
-      }, 220);
+        // Новое место выплывает снизу: снимаем «уход», ставим «приход» и отпускаем.
+        body.classList.add("land");
+        body.classList.remove("jump");
+        void body.offsetWidth;
+        requestAnimationFrame(function () { requestAnimationFrame(function () { body.classList.remove("land"); }); });
+      }, 330);
     });
   });
 
@@ -619,13 +650,150 @@ body.jump section,body.jump footer{opacity:0}
   document.querySelectorAll('a[href="/?app=1"]').forEach(function (a) {
     a.addEventListener("click", function (e) { e.preventDefault(); openApp(e.clientX, e.clientY); });
   });
-  // Карточки нажимаются: пружинят; плитки и макеты открывают приложение.
-  document.querySelectorAll(".tile, .mock, .stage .panel, .private").forEach(function (card) {
-    card.addEventListener("click", function (e) {
-      card.classList.remove("press"); void card.offsetWidth; card.classList.add("press");
-      if (card.classList.contains("tile") || card.classList.contains("panel")) setTimeout(function () { openApp(e.clientX, e.clientY); }, 180);
+  // Карточки — интерактивные: по нажатию меняется их содержимое.
+  function spring(n) { n.classList.remove("press"); void n.offsetWidth; n.classList.add("press"); }
+  function swap(node, html) {
+    node.classList.remove("swap"); void node.offsetWidth; node.innerHTML = html; node.classList.add("swap");
+  }
+  var pick = function (arr, i) { return arr[i % arr.length]; };
+
+  // Телефон в начале: тап по дню — другой день.
+  var panel = document.querySelector(".stage .panel");
+  var plan = {
+    "9": ["Понедельник, 9 ноября", "Безопасность жизнедеятельности", "440", [["10:45", "История России", "лекция · Петров А.С.", "П6"], ["12:50", "Экономика", "семинар · Орлова Е.В.", "208"]]],
+    "10": ["Вторник, 10 ноября", "Английский язык", "312", [["10:45", "Массмедиа", "лекция · Ким Д.А.", "309"], ["12:50", "Риторика", "семинар · Ли С.В.", "412"]]],
+    "11": ["Среда, 11 ноября", "Философия", "505", [["12:50", "Мир Франции: история", "лекция · Бунтман Н.В.", "438"], ["14:45", "Физкультура", "практика", "спортзал"]]],
+    "12": ["Четверг, 12 ноября", "Экономика", "208", [["12:50", "Этикет и протокол", "семинар · Робустова В.В.", "439"], ["14:45", "Мир Франции: литература", "семинар · Бунтман Н.В.", "438"]]],
+    "13": ["Пятница, 13 ноября", "Социология", "201", [["10:45", "Английский язык", "практика · Смит Дж.", "312"], ["12:50", "Экономика", "лекция · Орлова Е.В.", "208"]]],
+    "14": ["Суббота, 14 ноября", "Мировая экономика", "509", [["10:45", "Межкультурные аспекты", "семинар · Мовчан Д.В.", "612"]]]
+  };
+  function showDay(d) {
+    var x = plan[d]; if (!x) return;
+    panel.querySelectorAll(".days span").forEach(function (sp) { sp.classList.toggle("on", sp.lastChild.textContent.trim() === d); });
+    swap(panel.querySelector(".app-date"), x[0]);
+    swap(panel.querySelector(".now"), '<small>ПЕРВАЯ ПАРА · АУД. ' + x[2] + '</small><b>' + x[1] + '</b><span style="font-size:13px;opacity:.9">09:00 — 10:30</span><div class="bar"><i></i></div>');
+    panel.querySelectorAll(".lesson").forEach(function (l, i) {
+      var r = x[3][i];
+      l.style.visibility = r ? "" : "hidden";
+      if (r) swap(l, "<time>" + r[0] + "</time><div><b>" + r[1] + "</b><span>" + r[2] + '</span></div><span class="room">' + r[3] + "</span>");
+    });
+  }
+  if (panel) {
+    panel.querySelectorAll(".days span").forEach(function (sp) {
+      sp.style.cursor = "pointer";
+      sp.addEventListener("click", function (e) { e.stopPropagation(); showDay(sp.lastChild.textContent.trim()); });
+    });
+    panel.addEventListener("click", function () {
+      var on = panel.querySelector(".days span.on"), next = (on && on.nextElementSibling) || panel.querySelector(".days span");
+      showDay(next.lastChild.textContent.trim());
+    });
+  }
+
+  // Неделя: пары перетасовываются.
+  var weekMock = week.closest(".mock");
+  weekMock.addEventListener("click", function () {
+    week.querySelectorAll(".c").forEach(function (c, i) {
+      var on = Math.random() < .62;
+      setTimeout(function () {
+        c.classList.toggle("x", on);
+        c.style.setProperty("--k", on ? colors[Math.floor(Math.random() * colors.length)] : "");
+        c.classList.remove("swap"); void c.offsetWidth; c.classList.add("swap");
+      }, i * 18);
     });
   });
+
+  // Бот: приходит новое сообщение.
+  var msgs = [
+    ["🔁 Замена", "Риторика — вместо Ли С.В. ведёт Ким Д.А.", "09:58"],
+    ["❌ Пара отменена", "Физкультура 14:45 — отдыхай", "11:20"],
+    ["⏰ Через 15 минут", "Этикет и протокол · ауд. 439", "12:35"],
+    ["📌 Дедлайн завтра", "Реферат по философии — до 23:59", "18:00"],
+    ["🌙 Завтра 2 пары", "Первая в 10:45 · можно поспать", "21:00"]
+  ];
+  var mi = 0, msgMock = document.querySelector(".msg") && document.querySelector(".msg").closest(".mock");
+  if (msgMock) msgMock.addEventListener("click", function () {
+    var list = msgMock.querySelector(".msg").parentNode, m = pick(msgs, mi++);
+    var n = document.createElement("div"); n.className = "msg msg-new";
+    n.innerHTML = "<b>" + m[0] + "</b>" + m[1] + "<time>" + m[2] + "</time>";
+    list.appendChild(n);
+    var all = list.querySelectorAll(".msg");
+    if (all.length > 3) { var old = all[0]; old.classList.add("msg-gone"); setTimeout(function () { old.remove(); }, 300); }
+  });
+
+  // Пропуски: каждый тап — ещё один пропуск, лимит пересчитывается.
+  var absMock = document.querySelector(".abs-row") && document.querySelector(".abs-row").closest(".mock");
+  if (absMock) {
+    var missed = 1;
+    absMock.addEventListener("click", function () {
+      missed = missed >= 5 ? 0 : missed + 1;
+      var grade = missed <= 2 ? 5 : missed <= 4 ? 4 : 3, left = missed <= 2 ? 2 - missed : missed <= 4 ? 4 - missed : 0;
+      swap(absMock.querySelector(".n"), String(missed));
+      absMock.querySelector(".s").textContent = "пропущено " + missed + " · прошло 38 из 62";
+      var chip = absMock.querySelector(".chip-now");
+      swap(chip, grade === 3 ? "сейчас: «оценка 3» · лимит исчерпан" : "сейчас: «оценка " + grade + "» · можно ещё " + left);
+      chip.classList.toggle("bad", grade === 3);
+    });
+  }
+
+  // Семестр: другой студент — другие числа.
+  var semMock = document.querySelector(".sem-big") && document.querySelector(".sem-big").closest(".mock");
+  if (semMock) semMock.addEventListener("click", function () {
+    var pct = 20 + Math.floor(Math.random() * 75), done = Math.round(300 * pct / 100);
+    var vals = [pct, done, 300 - done, Math.floor(Math.random() * 14)];
+    semMock.querySelectorAll("[data-count]").forEach(function (el, i) { el.dataset.count = vals[i]; count(el); });
+    var att = semMock.querySelector(".tiles div:last-child b"); if (att) swap(att, (100 - vals[3]) + "%");
+    var bar = semMock.querySelector(".sem-bar i"); if (bar) bar.style.width = pct + "%";
+  });
+
+  // Поиск: следующий запрос.
+  var people = [
+    ["Мовчан Д.В.", "М", "8 пар в расписании", "Сейчас: ауд. 626, до 12:45", ["208", "309", "412", "439", "512", "626"]],
+    ["Орлова Е.В.", "О", "12 пар в расписании", "Сейчас: ауд. 208, до 10:30", ["101", "214", "305", "512"]],
+    ["Ким Д.А.", "К", "6 пар в расписании", "Сейчас: окно до 14:45", ["309", "312", "440", "505", "612"]],
+    ["Бунтман Н.В.", "Б", "10 пар в расписании", "Сейчас: ауд. 438, до 16:20", ["201", "208", "438"]]
+  ];
+  var pi = 0, searchMock = document.querySelector(".search") && document.querySelector(".search").closest(".mock");
+  if (searchMock) searchMock.addEventListener("click", function () {
+    var x = pick(people, ++pi), typed = searchMock.querySelector(".typed");
+    typed.style.animation = "none"; typed.style.width = "auto"; typed.textContent = "";
+    var name = x[0].split(" ")[0], k = 0;
+    (function type() { typed.textContent = name.slice(0, ++k); if (k < name.length) setTimeout(type, 55); })();
+    var res = searchMock.querySelector(".res");
+    swap(res, '<span class="av">' + x[1] + '</span><div><b>' + x[0] + '</b><span style="font-size:13px;color:var(--muted)">преподаватель · ' + x[2] + '</span><br><span class="live"><i></i>' + x[3] + "</span></div>");
+    swap(searchMock.querySelector(".free"), x[4].map(function (r) { return "<span>" + r + "</span>"; }).join(""));
+  });
+
+  // Подслушка: лайк с сердечком.
+  var postMock = document.querySelector(".post") && document.querySelector(".post").closest(".mock");
+  if (postMock) postMock.addEventListener("click", function (e) {
+    v += 1; votes.textContent = v; votes.classList.add("bump"); setTimeout(function () { votes.classList.remove("bump"); }, 220);
+    var r = postMock.getBoundingClientRect(), h = document.createElement("span");
+    h.className = "heart"; h.textContent = "❤"; h.style.left = (e.clientX - r.left) + "px"; h.style.top = (e.clientY - r.top) + "px";
+    postMock.appendChild(h); setTimeout(function () { h.remove(); }, 900);
+  });
+
+  // Плитки переворачиваются и показывают, что это.
+  var tips = {
+    "Дедлайны": "Курсовые и рефераты со сроками — бот напомнит",
+    "Домашка от старосты": "Староста пишет задание — видит вся группа",
+    "Опросы и очереди": "Голосования и живые очереди на сдачу",
+    "Темы": "Светлая, тёмная, неон, океан и особые",
+    "На компьютере": "Меню слева, вся неделя, вход через Telegram",
+    "Позови группу": "Одна ссылка — и у всех то же расписание"
+  };
+  document.querySelectorAll(".tile").forEach(function (t) {
+    var h = t.querySelector("h4"), back = document.createElement("p");
+    back.className = "tile-back"; back.textContent = tips[h.textContent] || "";
+    t.appendChild(back);
+    t.addEventListener("click", function () { t.classList.toggle("flipped"); });
+  });
+
+  // Приватность: замок защёлкивается.
+  var priv = document.querySelector(".private");
+  if (priv) priv.addEventListener("click", function () { priv.classList.remove("locked"); void priv.offsetWidth; priv.classList.add("locked"); });
+
+  document.querySelectorAll(".mock, .stage .panel, .private").forEach(function (c) { c.addEventListener("click", function () { spring(c); }); });
+
 
   // Карточки поворачиваются за мышью (только там, где есть мышь).
   if (!reduce && matchMedia("(hover: hover) and (pointer: fine)").matches) {

@@ -15085,30 +15085,16 @@ body.magnate .menu-pop button {
   .menu-pop--side [data-menu] br {
     display: none;
   }
-  .pc-summary {
-    position: fixed;
-    left: calc(50% + var(--side) / 2);
-    bottom: 28px;
-    z-index: 90;
-    padding: 12px 20px;
-    border-radius: 999px;
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--bg);
-    background: var(--text);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
-    transform: translateX(-50%);
-    animation: pc-summary-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-  .pc-summary--out {
-    animation: pc-summary-out 380ms cubic-bezier(0.4, 0, 1, 1) forwards;
-  }
 }
-.pc-summary {
+.splash-today {
   display: none;
 }
-@media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
-  .pc-summary { display: block; }
+@media (min-width: 900px) {
+  .splash-today {
+    display: block;
+    opacity: 0.55;
+    animation: hello-word 600ms cubic-bezier(0.2, 0.9, 0.25, 1) 380ms backwards;
+  }
 }
 @keyframes pc-undim {
   to { opacity: 0; }
@@ -15122,9 +15108,20 @@ body.magnate .menu-pop button {
 @keyframes pc-pop-out {
   to { opacity: 0; transform: translateY(6px) scale(0.98); }
 }
-@keyframes pc-summary-in {
-  from { opacity: 0; transform: translate(-50%, 40px) scale(0.9); }
+
+
+/* Уход заставки — один для всех: тает, содержимое чуть уходит вверх.
+   Без масштаба: увеличенный текст размывается и дёргается. */
+.splash.splash--gone {
+  animation: splash-soft-out 460ms cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+  box-shadow: none !important;
+  clip-path: none !important;
 }
-@keyframes pc-summary-out {
-  to { opacity: 0; transform: translate(-50%, 20px) scale(0.96); }
+.splash.splash--gone > * {
+  transition: transform 460ms cubic-bezier(0.4, 0, 0.2, 1), opacity 320ms ease !important;
+  transform: translate3d(0, -16px, 0) !important;
+  opacity: 0 !important;
+}
+@keyframes splash-soft-out {
+  to { opacity: 0; }
 }
