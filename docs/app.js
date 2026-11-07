@@ -11833,7 +11833,20 @@ function initWebLogin() {
   const box = el("div", "web-login");
   const login = window.__webLogin;
   if (login) {
-    box.append(el("span", "web-login-who", `${login.first_name || ""}${login.username ? ` · @${login.username}` : ""}`));
+    // Аватарка из Telegram (её отдаёт кнопка входа); нет фото — первая буква.
+    const me = el("div", "web-login-me");
+    const ava = el("span", "web-login-ava", ([...String(login.first_name || "?")][0] || "?").toUpperCase());
+    if (login.photo_url) {
+      const img = new Image();
+      img.alt = "";
+      img.referrerPolicy = "no-referrer";
+      img.onload = () => ava.replaceChildren(img);
+      img.src = login.photo_url;
+    }
+    const who = el("span", "web-login-text");
+    who.append(el("b", "web-login-who", login.first_name || ""), el("small", "", login.username ? `@${login.username}` : ""));
+    me.append(ava, who);
+    box.append(me);
     const out = el("button", "web-login-out", t("Выйти"));
     out.type = "button";
     out.addEventListener("click", () => {
