@@ -10542,7 +10542,14 @@ function renderFreeDay() {
   stage.append(el("span", "free-day-halo"));
   stage.append(el("div", "free-day-emoji", emoji));
   node.append(stage, el("div", "free-day-title", title));
-  if (line) node.append(el("div", "free-day-line", line));
+  const caption = el("div", "free-day-caption");
+  if (line) caption.append(el("div", "free-day-line", line));
+  const add = el("button", "free-day-add");
+  add.type = "button";
+  add.append(el("span", "free-day-add-plus", "+"), document.createTextNode(t("Добавить своё дело")));
+  add.addEventListener("click", () => openOwn(null));
+  caption.append(add);
+  node.append(caption);
   return node;
 }
 
@@ -10606,7 +10613,7 @@ function renderLessons(group, parity) {
     // Есть свои дела — вместо большой картинки «свободный день» показываем
     // ленту дня: видно, где в сутках стоит каждое дело.
     const head = own.length ? renderOwnStrip(dateOfDay(selectedDay)) : renderFreeDay();
-    els.lessons.replaceChildren(head, ...own, renderOwnAdd(), ...[renderStarostaAsk()].filter(Boolean));
+    els.lessons.replaceChildren(head, ...own, ...(own.length ? [renderOwnAdd()] : []), ...[renderStarostaAsk()].filter(Boolean));
     refreshNext();
     return;
   }
