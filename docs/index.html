@@ -24,6 +24,24 @@
   <meta name="theme-color" content="#4c6ef5">
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Сайт на компьютере: вход через Telegram (Login Widget). Если открыто не
+       в Telegram, а человек входил на сайте, подставляем его данные — тогда
+       работают Подслушка, напоминания и всё личное, как в мини-приложении. -->
+  <script>
+    (function () {
+      var wa = window.Telegram && window.Telegram.WebApp;
+      if (!wa || wa.initData) return;
+      try {
+        var login = JSON.parse(localStorage.getItem("schedule.weblogin") || "null");
+        if (!login || !login.hash || Date.now() / 1000 - login.auth_date > 29 * 86400) return;
+        var p = new URLSearchParams({ web: "1" });
+        Object.keys(login).forEach(function (k) { if (login[k] != null && login[k] !== "") p.set(k, String(login[k])); });
+        wa.initData = p.toString();
+        wa.initDataUnsafe = Object.assign({}, wa.initDataUnsafe, { user: { id: login.id, first_name: login.first_name, last_name: login.last_name, username: login.username, photo_url: login.photo_url } });
+        window.__webLogin = login;
+      } catch (e) {}
+    })();
+  </script>
   <!-- Заставка должна появиться с первого кадра, ещё до основных стилей:
        иначе, пока качается style.css, на экране секунды темноты. Здесь —
        только то, что нужно, чтобы её было видно. -->
