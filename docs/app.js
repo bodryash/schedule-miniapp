@@ -4202,8 +4202,8 @@ function toggleMissed(subject, date, slot) {
 }
 
 /**
- * Кнопка «пропустил» под любой парой, которая уже началась. У будущих пар её
- * нет: пропуск отмечают после, а не заранее.
+ * Кнопка под каждой парой: у прошедших — «пропустил?», у будущих — «пропущу?»
+ * (план, учитывается в лимите).
  */
 function applyAbsenceButtons() {
   for (const card of els.lessons.querySelectorAll(".card")) card.querySelector(".abs-toggle")?.remove();
@@ -4211,15 +4211,17 @@ function applyAbsenceButtons() {
   const date = dateOfDay(selectedDay);
   const now = new Date();
   const today = isoDate(date) === isoDate(now);
-  if (isoDate(date) > isoDate(now)) return;
   for (const card of els.lessons.querySelectorAll(".card")) {
     // Свои дела — не пары: у них нет предмета, пропуск к ним не относится.
     if (!card.dataset.subject || !isAbsTracked(card.dataset.type) || card.classList.contains("card--cancelled")) continue;
-    if (today && card.dataset.start && minutes(card.dataset.start) > now.getHours() * 60 + now.getMinutes()) continue;
+    // Будущие пары — тоже: пропуск можно запланировать заранее, он учтётся
+    // в лимите как «в планах».
+    const ahead = isoDate(date) > isoDate(now) || (today && card.dataset.start && minutes(card.dataset.start) > now.getHours() * 60 + now.getMinutes());
     const subject = card.dataset.subject;
     const slot = Number(card.dataset.slot);
     const missed = isMissed(subject, date, slot);
-    const button = el("button", missed ? "abs-toggle abs-toggle--on" : "abs-toggle", missed ? t("пропуск ✕") : t("пропустил?"));
+    const label = (on) => (on ? (ahead ? t("пропущу ✕") : t("пропуск ✕")) : ahead ? t("пропущу?") : t("пропустил?"));
+    const button = el("button", missed ? "abs-toggle abs-toggle--on" : "abs-toggle", label(missed));
     button.type = "button";
     button.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -4229,7 +4231,7 @@ function applyAbsenceButtons() {
       // На месте, а не перерисовкой: так цвет перетекает, а кнопка
       // коротко пружинит под пальцем.
       button.classList.toggle("abs-toggle--on", now);
-      button.textContent = now ? t("пропуск ✕") : t("пропустил?");
+      button.textContent = label(now);
       button.animate(
         [{ transform: "scale(0.9)" }, { transform: "scale(1.06)", offset: 0.6 }, { transform: "scale(1)" }],
         { duration: 320, easing: "cubic-bezier(0.3, 1.5, 0.5, 1)" }
@@ -4528,7 +4530,7 @@ function renderAbsences() {
     intro.append(
       el("div", "abs-intro-title", t("Сколько ещё можно пропустить?")),
       el("p", null, t("Отмечайте пропущенные пары — приложение посчитает, сколько осталось до лимита, и подсветит, когда хватит.")),
-      el("p", "abs-intro-hint", t("Под каждой прошедшей парой появится кнопка «пропустил?». Лимит для каждого предмета задаёте сами."))
+      el("p", "abs-intro-hint", t("Под каждой парой появится кнопка: у прошедших — «пропустил?», у будущих — «пропущу?». Лимит для каждого предмета задаёте сами."))
     );
     const start = el("button", "primary abs-start", t("Начать считать"));
     start.type = "button";
