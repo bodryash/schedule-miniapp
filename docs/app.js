@@ -10004,9 +10004,16 @@ function renderPcAside() {
       bars.append(col);
     });
     box.append(bars);
-    const free = counts.filter((c) => !c).length;
-    const heavy = counts.indexOf(Math.max(...counts));
-    box.append(el("p", "pc-note", `${total ? `${t("Тяжелее всего")} — ${names[heavy]}` : t("Пар нет")}${free ? ` · ${t("без пар")}: ${free}` : ""}`));
+    const free = names.filter((_, i) => !counts[i]);
+    const top = Math.max(...counts);
+    const full = ["понедельник", "вторник", "среду", "четверг", "пятницу", "субботу"];
+    const heavy = counts.indexOf(top);
+    const tw = top % 10 === 1 && top % 100 !== 11 ? "пара" : top % 10 >= 2 && top % 10 <= 4 && (top % 100 < 12 || top % 100 > 14) ? "пары" : "пар";
+    const lines = [];
+    if (total) lines.push(`${t("Больше всего пар в")} ${t(full[heavy])} — ${top} ${tw}`);
+    else lines.push(t("На этой неделе пар нет"));
+    if (total && free.length) lines.push(`${t("Свободны")}: ${free.join(", ")}`);
+    box.append(el("p", "pc-note", lines.join(" · ")));
     blocks.push(box);
   }
   const dl = el("section", "pc-card");
