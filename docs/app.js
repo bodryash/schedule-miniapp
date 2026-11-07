@@ -443,6 +443,7 @@ async function loadNotices(group) {
     notices.canComment = Boolean(body.canComment);
     notices.deadlines = body.deadlines || [];
     notices.polls = body.polls || [];
+    notices.absRules = body.absRules || {};
     renderPolls();
     if (tab === "deadlines") renderDeadlines();
     mergeCommentCounts(weekRange(selectedWeek), body.comments);
@@ -4119,7 +4120,7 @@ function renderSemester() {
 const ABS_KEY = "absences";
 // Учёт пропусков включён всем по умолчанию: кнопка «пропустил?» под каждой
 // прошедшей парой. Кто сам нажал «Перестать считать» — у того выключен.
-let absences = { on: true, marks: {}, limits: {}, rules: {} };
+let absences = { on: true, marks: {}, limits: {}, rules: {}, worked: {} };
 let absLoaded = false;
 // Строки с раскрытыми датами — чтобы после отметки список не схлопывался.
 const openRows = new Set();
@@ -4162,7 +4163,7 @@ async function loadAbsences() {
   try {
     const parsed = JSON.parse(raw || "null");
     if (parsed && typeof parsed === "object") {
-      absences = { on: parsed.on !== false, marks: parsed.marks || {}, limits: parsed.limits || {}, rules: parsed.rules || {} };
+      absences = { on: parsed.on !== false, marks: parsed.marks || {}, limits: parsed.limits || {}, rules: parsed.rules || {}, worked: parsed.worked || {} };
     }
   } catch {
     // Испорченная запись — начинаем с чистого листа.
@@ -4175,6 +4176,7 @@ function saveAbsences() {
   // Облако Telegram держит до 4 КБ на ключ — хранить даты коротко:
   // «0928-3» — 28 сентября, третья пара.
   for (const [subject, list] of Object.entries(absences.rules || {})) if (!list?.length) delete absences.rules[subject];
+  for (const [subject, list] of Object.entries(absences.worked || {})) if (!list?.length) delete absences.worked[subject];
   cloudSet(ABS_KEY, JSON.stringify(absences));
 }
 
@@ -4192,6 +4194,33 @@ function isMissed(subject, date, slot) {
   return (absences.marks[subject] || []).includes(absMark(date, slot));
 }
 
+/** Пропуск отработан: остаётся в истории, но в лимит не идёт. */
+function isWorked(subject, date, slot) {
+  return (absences.worked?.[subject] || []).includes(absMark(date, slot));
+}
+
+function toggleWorked(subject, date, slot) {
+  const mark = absMark(date, slot);
+  const list = new Set((absences.worked ||= {})[subject] || []);
+  if (list.has(mark)) list.delete(mark);
+  else list.add(mark);
+  absences.worked[subject] = [...list];
+  saveAbsences();
+}
+
+/** Лимит и условия: свои главнее, иначе — заданные старостой для группы. */
+function absLimitOf(subject) {
+  if (absences.limits[subject] != null) return { limit: absences.limits[subject], fromGroup: false };
+  const g = notices.absRules?.[subject];
+  return g && g.limit != null ? { limit: g.limit, fromGroup: true } : { limit: null, fromGroup: false };
+}
+function absRulesOf(subject) {
+  const own = absences.rules?.[subject];
+  if (own?.length) return { rules: own, fromGroup: false };
+  const g = notices.absRules?.[subject];
+  return g?.rules?.length ? { rules: g.rules, fromGroup: true } : { rules: [], fromGroup: false };
+}
+
 function toggleMissed(subject, date, slot) {
   const mark = absMark(date, slot);
   const list = new Set(absences.marks[subject] || []);
@@ -4199,6 +4228,7 @@ function toggleMissed(subject, date, slot) {
   else list.add(mark);
   absences.marks[subject] = [...list];
   if (!absences.marks[subject].length) delete absences.marks[subject];
+  if (!list.has(mark) && absences.worked?.[subject]) absences.worked[subject] = absences.worked[subject].filter((m) => m !== mark);
   saveAbsences();
 }
 
@@ -4207,7 +4237,7 @@ function toggleMissed(subject, date, slot) {
  * (план, учитывается в лимите).
  */
 function applyAbsenceButtons() {
-  for (const card of els.lessons.querySelectorAll(".card")) card.querySelector(".abs-toggle")?.remove();
+  for (const card of els.lessons.querySelectorAll(".card")) card.querySelector(".abs-pair, .abs-toggle")?.remove();
   if (!absences.on) return;
   const date = dateOfDay(selectedDay);
   const now = new Date();
@@ -4238,7 +4268,33 @@ function applyAbsenceButtons() {
         { duration: 320, easing: "cubic-bezier(0.3, 1.5, 0.5, 1)" }
       );
     });
-    (card.querySelector(".card-body") || card).append(button);
+    const box = el("div", "abs-pair");
+    box.append(button);
+    // Прошедший пропуск можно отметить отработанным: в лимит он не идёт.
+    if (!ahead) {
+      const work = el("button", "abs-work", isWorked(subject, date, slot) ? t("отработан ✓") : t("отработал?"));
+      work.type = "button";
+      work.hidden = !missed;
+      work.classList.toggle("abs-work--on", isWorked(subject, date, slot));
+      work.addEventListener("click", (event) => {
+        event.stopPropagation();
+        toggleWorked(subject, date, slot);
+        const on = isWorked(subject, date, slot);
+        haptic(on ? "success" : "light");
+        work.classList.toggle("abs-work--on", on);
+        work.textContent = on ? t("отработан ✓") : t("отработал?");
+      });
+      button.addEventListener("click", () => {
+        const on = isMissed(subject, date, slot);
+        work.hidden = !on;
+        if (!on) {
+          work.classList.remove("abs-work--on");
+          work.textContent = t("отработал?");
+        }
+      });
+      box.append(work);
+    }
+    (card.querySelector(".card-body") || card).append(box);
   }
 }
 
@@ -4363,10 +4419,14 @@ function markIsAhead(mark) {
 
 function absState(subject) {
   const { total, past } = seminarCount(subject);
-  const marks = absences.marks[subject] || [];
+  const worked = new Set(absences.worked?.[subject] || []);
+  const all = absences.marks[subject] || [];
+  // Отработанные — в истории, но не в лимите.
+  const marks = all.filter((m) => !worked.has(m));
   const planned = marks.filter(markIsAhead).length;
   const missed = marks.length - planned;
-  const limit = absences.limits[subject];
+  const workedN = all.length - marks.length;
+  const { limit, fromGroup } = absLimitOf(subject);
   const left = limit == null ? null : limit - missed - planned;
   const state = left == null ? "none" : left <= 0 ? (left < 0 ? "over" : "stop") : left === 1 ? "warn" : "ok";
   const plan = planned ? ` · ${t("в планах {n}", { n: planned })}` : "";
@@ -4377,7 +4437,10 @@ function absState(subject) {
         ? t("перебор на {n} — пора остановиться", { n: -left })
         : left === 0
           ? t("хватит — лимит исчерпан")
-          : t("можно ещё {n} · прошло {past} из {total}", { n: left, past, total })) + plan;
+          : t("можно ещё {n} · прошло {past} из {total}", { n: left, past, total })) +
+    plan +
+    (workedN ? ` · ${t("отработано {n}", { n: workedN })}` : "") +
+    (fromGroup ? ` · ${t("лимит от старосты")}` : "");
   return { total, missed, planned, limit, state, status, rule: ruleState(subject, missed + planned) };
 }
 
@@ -4387,13 +4450,15 @@ function absState(subject) {
  * пропустить, чтобы не съехать ниже.
  */
 function ruleState(subject, used) {
-  const rules = (absences.rules?.[subject] || []).filter((r) => r.n != null).sort((a, b) => a.n - b.n);
+  const { rules: list, fromGroup } = absRulesOf(subject);
+  const rules = list.filter((r) => r.n != null).sort((a, b) => a.n - b.n);
   if (!rules.length) return "";
+  const src = fromGroup ? ` · ${t("от старосты")}` : "";
   const hit = rules.find((r) => used <= r.n);
-  if (!hit) return t("все условия превышены");
+  if (!hit) return t("все условия превышены") + src;
   const left = hit.n - used;
   const what = hit.label ? `«${hit.label}»` : t("до {n} пропусков", { n: hit.n });
-  return left ? t("сейчас: {what} · можно ещё {n}", { what, n: left }) : t("сейчас: {what} · больше пропускать нельзя", { what });
+  return (left ? t("сейчас: {what} · можно ещё {n}", { what, n: left }) : t("сейчас: {what} · больше пропускать нельзя", { what })) + src;
 }
 
 /** Число меняется с толчком — видно, что отметка засчиталась. */
@@ -4438,6 +4503,7 @@ function refreshAbsRow(row) {
   for (const chip of row.querySelectorAll(".abs-date")) {
     const date = new Date(chip.dataset.date);
     chip.classList.toggle("abs-date--on", isMissed(subject, date, Number(chip.dataset.slot)));
+    chip.classList.toggle("abs-date--worked", isWorked(subject, date, Number(chip.dataset.slot)));
   }
 }
 
@@ -4458,7 +4524,8 @@ function buildAbsRow(subject, index) {
   minus.type = plus.type = "button";
   const change = (delta) => {
     const { total } = seminarCount(subject);
-    const current = absences.limits[subject];
+    // Лимит старосты — отправная точка: «+» от него, а не с нуля.
+    const current = absLimitOf(subject).limit;
     let next = current == null ? (delta > 0 ? Math.max(1, Math.round(total / 4)) : null) : current + delta;
     if (next != null && next < 0) next = null;
     if (next == null) delete absences.limits[subject];
@@ -4533,6 +4600,43 @@ function buildAbsRow(subject, index) {
   drawRules();
   row.append(ruleNote, rulesBox);
 
+  // Староста: свои лимит и условия — сразу всей группе.
+  if (notices.canEdit && activeGroup()?.id) {
+    const share = el("div", "abs-share");
+    const send = el("button", "abs-share-btn", notices.absRules?.[subject] ? t("Обновить для группы") : t("Сделать для всей группы"));
+    send.type = "button";
+    const clear = el("button", "abs-share-clear", t("Убрать у группы"));
+    clear.type = "button";
+    clear.hidden = !notices.absRules?.[subject];
+    const post = async (payload) => {
+      const res = await fetch(`${API_URL}/absrules`, { method: "POST", body: JSON.stringify({ initData: tg?.initData || "", group: activeGroup().id, subject, ...payload }) });
+      return (await res.json().catch(() => ({}))).ok;
+    };
+    send.addEventListener("click", async () => {
+      const own = { limit: absences.limits[subject] ?? null, rules: absences.rules?.[subject] || [] };
+      if (own.limit == null && !own.rules.length) return toast(t("Сначала задайте лимит или условия"));
+      haptic("medium");
+      if (await post(own)) {
+        (notices.absRules ||= {})[subject] = own;
+        send.textContent = t("Обновить для группы");
+        clear.hidden = false;
+        toast(t("Готово — у всей группы теперь эти условия"));
+      } else toast(t("Не получилось — попробуйте ещё раз"));
+    });
+    clear.addEventListener("click", async () => {
+      haptic("medium");
+      if (await post({ clear: true })) {
+        delete notices.absRules[subject];
+        clear.hidden = true;
+        send.textContent = t("Сделать для всей группы");
+        refreshAbsRow(row);
+        toast(t("Условия группы убраны"));
+      }
+    });
+    share.append(send, clear);
+    row.append(share);
+  }
+
   // Отметить задним числом: расписание показывает только эту и следующую
   // неделю, и пропуск позапрошлой иначе было бы негде поставить. Даты
   // раскрываются плавно — высота растёт, а не прыгает.
@@ -4551,9 +4655,15 @@ function buildAbsRow(subject, index) {
       chip.type = "button";
       chip.dataset.date = date.toISOString();
       chip.dataset.slot = slot;
+      // Нажатия по кругу: нет → пропуск → отработан (у прошедших) → нет.
       chip.addEventListener("click", () => {
-        toggleMissed(subject, date, slot);
-        haptic(isMissed(subject, date, slot) ? "warning" : "light");
+        if (isMissed(subject, date, slot) && !upcoming && !isWorked(subject, date, slot)) {
+          toggleWorked(subject, date, slot);
+          haptic("success");
+        } else {
+          toggleMissed(subject, date, slot);
+          haptic(isMissed(subject, date, slot) ? "warning" : "light");
+        }
         refreshAbsRow(row);
         applyAbsenceButtons();
       });
