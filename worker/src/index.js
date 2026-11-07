@@ -165,6 +165,9 @@ async function verifyInitData(initData, token) {
   const hash = params.get("hash");
   if (!hash) return null;
   params.delete("hash");
+  // Сайт на компьютере: вход кнопкой «Войти через Telegram» (Login Widget).
+  // Подпись у неё своя: ключ — SHA-256 от токена бота, а не «WebAppData».
+  if (params.get("web") === "1") return verifyWebLogin(params, hash, token);
 
   const checkString = [...params.entries()]
     .sort(([a], [b]) => (a < b ? -1 : 1))
@@ -184,6 +187,29 @@ async function verifyInitData(initData, token) {
   } catch {
     return null;
   }
+}
+
+/** Вход на сайте через Telegram Login Widget. Держится 30 дней. */
+async function verifyWebLogin(params, hash, token) {
+  params.delete("web");
+  const checkString = [...params.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
+  const secret = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)));
+  const expected = toHex(await hmac(secret, checkString));
+  if (expected !== hash) return null;
+  const authDate = Number(params.get("auth_date") || 0);
+  if (!authDate || Date.now() / 1000 - authDate > 30 * 86400) return null;
+  const id = Number(params.get("id"));
+  if (!id) return null;
+  return {
+    id,
+    first_name: params.get("first_name") || "",
+    last_name: params.get("last_name") || undefined,
+    username: params.get("username") || undefined,
+    photo_url: params.get("photo_url") || undefined,
+  };
 }
 
 // Сколько дней хранится журнал заходов.
