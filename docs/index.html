@@ -40,6 +40,34 @@
       } catch (e) {}
     })();
   </script>
+  <!-- Диагностика: ?debug=1 — внизу экрана список ошибок, чтобы прислать скриншот. -->
+  <script>
+    (function () {
+      try {
+        var q = new URLSearchParams(location.search).get("debug");
+        if (q === "1") localStorage.setItem("schedule.debug", "1");
+        if (q === "0") localStorage.removeItem("schedule.debug");
+        if (localStorage.getItem("schedule.debug") !== "1") return;
+      } catch (e) { return; }
+      var box, list = [];
+      function show(msg) {
+        list.push(msg);
+        if (!document.body) return setTimeout(function () { show(list.pop()); }, 300);
+        if (!box) {
+          box = document.createElement("pre");
+          box.style.cssText = "position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;max-height:40vh;overflow:auto;margin:0;padding:10px;border-radius:10px;font:12px/1.4 monospace;white-space:pre-wrap;color:#fff;background:rgba(20,20,30,.92)";
+          document.body.appendChild(box);
+        }
+        box.textContent = list.slice(-12).join("\n");
+      }
+      window.addEventListener("error", function (e) { show("ERR " + (e.message || e) + " @" + (e.filename || "").split("/").pop() + ":" + e.lineno); });
+      window.addEventListener("unhandledrejection", function (e) { show("PROMISE " + (e.reason && (e.reason.stack || e.reason.message) || e.reason)); });
+      setTimeout(function () {
+        var m = function (q) { return window.matchMedia && matchMedia(q).matches ? 1 : 0; };
+        show("ok · " + innerWidth + "x" + innerHeight + " · wide=" + m("(min-width:1100px) and (hover:hover) and (pointer:fine)") + " reduce=" + m("(prefers-reduced-motion: reduce)") + " · v=" + window.__v + " · " + navigator.userAgent.slice(0, 90));
+      }, 4000);
+    })();
+  </script>
   <!-- Сайт на компьютере: вход через Telegram (Login Widget). Если открыто не
        в Telegram, а человек входил на сайте, подставляем его данные — тогда
        работают Подслушка, напоминания и всё личное, как в мини-приложении. -->
