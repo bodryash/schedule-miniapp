@@ -45,3 +45,21 @@ beta.bodryash.ru {
 	header @betaassets Cache-Control "public, max-age=60"
 	header X-Robots-Tag "noindex, nofollow"
 }
+
+# Короткий адрес — сайт расписания для компьютера и браузера.
+bodryash.ru {
+	root * /opt/schedule/docs
+	encode zstd gzip
+	file_server
+	@page path / /index.html
+	header @page Cache-Control "no-cache"
+	@assets path *.js *.css *.json *.woff2 *.png *.svg *.jpg
+	header @assets Cache-Control "public, max-age=600"
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}
+www.bodryash.ru {
+	redir https://bodryash.ru{uri} permanent
+}

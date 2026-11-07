@@ -18,6 +18,38 @@ if [ -f "$UNIT" ] && ! grep -q "^TimeoutStartSec=" "$UNIT"; then
   sed -i 's/^Type=oneshot$/Type=oneshot\nTimeoutStartSec=4min/' "$UNIT"
   systemctl daemon-reload
 fi
+# Короткий адрес сайта: bodryash.ru (и www) — то же приложение, что и
+# app.bodryash.ru. Дописываем в Caddyfile один раз. Сертификат Caddy получит
+# сам, как только домен будет смотреть на этот сервер.
+if [ -f /etc/caddy/Caddyfile ] && ! grep -q "^bodryash.ru" /etc/caddy/Caddyfile; then
+  cat >> /etc/caddy/Caddyfile <<'CADDY'
+
+# Короткий адрес — сайт расписания для компьютера и браузера.
+bodryash.ru {
+	root * /opt/schedule/docs
+	encode zstd gzip
+	file_server
+	@page path / /index.html
+	header @page Cache-Control "no-cache"
+	@assets path *.js *.css *.json *.woff2 *.png *.svg *.jpg
+	header @assets Cache-Control "public, max-age=600"
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}
+www.bodryash.ru {
+	redir https://bodryash.ru{uri} permanent
+}
+CADDY
+  if caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1; then
+    systemctl reload caddy || true
+    echo "Добавлен сайт bodryash.ru."
+  else
+    echo "Caddyfile с bodryash.ru не прошёл проверку — откатываю."
+    sed -i '/^# Короткий адрес — сайт расписания/,$d' /etc/caddy/Caddyfile
+  fi
+fi
 # Сторож: бот завис (процесс жив, но не отвечает) — systemd этого не видит
 # и сам не перезапускает. Проверяем каждую минуту: две неудачи подряд —
 # сохраняем журнал, перезапускаем бота и пишем владельцу с журналом.
