@@ -235,6 +235,29 @@ footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
 .hero .stage{will-change:transform}
 .reveal.on{opacity:1;transform:none}
 .reveal.d1{transition-delay:.1s}.reveal.d2{transition-delay:.2s}
+
+/* --- Меньше текста, больше визуала --- */
+.feat{grid-template-columns:.8fr 1.2fr;gap:56px;margin:0 0 160px}
+.feat h3{font-size:clamp(38px,4.6vw,68px);line-height:1.02;letter-spacing:-.04em;margin:14px 0 0}
+.feat .tag{font-size:13px}
+.feat .mock{transform-origin:50% 100%;font-size:1.06em}
+.feat .mock.reveal{transform:perspective(1200px) rotateX(22deg) translateY(90px) scale(.86);filter:blur(10px);transition-duration:1.3s}
+.feat .mock.reveal.on{transform:none;filter:none}
+.feat > .reveal:first-child{transform:translateX(-60px);filter:blur(10px)}
+.feat.flip > .reveal:first-child{transform:translateX(60px)}
+.feat > .reveal.on:first-child{transform:none;filter:none}
+.lead{font-size:clamp(20px,2vw,26px);color:var(--ink);opacity:.7;font-weight:500}
+.sec-head{margin-bottom:80px}
+.sec-head h2{font-size:clamp(44px,6vw,88px);letter-spacing:-.045em;line-height:1}
+.tile{padding:34px 28px;min-height:170px;display:flex;flex-direction:column;justify-content:space-between}
+.tile .ic{width:56px;height:56px;border-radius:16px}
+.tile .ic svg{width:28px;height:28px}
+.tile h4{font-size:22px;margin:22px 0 0}
+.grid .tile.reveal{transform:translateY(70px) scale(.9) rotate(-2deg)}
+.grid .tile.reveal.on{transform:none}
+.statement p{font-size:clamp(48px,8vw,128px);letter-spacing:-.05em;line-height:1}
+.join h2{font-size:clamp(44px,6vw,84px);letter-spacing:-.045em}
+@media (max-width:920px){.feat{grid-template-columns:1fr;gap:28px;margin-bottom:100px}.feat.flip .mock{order:0}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.reveal,.lesson,.msg,.toast,.words .w{opacity:1!important;transform:none!important;filter:none!important}.statement .sw{opacity:1}.week .c{opacity:1;transform:none}.typed{width:auto;border:0}.sem-bar i{width:58%}.sem-bar em{width:4%}}
 </style>
 </head>
@@ -255,7 +278,7 @@ footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
   <div class="reveal">
     <span class="pill"><b>61</b> факультет · 15 вузов · бесплатно</span>
     <h1>Расписание твоего вуза — <span class="grad">прямо в&nbsp;Telegram</span></h1>
-    <p class="lead">Пары, замены, аудитории и напоминания. Без PDF, фото таблиц и чатов на 47 сообщений — открыл и сразу видишь, где и когда пара.</p>
+    <p class="lead">Пары, замены и напоминания. Открыл — и всё видно.</p>
     <div class="cta">
       <a class="btn btn-dark" href="https://t.me/FGPshedulebot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.9 4.6 18.7 19.7c-.2 1-.9 1.3-1.8.8l-4.9-3.6-2.4 2.3c-.3.3-.5.5-1 .5l.3-5 9.1-8.2c.4-.4-.1-.6-.6-.2L6.2 13.4l-4.8-1.5c-1-.3-1-1 .2-1.5L20.5 3.1c.9-.3 1.6.2 1.4 1.5z"/></svg>Открыть в Telegram</a>
       <a class="btn btn-ghost" href="/?app=1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Открыть на компьютере</a>
@@ -281,18 +304,12 @@ footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
 </div></section>
 
 <section class="block" id="features"><div class="wrap">
-  <div class="sec-head reveal"><span class="eyebrow">Возможности</span><h2>Всё про учёбу — в одном месте</h2><p>Расписание, которое само знает о заменах, само напоминает и само считает.</p></div>
+  <div class="sec-head reveal"><span class="eyebrow">Возможности</span><h2>Всё про учёбу — в одном месте</h2></div>
 
   <div class="feat">
     <div class="reveal">
       <span class="tag">Неделя и месяц</span>
       <h3>Вся неделя — одним взглядом</h3>
-      <p>Где окна, какой день тяжёлый, чётная неделя или нет. У каждого предмета свой цвет — на телефоне и во всю ширину экрана компьютера.</p>
-      <ul>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>Эта и следующая неделя, месяц целиком</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>Замены и отмены прямо в сетке</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>В календарь телефона — одной кнопкой</li>
-      </ul>
     </div>
     <div class="mock reveal d1">
       <div class="mock-title">9 — 14 ноября <small>нечётная неделя</small></div>
@@ -304,12 +321,6 @@ footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
     <div class="reveal">
       <span class="tag blue">Уведомления</span>
       <h3>Бот напомнит сам</h3>
-      <p>Ничего не нужно проверять: важное приходит в Telegram — утром, перед парой и когда что-то меняется.</p>
-      <ul>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>Утренняя сводка в 7:30 — пары, окна и отмены</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>За 15 минут до пары — где она</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>Перенесли или отменили — сразу сообщение</li>
-      </ul>
     </div>
     <div class="mock reveal d1">
       <div class="mock-title"><span style="display:flex;gap:10px;align-items:center"><span class="mark" style="width:30px;height:30px;font-size:13px;border-radius:9px">:P</span>:Расписание</span><small>бот</small></div>
@@ -325,12 +336,6 @@ footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
     <div class="reveal">
       <span class="tag green">Только для тебя</span>
       <h3>Сколько ещё можно пропустить</h3>
-      <p>Под каждой парой — «пропустил?» или «пропущу?». Задай лимит и свои условия, а приложение подскажет, на что ты идёшь.</p>
-      <ul>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>«До 2 пропусков — оценка 5, до 4 — оценка 4»</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>Пропуски в планах — видно, хватит ли запаса</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>«Отработан» — в истории есть, в лимит не идёт</li>
-      </ul>
     </div>
     <div class="mock reveal d1">
       <div class="abs-row">
@@ -352,7 +357,6 @@ footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
     <div class="reveal">
       <span class="tag">Статистика</span>
       <h3>Мой семестр</h3>
-      <p>Сколько семестра позади, сколько пар впереди, посещаемость и самый тяжёлый день недели. Пропуски — красным на полосе.</p>
     </div>
     <div class="mock reveal d1">
       <div class="sem-big"><span data-count="58">58</span>%</div>
@@ -371,7 +375,6 @@ footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
     <div class="reveal">
       <span class="tag violet">Поиск</span>
       <h3>Где преподаватель прямо сейчас</h3>
-      <p>Найди преподавателя, аудиторию или предмет. Посмотри, какие аудитории свободны, — чтобы переждать окно или позаниматься.</p>
     </div>
     <div class="mock reveal d1">
       <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><span class="typed">Мовчан</span></div>
@@ -382,20 +385,14 @@ footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
   </div>
 </div></section>
 
-<section class="statement" aria-label="Коротко"><div class="pin"><div class="wrap"><p id="statement">Открыл. Увидел, где пара. Пошёл. Без PDF, без таблиц, без чатов. Просто расписание — которое работает.</p></div></div></section>
+<section class="statement" aria-label="Коротко"><div class="pin"><div class="wrap"><p id="statement">Открыл. Увидел. Пошёл на пару.</p></div></div></section>
 
 <section class="block" id="community" style="padding-top:0"><div class="wrap">
-  <div class="sec-head reveal"><span class="eyebrow">Сообщество</span><h2>Не только расписание</h2><p>Подслушка — студенты всех вузов в одной ленте.</p></div>
+  <div class="sec-head reveal"><span class="eyebrow">Сообщество</span><h2>Не только расписание</h2></div>
   <div class="feat">
     <div class="reveal">
       <span class="tag violet">Подслушка</span>
       <h3>Анонимно — о своём вузе</h3>
-      <p>Вопросы, советы и истории. Пиши анонимно или под своим именем — модерация бережёт от травли и спама.</p>
-      <ul>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>Задание дня — лучший ответ получает «Ответ дня»</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>Уровни: Новичок → Голос → Звезда → Знаток → Легенда</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>«Вам ответили» — сразу в Telegram</li>
-      </ul>
     </div>
     <div class="mock reveal d1">
       <div class="chal"><small>ЗАДАНИЕ ДНЯ</small><b>Лучший совет первокурснику</b></div>
@@ -407,23 +404,23 @@ footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
 
 <section class="block" style="padding-top:0"><div class="wrap">
   <div class="grid">
-    <div class="tile reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10M7 21h10M8 3c0 4 8 5 8 9s-8 5-8 9M16 3c0 4-8 5-8 9s8 5 8 9"/></svg></div><h4>Дедлайны</h4><p>Курсовые, контрольные, рефераты — со сроками и напоминаниями.</p></div>
-    <div class="tile reveal d1"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2zM8 7h6"/></svg></div><h4>Домашка от старосты</h4><p>Староста пишет задание у пары — видит вся группа.</p></div>
-    <div class="tile reveal d2"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div><h4>Опросы и очереди</h4><p>Голосования для группы и живые очереди на сдачу.</p></div>
-    <div class="tile reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></div><h4>Темы</h4><p>Светлая, тёмная, неон, океан — и особые темы за достижения.</p></div>
-    <div class="tile reveal d1"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div><h4>На компьютере</h4><p>bodryash.ru — меню слева, неделя во всю ширину, вход через Telegram.</p></div>
-    <div class="tile reveal d2"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 15c3 0 6 1.8 6 5"/></svg></div><h4>Позови группу</h4><p>Одна ссылка — и у всей группы то же расписание.</p></div>
+    <div class="tile reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10M7 21h10M8 3c0 4 8 5 8 9s-8 5-8 9M16 3c0 4-8 5-8 9s8 5 8 9"/></svg></div><h4>Дедлайны</h4></div>
+    <div class="tile reveal d1"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2zM8 7h6"/></svg></div><h4>Домашка от старосты</h4></div>
+    <div class="tile reveal d2"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div><h4>Опросы и очереди</h4></div>
+    <div class="tile reveal"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></div><h4>Темы</h4></div>
+    <div class="tile reveal d1"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div><h4>На компьютере</h4></div>
+    <div class="tile reveal d2"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 15c3 0 6 1.8 6 5"/></svg></div><h4>Позови группу</h4></div>
   </div>
   <div class="private reveal" style="margin-top:28px">
     <div class="shield"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
-    <div><h3>Твоё — только твоё</h3><p>Пропуски и личные заметки хранятся в твоём облаке Telegram, а не у нас — их не видят ни староста, ни преподаватель, ни администратор. В Подслушке анонимность настоящая: автора не видит никто из студентов.</p></div>
+    <div><h3>Твоё — только твоё</h3></div>
   </div>
 </div></section>
 
 <section class="block" id="join" style="padding-top:20px"><div class="wrap">
   <div class="join reveal">
     <h2>Нет твоего вуза?</h2>
-    <p>Пришли боту расписание — файлом, фото или ссылкой, и напиши вуз и факультет. Подключим бесплатно и сообщим, когда всё будет готово.</p>
+    <p>Пришли расписание боту — подключим бесплатно.</p>
     <div class="cta" style="justify-content:center">
       <a class="btn btn-dark" href="https://t.me/FGPshedulebot">Прислать расписание</a>
       <a class="btn btn-ghost" href="/?app=1">Открыть :Расписание</a>
@@ -529,7 +526,7 @@ footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
   var sec = st.closest(".statement");
   var sws = st.querySelectorAll(".sw");
   var stage = document.querySelector(".hero .stage"), heroText = document.querySelector(".hero .reveal");
-  var ticking = false;
+  var ticking = false, mocks = document.querySelectorAll(".feat .mock");
   function onScroll() {
     ticking = false;
     // Секция «приклеена», пока не загорятся все буквы: прогресс — сколько её пролистали.
@@ -541,6 +538,11 @@ footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
     var y = scrollY, k = Math.min(1, y / (vh * 0.9));
     if (stage) stage.style.transform = "translate3d(0," + (y * 0.12) + "px,0) scale(" + (1 - k * 0.06) + ")";
     if (heroText && heroText.classList.contains("on")) heroText.style.opacity = 1 - k * 0.8;
+    // Макеты плывут чуть медленнее страницы — глубина.
+    mocks.forEach(function (m) {
+      var b = m.getBoundingClientRect(), c = (b.top + b.height / 2 - vh / 2) / vh;
+      if (c > -1.5 && c < 1.5) m.style.translate = "0 " + (c * -60).toFixed(1) + "px";
+    });
   }
   if (!reduce) {
     addEventListener("scroll", function () { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
