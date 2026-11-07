@@ -15233,3 +15233,96 @@ body {
 @keyframes pc-bar-grow {
   from { transform: scaleY(0); }
 }
+
+/* Правая колонка: дедлайны — карточки с «листком календаря». */
+.pc-dl-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.pc-dl {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 14px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.25s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.pc-dl:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  transform: translateX(2px);
+}
+.pc-dl-date {
+  display: grid;
+  place-items: center;
+  height: 46px;
+  border-radius: 12px;
+  line-height: 1;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+}
+.pc-dl-date b {
+  font-size: 18px;
+  font-weight: 800;
+}
+.pc-dl-date small {
+  margin-top: -6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: lowercase;
+}
+.pc-dl.dl-when--soon .pc-dl-date {
+  color: #fff;
+  background: var(--accent);
+}
+.pc-dl.dl-when--late .pc-dl-date {
+  color: #fff;
+  background: var(--danger, #e5484d);
+}
+.pc-dl-text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.pc-dl-text b {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pc-dl-text small {
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pc-dl.dl-when--soon .pc-dl-text small {
+  color: var(--accent);
+  font-weight: 600;
+}
+.pc-dl-add {
+  display: inline-block;
+  margin: 12px 12px 0 0;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  cursor: pointer;
+}
+.pc-dl-add + .pc-more {
+  display: inline-block;
+}
