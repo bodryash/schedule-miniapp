@@ -2939,7 +2939,7 @@ async function createQueue() {
 /** Эта неделя ↔ следующая — перелистыванием, как дни. */
 function switchWeek(week, fromShift = 0) {
   if (weekMode === "month") return false;
-  if (week === selectedWeek || week < 0 || week >= NEAR_WEEKS) return false;
+  if (week === selectedWeek || week < -WEEKS_BACK || week >= NEAR_WEEKS) return false;
   const direction = Math.sign(week - selectedWeek);
   haptic("select");
   selectedWeek = week;
@@ -2975,7 +2975,7 @@ function initWeekSwipe() {
     }
     if (!dragging) return;
     // Дальше двух недель листать некуда — сопротивление на краю.
-    const edge = (dx > 0 && selectedWeek === 0) || (dx < 0 && selectedWeek >= NEAR_WEEKS - 1);
+    const edge = (dx > 0 && selectedWeek <= -WEEKS_BACK) || (dx < 0 && selectedWeek >= NEAR_WEEKS - 1);
     shift = edge ? dx * 0.25 : dx;
     body.style.transform = `translateX(${shift.toFixed(1)}px)`;
   });
@@ -2988,7 +2988,7 @@ function initWeekSwipe() {
     const far = Math.abs(shift) > body.clientWidth * SWIPE_DISTANCE;
     const target = selectedWeek + (shift < 0 ? 1 : -1);
     body.style.transition = "";
-    if ((far || velocity > SWIPE_VELOCITY) && target >= 0 && target < NEAR_WEEKS) {
+    if ((far || velocity > SWIPE_VELOCITY) && target >= -WEEKS_BACK && target < NEAR_WEEKS) {
       const from = shift;
       body.style.transform = "";
       switchWeek(target, from);
@@ -3048,10 +3048,12 @@ function showWeek() {
     morphWeek(true);
   });
   els.weekSwitch.replaceChildren(
-    ...[0, 1].map((week) => {
+    // Прошлая неделя — чтобы отметить пропуски задним числом; отлистали
+    // дальше — кнопка показывает ту неделю.
+    ...[Math.min(-1, selectedWeek), 0, 1].map((week) => {
       const button = el("button", weekMode === "week" && week === selectedWeek ? "day active" : "day");
       button.append(
-        el("span", null, week === 0 ? t("Эта неделя") : t("Следующая")),
+        el("span", null, week === 0 ? t("Эта неделя") : week === 1 ? t("Следующая") : week === -1 ? t("Прошлая") : `${-week} ${t("нед. назад")}`),
         el("span", "day-date", `${SHORT_DATE.format(dateOfDay(1, week))}`)
       );
       button.addEventListener("click", () => {
@@ -12411,7 +12413,7 @@ function initSwipe() {
     // что дальше ничего нет, чем если бы палец просто упёрся в стену.
     const index = dayIndex();
     const atEdge =
-      (dx > 0 && index === 0) || (dx < 0 && index === DAY_COUNT - 1);
+      (dx > 0 && index <= -WEEKS_BACK * DAYS.length) || (dx < 0 && index === DAY_COUNT - 1);
     shift = atEdge ? dx * 0.25 : dx;
 
     strip.style.transform = `translateX(${shift.toFixed(1)}px)`;
@@ -12447,7 +12449,7 @@ function initSwipe() {
     const direction = shift < 0 ? 1 : -1;
 
     const next = dayIndex() + direction;
-    if ((far || velocity > SWIPE_VELOCITY) && next >= 0 && next < DAY_COUNT) {
+    if ((far || velocity > SWIPE_VELOCITY) && next >= -WEEKS_BACK * DAYS.length && next < DAY_COUNT) {
       release();
       goToDay(direction);
       return;
