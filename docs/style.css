@@ -4533,7 +4533,7 @@ body.champion .card--now {
 }
 
 .sem-bar {
-  display: block;
+  display: flex;
   height: 8px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--muted) 22%, transparent);
@@ -14558,4 +14558,26 @@ body.magnate .menu-pop button {
 .abs-share-clear {
   color: var(--muted);
   background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+/* «Мой семестр»: пропуски красным на полосах и плитка «пар пропущено». */
+.sem-bar-miss {
+  display: block;
+  height: 100%;
+  width: calc(var(--p, 0) * 100%);
+  margin-left: 2px;
+  border-radius: 999px;
+  background: #e5484d;
+  animation: sem-grow 700ms cubic-bezier(0.2, 0.8, 0.2, 1) 200ms backwards;
+}
+.sem-tile--miss b {
+  color: #e5484d;
+}
+.sem-row-miss {
+  margin-right: 6px;
+  font-weight: 800;
+  color: #e5484d;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sem-bar-miss { animation: none; }
 }

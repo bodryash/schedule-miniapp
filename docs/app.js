@@ -3972,12 +3972,26 @@ function semesterStats() {
   for (const l of lessons) slots.set(`${l.iso}|${l.slot}`, l);
   const all = [...slots.values()];
   const done = all.filter((l) => l.done).length;
+  // Пропуски из «Пропусков»: прошедшие отмеченные пары (отработанные — отдельно).
+  const missedOf = (l) => {
+    const mark = `${l.iso.slice(5).replace("-", "")}-${l.slot}`;
+    if (!l.done || !(absences.marks?.[l.subject] || []).includes(mark)) return 0;
+    return (absences.worked?.[l.subject] || []).includes(mark) ? 2 : 1;
+  };
+  let missed = 0;
+  let worked = 0;
+  for (const l of all) {
+    const m = missedOf(l);
+    if (m === 1) missed += 1;
+    if (m === 2) worked += 1;
+  }
   const bySubject = new Map();
   for (const l of lessons) {
     const name = shownSubject(l);
-    const item = bySubject.get(name) || { subject: name, total: 0, done: 0 };
+    const item = bySubject.get(name) || { subject: name, total: 0, done: 0, missed: 0 };
     item.total += 1;
     if (l.done) item.done += 1;
+    if (missedOf(l)) item.missed += 1;
     bySubject.set(name, item);
   }
   const days = new Map();
@@ -4000,6 +4014,8 @@ function semesterStats() {
   return {
     total: all.length,
     done,
+    missed,
+    worked,
     subjects: [...bySubject.values()].sort((a, b) => b.total - a.total),
     daysLeft: dayList.filter((d) => !d.done).length,
     earlyLeft: dayList.filter((d) => !d.done && d.first === 1).length,
@@ -4049,11 +4065,17 @@ function closeSemester() {
   }, 260);
 }
 
-function semBar(done, total) {
+/** Полоса: пройденное — цветом темы, пропущенное — красным поверх, в конце пройденного. */
+function semBar(done, total, missed = 0) {
   const bar = el("span", "sem-bar");
   const fill = el("span", "sem-bar-fill");
-  fill.style.setProperty("--p", total ? done / total : 0);
+  fill.style.setProperty("--p", total ? (done - missed) / total : 0);
   bar.append(fill);
+  if (missed) {
+    const miss = el("span", "sem-bar-miss");
+    miss.style.setProperty("--p", total ? missed / total : 0);
+    bar.append(miss);
+  }
   return bar;
 }
 
@@ -4069,8 +4091,8 @@ function renderSemester() {
   const hero = el("div", "sem-hero");
   hero.append(
     el("div", "sem-percent", `${percent}%`),
-    el("div", "sem-hero-text", t("семестра позади")),
-    semBar(stats.done, stats.total)
+    el("div", "sem-hero-text", stats.missed ? t("семестра позади · красным — пропуски") : t("семестра позади")),
+    semBar(stats.done, stats.total, stats.missed)
   );
 
   const tile = (value, label) => {
@@ -4084,8 +4106,11 @@ function renderSemester() {
     tile(stats.done, t("пар позади")),
     tile(stats.total - stats.done, t("пар впереди")),
     tile(hours(stats.done), t("часов на парах")),
-    tile(stats.daysLeft, t("учебных дней осталось"))
+    tile(stats.daysLeft, t("учебных дней осталось")),
+    tile(stats.missed, stats.worked ? t("пар пропущено · ещё {n} отработано", { n: stats.worked }) : t("пар пропущено")),
+    tile(stats.done ? `${Math.round(((stats.done - stats.missed) / stats.done) * 100)}%` : "—", t("посещаемость"))
   );
+  tiles.lastElementChild.previousElementSibling.classList.add("sem-tile--miss");
 
   const facts = el("div", "sem-facts");
   const fact = (icon, text) => {
@@ -4105,8 +4130,10 @@ function renderSemester() {
   for (const item of stats.subjects) {
     const row = el("div", "sem-row");
     const headRow = el("div", "sem-row-head");
-    headRow.append(el("span", "sem-row-name", tr(item.subject)), el("span", "sem-row-count", `${item.done} / ${item.total}`));
-    row.append(headRow, semBar(item.done, item.total));
+    const count = el("span", "sem-row-count", `${item.done} / ${item.total}`);
+    if (item.missed) count.prepend(el("span", "sem-row-miss", t("−{n}", { n: item.missed })));
+    headRow.append(el("span", "sem-row-name", tr(item.subject)), count);
+    row.append(headRow, semBar(item.done, item.total, item.missed));
     list.append(row);
   }
   body.replaceChildren(hero, tiles, facts, el("h3", "sem-title", t("По предметам")), list);
