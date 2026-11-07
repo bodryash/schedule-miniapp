@@ -28,6 +28,7 @@
   --shadow:0 1px 2px rgba(0,0,0,.3),0 16px 50px rgba(0,0,0,.45)}}
 *{box-sizing:border-box}
 html{scroll-behavior:auto}
+html,body{overflow-x:clip;overscroll-behavior-x:none;max-width:100%}
 body{margin:0;font:16px/1.6 "Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 a{color:inherit}
 .wrap{width:min(1140px,100% - 32px);margin:0 auto}
@@ -79,7 +80,7 @@ h1,h2,h3,h4{font-family:"Manrope","Inter",system-ui,sans-serif;font-weight:800;l
 .stage{position:relative;height:520px;perspective:1200px}
 .panel{position:absolute;border-radius:22px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow)}
 .app{left:6%;right:6%;top:30px;padding:22px;transform:rotateY(-10deg) rotateX(4deg);animation:tilt 9s ease-in-out infinite alternate}
-@keyframes tilt{to{transform:rotateY(-3deg) rotateX(1deg) translateY(-8px)}}
+@keyframes tilt{to{translate:0 -10px}}
 .app-date{font:800 26px/1 "Manrope";letter-spacing:-.03em;margin:4px 0 14px}
 .app-sub{font-size:12px;color:var(--muted)}
 .days{display:flex;gap:6px;margin-bottom:16px}
@@ -144,7 +145,12 @@ section.block{padding:90px 0}
 .rule .lab{flex:1;padding:6px 10px;border-radius:9px;background:var(--card);color:var(--ink)}
 .pairbtn{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .pairbtn span{padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;border:1.5px dashed color-mix(in srgb,var(--muted) 45%,transparent);color:var(--muted)}
-.pairbtn span.miss{animation:blink 4s ease-in-out infinite}
+.pairbtn span{cursor:pointer;transition:background .25s,color .25s,border-color .25s,transform .3s cubic-bezier(.2,1.6,.4,1)}
+.pairbtn span:active{transform:scale(.92)}
+.pairbtn span.act{border-style:solid;color:#fff}
+.pairbtn span.miss.act{background:var(--red);border-color:var(--red)}
+.pairbtn span.work.act{background:var(--green);border-color:var(--green)}
+.pairbtn span.plan.act{background:var(--blue);border-color:var(--blue)}
 .pairbtn span.work{border-color:var(--green);color:var(--green)}
 @keyframes blink{0%,30%{background:transparent;color:var(--muted)}40%,100%{background:var(--red);color:#fff;border-color:var(--red);border-style:solid}}
 .lock{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:13px;font-weight:600;color:var(--green)}
@@ -277,7 +283,7 @@ body.land section,body.land footer{opacity:0;transform:translateY(32px);transiti
 .num{position:absolute;text-align:center;opacity:0;scale:.6;filter:blur(14px);transition:opacity .5s,scale .7s cubic-bezier(.16,1,.3,1),filter .5s}
 .num.on{opacity:1;scale:1;filter:none}
 .num.past{opacity:0;scale:1.6;filter:blur(14px)}
-.num b{display:block;font:800 clamp(120px,22vw,300px)/.9 "Manrope";letter-spacing:-.06em;background:linear-gradient(100deg,var(--accent),#ff3d7f 55%,var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent;padding-bottom:.08em}
+.num b{display:block;white-space:nowrap;font:800 clamp(96px,17vw,240px)/.9 "Manrope";letter-spacing:-.06em;background:linear-gradient(100deg,var(--accent),#ff3d7f 55%,var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent;padding-bottom:.08em}
 .num b .rub{display:inline;margin:0 0 0 .08em;font:inherit;font-family:"Segoe UI","SF Pro Display","Helvetica Neue",Arial,sans-serif;font-weight:700;letter-spacing:0}
 .num b{padding-right:.08em}
 .rub{font-family:"Segoe UI","SF Pro Display","Helvetica Neue",Arial,sans-serif}
@@ -293,15 +299,17 @@ body.land section,body.land footer{opacity:0;transform:translateY(32px);transiti
 @keyframes cellPop{from{transform:scale(.5);opacity:.3}}
 .msg.msg-new{opacity:1;transform:none;animation:msgIn .5s cubic-bezier(.2,1.4,.4,1) both!important;animation-delay:0s!important}
 @keyframes msgIn{from{opacity:0;transform:translateY(20px) scale(.9)}}
-.msg.msg-gone{transition:opacity .3s,transform .3s;opacity:0!important;transform:translateY(-12px) scale(.96)!important}
+.msg.msg-gone{opacity:0!important;transform:translateY(-10px) scale(.97)!important;transition:opacity .3s,transform .3s,max-height .4s cubic-bezier(.4,0,.2,1),margin .4s,padding .4s!important;max-height:0!important;padding-top:0!important;padding-bottom:0!important;margin-top:-10px!important;overflow:hidden}
 .chip-now.bad{color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent)}
 .heart{position:absolute;z-index:3;color:#ff3d7f;font-size:28px;pointer-events:none;translate:-50% -50%;animation:heart .9s cubic-bezier(.2,.8,.2,1) forwards}
 @keyframes heart{0%{opacity:0;scale:.3}25%{opacity:1;scale:1.3}100%{opacity:0;scale:1;transform:translateY(-70px)}}
 .tile{position:relative;transform-style:preserve-3d}
-.tile > *:not(.tile-back){transition:opacity .35s}
-.tile-back{position:absolute;inset:0;margin:0;padding:28px;display:flex;align-items:center;border-radius:inherit;font:700 18px/1.3 "Manrope"!important;letter-spacing:-.01em;color:#fff!important;background:linear-gradient(135deg,var(--accent),#ff3d7f 60%,var(--violet));opacity:0;transform:rotateY(-90deg);transition:opacity .3s,transform .5s cubic-bezier(.16,1,.3,1)}
-.tile.flipped .tile-back{opacity:1;transform:none}
-.tile.flipped > *:not(.tile-back){opacity:0}
+
+.grid{perspective:1400px}
+.tile{transition:rotate .7s cubic-bezier(.3,1.3,.5,1),opacity 1.1s cubic-bezier(.16,1,.3,1),transform 1.1s cubic-bezier(.16,1,.3,1),filter 1.1s!important}
+.tile.flipped{rotate:y 180deg}
+.tile > *{backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.tile-back{position:absolute;inset:-1px;margin:0;padding:28px;display:flex;align-items:center;border-radius:inherit;font:700 18px/1.3 "Manrope"!important;letter-spacing:-.01em;color:#fff!important;background:linear-gradient(135deg,var(--accent),#ff3d7f 60%,var(--violet));transform:rotateY(180deg)}
 .private .shield{transition:transform .3s}
 .private.locked .shield{animation:lockIt .6s cubic-bezier(.2,1.6,.4,1)}
 @keyframes lockIt{30%{transform:scale(.8) rotate(-10deg)}60%{transform:scale(1.15) rotate(6deg)}}
@@ -324,16 +332,16 @@ body.land section,body.land footer{opacity:0;transform:translateY(32px);transiti
 
 <section class="hero"><div class="wrap">
   <div class="reveal">
-    <span class="pill"><b>61</b> факультет · 15 вузов · бесплатно</span>
+    <span class="pill"><b>new</b> теперь и на компьютере</span>
     <h1>:Расписание твоего вуза — <span class="grad">прямо в&nbsp;Telegram</span></h1>
     <p class="lead">Пары, замены и напоминания. Открыл — и всё видно.</p>
     <div class="cta">
       <a class="btn btn-dark" href="https://t.me/FGPshedulebot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.9 4.6 18.7 19.7c-.2 1-.9 1.3-1.8.8l-4.9-3.6-2.4 2.3c-.3.3-.5.5-1 .5l.3-5 9.1-8.2c.4-.4-.1-.6-.6-.2L6.2 13.4l-4.8-1.5c-1-.3-1-1 .2-1.5L20.5 3.1c.9-.3 1.6.2 1.4 1.5z"/></svg>Открыть в Telegram</a>
-      <a class="btn btn-ghost" href="/?app=1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Открыть на компьютере</a>
+      <a class="btn btn-ghost" href="/?app=1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Открыть в браузере</a>
     </div>
     <div class="stats">
-      <div><b data-count="61">61</b><span>факультет</span></div>
-      <div><b data-count="15">15</b><span>вузов</span></div>
+      <div><b>1</b><span>тап до пары</span></div>
+      <div><b>24/7</b><span>напоминания</span></div>
       <div><b>0<span class="rub">₽</span></b><span>навсегда</span></div>
     </div>
   </div>
@@ -395,7 +403,7 @@ body.land section,body.land footer{opacity:0;transform:translateY(32px);transiti
       </div>
       <div class="abs-row">
         <div class="t">Экономика · 9:00</div>
-        <div class="pairbtn"><span class="miss">пропуск ✕</span><span class="work">отработал?</span><span>пропущу?</span></div>
+        <div class="pairbtn"><span class="miss act">пропуск ✕</span><span class="work">отработал?</span><span class="plan">пропущу?</span></div>
       </div>
       <div class="lock"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Видишь только ты — хранится в твоём Telegram</div>
     </div>
@@ -434,8 +442,8 @@ body.land section,body.land footer{opacity:0;transform:translateY(32px);transiti
 </div></section>
 
 <section class="numbers" aria-label="В цифрах"><div class="pin">
-  <div class="num"><b>61</b><span>факультет</span></div>
-  <div class="num"><b>15</b><span>вузов</span></div>
+  <div class="num"><b>1 тап</b><span>и видно, где пара</span></div>
+  <div class="num"><b>15 мин</b><span>до пары — бот напомнит</span></div>
   <div class="num"><b>0<span class="rub">₽</span></b><span>навсегда</span></div>
   <div class="nums-bar"><i></i></div>
 </div></section>
@@ -717,7 +725,11 @@ body.land section,body.land footer{opacity:0;transform:translateY(32px);transiti
     n.innerHTML = "<b>" + m[0] + "</b>" + m[1] + "<time>" + m[2] + "</time>";
     list.appendChild(n);
     var all = list.querySelectorAll(".msg");
-    if (all.length > 3) { var old = all[0]; old.classList.add("msg-gone"); setTimeout(function () { old.remove(); }, 300); }
+    if (all.length > 3) {
+      var old = all[0];
+      old.style.maxHeight = old.offsetHeight + "px"; void old.offsetWidth;
+      old.classList.add("msg-gone"); setTimeout(function () { old.remove(); }, 420);
+    }
   });
 
   // Пропуски: каждый тап — ещё один пропуск, лимит пересчитывается.
@@ -791,6 +803,46 @@ body.land section,body.land footer{opacity:0;transform:translateY(32px);transiti
   // Приватность: замок защёлкивается.
   var priv = document.querySelector(".private");
   if (priv) priv.addEventListener("click", function () { priv.classList.remove("locked"); void priv.offsetWidth; priv.classList.add("locked"); });
+
+  // Кнопки под парой: пропуск / отработал / пропущу — настоящие переключатели.
+  if (absMock) {
+    absMock.querySelectorAll(".pairbtn span").forEach(function (b) {
+      b.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var miss = absMock.querySelector(".pairbtn .miss"), work = absMock.querySelector(".pairbtn .work"), planB = absMock.querySelector(".pairbtn .plan");
+        if (b === miss) { miss.classList.toggle("act"); if (!miss.classList.contains("act")) work.classList.remove("act"); planB.classList.remove("act"); }
+        else if (b === work) { if (!miss.classList.contains("act")) miss.classList.add("act"); work.classList.toggle("act"); }
+        else { planB.classList.toggle("act"); miss.classList.remove("act"); work.classList.remove("act"); }
+        miss.textContent = miss.classList.contains("act") ? "пропуск ✕" : "пропустил?";
+        work.textContent = work.classList.contains("act") ? "отработан ✓" : "отработал?";
+        planB.textContent = planB.classList.contains("act") ? "пропущу ✓" : "пропущу?";
+        var base = 0;
+        missed = base + (miss.classList.contains("act") && !work.classList.contains("act") ? 1 : 0) + (planB.classList.contains("act") ? 1 : 0);
+        var left = Math.max(0, 2 - missed);
+        swap(absMock.querySelector(".n"), String(missed));
+        absMock.querySelector(".s").textContent = (planB.classList.contains("act") ? "с запланированным: " : "пропущено ") + missed + " · прошло 38 из 62";
+        swap(absMock.querySelector(".chip-now"), "сейчас: «оценка 5» · можно ещё " + left);
+        spring(b);
+      });
+    });
+  }
+
+  // Долистал до карточки — она сама трижды показывает, что умеет.
+  if (!reduce && "IntersectionObserver" in window) {
+    var demo = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        demo.unobserve(e.target);
+        var n = 0, card = e.target;
+        (function play() {
+          if (n++ >= 3) return;
+          card.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: innerWidth / 2, clientY: innerHeight / 2 }));
+          setTimeout(play, 1500);
+        })();
+      });
+    }, { threshold: 0.6 });
+    [weekMock, msgMock, absMock, semMock, searchMock, postMock].forEach(function (c) { if (c) demo.observe(c); });
+  }
 
   document.querySelectorAll(".mock, .stage .panel, .private").forEach(function (c) { c.addEventListener("click", function () { spring(c); }); });
 

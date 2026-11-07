@@ -15125,3 +15125,105 @@ body.magnate .menu-pop button {
 @keyframes splash-soft-out {
   to { opacity: 0; }
 }
+
+/* ---- Компьютер: доводка 2 ---- */
+@media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
+  /* Иконки и подписи в левом меню — на одной линии. */
+  .tab {
+    align-items: center !important;
+  }
+  .tab .tab-icon {
+    display: grid !important;
+    place-items: center;
+    flex-shrink: 0;
+    margin: 0 !important;
+  }
+  .tab span[data-i18n] {
+    display: block;
+    margin: 0 !important;
+  }
+}
+/* Строка «Сегодня N пар» на заставке — проявляется мягко. */
+@media (min-width: 900px) {
+  .splash-today {
+    animation: splash-today-in 900ms cubic-bezier(0.22, 1, 0.36, 1) both !important;
+  }
+}
+@keyframes splash-today-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 0.55; transform: none; }
+}
+/* Плашка конкурса — выезжает, а не выскакивает. */
+.pot-banner {
+  animation: pot-banner-in 700ms cubic-bezier(0.22, 1, 0.36, 1) 250ms both;
+}
+@keyframes pot-banner-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+}
+
+/* Телефон: страница не «гуляет» влево-вправо. */
+html,
+body {
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
+/* Правая колонка: неделя столбиками. */
+.pc-bars {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  height: 120px;
+  margin-top: 14px;
+}
+.pc-bar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--muted);
+  cursor: pointer;
+}
+.pc-bar i {
+  display: block;
+  width: 100%;
+  min-height: 4px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  transition: background-color 0.2s, transform 0.3s cubic-bezier(0.2, 1.4, 0.4, 1);
+  transform-origin: bottom;
+  animation: pc-bar-grow 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.pc-bar:nth-child(2) i { animation-delay: 40ms; }
+.pc-bar:nth-child(3) i { animation-delay: 80ms; }
+.pc-bar:nth-child(4) i { animation-delay: 120ms; }
+.pc-bar:nth-child(5) i { animation-delay: 160ms; }
+.pc-bar:nth-child(6) i { animation-delay: 200ms; }
+.pc-bar:hover i {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.pc-bar--on i {
+  background: var(--accent);
+}
+.pc-bar b {
+  font-size: 12px;
+  color: var(--text);
+}
+.pc-bar span {
+  font-size: 12px;
+  font-weight: 600;
+}
+.pc-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+@keyframes pc-bar-grow {
+  from { transform: scaleY(0); }
+}

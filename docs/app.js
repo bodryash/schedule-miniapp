@@ -8407,6 +8407,14 @@ const PANEL_RADIUS = 26;
 function panelRect() {
   const top = Math.max(48, Math.round(innerHeight * 0.08));
   const bottom = Math.round(innerHeight * 0.06);
+  // Компьютер: окно пары — посередине, шириной с колонку, а не во весь экран.
+  if (window.matchMedia?.("(min-width: 1100px) and (hover: hover) and (pointer: fine)").matches) {
+    // Ровно по колонке с парами: карточка остаётся на своём месте.
+    const col = els.lessons?.getBoundingClientRect();
+    if (col?.width) return { left: Math.round(col.left) - 24, top, width: Math.round(col.width) + 48, height: innerHeight - top - bottom };
+    const width = Math.min(720, innerWidth - 120);
+    return { left: Math.round((innerWidth - width) / 2), top, width, height: innerHeight - top - bottom };
+  }
   return { left: 12, top, width: innerWidth - 24, height: innerHeight - top - bottom };
 }
 
@@ -9951,6 +9959,38 @@ function renderPcAside() {
     .filter((d) => !done.has(d.key))
     .sort((a, b) => dueDate(a.due) - dueDate(b.due))
     .slice(0, 4);
+  // Неделя одним взглядом: сколько пар, самый тяжёлый день, выходные.
+  if (!group.planner) {
+    const names = ["пн", "вт", "ср", "чт", "пт", "сб"];
+    const counts = names.map((_, i) => new Set(ownLessonsForDay(group, i + 1, selectedWeek).map((l) => l.slot)).size);
+    const total = counts.reduce((a, b) => a + b, 0);
+    const max = Math.max(1, ...counts);
+    const box = el("section", "pc-card pc-week");
+    box.append(el("div", "pc-kicker", selectedWeek ? t("Та неделя") : t("Эта неделя")));
+    const n10 = total % 10;
+    const n100 = total % 100;
+    const word = n10 === 1 && n100 !== 11 ? "пара" : n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14) ? "пары" : "пар";
+    box.append(el("h3", "pc-title", `${total} ${word}`));
+    const bars = el("div", "pc-bars");
+    counts.forEach((c, i) => {
+      const col = el("button", "pc-bar" + (i + 1 === selectedDay ? " pc-bar--on" : ""));
+      col.type = "button";
+      const fill = el("i");
+      fill.style.height = `${Math.round((c / max) * 78)}px`;
+      col.append(el("b", "", String(c || "")), fill, el("span", "", names[i]));
+      col.title = `${names[i]}: ${c}`;
+      col.addEventListener("click", () => {
+        setDayIndex(selectedWeek * DAYS.length + i);
+        showSchedule();
+      });
+      bars.append(col);
+    });
+    box.append(bars);
+    const free = counts.filter((c) => !c).length;
+    const heavy = counts.indexOf(Math.max(...counts));
+    box.append(el("p", "pc-note", `${total ? `${t("Тяжелее всего")} — ${names[heavy]}` : t("Пар нет")}${free ? ` · ${t("без пар")}: ${free}` : ""}`));
+    blocks.push(box);
+  }
   const dl = el("section", "pc-card");
   dl.append(el("div", "pc-kicker", t("Дедлайны")));
   if (due.length) {
@@ -11592,8 +11632,11 @@ function webSettingsButton() {
     event.stopPropagation();
     const pop = els.menuPop;
     if (!els.menu || !pop) return;
+    // Класс — до открытия: иначе на кадр меню мелькает у мобильной кнопки «⋯».
+    const wasOpen = !pop.hidden && !pop.classList.contains("menu-pop--out");
+    if (!wasOpen) pop.classList.add("menu-pop--side");
     els.menu.click();
-    if (pop.hidden) return;
+    if (pop.hidden || wasOpen) return;
     pop.classList.add("menu-pop--side");
     const cal = pop.querySelector('[data-menu="calendar"] span:last-child');
     if (cal) cal.textContent = t("В мой календарь");
@@ -13904,7 +13947,7 @@ async function init() {
     if (performance.now() - daySwipedAt < 450) return;
     // Края экрана листают дни, как в сторис; пара открывается от середины.
     const width = document.documentElement.clientWidth;
-    const zone = width * TAP_ZONE;
+    const zone = PC_WIDE?.matches ? 0 : width * TAP_ZONE;
     if (event.clientX && (event.clientX < zone || event.clientX > width - zone)) return;
     haptic("light");
     openLessonView(card);
