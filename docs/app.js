@@ -4117,7 +4117,9 @@ function renderSemester() {
 // телефона, и никто, кроме самого человека, его не видит. Вне Telegram —
 // в памяти браузера. Отмечать можно любую пару — лекции тоже.
 const ABS_KEY = "absences";
-let absences = { on: false, marks: {}, limits: {} };
+// Учёт пропусков включён всем по умолчанию: кнопка «пропустил?» под каждой
+// прошедшей парой. Кто сам нажал «Перестать считать» — у того выключен.
+let absences = { on: true, marks: {}, limits: {} };
 let absLoaded = false;
 // Строки с раскрытыми датами — чтобы после отметки список не схлопывался.
 const openRows = new Set();
@@ -4160,7 +4162,7 @@ async function loadAbsences() {
   try {
     const parsed = JSON.parse(raw || "null");
     if (parsed && typeof parsed === "object") {
-      absences = { on: Boolean(parsed.on), marks: parsed.marks || {}, limits: parsed.limits || {} };
+      absences = { on: parsed.on !== false, marks: parsed.marks || {}, limits: parsed.limits || {} };
     }
   } catch {
     // Испорченная запись — начинаем с чистого листа.
