@@ -491,7 +491,27 @@ function article(id, title, description, text, lang) {
   };
 }
 
-export async function loadJson(path) {
+// Данные расписаний — в памяти на 5 минут. Раньше каждый заход студента
+// заново качал tenants.json с GitHub (кэш был только у Cloudflare, а на своём
+// сервере его нет): лишний сетевой запрос на каждый /notices, и при медленном
+// GitHub ответ ждал секунды. Держим и сам запрос: десять одновременных
+// заходов делят одну загрузку.
+const JSON_TTL = 5 * 60_000;
+const jsonMemo = new Map();
+export function loadJson(path) {
+  const hit = jsonMemo.get(path);
+  if (hit && Date.now() - hit.at < JSON_TTL) return hit.promise;
+  const promise = loadJsonFresh(path);
+  jsonMemo.set(path, { at: Date.now(), promise });
+  // Ошибку не запоминаем: следующий заход попробует снова.
+  promise.catch(() => {
+    if (jsonMemo.get(path)?.promise === promise) jsonMemo.delete(path);
+  });
+  if (jsonMemo.size > 400) jsonMemo.delete(jsonMemo.keys().next().value);
+  return promise;
+}
+
+async function loadJsonFresh(path) {
   // Файлы меняются раз в неделю — пусть Cloudflare держит их у себя.
   try {
     const response = await fetch(`${DATA_URL}${path}`, { cf: { cacheTtl: 300, cacheEverything: true }, signal: AbortSignal.timeout(10000) });
