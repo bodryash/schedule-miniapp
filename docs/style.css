@@ -14556,3 +14556,182 @@ body.magnate .menu-pop button {
 @media (prefers-reduced-motion: reduce) {
   .sem-bar-miss { animation: none; }
 }
+
+/* ===================================================================
+   Компьютер: широкий экран с мышью. Меню — колонкой слева, расписание —
+   по центру читаемой ширины, всплывающие окна — посередине экрана, а не
+   выезжают снизу. Телефоны и планшеты (без мыши) это не задевает.
+   =================================================================== */
+@media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
+  :root {
+    --side: 248px;
+  }
+  body {
+    padding-left: var(--side) !important;
+    padding-bottom: 40px !important;
+  }
+  /* Меню слева */
+  .tabs,
+  body.tabs-pinned .tabs {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: auto !important;
+    width: var(--side);
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: 88px 14px 24px !important;
+    border: 0 !important;
+    border-right: 1px solid var(--line) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: color-mix(in srgb, var(--card) 70%, var(--bg)) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+  .tabs::before {
+    content: "Расписание";
+    position: absolute;
+    top: 28px;
+    left: 22px;
+    font-family: "Unbounded", system-ui, sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text);
+  }
+  .tabs-drop {
+    display: none !important;
+  }
+  .tab {
+    flex: 0 0 auto !important;
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    gap: 12px !important;
+    padding: 11px 14px !important;
+    border-radius: 12px !important;
+    font-size: 15px !important;
+    font-weight: 600;
+    color: var(--text) !important;
+    transition: background-color 150ms ease;
+  }
+  .tab:hover {
+    background: color-mix(in srgb, var(--text) 6%, transparent) !important;
+  }
+  .tab--on {
+    background: var(--accent-soft) !important;
+    color: var(--accent) !important;
+  }
+  .tab-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Содержимое — по центру, читаемой ширины */
+  body > section {
+    max-width: 760px;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    padding-left: 32px !important;
+    padding-right: 32px !important;
+  }
+  /* Календарь — шире: вся неделя сеткой */
+  #week {
+    max-width: 1180px;
+  }
+  .bar,
+  .bar--schedule {
+    padding-top: 28px !important;
+  }
+
+  /* Наведение мышью */
+  .card,
+  .own-card,
+  .day {
+    transition: transform 140ms ease, box-shadow 140ms ease;
+  }
+  .card:hover,
+  .own-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.08);
+  }
+  .day:hover {
+    transform: translateY(-1px);
+  }
+  button {
+    cursor: pointer;
+  }
+
+  /* Окна — посередине экрана, а не снизу */
+  .sheet-backdrop {
+    align-items: center !important;
+    justify-content: center;
+    padding: 32px;
+  }
+  .sheet-backdrop .sheet {
+    width: min(560px, 100%) !important;
+    max-height: min(86vh, 900px) !important;
+    margin: 0 auto;
+    border-radius: 22px !important;
+    padding-bottom: 20px !important;
+    animation-name: sheet-pop !important;
+  }
+  .sheet::before,
+  .sheet-grab,
+  .sheet-handle {
+    display: none !important;
+  }
+  .sheet-backdrop--input {
+    align-items: center !important;
+  }
+
+  /* Меню «⋯» — от кнопки, не во всю ширину */
+  .menu-pop {
+    right: max(16px, calc((100vw - var(--side) - 760px) / 2 + 32px)) !important;
+  }
+}
+
+@keyframes sheet-pop {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+}
+
+/* Вход на сайте — внизу левого меню (только на компьютере). */
+.web-login {
+  display: none;
+}
+@media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
+  .web-login {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: auto;
+    padding: 14px;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--text) 5%, transparent);
+  }
+  .web-login-hint {
+    margin: 0;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .web-login-who {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .web-login-out {
+    align-self: flex-start;
+    padding: 0;
+    border: 0;
+    font: inherit;
+    font-size: 12px;
+    color: var(--muted);
+    background: none;
+    text-decoration: underline;
+  }
+}

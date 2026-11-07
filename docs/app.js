@@ -11495,6 +11495,52 @@ function haptic(kind = "select") {
  */
 let forumAssets = null;
 if (!tg?.initData) document.getElementById("forum-btn")?.setAttribute("hidden", "");
+
+/**
+ * Сайт на компьютере: внизу левого меню — вход через Telegram или «вы вошли».
+ * В самом Telegram не показываем: там человек и так известен.
+ */
+function initWebLogin() {
+  const inTelegram = Boolean(tg?.initData) && !window.__webLogin;
+  if (inTelegram || !els.tabs) return;
+  const box = el("div", "web-login");
+  const login = window.__webLogin;
+  if (login) {
+    box.append(el("span", "web-login-who", `${login.first_name || ""}${login.username ? ` · @${login.username}` : ""}`));
+    const out = el("button", "web-login-out", t("Выйти"));
+    out.type = "button";
+    out.addEventListener("click", () => {
+      try {
+        localStorage.removeItem("schedule.weblogin");
+      } catch {
+        // не страшно
+      }
+      location.reload();
+    });
+    box.append(out);
+  } else {
+    box.append(el("p", "web-login-hint", t("Войдите, чтобы работали Подслушка, напоминания и всё личное")));
+    window.onTelegramAuth = (user) => {
+      try {
+        localStorage.setItem("schedule.weblogin", JSON.stringify(user));
+      } catch {
+        // без памяти вход не сохранится
+      }
+      location.reload();
+    };
+    const widget = document.createElement("script");
+    widget.async = true;
+    widget.src = "https://telegram.org/js/telegram-widget.js?22";
+    widget.dataset.telegramLogin = "FGPshedulebot";
+    widget.dataset.size = "large";
+    widget.dataset.radius = "12";
+    widget.dataset.onauth = "onTelegramAuth(user)";
+    widget.dataset.requestAccess = "write";
+    box.append(widget);
+  }
+  els.tabs.append(box);
+}
+initWebLogin();
 // Кнопка Подслушки «дышит», пока её сегодня не открывали: мягко привлекает
 // внимание, но не мешает тем, кто уже заходил.
 const FORUM_SEEN_KEY = "schedule.forumSeen";
