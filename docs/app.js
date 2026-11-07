@@ -11538,7 +11538,9 @@ function initWebLogin() {
     widget.dataset.requestAccess = "write";
     box.append(widget);
   }
-  els.tabs.append(box);
+  const about = el("a", "web-about", t("О приложении"));
+  about.href = "about/";
+  els.tabs.append(about, box);
 }
 initWebLogin();
 // Кнопка Подслушки «дышит», пока её сегодня не открывали: мягко привлекает

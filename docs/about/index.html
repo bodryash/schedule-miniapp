@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Расписание — пары, замены и аудитории твоего вуза в Telegram</title>
+<meta name="description" content="Расписание твоего вуза прямо в Telegram: пары, замены, аудитории, напоминания, пропуски, дедлайны и Подслушка. 61 факультет, 15 вузов. Бесплатно.">
+<meta property="og:title" content="Расписание твоего вуза — в Telegram">
+<meta property="og:description" content="Пары, замены, аудитории и напоминания без PDF и чатов на 47 сообщений.">
+<meta property="og:image" content="https://bodryash.ru/about/img/day.webp">
+<link rel="icon" href="../icons/icon-180.png">
+<style>
+@font-face{font-family:"Unbounded";src:url(../fonts/unbounded.woff2) format("woff2");unicode-range:U+0400-04FF;font-display:swap}
+@font-face{font-family:"Unbounded";src:url(../fonts/unbounded-latin.woff2) format("woff2");unicode-range:U+0000-03FF,U+2000-2BFF;font-display:swap}
+:root{
+  --bg:#fffaf5;--ink:#1b1430;--muted:#6f6880;--card:#ffffff;--line:rgba(27,20,48,.08);
+  --accent:#ff6a1f;--accent2:#ffb21f;--soft:rgba(255,106,31,.1);--green:#18b07a;--violet:#7a5cff;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#110d1c;--ink:#f4f0ff;--muted:#a59fb8;--card:#1b1530;--line:rgba(255,255,255,.08);--soft:rgba(255,106,31,.16)}}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.wrap{width:min(1120px,100% - 32px);margin:0 auto}
+h1,h2,h3{font-family:"Unbounded",system-ui,sans-serif;letter-spacing:-.01em;margin:0}
+/* шапка */
+.top{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:16px;height:64px}
+.logo{display:flex;align-items:center;gap:10px;font-family:"Unbounded";font-weight:800;font-size:18px;text-decoration:none}
+.logo i{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;font-style:normal;color:#fff;background:linear-gradient(135deg,var(--accent2),var(--accent))}
+.top nav{margin-left:auto;display:flex;gap:6px}
+.top nav a{padding:8px 12px;border-radius:10px;text-decoration:none;font-size:14px;font-weight:600;color:var(--muted)}
+.top nav a:hover{color:var(--ink);background:var(--soft)}
+@media (max-width:760px){.top nav a.hide-sm{display:none}}
+/* кнопки */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 22px;border-radius:14px;font-weight:800;text-decoration:none;transition:transform .15s,box-shadow .15s}
+.btn:hover{transform:translateY(-2px)}
+.btn-main{color:#fff;background:linear-gradient(135deg,#ff9a4d,var(--accent));box-shadow:0 10px 26px rgba(255,106,31,.35)}
+.btn-ghost{background:var(--card);border:1px solid var(--line)}
+.btn-tg{color:#fff;background:#2aa6ff;box-shadow:0 10px 26px rgba(42,166,255,.3)}
+/* первый экран */
+.hero{position:relative;overflow:hidden;padding:72px 0 90px}
+.hero::before{content:"";position:absolute;inset:-30% -10% auto;height:520px;background:radial-gradient(50% 60% at 70% 40%,rgba(255,154,77,.28),transparent 70%),radial-gradient(40% 50% at 15% 20%,rgba(122,92,255,.16),transparent 70%);pointer-events:none}
+.hero .wrap{position:relative;display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center}
+.kicker{display:inline-flex;gap:8px;align-items:center;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:700;color:var(--accent);background:var(--soft)}
+.hero h1{margin:18px 0 16px;font-size:clamp(34px,5.2vw,60px);line-height:1.05}
+.hero h1 span{background:linear-gradient(120deg,var(--accent2),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p.lead{font-size:clamp(17px,1.8vw,20px);color:var(--muted);max-width:560px;margin:0 0 28px}
+.cta{display:flex;flex-wrap:wrap;gap:12px}
+.stats{display:flex;gap:28px;margin-top:34px;flex-wrap:wrap}
+.stats b{display:block;font-family:"Unbounded";font-size:28px}
+.stats span{font-size:13px;color:var(--muted)}
+.phones{position:relative;height:500px}
+.phone{position:absolute;width:250px;border-radius:34px;padding:8px;background:#151020;box-shadow:0 30px 70px rgba(27,20,48,.28)}
+.phone img{display:block;width:100%;border-radius:27px}
+.phone.p1{right:150px;top:10px;transform:rotate(-6deg);animation:float 6s ease-in-out infinite}
+.phone.p2{right:0;top:70px;transform:rotate(5deg);animation:float 6s ease-in-out -3s infinite}
+@keyframes float{50%{translate:0 -12px}}
+@media (max-width:900px){.hero .wrap{grid-template-columns:1fr}.phones{height:440px;max-width:420px;margin:0 auto;width:100%}.phone{width:200px}.phone.p1{right:auto;left:0}.phone.p2{right:0}}
+/* разделы */
+section.block{padding:70px 0}
+.sec-head{text-align:center;max-width:720px;margin:0 auto 44px}
+.sec-head h2{font-size:clamp(26px,3.4vw,40px);margin-bottom:12px}
+.sec-head p{color:var(--muted);margin:0;font-size:18px}
+.feat{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;margin:0 0 72px}
+.feat:nth-of-type(even) .shot{order:-1}
+.feat .shot{display:flex;justify-content:center}
+.feat .shot .phone{position:relative;width:270px;transform:none;animation:none}
+.feat h3{font-size:clamp(22px,2.4vw,30px);margin:10px 0 12px}
+.feat p{color:var(--muted);margin:0 0 14px;font-size:17px}
+.feat ul{margin:0;padding:0;list-style:none;display:grid;gap:8px}
+.feat li{position:relative;padding-left:28px}
+.feat li::before{content:"";position:absolute;left:0;top:7px;width:16px;height:16px;border-radius:50%;background:var(--soft);box-shadow:inset 0 0 0 5px var(--accent)}
+.tag{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);background:var(--soft)}
+.tag.green{color:var(--green);background:rgba(24,176,122,.12)}
+.tag.violet{color:var(--violet);background:rgba(122,92,255,.12)}
+@media (max-width:860px){.feat{grid-template-columns:1fr;gap:28px}.feat:nth-of-type(even) .shot{order:0}}
+/* сетка мелких функций */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.tile{padding:22px;border-radius:20px;background:var(--card);border:1px solid var(--line);transition:transform .15s,box-shadow .15s}
+.tile:hover{transform:translateY(-3px);box-shadow:0 14px 34px rgba(27,20,48,.08)}
+.tile .ic{font-size:28px}
+.tile h4{margin:10px 0 6px;font-size:17px}
+.tile p{margin:0;color:var(--muted);font-size:15px}
+@media (max-width:860px){.grid{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.grid{grid-template-columns:1fr}}
+/* 2048 */
+.g2048{display:grid;grid-template-columns:repeat(4,64px);gap:8px;padding:12px;border-radius:20px;background:#3a2f60;width:max-content;margin:0 auto;box-shadow:0 30px 70px rgba(27,20,48,.25)}
+.g2048 span{display:grid;place-items:center;height:64px;border-radius:12px;font-size:11px;font-weight:800;text-align:center;line-height:1.1;color:#5a3a1a;background:rgba(255,255,255,.08)}
+.g2048 .a{background:#ffe7a3}.g2048 .b{background:#ffc46b}.g2048 .c{background:#ff9a4d;color:#fff}.g2048 .d{background:#ff6a5a;color:#fff}.g2048 .e{background:#e0313b;color:#fff}.g2048 .f{background:#7a5cff;color:#fff;animation:pop 2.4s ease-in-out infinite}
+@keyframes pop{50%{transform:scale(1.08)}}
+/* приватность */
+.private{display:flex;gap:20px;align-items:flex-start;padding:28px;border-radius:24px;background:linear-gradient(135deg,rgba(24,176,122,.12),rgba(24,176,122,.04));border:1px solid rgba(24,176,122,.25)}
+.private .ic{font-size:40px}
+.private h3{font-size:22px;margin-bottom:8px}
+.private p{margin:0;color:var(--muted)}
+/* подключить вуз */
+.join{text-align:center;padding:56px 24px;border-radius:30px;color:#fff;background:radial-gradient(80% 120% at 80% 0%,#ffb21f,transparent 60%),linear-gradient(135deg,#ff6a1f,#d43c5a)}
+.join h2{font-size:clamp(26px,3.6vw,42px);margin-bottom:12px}
+.join p{max-width:620px;margin:0 auto 26px;opacity:.92;font-size:18px}
+.join .btn-ghost{color:var(--ink)}
+footer{padding:40px 0 60px;color:var(--muted);font-size:14px;text-align:center}
+footer a{color:var(--muted)}
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .7s ease,transform .7s ease}
+.reveal.on{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.phone,.g2048 .f{animation:none}.reveal{opacity:1;transform:none;transition:none}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="logo" href="#"><i>9</i>Расписание</a>
+  <nav>
+    <a class="hide-sm" href="#features">Возможности</a>
+    <a class="hide-sm" href="#podslushka">Подслушка</a>
+    <a class="hide-sm" href="#join">Подключить вуз</a>
+    <a href="/?app=1">Открыть</a>
+  </nav>
+</div></header>
+
+<section class="hero"><div class="wrap">
+  <div>
+    <span class="kicker">🎓 Бесплатно · без рекламы в расписании</span>
+    <h1>Расписание твоего вуза — <span>прямо в&nbsp;Telegram</span></h1>
+    <p class="lead">Пары, замены, аудитории и напоминания. Без PDF, фотографий таблиц и чатов на 47 сообщений. Открыл — и сразу видно, где и когда пара.</p>
+    <div class="cta">
+      <a class="btn btn-tg" href="https://t.me/FGPshedulebot">✈️ Открыть в Telegram</a>
+      <a class="btn btn-ghost" href="/?app=1">💻 Открыть на компьютере</a>
+    </div>
+    <div class="stats">
+      <div><b>61</b><span>факультет</span></div>
+      <div><b>15</b><span>вузов</span></div>
+      <div><b>0 ₽</b><span>навсегда</span></div>
+    </div>
+  </div>
+  <div class="phones" aria-hidden="true">
+    <div class="phone p1"><img src="img/day.webp" alt="" width="540" height="720"></div>
+    <div class="phone p2"><img src="img/week.webp" alt="" width="540" height="720"></div>
+  </div>
+</div></section>
+
+<section class="block" id="features"><div class="wrap">
+  <div class="sec-head reveal"><h2>Всё про учёбу — в одном месте</h2><p>Расписание, которое само знает о заменах, само напоминает и само считает.</p></div>
+
+  <div class="feat reveal">
+    <div>
+      <span class="tag">Каждый день</span>
+      <h3>Что сейчас и где следующая пара</h3>
+      <p>Открываешь — сверху «Идёт сейчас» и сколько до конца пары. Ниже весь день по порядку.</p>
+      <ul>
+        <li>Замены и отмены — сразу в карточке пары</li>
+        <li>Аудитория, преподаватель, тип занятия</li>
+        <li>Своя подгруппа, второй язык, курсы по выбору</li>
+        <li>Свои дела рядом с парами: тренировка, работа, кружок</li>
+      </ul>
+    </div>
+    <div class="shot"><div class="phone"><img src="img/day.webp" alt="Экран дня" width="540" height="720"></div></div>
+  </div>
+
+  <div class="feat reveal">
+    <div>
+      <span class="tag">Неделя и месяц</span>
+      <h3>Вся неделя — одним взглядом</h3>
+      <p>Календарь сеткой: где окна, какой день тяжёлый, какая неделя — чётная или нечётная. На компьютере — во всю ширину экрана.</p>
+      <ul>
+        <li>Эта и следующая неделя, месяц целиком</li>
+        <li>Цвет у каждого предмета</li>
+        <li>В календарь телефона — одной кнопкой</li>
+      </ul>
+    </div>
+    <div class="shot"><div class="phone"><img src="img/week.webp" alt="Календарь недели" width="540" height="720"></div></div>
+  </div>
+
+  <div class="feat reveal">
+    <div>
+      <span class="tag green">Только для тебя</span>
+      <h3>Сколько ещё можно пропустить</h3>
+      <p>Под каждой парой — «пропустил?» или «пропущу?». Задай лимит и свои условия: «до 2 пропусков — оценка 5, до 4 — оценка 4». Приложение подскажет, на что ты идёшь.</p>
+      <ul>
+        <li>Пропуски в планах — заранее видно, хватит ли запаса</li>
+        <li>«Отработан» — в истории есть, в лимит не идёт</li>
+        <li>Хранится в твоём Telegram — не видит никто, даже мы</li>
+      </ul>
+    </div>
+    <div class="shot"><div class="phone"><img src="img/abs.webp" alt="Пропуски" width="540" height="720"></div></div>
+  </div>
+
+  <div class="feat reveal">
+    <div>
+      <span class="tag">Статистика</span>
+      <h3>Мой семестр</h3>
+      <p>Сколько семестра позади, сколько пар впереди, часов на парах и подъёмов к первой паре. Посещаемость и пропуски — красным на полосе прогресса.</p>
+      <ul>
+        <li>Самый тяжёлый день недели</li>
+        <li>Прогресс по каждому предмету</li>
+      </ul>
+    </div>
+    <div class="shot"><div class="phone"><img src="img/sem.webp" alt="Мой семестр" width="540" height="720"></div></div>
+  </div>
+
+  <div class="feat reveal">
+    <div>
+      <span class="tag">Поиск</span>
+      <h3>Найти преподавателя или аудиторию</h3>
+      <p>Где сейчас преподаватель, что идёт в аудитории, какие аудитории свободны прямо сейчас — чтобы переждать окно или позаниматься.</p>
+      <ul>
+        <li>«Сейчас: ауд. 626, до 12:45»</li>
+        <li>Расписание любой группы и преподавателя</li>
+        <li>Свободные аудитории по парам</li>
+      </ul>
+    </div>
+    <div class="shot"><div class="phone"><img src="img/search.webp" alt="Поиск" width="540" height="720"></div></div>
+  </div>
+</div></section>
+
+<section class="block" style="padding-top:0"><div class="wrap">
+  <div class="sec-head reveal"><h2>Бот сам напомнит</h2><p>Ничего не нужно проверять — нужное приходит в Telegram.</p></div>
+  <div class="grid">
+    <div class="tile reveal"><div class="ic">☀️</div><h4>Утренняя сводка</h4><p>В 7:30 — все пары на сегодня, окна и отмены.</p></div>
+    <div class="tile reveal"><div class="ic">⏰</div><h4>Перед парой</h4><p>За 15 минут до начала: «Экономика, ауд. 208» — чтобы точно успеть.</p></div>
+    <div class="tile reveal"><div class="ic">🗓</div><h4>Изменения</h4><p>Пару перенесли, поменяли аудиторию или отменили — бот сразу пишет.</p></div>
+    <div class="tile reveal"><div class="ic">⏳</div><h4>Дедлайны</h4><p>Курсовые, контрольные, рефераты — со сроками и напоминаниями.</p></div>
+    <div class="tile reveal"><div class="ic">📚</div><h4>Домашка от старосты</h4><p>Староста пишет задание прямо у пары — видит вся группа.</p></div>
+    <div class="tile reveal"><div class="ic">📊</div><h4>Опросы и очереди</h4><p>Голосования для группы и живые очереди на сдачу.</p></div>
+  </div>
+</div></section>
+
+<section class="block" id="podslushka"><div class="wrap">
+  <div class="feat reveal">
+    <div>
+      <span class="tag violet">Сообщество</span>
+      <h3>Подслушка — анонимно о своём вузе</h3>
+      <p>Студенты всех вузов: вопросы, советы, смешные истории. Пиши анонимно или под своим именем — модерация бережёт от травли и спама.</p>
+      <ul>
+        <li>🎯 Задание дня — лучший ответ получает «🔥 Ответ дня»</li>
+        <li>🌱 → 💬 → 🔥 → 💎 → 👑 — уровни за посты и плюсы</li>
+        <li>Ответы на ответы, голоса, закреп, «вам ответили» в бот</li>
+      </ul>
+    </div>
+    <div class="shot"><div class="phone"><img src="img/forum.webp" alt="Подслушка" width="540" height="720"></div></div>
+  </div>
+
+  <div class="feat reveal">
+    <div>
+      <span class="tag">Игра</span>
+      <h3>Сессия 2048 — турнир факультетов</h3>
+      <p>Собирай плитки от «Пары» до «Аспирантуры» и выше — без потолка. Твой рекорд идёт в счёт факультета, а лучшие получают призы и медали у имени.</p>
+    </div>
+    <div class="shot"><div class="g2048" aria-hidden="true">
+      <span class="a">Пара</span><span></span><span class="b">Семинар</span><span class="a">Пара</span>
+      <span></span><span class="c">Зачёт</span><span></span><span class="b">Семинар</span>
+      <span class="d">Экзамен</span><span class="e">Красный диплом</span><span class="f">Аспиран-<br>тура</span><span></span>
+      <span class="a">Пара</span><span></span><span class="c">Зачёт</span><span class="a">Пара</span>
+    </div></div>
+  </div>
+</div></section>
+
+<section class="block" style="padding-top:0"><div class="wrap">
+  <div class="grid">
+    <div class="tile reveal"><div class="ic">🎨</div><h4>Темы</h4><p>Светлая, тёмная, неон, океан, закат — и особые темы за достижения.</p></div>
+    <div class="tile reveal"><div class="ic">💻</div><h4>И на компьютере</h4><p>Открой bodryash.ru — меню слева, неделя во всю ширину, вход через Telegram.</p></div>
+    <div class="tile reveal"><div class="ic">👥</div><h4>Позови группу</h4><p>Одна ссылка — и у всей группы то же расписание.</p></div>
+  </div>
+  <div class="private reveal" style="margin-top:28px">
+    <div class="ic">🔒</div>
+    <div><h3>Твоё — только твоё</h3><p>Пропуски и личные заметки хранятся в твоём облаке Telegram, а не у нас: их не видит ни староста, ни преподаватель, ни администратор. В Подслушке анонимность — по-настоящему: автора не видит никто из студентов.</p></div>
+  </div>
+</div></section>
+
+<section class="block" id="join"><div class="wrap">
+  <div class="join reveal">
+    <h2>Нет твоего вуза или факультета?</h2>
+    <p>Пришли боту расписание — файлом, фото или ссылкой, и напиши вуз и факультет. Подключим бесплатно и напишем, когда будет готово.</p>
+    <div class="cta" style="justify-content:center">
+      <a class="btn btn-ghost" href="https://t.me/FGPshedulebot">📎 Прислать расписание</a>
+    </div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <p>Расписание · <a href="https://t.me/FGPshedulebot">@FGPshedulebot</a> · <a href="/?app=1">Открыть приложение</a></p>
+</div></footer>
+
+<script>
+  // Разделы мягко появляются при прокрутке.
+  (function () {
+    var items = document.querySelectorAll(".reveal");
+    if (!("IntersectionObserver" in window)) { items.forEach(function (n) { n.classList.add("on"); }); return; }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("on"); io.unobserve(e.target); } });
+    }, { rootMargin: "0px 0px -10% 0px" });
+    items.forEach(function (n) { io.observe(n); });
+  })();
+</script>
+</body>
+</html>
