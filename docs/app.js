@@ -9042,9 +9042,24 @@ function fillLang2Subgroups() {
   // Спрашивать подгруппу, когда она одна, незачем.
   els.lang2GroupRow.hidden = subgroups.length < 2;
   if (subgroups.length >= 2) {
+    // Рядом с номером — свои преподаватели подгруппы: «гр. 2 — Денисова».
+    // По одному номеру не понять, какая подгруппа твоя.
+    const own = (n) => {
+      const names = new Set();
+      const mine = lessonsOf(els.group.value).filter((l) => l.subject === subject);
+      for (const l of mine) {
+        if (l.subgroup !== n || !l.teacher) continue;
+        const shared = mine.some((o) => o !== l && o.day === l.day && o.slot === l.slot && o.teacher === l.teacher && o.subgroup !== n);
+        if (!shared) names.add(String(l.teacher).split(" ")[0]);
+      }
+      return [...names].slice(0, 2).join(", ");
+    };
     els.lang2Group.replaceChildren(
       new Option(t("показывать все"), ANY),
-      ...subgroups.map((n) => new Option(t("гр. {n}", { n }), String(n)))
+      ...subgroups.map((n) => {
+        const who = own(n);
+        return new Option(who ? `${t("гр. {n}", { n })} — ${who}` : t("гр. {n}", { n }), String(n));
+      })
     );
     els.lang2Group.value = prefs.lang2Group != null ? String(prefs.lang2Group) : ANY;
   }
