@@ -443,7 +443,6 @@ async function loadNotices(group) {
     notices.canComment = Boolean(body.canComment);
     notices.deadlines = body.deadlines || [];
     notices.polls = body.polls || [];
-    notices.absRules = body.absRules || {};
     renderPolls();
     if (tab === "deadlines") renderDeadlines();
     mergeCommentCounts(weekRange(selectedWeek), body.comments);
@@ -4235,17 +4234,12 @@ function toggleWorked(subject, date, slot) {
   saveAbsences();
 }
 
-/** Лимит и условия: свои главнее, иначе — заданные старостой для группы. */
+/** Лимит и условия — личные, у каждого свои. */
 function absLimitOf(subject) {
-  if (absences.limits[subject] != null) return { limit: absences.limits[subject], fromGroup: false };
-  const g = notices.absRules?.[subject];
-  return g && g.limit != null ? { limit: g.limit, fromGroup: true } : { limit: null, fromGroup: false };
+  return { limit: absences.limits[subject] ?? null };
 }
 function absRulesOf(subject) {
-  const own = absences.rules?.[subject];
-  if (own?.length) return { rules: own, fromGroup: false };
-  const g = notices.absRules?.[subject];
-  return g?.rules?.length ? { rules: g.rules, fromGroup: true } : { rules: [], fromGroup: false };
+  return { rules: absences.rules?.[subject] || [] };
 }
 
 function toggleMissed(subject, date, slot) {
@@ -4453,7 +4447,7 @@ function absState(subject) {
   const planned = marks.filter(markIsAhead).length;
   const missed = marks.length - planned;
   const workedN = all.length - marks.length;
-  const { limit, fromGroup } = absLimitOf(subject);
+  const { limit } = absLimitOf(subject);
   const left = limit == null ? null : limit - missed - planned;
   const state = left == null ? "none" : left <= 0 ? (left < 0 ? "over" : "stop") : left === 1 ? "warn" : "ok";
   const plan = planned ? ` · ${t("в планах {n}", { n: planned })}` : "";
@@ -4466,8 +4460,7 @@ function absState(subject) {
           ? t("хватит — лимит исчерпан")
           : t("можно ещё {n} · прошло {past} из {total}", { n: left, past, total })) +
     plan +
-    (workedN ? ` · ${t("отработано {n}", { n: workedN })}` : "") +
-    (fromGroup ? ` · ${t("лимит от старосты")}` : "");
+    (workedN ? ` · ${t("отработано {n}", { n: workedN })}` : "");
   return { total, missed, planned, limit, state, status, rule: ruleState(subject, missed + planned) };
 }
 
@@ -4477,10 +4470,10 @@ function absState(subject) {
  * пропустить, чтобы не съехать ниже.
  */
 function ruleState(subject, used) {
-  const { rules: list, fromGroup } = absRulesOf(subject);
+  const { rules: list } = absRulesOf(subject);
   const rules = list.filter((r) => r.n != null).sort((a, b) => a.n - b.n);
   if (!rules.length) return "";
-  const src = fromGroup ? ` · ${t("от старосты")}` : "";
+  const src = "";
   const hit = rules.find((r) => used <= r.n);
   if (!hit) return t("все условия превышены") + src;
   const left = hit.n - used;
@@ -4551,7 +4544,6 @@ function buildAbsRow(subject, index) {
   minus.type = plus.type = "button";
   const change = (delta) => {
     const { total } = seminarCount(subject);
-    // Лимит старосты — отправная точка: «+» от него, а не с нуля.
     const current = absLimitOf(subject).limit;
     let next = current == null ? (delta > 0 ? Math.max(1, Math.round(total / 4)) : null) : current + delta;
     if (next != null && next < 0) next = null;
@@ -4626,43 +4618,6 @@ function buildAbsRow(subject, index) {
   };
   drawRules();
   row.append(ruleNote, rulesBox);
-
-  // Староста: свои лимит и условия — сразу всей группе.
-  if (notices.canEdit && activeGroup()?.id) {
-    const share = el("div", "abs-share");
-    const send = el("button", "abs-share-btn", notices.absRules?.[subject] ? t("Обновить для группы") : t("Сделать для всей группы"));
-    send.type = "button";
-    const clear = el("button", "abs-share-clear", t("Убрать у группы"));
-    clear.type = "button";
-    clear.hidden = !notices.absRules?.[subject];
-    const post = async (payload) => {
-      const res = await fetch(`${API_URL}/absrules`, { method: "POST", body: JSON.stringify({ initData: tg?.initData || "", group: activeGroup().id, subject, ...payload }) });
-      return (await res.json().catch(() => ({}))).ok;
-    };
-    send.addEventListener("click", async () => {
-      const own = { limit: absences.limits[subject] ?? null, rules: absences.rules?.[subject] || [] };
-      if (own.limit == null && !own.rules.length) return toast(t("Сначала задайте лимит или условия"));
-      haptic("medium");
-      if (await post(own)) {
-        (notices.absRules ||= {})[subject] = own;
-        send.textContent = t("Обновить для группы");
-        clear.hidden = false;
-        toast(t("Готово — у всей группы теперь эти условия"));
-      } else toast(t("Не получилось — попробуйте ещё раз"));
-    });
-    clear.addEventListener("click", async () => {
-      haptic("medium");
-      if (await post({ clear: true })) {
-        delete notices.absRules[subject];
-        clear.hidden = true;
-        send.textContent = t("Сделать для всей группы");
-        refreshAbsRow(row);
-        toast(t("Условия группы убраны"));
-      }
-    });
-    share.append(send, clear);
-    row.append(share);
-  }
 
   // Отметить задним числом: расписание показывает только эту и следующую
   // неделю, и пропуск позапрошлой иначе было бы негде поставить. Даты
