@@ -14933,3 +14933,28 @@ body.magnate .menu-pop button {
     display: none !important;
   }
 }
+
+/* Компьютер: заставка «Добрый день» — крупно, под большой экран. */
+@media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
+  .splash-hello {
+    max-width: 760px !important;
+  }
+  .splash-hello-title {
+    font-size: clamp(40px, 4.2vw, 64px) !important;
+  }
+  .splash-hello-wish {
+    margin-top: 14px !important;
+    font-size: 22px !important;
+  }
+  .splash-day {
+    font-size: clamp(34px, 3.4vw, 52px) !important;
+    min-height: 60px !important;
+  }
+  .splash-track {
+    width: min(620px, 60vw) !important;
+  }
+  .splash-times {
+    width: min(620px, 60vw) !important;
+    font-size: 16px !important;
+  }
+}

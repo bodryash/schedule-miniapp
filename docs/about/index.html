@@ -207,14 +207,18 @@ section.block{padding:90px 0}
 .private p{margin:0;opacity:.75;font-size:16px}
 @media (max-width:620px){.private{grid-template-columns:1fr}}
 .join{position:relative;overflow:hidden;text-align:center;padding:72px 24px;border-radius:32px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow)}
-.join::before{content:"";position:absolute;inset:-40%;background:conic-gradient(from 0deg,rgba(255,106,31,.16),rgba(122,92,255,.14),rgba(214,255,58,.2),rgba(255,106,31,.16));animation:spin 18s linear infinite;z-index:0}
-.join::after{content:"";position:absolute;inset:2px;border-radius:30px;background:color-mix(in srgb,var(--card) 88%,transparent);z-index:0}
+.join::before{content:"";position:absolute;left:50%;top:-60%;width:80%;height:120%;transform:translateX(-50%);background:radial-gradient(closest-side,rgba(255,106,31,.14),transparent);z-index:0;pointer-events:none}
 .join>*{position:relative;z-index:1}
 @keyframes spin{to{transform:rotate(360deg)}}
 .join h2{font-size:clamp(30px,4vw,50px);margin-bottom:14px}
 .join p{max-width:600px;margin:0 auto 30px;color:var(--muted);font-size:18px}
 footer{padding:50px 0 70px;color:var(--muted);font-size:14px;text-align:center}
 footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
+.tilt{transform-style:preserve-3d;will-change:transform}
+.tilt.tilting{transition:transform .08s linear,box-shadow .2s}
+.tilt.leave{transition:transform .6s cubic-bezier(.2,.8,.2,1)}
+.tilt .glare{position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .3s;background:radial-gradient(circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.35),transparent 55%)}
+.tilt:hover .glare{opacity:1}
 .reveal{opacity:0;transform:translateY(30px);transition:opacity .9s cubic-bezier(.2,.8,.2,1),transform .9s cubic-bezier(.2,.8,.2,1)}
 .reveal.on{opacity:1;transform:none}
 .reveal.d1{transition-delay:.1s}.reveal.d2{transition-delay:.2s}
@@ -366,7 +370,7 @@ footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
 </div></section>
 
 <section class="block" id="community" style="padding-top:0"><div class="wrap">
-  <div class="sec-head reveal"><span class="eyebrow">Сообщество</span><h2>Не только расписание</h2><p>Подслушка студентов всех вузов и турнир факультетов.</p></div>
+  <div class="sec-head reveal"><span class="eyebrow">Сообщество</span><h2>Не только расписание</h2><p>Подслушка — студенты всех вузов в одной ленте.</p></div>
   <div class="feat">
     <div class="reveal">
       <span class="tag violet">Подслушка</span>
@@ -382,21 +386,6 @@ footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
       <div class="chal"><small>ЗАДАНИЕ ДНЯ</small><b>Лучший совет первокурснику</b></div>
       <div class="post"><div class="who"><span class="ava">🦊</span>Аноним Лиса <small>· 5 мин</small></div><p>Смотри расписание с вечера и ставь два будильника. Работает с первого курса.</p><span class="votes">↑ <span class="count" id="votes">42</span> ↓</span></div>
       <div class="post"><div class="who"><span class="ava">Л</span>Лена <span class="lvl">🔥 Звезда</span></div><p>В библиотеке на 3 этаже есть розетки у каждого стола.</p></div>
-    </div>
-  </div>
-  <div class="feat flip">
-    <div class="reveal">
-      <span class="tag">Игра</span>
-      <h3>Сессия 2048</h3>
-      <p>Собирай плитки от «Пары» до «Аспирантуры» и выше — без потолка. Твой рекорд идёт в счёт факультета, лучшие получают призы.</p>
-    </div>
-    <div class="mock reveal d1" style="display:grid;place-items:center">
-      <div class="g" aria-hidden="true">
-        <span class="a">Пара</span><span></span><span class="b">Семинар</span><span class="a">Пара</span>
-        <span></span><span class="c">Зачёт</span><span></span><span class="b">Семинар</span>
-        <span class="d slide">Экзамен</span><span class="d merge">Экзамен</span><span></span><span class="f">Аспи&shy;рантура</span>
-        <span class="a">Пара</span><span></span><span class="e">Красный диплом</span><span class="a">Пара</span>
-      </div>
     </div>
   </div>
 </div></section>
@@ -480,6 +469,30 @@ footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
       es.forEach(function (e) { if (e.isIntersecting) { show(e.target); io.unobserve(e.target); } });
     }, { rootMargin: "0px 0px -12% 0px" });
     items.forEach(function (n) { io.observe(n); });
+  }
+
+  // Карточки поворачиваются за мышью (только там, где есть мышь).
+  if (!reduce && matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    document.querySelectorAll(".mock, .tile, .private, .join").forEach(function (card) {
+      card.classList.add("tilt");
+      var glare = document.createElement("span"); glare.className = "glare"; card.appendChild(glare);
+      var max = card.classList.contains("tile") ? 10 : 6;
+      var raf = 0;
+      card.addEventListener("mousemove", function (e) {
+        var r = card.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(function () {
+          card.classList.remove("leave"); card.classList.add("tilting");
+          card.style.transform = "perspective(900px) rotateX(" + ((0.5 - y) * max) + "deg) rotateY(" + ((x - 0.5) * max) + "deg) translateY(-4px)";
+          card.style.setProperty("--gx", x * 100 + "%"); card.style.setProperty("--gy", y * 100 + "%");
+        });
+      });
+      card.addEventListener("mouseleave", function () {
+        cancelAnimationFrame(raf);
+        card.classList.remove("tilting"); card.classList.add("leave");
+        card.style.transform = "";
+      });
+    });
   }
 
   // Подслушка: голоса растут.
