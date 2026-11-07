@@ -15411,3 +15411,35 @@ body {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
+
+/* Правая колонка листается сама, когда курсор над ней; страница при этом стоит. */
+@media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
+  .pc-aside {
+    top: 0 !important;
+    max-height: 100vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: 28px;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--text) 18%, transparent) transparent;
+  }
+  /* Подслушка — в левом меню; кнопка в шапке на компьютере не нужна. */
+  #forum-btn {
+    display: none !important;
+  }
+}
+
+/* «Группа …» и «Чётная неделя» — на одной линии. */
+.bar .context {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px;
+}
+.bar .context .group-name,
+.bar .context .week {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+  vertical-align: middle;
+}
