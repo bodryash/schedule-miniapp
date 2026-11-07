@@ -14920,3 +14920,16 @@ body.magnate .menu-pop button {
     font-size: 44px !important;
   }
 }
+@media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
+  /* Кнопка входа Telegram — в пределах плашки. */
+  .web-login {
+    overflow: hidden;
+  }
+  .web-login iframe {
+    max-width: 100% !important;
+  }
+  /* Плавающая дата при прокрутке закрывала полосу дней — на компьютере не нужна. */
+  .minihead {
+    display: none !important;
+  }
+}

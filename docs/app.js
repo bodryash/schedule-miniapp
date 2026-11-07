@@ -9968,6 +9968,9 @@ function renderPcAside() {
   aside.replaceChildren(...blocks);
 }
 PC_WIDE?.addEventListener?.("change", () => renderPcAside());
+window.addEventListener("resize", () => {
+  if (PC_WIDE?.matches && !document.getElementById("pc-aside")) renderPcAside();
+});
 
 function lessonsForDay(group, day, week) {
   const parity = weekParity(data.weeks, week);
@@ -11617,7 +11620,7 @@ function initWebLogin() {
     widget.async = true;
     widget.src = "https://telegram.org/js/telegram-widget.js?22";
     widget.dataset.telegramLogin = "FGPshedulebot";
-    widget.dataset.size = "large";
+    widget.dataset.size = "medium";
     widget.dataset.radius = "12";
     widget.dataset.onauth = "onTelegramAuth(user)";
     widget.dataset.requestAccess = "write";
@@ -12072,6 +12075,15 @@ function goToDay(direction) {
   showSchedule();
   return true;
 }
+
+// Компьютер: стрелки ← → листают дни расписания (не когда печатают и не в окнах).
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+  if (els.schedule?.hidden || event.target.closest?.("input, textarea, select, [contenteditable]")) return;
+  if (document.querySelector(".sheet-backdrop:not([hidden])") || document.body.classList.contains("fm-open")) return;
+  if (goToDay(event.key === "ArrowRight" ? 1 : -1)) event.preventDefault();
+});
 
 // Когда последний раз листали дни: следом браузер шлёт «нажатие» на пару.
 let daySwipedAt = 0;
