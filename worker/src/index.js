@@ -1021,6 +1021,47 @@ async function canEditHomework(env, initData, groupId) {
   return Boolean(row);
 }
 
+/**
+ * Условия пропусков на всю группу: староста задаёт по предмету лимит и
+ * условия («до 2 пропусков — оценка 4»), у всех в группе они появляются сами.
+ * Свои условия человек может поставить поверх — они главнее.
+ */
+async function groupAbsRules(env, groupId) {
+  if (!groupId) return {};
+  const { results = [] } = await env.STATS.prepare("SELECT subject, data FROM abs_group WHERE grp = ?").bind(groupId).all();
+  const out = {};
+  for (const r of results) {
+    try {
+      out[r.subject] = JSON.parse(r.data);
+    } catch {
+      // испорченная строка — пропускаем
+    }
+  }
+  return out;
+}
+
+async function saveAbsRules(env, body) {
+  const groupId = String(body.group || "");
+  const subject = String(body.subject || "").trim().slice(0, 200);
+  if (!groupId || !subject) return { ok: false, error: "bad request" };
+  if (!(await canEditHomework(env, body.initData || "", groupId))) return { ok: false, error: "forbidden" };
+  if (body.clear) {
+    await env.STATS.prepare("DELETE FROM abs_group WHERE grp = ? AND subject = ?").bind(groupId, subject).run();
+    return { ok: true };
+  }
+  const limit = Number.isInteger(body.limit) && body.limit >= 0 && body.limit < 200 ? body.limit : null;
+  const rules = (Array.isArray(body.rules) ? body.rules : [])
+    .slice(0, 8)
+    .map((r) => ({ n: Math.max(0, Math.min(199, Number(r?.n) || 0)), label: String(r?.label || "").trim().slice(0, 24) }));
+  const data = JSON.stringify({ limit, rules });
+  await env.STATS.prepare(
+    "INSERT INTO abs_group (grp, subject, data, updated) VALUES (?, ?, ?, ?) ON CONFLICT(grp, subject) DO UPDATE SET data = excluded.data, updated = excluded.updated"
+  )
+    .bind(groupId, subject, data, new Date().toISOString())
+    .run();
+  return { ok: true };
+}
+
 async function saveHomework(env, body) {
   const groupId = String(body.group || "");
   const subject = String(body.subject || "").trim();
@@ -3940,7 +3981,7 @@ export default {
           },
         });
       }
-      const [notices, cancels, changes, homework, canEdit, commenter, deadlines, polls] = await Promise.all([
+      const [notices, cancels, changes, homework, canEdit, commenter, deadlines, polls, absRules] = await Promise.all([
         activeNotices(env, group, user?.id).catch(() => []),
         activeCancels(env, group).catch(() => []),
         activeChanges(env, group).catch(() => []),
@@ -3949,13 +3990,14 @@ export default {
         user ? canComment(env, user, group.id).catch(() => false) : false,
         groupDeadlines(env, group.id).catch(() => []),
         groupPolls(env, group.id, user?.id).catch(() => []),
+        groupAbsRules(env, group.id).catch(() => ({})),
       ]);
       // Счётчики комментариев — только своей группе: чужим они ни к чему.
       const comments = commenter ? await commentCounts(env, group.id, range).catch(() => []) : [];
       const theme = await themeFor(env, user?.id, group).catch(() => "");
       const important = await importantList(env).catch(() => []);
       const hello = await helloFor(env, user?.id, group).catch(() => "");
-      const payload = { notices, cancels, changes, theme, hello, important, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments, deadlines, polls };
+      const payload = { notices, cancels, changes, theme, hello, important, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments, deadlines, polls, absRules };
       return new Response(JSON.stringify(payload), {
         headers: {
           "content-type": "application/json; charset=utf-8",
@@ -3963,6 +4005,20 @@ export default {
           // Ответ с правами старосты — личный, общий кэш его не должен хранить.
           "cache-control": request.method === "GET" ? "public, max-age=60" : "no-store",
         },
+      });
+    }
+
+    // Условия пропусков на всю группу — задаёт староста.
+    if (url.pathname === "/absrules" && request.method === "POST") {
+      let result;
+      try {
+        result = await saveAbsRules(env, JSON.parse(await request.text()));
+      } catch {
+        result = { ok: false, error: "bad request" };
+      }
+      return new Response(JSON.stringify(result), {
+        status: result.ok ? 200 : result.error === "forbidden" ? 403 : 400,
+        headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*", "cache-control": "no-store" },
       });
     }
 
