@@ -417,6 +417,27 @@
   font-size: 21px;
 }
 
+.fm-ava--brand {
+  color: #151515;
+  background: #fff;
+  border: 1px solid rgba(21, 21, 21, 0.14);
+  font-family: system-ui, sans-serif;
+  font-size: 15px;
+  letter-spacing: -0.06em;
+}
+
+.fm-ava--brand.fm-ava--s {
+  font-size: 11px;
+}
+
+.fm-ava--brand.fm-ava--l {
+  font-size: 18px;
+}
+
+.fm-ava--brand::after {
+  box-shadow: inset 0 0 0 1px rgba(21, 21, 21, 0.05);
+}
+
 .fm-ava--s {
   width: 32px;
   height: 32px;
@@ -2498,6 +2519,42 @@ body.fm-open .minihead {
   border-radius: 3px;
   background: linear-gradient(90deg, #ffd23f, #ff7a2f);
 }
+
+.fm-ranks {
+  margin: -2px 0 2px;
+  font-size: 12px;
+}
+
+.fm-ranks summary {
+  width: fit-content;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fm-ranks p {
+  margin: 8px 0 6px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.fm-ranks ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fm-ranks li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fm-ranks li b {
+  white-space: nowrap;
+}
 .fm-level {
   font-size: 13px;
   line-height: 1;
@@ -2605,6 +2662,10 @@ body.fm-open .minihead {
   .fm-page--feed .fm-prompt {
     margin: 0 0 12px !important;
   }
+  .fm-page--feed .fm-game {
+    width: 100%;
+    margin: 4px 0 12px;
+  }
   /* Лента — карточки с наведением. */
   .fm-page--feed .fm-row {
     margin: 0 0 10px;
@@ -2667,24 +2728,42 @@ body.fm-open .minihead {
     color: var(--muted, #8a8a8a);
   }
   .fm-side-write {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
     width: 100%;
-    height: 50px;
+    height: 56px;
     margin-top: 18px;
-    border: 0;
-    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--accent, #f0821e) 28%, transparent);
+    border-radius: 18px;
     font: inherit;
-    font-size: 16px;
-    font-weight: 800;
+    font-size: 15px;
+    font-weight: 750;
+    color: var(--text);
+    background: color-mix(in srgb, var(--accent, #f0821e) 10%, var(--card, #fff));
+    box-shadow: none;
+    cursor: pointer;
+    transition: transform 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+  }
+  .fm-side-write .fm-i {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
     color: #fff;
     background: var(--accent, #f0821e);
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--accent, #f0821e) 35%, transparent);
-    cursor: pointer;
-    transition: transform 0.25s cubic-bezier(0.2, 1.4, 0.4, 1), box-shadow 0.25s;
+  }
+  .fm-side-write .fm-i svg {
+    width: 17px;
+    height: 17px;
+    stroke-width: 2;
   }
   .fm-side-write:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 14px 30px color-mix(in srgb, var(--accent, #f0821e) 45%, transparent);
+    transform: translateY(-1px);
+    background: color-mix(in srgb, var(--accent, #f0821e) 15%, var(--card, #fff));
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--accent, #f0821e) 18%, transparent);
   }
   .fm-side-card {
     display: block;
@@ -2773,3 +2852,4 @@ body.fm-open .minihead {
     background: color-mix(in srgb, var(--text) 7%, transparent);
   }
 }
+
