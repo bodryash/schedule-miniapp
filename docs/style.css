@@ -14593,15 +14593,30 @@ body.magnate .menu-pop button {
     opacity: 1 !important;
     pointer-events: auto !important;
   }
-  .tabs::before {
-    content: "Расписание";
+  .web-brand {
     position: absolute;
-    top: 28px;
-    left: 22px;
-    font-family: "Unbounded", system-ui, sans-serif;
-    font-size: 20px;
-    font-weight: 800;
+    top: 22px;
+    left: 18px;
+    display: flex !important;
+    align-items: center;
+    gap: 10px;
+    font-family: "Manrope", system-ui, sans-serif;
+    font-size: 18px;
+    letter-spacing: -0.02em;
     color: var(--text);
+    text-decoration: none;
+  }
+  .web-brand-mark {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: -0.06em;
+    color: #15131a;
+    background: #d6ff3a;
   }
   .tabs-drop {
     display: none !important;
@@ -14754,4 +14769,22 @@ body.magnate .menu-pop button {
   .web-about + .web-login {
     margin-top: 6px;
   }
+}
+
+.web-brand {
+  display: none;
+}
+@font-face {
+  font-family: "Manrope";
+  src: url("fonts/manrope-cyrillic-wght-normal.woff2") format("woff2");
+  font-weight: 200 800;
+  unicode-range: U+0400-045F;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Manrope";
+  src: url("fonts/manrope-latin-wght-normal.woff2") format("woff2");
+  font-weight: 200 800;
+  unicode-range: U+0000-00FF, U+2000-206F;
+  font-display: swap;
 }
