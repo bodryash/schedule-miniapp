@@ -13163,11 +13163,12 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
 // GitHub Pages — нагрузки на бота нет.
 const UPDATE_CHECK_INTERVAL = 5 * 60_000;
 const RELOADED_KEY = "schedule.reloadedFor";
+const CODE_DATE_KEY = "schedule.codeDate";
 let lastUpdateCheck = 0;
 
-async function serverPageDate() {
+async function serverPageDate(path = location.pathname) {
   try {
-    const res = await fetch(location.pathname, { method: "HEAD", cache: "no-store" });
+    const res = await fetch(path, { method: "HEAD", cache: "no-store" });
     const header = res.ok && res.headers.get("last-modified");
     return header ? Date.parse(header) : null;
   } catch {
@@ -13182,11 +13183,23 @@ async function checkForUpdate() {
   if (now - lastUpdateCheck < UPDATE_CHECK_INTERVAL) return;
   lastUpdateCheck = now;
 
-  const server = await serverPageDate();
+  // Код и стили обновляются чаще разметки: index.html мог не меняться, а
+  // app.js — уже новый. Дата кода с прошлой проверки лежит в памяти, и по ней
+  // же index.html ставит метку в адрес файлов: сменилась — качаем заново.
+  const [page, code, css] = await Promise.all([serverPageDate(), serverPageDate("app.js"), serverPageDate("style.css")]);
+  const codeDate = Math.max(code || 0, css || 0);
+  let knownCode = 0;
+  try {
+    knownCode = Number(localStorage.getItem(CODE_DATE_KEY)) || 0;
+    if (codeDate && !knownCode) localStorage.setItem(CODE_DATE_KEY, String(codeDate));
+  } catch {}
+  const codeNewer = Boolean(codeDate && knownCode && codeDate > knownCode + 2000);
   // Дата загруженной страницы. Без заголовка браузер ставит «сейчас» —
   // тогда сервер окажется старше, и мы ничего не сделаем: безопасно.
   const loaded = Date.parse(document.lastModified);
-  if (!server || !loaded || server <= loaded + 2000) return;
+  const pageNewer = Boolean(page && loaded && page > loaded + 2000);
+  if (!pageNewer && !codeNewer) return;
+  const server = Math.max(page || 0, codeDate);
 
   // Если после перезагрузки кэш опять отдал старое, второй раз не пробуем:
   // иначе страница перезагружалась бы бесконечно.
@@ -13204,6 +13217,9 @@ async function checkForUpdate() {
     } catch {}
     return;
   }
+  try {
+    if (codeDate) localStorage.setItem(CODE_DATE_KEY, String(codeDate));
+  } catch {}
   // Свежая страница мимо кэша: метка в адресе, как у app.js и style.css.
   const url = new URL(location.href);
   url.searchParams.set("v", String(server));
