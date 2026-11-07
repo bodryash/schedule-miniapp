@@ -8829,7 +8829,7 @@ function openCalendar() {
     close.type = "button";
     close.setAttribute("aria-label", t("Закрыть"));
     close.addEventListener("click", closeCalendar);
-    top.append(el("h2", "", t("В календарь телефона")), close);
+    top.append(el("h2", "", PC_WIDE?.matches ? t("В мой календарь") : t("В календарь телефона")), close);
     sheet.append(top, el("div", "cal-body"));
     calendarSheet.append(sheet);
     calendarSheet.addEventListener("click", (event) => {
@@ -9902,6 +9902,7 @@ function renderPcAside() {
   let aside = document.getElementById("pc-aside");
   const group = activeGroup();
   if (!PC_WIDE?.matches || !host || !group || !data) return aside?.remove();
+  pcDaySummary(group);
   if (!aside) {
     aside = el("aside", "pc-aside");
     aside.id = "pc-aside";
@@ -11585,8 +11586,8 @@ if (!tg?.initData) document.getElementById("forum-btn")?.setAttribute("hidden", 
 function webSettingsButton() {
   const btn = el("button", "web-settings");
   btn.type = "button";
-  btn.innerHTML = '<svg class="web-settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
-  btn.append(el("span", "", t("Настройки")));
+  btn.innerHTML = '<svg class="web-settings-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg><svg hidden viewBox="0 0 24 24"><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+  btn.append(el("span", "", t("Ещё")));
   btn.addEventListener("click", (event) => {
     event.stopPropagation();
     const pop = els.menuPop;
@@ -11594,17 +11595,62 @@ function webSettingsButton() {
     els.menu.click();
     if (pop.hidden) return;
     pop.classList.add("menu-pop--side");
+    const cal = pop.querySelector('[data-menu="calendar"] span:last-child');
+    if (cal) cal.textContent = t("В мой календарь");
     pop.style.removeProperty("top");
     pop.style.removeProperty("right");
   });
   return btn;
 }
 
+/** Компьютер: Подслушка — пунктом левого меню. Без входа подсказываем войти. */
+function webForumButton() {
+  const btn = el("button", "web-settings web-forum");
+  btn.type = "button";
+  btn.innerHTML = '<svg class="web-settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>';
+  btn.append(el("span", "", t("Подслушка")));
+  btn.addEventListener("click", () => {
+    const forum = document.getElementById("forum-btn");
+    if (!tg?.initData || !forum) return toast(t("Войдите через Telegram внизу слева — и Подслушка откроется"));
+    forum.click();
+  });
+  return btn;
+}
+
+/** Компьютер: при открытии — коротко, сколько сегодня пар. */
+let pcSummaryShown = false;
+function pcDaySummary(group) {
+  if (pcSummaryShown || !PC_WIDE?.matches || !group || group.planner) return;
+  pcSummaryShown = true;
+  const now = new Date();
+  const day = ((now.getDay() + 6) % 7) + 1;
+  let text;
+  if (day === 7) text = t("Сегодня воскресенье — пар нет");
+  else {
+    const list = ownLessonsForDay(group, day, 0);
+    const slots = new Set(list.map((l) => l.slot)).size;
+    const bells = new Map((data.bells || []).map((b) => [b.n, b]));
+    const n10 = slots % 10, n100 = slots % 100;
+    const word = n10 === 1 && n100 !== 11 ? "пара" : n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14) ? "пары" : "пар";
+    if (!slots) text = t("Сегодня пар нет — отдыхай");
+    else {
+      const first = timesOf(list.reduce((a, b) => (a.slot <= b.slot ? a : b)), bells);
+      text = `${t("Сегодня")} ${slots} ${word}${first?.start ? ` · ${t("с")} ${first.start}` : ""}`;
+    }
+  }
+  setTimeout(() => {
+    const node = el("div", "pc-summary", text);
+    document.body.append(node);
+    setTimeout(() => node.classList.add("pc-summary--out"), 3200);
+    setTimeout(() => node.remove(), 3800);
+  }, 900);
+}
+
 function initWebLogin() {
   // Название в меню слева (видно только на компьютере): знак :P и «:Расписание».
   if (els.tabs && !els.tabs.querySelector(".web-brand")) {
     const brand = el("a", "web-brand");
-    brand.href = "about/";
+    brand.href = "/?app=1";
     brand.append(el("span", "web-brand-mark", ":P"), el("b", "", ":Расписание"));
     els.tabs.prepend(brand);
   }
@@ -11645,9 +11691,9 @@ function initWebLogin() {
     widget.dataset.requestAccess = "write";
     box.append(widget);
   }
-  const about = el("a", "web-about", t("О приложении"));
+  const about = el("a", "web-about", t("Об этом приложении"));
   about.href = "about/";
-  els.tabs.append(about, webSettingsButton(), box);
+  els.tabs.append(webSettingsButton(), webForumButton(), about, box);
 }
 initWebLogin();
 // Кнопка Подслушки «дышит», пока её сегодня не открывали: мягко привлекает
@@ -11943,7 +11989,7 @@ function initMenu() {
     const item = el("button");
     item.type = "button";
     item.dataset.menu = "calendar";
-    item.append(el("span", "", "📅"), el("span", "", t("В календарь телефона")));
+    item.append(el("span", "", "📅"), el("span", "", PC_WIDE?.matches ? t("В мой календарь") : t("В календарь телефона")));
     const rooms = pop.querySelector('[data-menu="rooms"]');
     if (rooms) rooms.before(item);
     else pop.append(item);
