@@ -4119,7 +4119,7 @@ function renderSemester() {
 const ABS_KEY = "absences";
 // Учёт пропусков включён всем по умолчанию: кнопка «пропустил?» под каждой
 // прошедшей парой. Кто сам нажал «Перестать считать» — у того выключен.
-let absences = { on: true, marks: {}, limits: {} };
+let absences = { on: true, marks: {}, limits: {}, rules: {} };
 let absLoaded = false;
 // Строки с раскрытыми датами — чтобы после отметки список не схлопывался.
 const openRows = new Set();
@@ -4162,7 +4162,7 @@ async function loadAbsences() {
   try {
     const parsed = JSON.parse(raw || "null");
     if (parsed && typeof parsed === "object") {
-      absences = { on: parsed.on !== false, marks: parsed.marks || {}, limits: parsed.limits || {} };
+      absences = { on: parsed.on !== false, marks: parsed.marks || {}, limits: parsed.limits || {}, rules: parsed.rules || {} };
     }
   } catch {
     // Испорченная запись — начинаем с чистого листа.
@@ -4174,6 +4174,7 @@ async function loadAbsences() {
 function saveAbsences() {
   // Облако Telegram держит до 4 КБ на ключ — хранить даты коротко:
   // «0928-3» — 28 сентября, третья пара.
+  for (const [subject, list] of Object.entries(absences.rules || {})) if (!list?.length) delete absences.rules[subject];
   cloudSet(ABS_KEY, JSON.stringify(absences));
 }
 
@@ -4377,7 +4378,22 @@ function absState(subject) {
         : left === 0
           ? t("хватит — лимит исчерпан")
           : t("можно ещё {n} · прошло {past} из {total}", { n: left, past, total })) + plan;
-  return { total, missed, planned, limit, state, status };
+  return { total, missed, planned, limit, state, status, rule: ruleState(subject, missed + planned) };
+}
+
+/**
+ * Условия к лимиту, которые человек задаёт сам: «до 2 пропусков — оценка 4»,
+ * «до 4 — оценка 3». Показываем, на что он идёт сейчас и сколько ещё можно
+ * пропустить, чтобы не съехать ниже.
+ */
+function ruleState(subject, used) {
+  const rules = (absences.rules?.[subject] || []).filter((r) => r.n != null).sort((a, b) => a.n - b.n);
+  if (!rules.length) return "";
+  const hit = rules.find((r) => used <= r.n);
+  if (!hit) return t("все условия превышены");
+  const left = hit.n - used;
+  const what = hit.label ? `«${hit.label}»` : t("до {n} пропусков", { n: hit.n });
+  return left ? t("сейчас: {what} · можно ещё {n}", { what, n: left }) : t("сейчас: {what} · больше пропускать нельзя", { what });
 }
 
 /** Число меняется с толчком — видно, что отметка засчиталась. */
@@ -4414,6 +4430,11 @@ function refreshAbsRow(row) {
     });
   }
   bump(row.querySelector(".abs-limit-value"), info.limit == null ? "—" : String(info.limit));
+  const ruleNow = row.querySelector(".abs-rule-now");
+  if (ruleNow) {
+    ruleNow.textContent = info.rule;
+    ruleNow.hidden = !info.rule;
+  }
   for (const chip of row.querySelectorAll(".abs-date")) {
     const date = new Date(chip.dataset.date);
     chip.classList.toggle("abs-date--on", isMissed(subject, date, Number(chip.dataset.slot)));
@@ -4450,6 +4471,67 @@ function buildAbsRow(subject, index) {
   plus.addEventListener("click", () => change(1));
   controls.append(el("span", "abs-limit-label", t("лимит")), minus, value, plus);
   row.append(controls);
+
+  // Условия: «до N пропусков → оценка 4». Сколько угодно строк.
+  const rulesBox = el("div", "abs-rules");
+  const ruleNote = el("div", "abs-rule-now");
+  const drawRules = () => {
+    const list = absences.rules[subject] || [];
+    const rows = list.map((rule, i) => {
+      const line = el("div", "abs-rule");
+      const less = el("button", "abs-step", "−");
+      const num = el("span", "abs-limit-value", String(rule.n));
+      const more = el("button", "abs-step", "+");
+      less.type = more.type = "button";
+      const step = (d) => {
+        rule.n = Math.max(0, rule.n + d);
+        num.textContent = String(rule.n);
+        saveAbsences();
+        haptic("select");
+        refreshAbsRow(row);
+      };
+      less.addEventListener("click", () => step(-1));
+      more.addEventListener("click", () => step(1));
+      const input = el("input", "abs-rule-label");
+      input.type = "text";
+      input.maxLength = 24;
+      input.placeholder = t("например, оценка 4");
+      input.value = rule.label || "";
+      input.addEventListener("input", () => {
+        rule.label = input.value.trim();
+        saveAbsences();
+        refreshAbsRow(row);
+      });
+      const drop = el("button", "abs-rule-x", "×");
+      drop.type = "button";
+      drop.setAttribute("aria-label", t("Убрать условие"));
+      drop.addEventListener("click", () => {
+        list.splice(i, 1);
+        if (!list.length) delete absences.rules[subject];
+        saveAbsences();
+        haptic("light");
+        drawRules();
+        refreshAbsRow(row);
+      });
+      line.append(el("span", "abs-rule-pre", t("до")), less, num, more, el("span", "abs-rule-mid", "→"), input, drop);
+      return line;
+    });
+    const add = el("button", "abs-rule-add", t("+ Добавить условие"));
+    add.type = "button";
+    add.addEventListener("click", () => {
+      const last = list.at(-1);
+      list.push({ n: last ? last.n + 2 : absences.limits[subject] ?? 2, label: "" });
+      absences.rules[subject] = list;
+      saveAbsences();
+      haptic("select");
+      drawRules();
+      refreshAbsRow(row);
+      rulesBox.querySelectorAll(".abs-rule-label").item(list.length - 1)?.focus();
+    });
+    rulesBox.replaceChildren(...rows, add);
+  };
+  drawRules();
+  row.append(ruleNote, rulesBox);
 
   // Отметить задним числом: расписание показывает только эту и следующую
   // неделю, и пропуск позапрошлой иначе было бы негде поставить. Даты
