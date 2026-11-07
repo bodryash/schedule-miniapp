@@ -663,3 +663,11 @@ CREATE TABLE IF NOT EXISTS user_prefs (
   data    TEXT NOT NULL,
   updated INTEGER NOT NULL
 );
+
+-- Подслушка: карма, выданная владельцем вручную (/karma @ник 25).
+CREATE TABLE IF NOT EXISTS forum_karma_bonus (
+  id     INTEGER PRIMARY KEY AUTOINCREMENT,
+  tg_id  INTEGER NOT NULL,
+  amount INTEGER NOT NULL,
+  at     TEXT NOT NULL
+);
