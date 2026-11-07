@@ -123,6 +123,12 @@
     const a = document.createElement("span");
     a.className = `fm-ava${size ? ` fm-ava--${size}` : ""}`;
     a.style.setProperty("--h", Number.isFinite(p.hue) ? p.hue : hueOf(p.name || "?"));
+    // Системные итоги турнира публикуются от имени владельца, но аватар им нужен фирменный.
+    if (p.name === "Подслушка" && p.tag === "🎮 Сессия 2048") {
+      a.classList.add("fm-ava--brand");
+      a.textContent = ":P";
+      return a;
+    }
     if (p.emoji) {
       a.classList.add("fm-ava--emoji");
       a.textContent = p.emoji;
@@ -507,7 +513,7 @@
     const write = document.createElement("button");
     write.type = "button";
     write.className = "fm-side-write";
-    write.textContent = t("Написать пост");
+    write.append(icon("pen"), document.createTextNode(t("Написать пост")));
     write.addEventListener("click", () => openComposer());
     const brand = document.createElement("div");
     brand.className = "fm-side-brand";
@@ -909,11 +915,33 @@
       bar.append(fill);
       lvl.append(
         Object.assign(document.createElement("span"), { className: "fm-lvl-ico", textContent: me.icon }),
-        Object.assign(document.createElement("span"), { className: "fm-lvl-text", textContent: me.next ? t("Вы — {name} · {k} кармы · до {icon} {need}", { name: me.name, k: me.karma, icon: me.next.icon, need: me.next.need }) : t("Вы — {name} · {k} кармы", { name: me.name, k: me.karma }) }),
+        Object.assign(document.createElement("span"), { className: "fm-lvl-text", textContent: me.next ? t("Вы — {name} · {k} кармы · ещё {need} кармы — и вы {icon} {next}", { name: me.name, k: me.karma, icon: me.next.icon, next: me.next.name, need: me.next.need }) : t("Вы — {name} · {k} кармы", { name: me.name, k: me.karma }) }),
         bar
       );
       parts.push(lvl);
     }
+
+    const ranks = document.createElement("details");
+    ranks.className = "fm-ranks";
+    ranks.append(Object.assign(document.createElement("summary"), { textContent: t("Как работают звания?") }));
+    const intro = Object.assign(document.createElement("p"), { textContent: t("Карма начисляется за посты, ответы и лайки; лучший ответ дня даёт +25. Звания открываются на этих порогах:") });
+    const list = document.createElement("ul");
+    for (const [icon, name, need] of [
+      ["🌱", "Новичок", 0],
+      ["💬", "Голос", 20],
+      ["🔥", "Звезда", 80],
+      ["💎", "Знаток", 200],
+      ["👑", "Легенда", 500],
+    ]) {
+      const item = document.createElement("li");
+      item.append(
+        document.createTextNode(`${icon} ${name} — `),
+        Object.assign(document.createElement("b"), { textContent: need ? t("{n} кармы", { n: need }) : t("старт") })
+      );
+      list.append(item);
+    }
+    ranks.append(intro, list);
+    parts.push(ranks);
     box.replaceChildren(...parts);
   }
 
@@ -2953,3 +2981,4 @@
 
   window.showForum = showForum;
 })();
+

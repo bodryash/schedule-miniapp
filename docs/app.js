@@ -13365,7 +13365,7 @@ function helloLines() {
   if (isHalloween()) return { title: t("С Хэллоуином!"), wish: "", custom: false };
   const now = new Date();
   const hour = now.getHours();
-  const hi = hour >= 5 && hour < 11 ? "Доброе утро" : hour < 17 ? "Добрый день" : hour < 23 ? "Добрый вечер" : "Доброй ночи";
+  const hi = hour >= 5 && hour < 11 ? "Доброе утро" : hour >= 11 && hour < 17 ? "Добрый день" : hour >= 17 && hour < 23 ? "Добрый вечер" : "Доброй ночи";
   // Пожелание своё на каждый день, а не на каждое открытие.
   const wish =
     hour >= 20 || hour < 5
