@@ -2526,3 +2526,113 @@ body.fm-open .minihead {
   color: #ff7a2f;
   background: color-mix(in srgb, #ff7a2f 12%, transparent);
 }
+
+/* ===================================================================
+   Компьютер: Подслушка в три колонки — навигация, лента, задание дня.
+   =================================================================== */
+@media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
+  .fm-nav {
+    min-height: 64px;
+    padding: 0 max(24px, calc((100vw - 1240px) / 2)) !important;
+    border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  }
+  .fm-nav-title {
+    font-size: 22px !important;
+  }
+  .fm-scroll {
+    scrollbar-width: thin;
+  }
+  .fm-page--feed .fm-wrap {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 640px) 320px;
+    column-gap: 36px;
+    max-width: 1260px;
+    padding: 24px 24px 80px;
+    align-items: start;
+  }
+  .fm-page--feed .fm-wrap > * {
+    grid-column: 2;
+  }
+  /* Слева — переключатель лент, вертикально и «прилипает». */
+  .fm-page--feed .fm-segwrap {
+    grid-column: 1;
+    grid-row: 1 / span 30;
+    position: sticky;
+    top: 24px;
+    padding: 0;
+    background: none;
+  }
+  .fm-page--feed .fm-seg {
+    grid-auto-flow: row;
+    grid-auto-rows: 44px;
+    gap: 4px;
+    padding: 0;
+    background: none !important;
+  }
+  .fm-page--feed .fm-seg > button {
+    justify-content: flex-start;
+    padding: 0 16px;
+    border-radius: 12px;
+    font-size: 15px;
+    text-align: left;
+  }
+  .fm-page--feed .fm-seg > button[aria-selected="true"] {
+    color: var(--accent, #f0821e);
+    background: color-mix(in srgb, var(--accent, #f0821e) 12%, transparent);
+  }
+  .fm-page--feed .fm-row::after {
+    display: none;
+  }
+  .fm-page--feed .fm-seg > button:hover {
+    background: color-mix(in srgb, var(--text) 6%, transparent);
+  }
+  .fm-page--feed .fm-seg > :not(button) {
+    display: none;
+  }
+  /* Справа — задание дня, «прилипает». */
+  .fm-page--feed .fm-chal {
+    grid-column: 3;
+    grid-row: 1 / span 30;
+    position: sticky;
+    top: 24px;
+    margin: 0;
+    padding: 20px;
+  }
+  .fm-page--feed .fm-prompt {
+    margin: 0 0 12px !important;
+  }
+  /* Лента — карточки с наведением. */
+  .fm-page--feed .fm-row {
+    margin: 0 0 10px;
+    padding: 16px 18px !important;
+    border: 1px solid color-mix(in srgb, var(--text) 7%, transparent);
+    border-radius: 18px;
+    background: var(--card, var(--bg));
+    transition: border-color 0.2s, box-shadow 0.25s, transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1);
+    cursor: pointer;
+  }
+  .fm-page--feed .fm-row:hover {
+    border-color: color-mix(in srgb, var(--accent, #f0821e) 35%, transparent);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+  }
+  .fm-text {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+  }
+  /* Кнопка «написать» — в ленте уже есть строка ввода, плавающая не нужна. */
+  .fm-page--feed .fm-fab {
+    display: none !important;
+  }
+  /* Тема — широкая колонка по центру. */
+  .fm-page--thread .fm-wrap {
+    max-width: 760px;
+    padding: 24px 24px 120px;
+  }
+  .fm-page--thread .fm-bar {
+    max-width: 760px;
+    margin: 0 auto;
+    width: 100%;
+    border-radius: 18px 18px 0 0;
+  }
+}

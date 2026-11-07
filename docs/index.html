@@ -63,6 +63,74 @@
       } catch (e) {}
     })();
   </script>
+  <!-- Настройки — одни на телефоне и компьютере: тема, группа, язык, оформление.
+       Пропуски и заметки сюда не попадают — они только в облаке Telegram. -->
+  <script>
+    (function () {
+      var wa = window.Telegram && window.Telegram.WebApp;
+      if (!wa || !wa.initData || !window.fetch) return;
+      var API = "https://api.bodryash.ru/prefs";
+      var KEYS = ["schedule.prefs", "schedule.profiles", "schedule.scheme", "schedule.lang", "schedule.colorTheme", "schedule.msuTheme",
+        "schedule.ownerTheme", "schedule.head", "schedule.digits", "schedule.fx", "schedule.decor", "schedule.neon",
+        "schedule.cards", "schedule.parallax", "schedule.subjectColors", "schedule.glam", "schedule.bg"];
+      var ls;
+      try { ls = window.localStorage; ls.getItem("x"); } catch (e) { return; }
+      var stamp = +ls.getItem("schedule.syncAt") || 0, applying = false, timer = 0;
+      var setItem = Storage.prototype.setItem, removeItem = Storage.prototype.removeItem;
+      function collect() {
+        var d = {};
+        KEYS.forEach(function (k) { var v = ls.getItem(k); if (v != null) d[k] = v; });
+        return d;
+      }
+      function push() {
+        fetch(API, { method: "POST", keepalive: true, body: JSON.stringify({ initData: wa.initData, set: { updated: stamp, data: collect() } }) }).catch(function () {});
+      }
+      function touched(store, key) {
+        if (applying || store !== ls || KEYS.indexOf(key) < 0) return;
+        stamp = Date.now();
+        setItem.call(ls, "schedule.syncAt", String(stamp));
+        clearTimeout(timer);
+        timer = setTimeout(push, 1200);
+      }
+      // Считаем правкой только настоящую перемену: при запуске приложение
+      // переписывает те же значения — это не должно «перебивать» другое устройство.
+      Storage.prototype.setItem = function (k, v) {
+        var same = this === ls && ls.getItem(k) === String(v);
+        setItem.call(this, k, v);
+        if (!same) touched(this, k);
+      };
+      Storage.prototype.removeItem = function (k) {
+        var had = this === ls && ls.getItem(k) != null;
+        removeItem.call(this, k);
+        if (had) touched(this, k);
+      };
+      function pull() {
+        fetch(API, { method: "POST", body: JSON.stringify({ initData: wa.initData }) })
+          .then(function (r) { return r.json(); })
+          .then(function (r) {
+            if (!r || !r.ok) return;
+            if (r.data && r.updated > stamp) {
+              applying = true;
+              KEYS.forEach(function (k) { if (k in r.data) setItem.call(ls, k, r.data[k]); else removeItem.call(ls, k); });
+              applying = false;
+              stamp = r.updated;
+              setItem.call(ls, "schedule.syncAt", String(stamp));
+              // Перезагрузка — один раз на версию, чтобы не зациклиться.
+              var mark = "schedule.syncReloaded";
+              if (sessionStorage.getItem(mark) !== String(stamp)) { sessionStorage.setItem(mark, String(stamp)); location.reload(); }
+            } else if (stamp > r.updated || (!r.data && ls.getItem("schedule.prefs"))) {
+              // Первое устройство с настройками — делится ими; метка 1, чтобы любая правка была свежее.
+              if (!stamp) { stamp = 1; setItem.call(ls, "schedule.syncAt", "1"); }
+              push();
+            }
+          })
+          .catch(function () {});
+      }
+      pull();
+      // Вернулись во вкладку — вдруг на телефоне что-то поменяли.
+      document.addEventListener("visibilitychange", function () { if (!document.hidden) pull(); });
+    })();
+  </script>
   <!-- Заставка должна появиться с первого кадра, ещё до основных стилей:
        иначе, пока качается style.css, на экране секунды темноты. Здесь —
        только то, что нужно, чтобы её было видно. -->
