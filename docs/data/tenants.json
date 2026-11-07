@@ -385,32 +385,6 @@
     "short": "ФБИУКС"
   },
   {
-    "id": "mgimo-imip",
-    "university": "МГИМО",
-    "faculty": "Институт маркетинга и предпринимательства",
-    "path": "mgimo-imip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 49
-    },
-    "short": "ИМиП"
-  },
-  {
-    "id": "mgimo-meo-dip",
-    "university": "МГИМО",
-    "faculty": "Факультет международных экономических отношений (Дип)",
-    "path": "mgimo-meo-dip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 53
-    },
-    "short": "МЭО (Дип)"
-  },
-  {
     "id": "mgimo-mo-dip",
     "university": "МГИМО",
     "faculty": "Факультет Международные отношения (Дип)",
@@ -422,19 +396,6 @@
       "faculty": 55
     },
     "short": "МО (Дип)"
-  },
-  {
-    "id": "mgimo-imtur",
-    "university": "МГИМО",
-    "faculty": "Институт международной торговли и устойчивого развития",
-    "path": "mgimo-imtur",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 28
-    },
-    "short": "ИМТУР"
   },
   {
     "id": "mgimo-meo",
@@ -464,19 +425,6 @@
     }
   },
   {
-    "id": "msu-hist",
-    "university": "МГУ",
-    "faculty": "Исторический факультет",
-    "path": "msu-hist",
-    "features": [],
-    "short": "Истфак",
-    "source": {
-      "kind": "hist",
-      "base": "http://ccs2.hist.msu.ru",
-      "faculty": "all"
-    }
-  },
-  {
     "id": "mgimo-mo-en",
     "university": "МГИМО",
     "faculty": "Факультет международных отношений (на английском языке)",
@@ -488,32 +436,6 @@
       "faculty": 41
     },
     "short": "МО (англ)"
-  },
-  {
-    "id": "mgimo-up-dip",
-    "university": "МГИМО",
-    "faculty": "Факультет управления и политики (Дип)",
-    "path": "mgimo-up-dip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 63
-    },
-    "short": "УП (Дип)"
-  },
-  {
-    "id": "mgimo-up",
-    "university": "МГИМО",
-    "faculty": "Факультет управления и политики",
-    "path": "mgimo-up",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 30
-    },
-    "short": "УП"
   },
   {
     "id": "mgimo-miep",
@@ -553,6 +475,123 @@
       "faculty": 24
     },
     "short": "МО"
+  },
+  {
+    "id": "mgimo-mb",
+    "university": "МГИМО",
+    "faculty": "Факультет международного бизнеса",
+    "path": "mgimo-mb",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 29
+    },
+    "short": "МБ"
+  },
+  {
+    "id": "mgimo-mp",
+    "university": "МГИМО",
+    "faculty": "Международно-правовой факультет",
+    "path": "mgimo-mp",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 27
+    },
+    "short": "МП"
+  },
+  {
+    "id": "msu-philos",
+    "university": "МГУ",
+    "faculty": "Философский факультет",
+    "path": "msu-philos",
+    "features": [],
+    "short": "Философский",
+    "source": {
+      "kind": "tt",
+      "base": "https://cacs.philos.msu.ru",
+      "faculty": "1"
+    }
+  },
+  {
+    "id": "mgimo-imip",
+    "university": "МГИМО",
+    "faculty": "Институт маркетинга и предпринимательства",
+    "path": "mgimo-imip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 49
+    },
+    "short": "ИМиП"
+  },
+  {
+    "id": "mgimo-meo-dip",
+    "university": "МГИМО",
+    "faculty": "Факультет международных экономических отношений (Дип)",
+    "path": "mgimo-meo-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 53
+    },
+    "short": "МЭО (Дип)"
+  },
+  {
+    "id": "mgimo-imtur",
+    "university": "МГИМО",
+    "faculty": "Институт международной торговли и устойчивого развития",
+    "path": "mgimo-imtur",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 28
+    },
+    "short": "ИМТУР"
+  },
+  {
+    "id": "msu-hist",
+    "university": "МГУ",
+    "faculty": "Исторический факультет",
+    "path": "msu-hist",
+    "features": [],
+    "short": "Истфак",
+    "source": {
+      "kind": "hist",
+      "base": "http://ccs2.hist.msu.ru",
+      "faculty": "all"
+    }
+  },
+  {
+    "id": "mgimo-up-dip",
+    "university": "МГИМО",
+    "faculty": "Факультет управления и политики (Дип)",
+    "path": "mgimo-up-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 63
+    },
+    "short": "УП (Дип)"
+  },
+  {
+    "id": "mgimo-up",
+    "university": "МГИМО",
+    "faculty": "Факультет управления и политики",
+    "path": "mgimo-up",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 30
+    },
+    "short": "УП"
   },
   {
     "id": "mgimo-eui",
@@ -603,45 +642,6 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 32
-    }
-  },
-  {
-    "id": "mgimo-mb",
-    "university": "МГИМО",
-    "faculty": "Факультет международного бизнеса",
-    "path": "mgimo-mb",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 29
-    },
-    "short": "МБ"
-  },
-  {
-    "id": "mgimo-mp",
-    "university": "МГИМО",
-    "faculty": "Международно-правовой факультет",
-    "path": "mgimo-mp",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 27
-    },
-    "short": "МП"
-  },
-  {
-    "id": "msu-philos",
-    "university": "МГУ",
-    "faculty": "Философский факультет",
-    "path": "msu-philos",
-    "features": [],
-    "short": "Философский",
-    "source": {
-      "kind": "tt",
-      "base": "https://cacs.philos.msu.ru",
-      "faculty": "1"
     }
   },
   {
