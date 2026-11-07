@@ -4266,10 +4266,11 @@ function applyAbsenceButtons() {
   for (const card of els.lessons.querySelectorAll(".card")) {
     // Свои дела — не пары: у них нет предмета, пропуск к ним не относится.
     if (!card.dataset.subject || !isAbsTracked(card.dataset.type) || card.classList.contains("card--cancelled")) continue;
+    // Пропуски считаем по названию на экране («Мир Франции: история»), а не по исходному.
     // Будущие пары — тоже: пропуск можно запланировать заранее, он учтётся
     // в лимите как «в планах».
     const ahead = isoDate(date) > isoDate(now) || (today && card.dataset.start && minutes(card.dataset.start) > now.getHours() * 60 + now.getMinutes());
-    const subject = card.dataset.subject;
+    const subject = card.dataset.absSubject || card.dataset.subject;
     const slot = Number(card.dataset.slot);
     const missed = isMissed(subject, date, slot);
     const label = (on) => (on ? (ahead ? t("пропущу ✕") : t("пропуск ✕")) : ahead ? t("пропущу?") : t("пропустил?"));
@@ -4343,7 +4344,7 @@ function semesterSeminars(subject) {
           .filter(
             (l) =>
               l.group === group.id &&
-              l.subject === subject &&
+              shownSubject(l) === subject &&
               isAbsTracked(l.type) &&
               l.day === weekday &&
               onDate(l, parity, isoDate(cursor)) &&
@@ -4383,7 +4384,7 @@ function seminarCount(subject) {
         .filter(
           (l) =>
             l.group === group.id &&
-            l.subject === subject &&
+            shownSubject(l) === subject &&
             isAbsTracked(l.type) &&
             l.day === weekday &&
             onDate(l, parity, isoDate(cursor)) &&
@@ -4404,7 +4405,8 @@ function absenceSubjects() {
   const set = new Set(
     data.lessons
       .filter((l) => l.group === group.id && isAbsTracked(l.type) && matchesPrefs(l) && !MILITARY.test(l.subject))
-      .map((l) => l.subject)
+      // По названию на экране: «Мир Франции» — отдельный предмет, а не «2-ой Французский язык».
+      .map((l) => shownSubject(l))
   );
   return [...set].sort((a, b) => tr(a).localeCompare(tr(b), "ru"));
 }
@@ -13032,6 +13034,7 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
   card.dataset.slot = first.slot;
   card.dataset.slots = slots.join(",");
   card.dataset.subject = first.subject;
+  card.dataset.absSubject = shownSubject(first);
   paintSubject(card);
   card.dataset.subgroups = [...new Set(entries.map((e) => e.subgroup).filter(Boolean))].join(",");
   card.dataset.teachers = entries.map((e) => e.teacher || "").join(" | ");
