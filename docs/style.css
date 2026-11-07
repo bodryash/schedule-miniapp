@@ -14535,31 +14535,6 @@ body.magnate .menu-pop button {
   border-color: #18b07a !important;
   text-decoration: line-through;
 }
-.abs-share {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-.abs-share-btn,
-.abs-share-clear {
-  padding: 7px 12px;
-  border: 0;
-  border-radius: 999px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
-}
-.abs-share-btn {
-  color: var(--accent-text, #fff);
-  background: var(--accent);
-}
-.abs-share-clear {
-  color: var(--muted);
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-}
-
 /* «Мой семестр»: пропуски красным на полосах и плитка «пар пропущено». */
 .sem-bar-miss {
   display: block;
