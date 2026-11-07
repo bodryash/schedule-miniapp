@@ -2589,12 +2589,16 @@ body.fm-open .minihead {
   .fm-page--feed .fm-seg > :not(button) {
     display: none;
   }
-  /* Справа — задание дня, «прилипает». */
-  .fm-page--feed .fm-chal {
+  /* Справа — задание дня и правила, «прилипают». */
+  .fm-page--feed .fm-side {
     grid-column: 3;
     grid-row: 1 / span 30;
     position: sticky;
     top: 24px;
+    display: grid;
+    gap: 14px;
+  }
+  .fm-page--feed .fm-chal {
     margin: 0;
     padding: 20px;
   }
@@ -2634,5 +2638,119 @@ body.fm-open .minihead {
     margin: 0 auto;
     width: 100%;
     border-radius: 18px 18px 0 0;
+  }
+}
+
+/* Блоки «как в соцсети» — только на компьютере. */
+.fm-side-write,
+.fm-side-brand {
+  display: none;
+}
+.fm-side {
+  display: contents;
+}
+.fm-side-card {
+  display: none;
+}
+@media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
+  .fm-side-brand {
+    display: grid;
+    gap: 2px;
+    margin: 0 0 18px 16px;
+  }
+  .fm-side-brand b {
+    font: 800 26px/1.1 "Unbounded", system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+  .fm-side-brand span {
+    font-size: 13px;
+    color: var(--muted, #8a8a8a);
+  }
+  .fm-side-write {
+    display: block;
+    width: 100%;
+    height: 50px;
+    margin-top: 18px;
+    border: 0;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 800;
+    color: #fff;
+    background: var(--accent, #f0821e);
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--accent, #f0821e) 35%, transparent);
+    cursor: pointer;
+    transition: transform 0.25s cubic-bezier(0.2, 1.4, 0.4, 1), box-shadow 0.25s;
+  }
+  .fm-side-write:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px color-mix(in srgb, var(--accent, #f0821e) 45%, transparent);
+  }
+  .fm-side-card {
+    display: block;
+    padding: 18px 20px;
+    border-radius: 20px;
+    border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+    background: color-mix(in srgb, var(--text) 3%, var(--bg));
+  }
+  .fm-side-card h3 {
+    margin: 0 0 10px;
+    font-size: 17px;
+  }
+  .fm-side-card ul {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0 0 0 18px;
+    font-size: 14px;
+    color: var(--muted, #777);
+  }
+  /* Пост — карточка: крупная аватарка, имя и время в строку, крупный текст. */
+  .fm-page--feed .fm-row {
+    gap: 14px !important;
+    padding: 18px 20px !important;
+  }
+  .fm-page--feed .fm-row > .fm-ava {
+    width: 48px !important;
+    height: 48px !important;
+    font-size: 19px !important;
+  }
+  .fm-name {
+    font-size: 16px !important;
+  }
+  .fm-time {
+    font-size: 13px !important;
+  }
+  .fm-page--feed .fm-text {
+    margin-top: 4px !important;
+    font-size: 17px !important;
+  }
+  .fm-page--feed .fm-acts {
+    gap: 10px !important;
+    margin-top: 12px !important;
+  }
+  .fm-page--feed .fm-act,
+  .fm-page--feed .fm-vote {
+    height: 38px;
+    border-radius: 999px !important;
+    transition: background-color 0.2s;
+  }
+  .fm-page--feed .fm-act {
+    padding: 0 14px !important;
+  }
+  .fm-page--feed .fm-act:hover {
+    background: color-mix(in srgb, var(--accent, #f0821e) 12%, transparent) !important;
+  }
+  /* Строка «Что у вас на уме?» — как поле нового поста. */
+  .fm-page--feed .fm-prompt {
+    padding: 16px 18px !important;
+    border-radius: 20px !important;
+    border: 1px solid color-mix(in srgb, var(--text) 8%, transparent) !important;
+    background: color-mix(in srgb, var(--text) 3%, var(--bg)) !important;
+  }
+}
+@media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
+  .fm-page--feed .fm-nav-title {
+    visibility: hidden;
   }
 }

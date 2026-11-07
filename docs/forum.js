@@ -502,6 +502,25 @@
     chal.className = "fm-chal";
     chal.hidden = true;
     wrap.append(segwrap, lock, gameBanner, chal, prompt, feed, tail);
+    // Компьютер — как соцсеть: слева навигация и «Написать», справа колонка
+    // с заданием дня и правилами. На телефоне этих блоков нет (скрыты стилями).
+    const write = document.createElement("button");
+    write.type = "button";
+    write.className = "fm-side-write";
+    write.textContent = t("Написать пост");
+    write.addEventListener("click", () => openComposer());
+    const brand = document.createElement("div");
+    brand.className = "fm-side-brand";
+    brand.innerHTML = `<b>${t("Подслушка")}</b><span>${t("студенты всех вузов")}</span>`;
+    segwrap.prepend(brand);
+    segwrap.append(write);
+    const side = document.createElement("aside");
+    side.className = "fm-side";
+    const rules = document.createElement("section");
+    rules.className = "fm-side-card";
+    rules.innerHTML = `<h3>${t("Правила")}</h3><ul><li>${t("Без мата и травли")}</li><li>${t("Без ссылок и чужих контактов")}</li><li>${t("Анонимно — значит анонимно: автора не видят студенты")}</li></ul>`;
+    side.append(chal, rules);
+    wrap.insertBefore(side, prompt);
     scroll.append(ptr, wrap);
 
     const fab = document.createElement("button");
