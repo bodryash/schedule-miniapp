@@ -11674,6 +11674,30 @@ if (!tg?.initData) document.getElementById("forum-btn")?.setAttribute("hidden", 
  * В самом Telegram не показываем: там человек и так известен.
  */
 /** Компьютер: «Настройки» в левом меню вместо мобильной кнопки «⋯» сверху. */
+/** Закрыть меню «Ещё» на компьютере: клик мимо, Esc. Своё, не зависит от мобильной логики. */
+function closeSideMenu() {
+  const pop = els.menuPop;
+  if (!pop || pop.hidden || pop.classList.contains("menu-pop--out")) return;
+  pop.classList.add("menu-pop--out");
+  setTimeout(() => {
+    pop.hidden = true;
+    pop.classList.remove("menu-pop--out");
+  }, 200);
+}
+document.addEventListener(
+  "pointerdown",
+  (event) => {
+    const pop = els.menuPop;
+    if (!pop || pop.hidden || !pop.classList.contains("menu-pop--side")) return;
+    if (pop.contains(event.target) || event.target.closest?.(".web-settings:not(.web-forum)")) return;
+    closeSideMenu();
+  },
+  true
+);
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeSideMenu();
+});
+
 function webSettingsButton() {
   const btn = el("button", "web-settings");
   btn.type = "button";
@@ -11687,15 +11711,11 @@ function webSettingsButton() {
     if (!pop.hidden && pop.classList.contains("menu-pop--out")) return;
     // Класс — до открытия: иначе на кадр меню мелькает у мобильной кнопки «⋯».
     // Открыто — закрываем сами, напрямую: так же, как клик мимо меню.
-    if (!pop.hidden) {
-      pop.classList.add("menu-pop--out");
-      setTimeout(() => {
-        pop.hidden = true;
-        pop.classList.remove("menu-pop--out");
-      }, 200);
-      return;
-    }
+    if (!pop.hidden) return closeSideMenu();
     pop.classList.add("menu-pop--side");
+    // В корень страницы: внутри блока с трансформацией (у некоторых тем)
+    // «fixed» считается от него, и меню вставало не туда и закрывало «Ещё».
+    if (pop.parentElement !== document.body) document.body.append(pop);
     els.menu.click();
     if (pop.hidden) return;
     pop.classList.add("menu-pop--side");
