@@ -3039,7 +3039,7 @@ function showWeek() {
   const month = el("button", weekMode === "month" ? "day active" : "day");
   month.append(
     el("span", null, t("Месяц")),
-    el("span", "day-date", `${MONTH_WEEKS} ${t("нед.")}`)
+    el("span", "day-date", t("семестр"))
   );
   month.addEventListener("click", () => {
     if (weekMode === "month") return;
@@ -3071,8 +3071,8 @@ function showWeek() {
   );
 
   if (weekMode === "month") {
-    els.weekParity.textContent = t("Месяц вперёд");
-    els.weekRange.textContent = `${SHORT_DATE.format(dateOfDay(1, 0))} — ${SHORT_DATE.format(dateOfDay(7, MONTH_WEEKS - 1))}`;
+    els.weekParity.textContent = t("Весь семестр");
+    els.weekRange.textContent = t("Месяц");
     els.weekBody.replaceChildren(renderMonth(group));
     return;
   }
@@ -6856,6 +6856,29 @@ function renderWeekGrid(group) {
  */
 const MONTH_WEEKS = 5;
 let weekMode = "week";
+// Какой календарный месяц открыт в «Месяце»: 0 — текущий, −1 — прошлый.
+// Листаем весь семестр — отмечать пропуски задним числом.
+let monthShift = 0;
+
+/** Номер недели (от текущей) для даты: dateOfDay(день, неделя) = дата. */
+function weekOfDate(date) {
+  const monday = new Date(weekStart);
+  return Math.floor((new Date(date.getFullYear(), date.getMonth(), date.getDate()) - monday) / (7 * 86400000));
+}
+
+/** Границы семестра в месяцах (год*12+месяц), с запасом на текущий. */
+function semesterMonths() {
+  const now = new Date();
+  const cur = now.getFullYear() * 12 + now.getMonth();
+  const weeks = data?.weeks || [];
+  const ym = (iso) => {
+    const d = new Date(`${iso}T12:00:00`);
+    return d.getFullYear() * 12 + d.getMonth();
+  };
+  const from = weeks.length ? Math.min(cur, ym(weeks[0].from)) : cur - 3;
+  const to = weeks.length ? Math.max(cur, ym(weeks.at(-1).to)) : cur + 1;
+  return { cur, from, to };
+}
 
 /** Пары дня без отменённых — со временем начала и конца. */
 function lessonsWithTimes(group, day, week) {
@@ -6887,16 +6910,41 @@ function freeWindows(busy) {
 function renderMonth(group) {
   const box = el("div", "month-view");
   const todayIso = isoDate(new Date());
-  const todayYm = new Date().getFullYear() * 12 + new Date().getMonth();
+  const range = semesterMonths();
+  monthShift = Math.max(range.from - range.cur, Math.min(range.to - range.cur, monthShift));
+  const shown = range.cur + monthShift;
+  const first = new Date(Math.floor(shown / 12), shown % 12, 1);
+  const last = new Date(Math.floor(shown / 12), (shown % 12) + 1, 0);
+  // Шапка: «‹ Октябрь 2026 ›» — листаем месяцы семестра.
+  const nav = el("div", "month-nav");
+  const prev = el("button", "month-nav-btn", "‹");
+  const next = el("button", "month-nav-btn", "›");
+  prev.type = next.type = "button";
+  prev.setAttribute("aria-label", t("Предыдущий месяц"));
+  next.setAttribute("aria-label", t("Следующий месяц"));
+  prev.disabled = shown <= range.from;
+  next.disabled = shown >= range.to;
+  const title = first.toLocaleDateString(LOCALE, { month: "long", year: "numeric" }).replace(/\s*г\.?$/, "");
+  const go = (step) => {
+    haptic("select");
+    monthShift += step;
+    els.weekBody.replaceChildren(renderMonth(group));
+  };
+  prev.addEventListener("click", () => go(-1));
+  next.addEventListener("click", () => go(1));
+  nav.append(prev, el("b", "month-nav-title", title[0].toUpperCase() + title.slice(1)), next);
   let study = 0;
   let free = 0;
   let own = 0;
   const grid = el("div", "mgrid");
   for (let day = 1; day <= 7; day++) grid.append(el("div", "mgrid-head", DAYS[day - 1].slice(0, 2)));
-  for (let week = 0; week < MONTH_WEEKS; week++) {
+  const firstWeek = weekOfDate(first);
+  const lastWeek = weekOfDate(last);
+  for (let week = firstWeek; week <= lastWeek; week++) {
     for (let day = 1; day <= 7; day++) {
       const date = dateOfDay(day, week);
       const iso = isoDate(date);
+      const outside = date.getMonth() !== first.getMonth();
       const past = iso < todayIso;
       const lessons = lessonsWithTimes(group, day, week).filter((l) => !l.cancelled);
       const events = ownEventsOn(date);
@@ -6908,12 +6956,11 @@ function renderMonth(group) {
       // Без учёбы «свободный» — день без своих дел, а не без пар.
       if (group.planner ? !ownEventsOn(date).length : !slots.size) cell.classList.add("mgrid-cell--off");
       if (day >= 6) cell.classList.add("mgrid-cell--weekend");
-      // Следующий месяц — своим цветом, чтобы граница месяцев была видна сразу.
-      const ahead = date.getFullYear() * 12 + date.getMonth() - (todayYm);
-      if (ahead > 0) cell.classList.add(ahead % 2 ? "mgrid-cell--next" : "mgrid-cell--next2");
-      const num = date.getDate() === 1 || (week === 0 && day === 1)
-        ? `${date.getDate()} ${SHORT_DATE.format(date).replace(/^\d+\s*/, "").replace(/\.$/, "")}`
-        : String(date.getDate());
+      // Дни соседних месяцев — бледно, чтобы месяц читался целиком.
+      if (outside) cell.classList.add("mgrid-cell--outside");
+      // Отмечены пропуски — красная точка в углу.
+      if (lessons.some((l) => isMissed(shownSubject(l.lesson), date, l.lesson.slot))) cell.classList.add("mgrid-cell--missed");
+      const num = String(date.getDate());
       cell.append(el("span", "mgrid-num", num));
       const holiday = eventOn(iso);
       if (holiday && holiday.ours(group)) cell.append(el("span", "mgrid-holiday", holiday.icon));
@@ -6926,13 +6973,13 @@ function renderMonth(group) {
         const dots = el("span", "mgrid-dots");
         for (let i = 0; i < Math.min(slots.size, 6); i++) dots.append(el("i"));
         cell.append(dots);
-        if (!past) study++;
-      } else if (!past) {
+        if (!outside) study++;
+      } else if (!outside) {
         free++;
       }
       if (events.length) {
         cell.append(el("span", "mgrid-own", events.slice(0, 3).map(ownIcon).join("") + (events.length > 3 ? "+" : "")));
-        if (!past) own += events.length;
+        if (!outside) own += events.length;
       }
       cell.addEventListener("click", () => {
         haptic("light");
@@ -6951,8 +6998,10 @@ function renderMonth(group) {
           el("span", null, t("Своих дел: {n}", { n: own })),
         ])
   );
-  const hint = el("p", "month-hint", t("Нажмите на день — покажем свободное время и добавим своё дело."));
-  box.append(summary, grid, hint);
+  const hint = el("p", "month-hint", group.planner
+    ? t("Нажмите на день — покажем свободное время и добавим своё дело.")
+    : t("Нажмите на день — там можно отметить пропуск, посмотреть свободное время и добавить своё дело."));
+  box.append(nav, summary, grid, hint);
   return box;
 }
 
@@ -6983,13 +7032,43 @@ function openMonthDay(group, day, week) {
     : slots.size ? t("Пар: {n}", { n: slots.size }) : t("Пар нет — день свободен")));
 
   const list = el("div", "mday-list");
+  const nowMs = Date.now();
   for (const item of lessons) {
     const row = el("div", item.cancelled ? "mday-row mday-row--cancelled" : "mday-row");
+    const subject = shownSubject(item.lesson);
     row.append(
       el("span", "mday-time", item.start ? `${item.start}–${item.end}` : ""),
-      el("span", "mday-subject", tr(item.lesson.subject)),
+      el("span", "mday-subject", tr(subject)),
       el("span", "mday-room", item.cancelled ? t("отменена") : (item.lesson.room || "").replace(/^ауд\.?\s*/i, ""))
     );
+    // Пропуск — прямо здесь: по кругу «нет → пропуск → отработан → нет».
+    if (!item.cancelled && !group.planner && !MILITARY.test(item.lesson.subject)) {
+      const slot = item.lesson.slot;
+      const ahead = new Date(`${isoDate(date)}T${item.start || "23:59"}:00`).getTime() > nowMs;
+      const btn = el("button", "mday-abs");
+      btn.type = "button";
+      const paint = () => {
+        const missed = isMissed(subject, date, slot);
+        const worked = missed && isWorked(subject, date, slot);
+        btn.className = `mday-abs${missed ? " mday-abs--on" : ""}${worked ? " mday-abs--worked" : ""}`;
+        btn.textContent = worked ? t("отработан ✓") : missed ? (ahead ? t("пропущу ✕") : t("пропуск ✕")) : ahead ? t("пропущу?") : t("пропустил?");
+      };
+      btn.addEventListener("click", () => {
+        if (isMissed(subject, date, slot) && !ahead && !isWorked(subject, date, slot)) {
+          toggleWorked(subject, date, slot);
+          haptic("success");
+        } else {
+          toggleMissed(subject, date, slot);
+          haptic(isMissed(subject, date, slot) ? "warning" : "light");
+        }
+        paint();
+        applyAbsenceButtons();
+        if (weekMode === "month") els.weekBody.replaceChildren(renderMonth(group));
+      });
+      paint();
+      row.classList.add("mday-row--abs");
+      row.append(btn);
+    }
     list.append(row);
   }
   const events = ownEventsOn(date);
@@ -7023,7 +7102,7 @@ function openMonthDay(group, day, week) {
     openOwn(null, date);
   });
   const actions = el("div", "sheet-actions");
-  if (week < WEEKS) {
+  if (week < WEEKS && week >= -WEEKS_BACK) {
     const go = el("button", "ghost", t("Открыть день"));
     go.type = "button";
     go.addEventListener("click", () => {
