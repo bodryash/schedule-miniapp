@@ -50,6 +50,15 @@ CADDY
     sed -i '/^# Короткий адрес — сайт расписания/,$d' /etc/caddy/Caddyfile
   fi
 fi
+# Отчёт о сайте bodryash.ru для проверки снаружи (видно в /healthz): есть ли
+# он в настройках Caddy и что Caddy пишет про его сертификат.
+{
+  echo "проверено: $(date '+%F %T')"
+  echo "в Caddyfile: $(grep -c '^bodryash.ru' /etc/caddy/Caddyfile 2>/dev/null || echo 0)"
+  echo "caddy: $(systemctl is-active caddy 2>/dev/null)"
+  journalctl -u caddy --since '-30 min' --no-pager 2>/dev/null | grep -i 'bodryash.ru' | grep -v -i 'app.bodryash\|api.bodryash\|beta.bodryash' | tail -6 | cut -c1-400
+} > /var/lib/schedule/caddy-status.txt 2>&1 || true
+chmod 644 /var/lib/schedule/caddy-status.txt 2>/dev/null || true
 # Сторож: бот завис (процесс жив, но не отвечает) — systemd этого не видит
 # и сам не перезапускает. Проверяем каждую минуту: две неудачи подряд —
 # сохраняем журнал, перезапускаем бота и пишем владельцу с журналом.

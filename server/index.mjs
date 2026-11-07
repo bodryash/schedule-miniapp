@@ -398,6 +398,12 @@ function vitals() {
   } catch {
     out.backupAge = null;
   }
+  // Что с сайтом bodryash.ru (пишет deploy/update.sh раз в минуту).
+  try {
+    out.site = readFileSync(join(dirname(DB_PATH), "caddy-status.txt"), "utf8").slice(-2500);
+  } catch {
+    out.site = null;
+  }
   return out;
 }
 
