@@ -10817,6 +10817,8 @@ function mountDrift(cards) {
   box.append(track);
   els.results.replaceChildren(box);
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  // Компьютер: обычный список во всю высоту, без «плавающего» окошка с обрезанными краями.
+  if (window.matchMedia?.("(min-width: 1100px) and (hover: hover) and (pointer: fine)").matches) return;
   requestAnimationFrame(() => {
     if (!box.isConnected) return;
     const tabs = document.querySelector(".tabs");
