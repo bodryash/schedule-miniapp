@@ -1087,12 +1087,26 @@ async function saveHomework(env, body) {
 
 const DEADLINE_DUE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/;
 
+/** Старые базы: колонка повтора появилась позже — добавляем один раз. */
+let deadlineEveryReady = false;
+async function ensureDeadlineEvery(env) {
+  if (deadlineEveryReady || !env.STATS) return;
+  try {
+    await env.STATS.prepare("ALTER TABLE deadlines ADD COLUMN every TEXT NOT NULL DEFAULT ''").run();
+  } catch {
+    // уже есть
+  }
+  deadlineEveryReady = true;
+}
+
 async function groupDeadlines(env, groupId) {
   if (!env.STATS || !groupId) return [];
+  await ensureDeadlineEvery(env);
   // Прошедшие держим ещё три дня — чтобы было видно «просрочено».
+  // Еженедельные — всегда: у них всегда есть следующий срок.
   const since = iso(addDays(today(), -3));
   const { results = [] } = await env.STATS.prepare(
-    "SELECT id, title, subject, due FROM deadlines WHERE grp = ? AND substr(due, 1, 10) >= ? ORDER BY due LIMIT 100"
+    "SELECT id, title, subject, due, every FROM deadlines WHERE grp = ? AND (substr(due, 1, 10) >= ? OR every = 'week') ORDER BY due LIMIT 100"
   )
     .bind(groupId, since)
     .all();
@@ -1104,6 +1118,8 @@ async function saveDeadline(env, body) {
   const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
   if (!user?.id) return { ok: false, error: "unauthorized" };
   if (!(await canEditHomework(env, body.initData, groupId))) return { ok: false, error: "forbidden" };
+  await ensureDeadlineEvery(env);
+  const every = body.every === "week" ? "week" : "";
   if (body.remove) {
     await env.STATS.prepare("DELETE FROM deadlines WHERE id = ? AND grp = ?").bind(Number(body.remove) || 0, groupId).run();
   } else {
@@ -1112,12 +1128,12 @@ async function saveDeadline(env, body) {
     const due = String(body.due || "");
     if (!title || !DEADLINE_DUE.test(due)) return { ok: false, error: "bad request" };
     if (body.id) {
-      await env.STATS.prepare("UPDATE deadlines SET title = ?, subject = ?, due = ? WHERE id = ? AND grp = ?")
-        .bind(title, subject, due, Number(body.id) || 0, groupId)
+      await env.STATS.prepare("UPDATE deadlines SET title = ?, subject = ?, due = ?, every = ? WHERE id = ? AND grp = ?")
+        .bind(title, subject, due, every, Number(body.id) || 0, groupId)
         .run();
     } else {
-      await env.STATS.prepare("INSERT INTO deadlines (grp, title, subject, due, author, created) VALUES (?, ?, ?, ?, ?, ?)")
-        .bind(groupId, title, subject, due, user.id, new Date().toISOString())
+      await env.STATS.prepare("INSERT INTO deadlines (grp, title, subject, due, author, created, every) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .bind(groupId, title, subject, due, user.id, new Date().toISOString(), every)
         .run();
     }
   }
@@ -2136,11 +2152,13 @@ async function dueReminders(env, now, shift, limit) {
   // напоминания (любые) и выбрана эта группа.
   const dlRoom = limit - outgoing.length;
   if (dlRoom > 0 && now.minutes >= 18 * 60 && now.minutes < 22 * 60) {
+    await ensureDeadlineEvery(env);
     const tomorrow = iso(addDays(new Date(`${now.day}T12:00:00Z`), 1));
     const { results: due = [] } = await env.STATS.prepare(
       `SELECT r.tg_id, d.id, d.title, d.subject, d.due FROM deadlines d
        JOIN reminders r ON r.grp = d.grp AND r.shift = ?1 AND (r.morning = 1 OR r.before > 0 OR r.wake > 0 OR r.changes = 1)
-       WHERE substr(d.due, 1, 10) = ?2
+       WHERE (substr(d.due, 1, 10) = ?2
+              OR (d.every = 'week' AND substr(d.due, 1, 10) < ?2 AND strftime('%w', substr(d.due, 1, 10)) = strftime('%w', ?2)))
          AND NOT EXISTS (SELECT 1 FROM reminder_sent s WHERE s.tg_id = r.tg_id AND s.key = ?3 || d.id)
        LIMIT ?4`
     )
