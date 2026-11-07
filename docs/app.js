@@ -11666,11 +11666,21 @@ function webSettingsButton() {
     event.stopPropagation();
     const pop = els.menuPop;
     if (!els.menu || !pop) return;
+    // Уже закрывается — второе нажатие ничего не делает (а не открывает снова).
+    if (!pop.hidden && pop.classList.contains("menu-pop--out")) return;
     // Класс — до открытия: иначе на кадр меню мелькает у мобильной кнопки «⋯».
-    const wasOpen = !pop.hidden && !pop.classList.contains("menu-pop--out");
-    if (!wasOpen) pop.classList.add("menu-pop--side");
+    // Открыто — закрываем сами, напрямую: так же, как клик мимо меню.
+    if (!pop.hidden) {
+      pop.classList.add("menu-pop--out");
+      setTimeout(() => {
+        pop.hidden = true;
+        pop.classList.remove("menu-pop--out");
+      }, 200);
+      return;
+    }
+    pop.classList.add("menu-pop--side");
     els.menu.click();
-    if (pop.hidden || wasOpen) return;
+    if (pop.hidden) return;
     pop.classList.add("menu-pop--side");
     // Меню растёт от кнопки: нижний край — вровень с «Ещё», справа от меню.
     const r = btn.getBoundingClientRect();
@@ -12111,7 +12121,9 @@ function initMenu() {
   // Пока меню открыто, всё позади него не отвечает: касание мимо меню только
   // закрывает его и дальше не идёт — не открывает пару, не листает день,
   // не прокручивает страницу. Ловим на самом раннем этапе (capture).
-  const outside = (event) => !pop.hidden && !pop.contains(event.target) && !els.menu.contains(event.target);
+  // «Ещё» в левом меню (компьютер) — сама переключает меню, её нажатие не глушим.
+  const outside = (event) =>
+    !pop.hidden && !pop.contains(event.target) && !els.menu.contains(event.target) && !event.target.closest?.(".web-settings:not(.web-forum)");
   const swallow = (event) => {
     if (!outside(event)) return;
     event.preventDefault();
