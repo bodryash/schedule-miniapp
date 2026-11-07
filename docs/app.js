@@ -10542,14 +10542,7 @@ function renderFreeDay() {
   stage.append(el("span", "free-day-halo"));
   stage.append(el("div", "free-day-emoji", emoji));
   node.append(stage, el("div", "free-day-title", title));
-  const caption = el("div", "free-day-caption");
-  if (line) caption.append(el("div", "free-day-line", line));
-  const add = el("button", "free-day-add");
-  add.type = "button";
-  add.append(el("span", "free-day-add-plus", "+"), document.createTextNode(t("Добавить своё дело")));
-  add.addEventListener("click", () => openOwn(null));
-  caption.append(add);
-  node.append(caption);
+  if (line) node.append(el("div", "free-day-line", line));
   return node;
 }
 
@@ -10613,7 +10606,7 @@ function renderLessons(group, parity) {
     // Есть свои дела — вместо большой картинки «свободный день» показываем
     // ленту дня: видно, где в сутках стоит каждое дело.
     const head = own.length ? renderOwnStrip(dateOfDay(selectedDay)) : renderFreeDay();
-    els.lessons.replaceChildren(head, ...own, ...(own.length ? [renderOwnAdd()] : []), ...[renderStarostaAsk()].filter(Boolean));
+    els.lessons.replaceChildren(head, ...own, renderOwnAdd(), ...[renderStarostaAsk()].filter(Boolean));
     refreshNext();
     return;
   }
@@ -13286,7 +13279,7 @@ function helloLines() {
   if (isHalloween()) return { title: t("С Хэллоуином!"), wish: "", custom: false };
   const now = new Date();
   const hour = now.getHours();
-  const hi = hour >= 5 && hour < 11 ? "Доброе утро" : hour < 17 ? "Добрый день" : hour < 23 ? "Добрый вечер" : "Доброй ночи";
+  const hi = hour >= 5 && hour < 11 ? "Доброе утро" : hour >= 11 && hour < 17 ? "Добрый день" : hour >= 17 && hour < 23 ? "Добрый вечер" : "Доброй ночи";
   // Пожелание своё на каждый день, а не на каждое открытие.
   const wish =
     hour >= 20 || hour < 5
