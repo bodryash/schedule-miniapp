@@ -10154,6 +10154,11 @@ function setDateLabel(text, direction) {
     .finally(() => {
       if (label.contains(fresh)) label.textContent = text;
     });
+  // Страховка: если анимация почему-то не доиграла (вкладка в фоне, браузер
+  // экономит), через полсекунды в шапке всё равно остаётся одна дата.
+  setTimeout(() => {
+    if (label.contains(fresh)) label.textContent = text;
+  }, 520);
 }
 
 function showSchedule() {
@@ -11381,7 +11386,12 @@ function runSearch() {
 
   if (!rows.length) {
     els.results.replaceChildren(...(creator ? [creator] : []));
-    els.searchHint.textContent = creator ? "" : t("Ничего не нашлось");
+    const noTeachers = searchKind !== "room" && searchKind !== "subject" && !data.lessons.some((l) => l.teacher);
+    els.searchHint.textContent = creator
+      ? ""
+      : noTeachers
+        ? t("Ничего не нашлось. В расписании вашего вуза не указаны преподаватели — ищите по предмету или аудитории.")
+        : t("Ничего не нашлось");
     return;
   }
 

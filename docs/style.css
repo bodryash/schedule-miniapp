@@ -15340,3 +15340,74 @@ body {
 .pc-dl-add + .pc-more {
   display: inline-block;
 }
+
+/* Кнопки-фильтры поиска: тень не обрезается краем прокрутки. */
+.chips {
+  padding: 10px 10px 16px !important;
+  margin: -2px -10px -8px !important;
+}
+
+/* ===================================================================
+   Компьютер: первая настройка — на весь экран, вузы плиткой.
+   =================================================================== */
+@media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
+  .onboard {
+    inset: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    z-index: 2000 !important;
+    background:
+      radial-gradient(60% 50% at 10% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%),
+      radial-gradient(50% 50% at 100% 100%, color-mix(in srgb, #8f7bff 10%, transparent), transparent 70%),
+      var(--bg, #fff) !important;
+  }
+  .onboard-page {
+    left: 50% !important;
+    right: auto !important;
+    width: min(1040px, calc(100vw - 96px)) !important;
+    max-width: none !important;
+    margin-left: calc(min(1040px, calc(100vw - 96px)) / -2) !important;
+    padding-top: 40px !important;
+  }
+  .onboard-title {
+    font-size: clamp(40px, 4vw, 60px) !important;
+    letter-spacing: -0.03em;
+  }
+  .onboard-sub {
+    font-size: 18px !important;
+  }
+  .onboard-body {
+    max-width: none !important;
+  }
+  .onboard-list {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px !important;
+  }
+  .onboard-list .onboard-option {
+    min-height: 96px;
+    margin: 0 !important;
+    padding: 20px 22px !important;
+    border-radius: 20px !important;
+    align-items: flex-start;
+    transition: transform 0.25s cubic-bezier(0.2, 1.4, 0.4, 1), box-shadow 0.25s, border-color 0.2s;
+  }
+  .onboard-list .onboard-option:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 34px rgba(20, 22, 40, 0.1);
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  .onboard-list .onboard-option b {
+    font-size: 17px;
+  }
+  .onboard-list .onboard-option--small {
+    min-height: 0;
+    padding: 14px 18px !important;
+  }
+  .onboard-list.onboard-list--grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
