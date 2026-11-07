@@ -11674,66 +11674,91 @@ if (!tg?.initData) document.getElementById("forum-btn")?.setAttribute("hidden", 
  * В самом Telegram не показываем: там человек и так известен.
  */
 /** Компьютер: «Настройки» в левом меню вместо мобильной кнопки «⋯» сверху. */
-/** Закрыть меню «Ещё» на компьютере: клик мимо, Esc. Своё, не зависит от мобильной логики. */
-function closeSideMenu() {
-  const pop = els.menuPop;
-  if (!pop || pop.hidden || pop.classList.contains("menu-pop--out")) return;
-  pop.classList.add("menu-pop--out");
+/**
+ * Компьютер: своё меню «Ещё» — отдельный элемент, не мобильное «⋯». Пункты
+ * берём из мобильного меню и нажимаем их там же: действия те же, а открытие и
+ * закрытие — только здесь. Закрывается кнопкой, кликом мимо и Esc; работает
+ * на любой вкладке.
+ */
+let pcMore = null;
+let pcMoreBtn = null;
+function closePcMore() {
+  if (!pcMore || pcMore.hidden || pcMore.classList.contains("pc-more-pop--out")) return;
+  pcMore.classList.add("pc-more-pop--out");
+  pcMoreBtn?.classList.remove("web-settings--on");
   setTimeout(() => {
-    pop.hidden = true;
-    pop.classList.remove("menu-pop--out");
-  }, 200);
+    pcMore.hidden = true;
+    pcMore.classList.remove("pc-more-pop--out");
+  }, 160);
+}
+function openPcMore() {
+  const src = els.menuPop;
+  if (!src) return;
+  if (!pcMore) {
+    pcMore = el("div", "pc-more-pop");
+    pcMore.hidden = true;
+    pcMore.setAttribute("role", "menu");
+    document.body.append(pcMore);
+  }
+  // Ежедневник — переключатель вверху.
+  const rows = [];
+  const mode = el("button", "pc-more-row pc-more-mode");
+  mode.type = "button";
+  const sw = el("i", `pc-more-switch${prefs.planner ? " is-on" : ""}`);
+  mode.append(el("span", "pc-more-ic", "🗓"), el("span", "pc-more-label", t("Режим ежедневника")), sw);
+  mode.addEventListener("click", () => {
+    closePcMore();
+    setPlannerMode(!prefs.planner);
+  });
+  rows.push(mode, el("div", "pc-more-sep"));
+  for (const item of src.querySelectorAll("[data-menu]")) {
+    if (item.hidden || item.classList.contains("menu-off")) continue;
+    const kind = item.dataset.menu;
+    const spans = item.querySelectorAll(":scope > span");
+    const icon = spans[0]?.textContent || "•";
+    let label = (spans[1] || item).textContent.trim();
+    if (kind === "calendar") label = t("В мой календарь");
+    const row = el("button", "pc-more-row");
+    row.type = "button";
+    row.append(el("span", "pc-more-ic", icon), el("span", "pc-more-label", label));
+    row.addEventListener("click", () => {
+      closePcMore();
+      // То же действие, что и в мобильном меню.
+      item.click();
+      src.hidden = true;
+    });
+    rows.push(row);
+  }
+  pcMore.replaceChildren(...rows);
+  const r = pcMoreBtn.getBoundingClientRect();
+  pcMore.style.left = `${Math.round(r.right + 12)}px`;
+  pcMore.style.bottom = `${Math.max(16, Math.round(innerHeight - r.bottom))}px`;
+  pcMore.hidden = false;
+  pcMoreBtn.classList.add("web-settings--on");
 }
 document.addEventListener(
   "pointerdown",
   (event) => {
-    const pop = els.menuPop;
-    if (!pop || pop.hidden || !pop.classList.contains("menu-pop--side")) return;
-    if (pop.contains(event.target) || event.target.closest?.(".web-settings:not(.web-forum)")) return;
-    closeSideMenu();
+    if (!pcMore || pcMore.hidden) return;
+    if (pcMore.contains(event.target) || pcMoreBtn?.contains(event.target)) return;
+    closePcMore();
   },
   true
 );
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeSideMenu();
+  if (event.key === "Escape") closePcMore();
 });
 
 function webSettingsButton() {
   const btn = el("button", "web-settings");
+  pcMoreBtn = btn;
   btn.type = "button";
-  btn.innerHTML = '<svg class="web-settings-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg><svg hidden viewBox="0 0 24 24"><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+  btn.innerHTML = '<svg class="web-settings-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>';
   btn.append(el("span", "", t("Ещё")));
   btn.addEventListener("click", (event) => {
     event.stopPropagation();
-    const pop = els.menuPop;
-    if (!els.menu || !pop) return;
-    // Уже закрывается — второе нажатие ничего не делает (а не открывает снова).
-    if (!pop.hidden && pop.classList.contains("menu-pop--out")) return;
-    // Класс — до открытия: иначе на кадр меню мелькает у мобильной кнопки «⋯».
-    // Открыто — закрываем сами, напрямую: так же, как клик мимо меню.
-    if (!pop.hidden) return closeSideMenu();
-    pop.classList.add("menu-pop--side");
-    // В корень страницы: внутри блока с трансформацией (у некоторых тем)
-    // «fixed» считается от него, и меню вставало не туда и закрывало «Ещё».
-    if (pop.parentElement !== document.body) document.body.append(pop);
-    els.menu.click();
-    if (pop.hidden) return;
-    pop.classList.add("menu-pop--side");
-    // Меню растёт от кнопки: нижний край — вровень с «Ещё», справа от меню.
-    const r = btn.getBoundingClientRect();
-    pop.style.setProperty("--side-bottom", `${Math.max(16, Math.round(innerHeight - r.bottom))}px`);
-    btn.classList.add("web-settings--on");
-    const watch = new MutationObserver(() => {
-      if (pop.hidden || pop.classList.contains("menu-pop--out")) {
-        btn.classList.remove("web-settings--on");
-        watch.disconnect();
-      }
-    });
-    watch.observe(pop, { attributes: true, attributeFilter: ["hidden", "class"] });
-    const cal = pop.querySelector('[data-menu="calendar"] span:last-child');
-    if (cal) cal.textContent = t("В мой календарь");
-    pop.style.removeProperty("top");
-    pop.style.removeProperty("right");
+    if (pcMore && !pcMore.hidden) closePcMore();
+    else openPcMore();
   });
   return btn;
 }
