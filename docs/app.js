@@ -7771,9 +7771,23 @@ function writeLocal(key, value) {
 }
 
 function allDeadlines() {
-  const group = (notices.deadlines || []).map((d) => ({ ...d, key: `g${d.id}`, shared: true }));
-  const mine = readLocal(personalKey(), []).map((d) => ({ ...d, key: `p${d.id}`, shared: false }));
+  const group = (notices.deadlines || []).map((d) => repeatDeadline({ ...d, key: `g${d.id}`, shared: true }));
+  const mine = readLocal(personalKey(), []).map((d) => repeatDeadline({ ...d, key: `p${d.id}`, shared: false }));
   return [...group, ...mine];
+}
+
+/**
+ * Еженедельный дедлайн: срок — ближайший в этой неделе или дальше (прошедший
+ * держим до конца дня). «Сдано» — только для этой недели: ключ с датой срока.
+ */
+function repeatDeadline(d) {
+  if (d.every !== "week") return d;
+  const [day, time] = String(d.due).split("T");
+  const at = new Date(`${day}T12:00:00`);
+  const today = new Date(new Date().toDateString());
+  while (at < today) at.setDate(at.getDate() + 7);
+  const next = isoDate(at);
+  return { ...d, due: time ? `${next}T${time}` : next, key: `${d.key}@${next}`, firstDue: d.due };
 }
 
 function dueDate(due) {
@@ -7832,7 +7846,7 @@ function renderDeadlines() {
       });
       const text = el("div", "dl-text");
       text.append(el("div", "dl-title", d.title));
-      const meta = [d.subject ? tr(d.subject) : "", d.shared ? t("для группы") : t("личное")].filter(Boolean).join(" · ");
+      const meta = [d.every === "week" ? `↻ ${t("каждую неделю")}` : "", d.subject ? tr(d.subject) : "", d.shared ? t("для группы") : t("личное")].filter(Boolean).join(" · ");
       text.append(el("div", "dl-meta", meta));
       const when = dueLabel(d.due);
       row.append(check, text, el("div", `dl-when ${isDone ? "" : when.cls}`, isDone ? t("сдано") : when.text));
@@ -7872,6 +7886,8 @@ function openDeadline(item = null) {
   const groupRow = document.getElementById("dl-group-row");
   groupRow.hidden = !notices.canEdit || Boolean(item);
   document.getElementById("dl-for-group").checked = Boolean(item?.shared);
+  const weekly = document.getElementById("dl-weekly");
+  if (weekly) weekly.checked = item?.every === "week";
   document.getElementById("dl-delete").hidden = !item;
   document.getElementById("dl-error").hidden = true;
   syncDeadlineSheet();
@@ -7924,6 +7940,7 @@ async function saveDeadlineForm(remove = false) {
   const time = document.getElementById("dl-time").value;
   const due = time ? `${day}T${time}` : day;
   const shared = dlEditing ? dlEditing.shared : document.getElementById("dl-for-group").checked;
+  const every = document.getElementById("dl-weekly")?.checked ? "week" : "";
   if (!remove && (!title || !day)) {
     error.textContent = t("Напишите, что сдать, и выберите срок.");
     error.hidden = false;
@@ -7931,11 +7948,11 @@ async function saveDeadlineForm(remove = false) {
   }
   try {
     if (shared) {
-      await sendDeadline(remove ? { remove: dlEditing.id } : { id: dlEditing?.id, title, subject, due });
+      await sendDeadline(remove ? { remove: dlEditing.id } : { id: dlEditing?.id, title, subject, due, every });
     } else {
       const list = readLocal(personalKey(), []);
       const rest = list.filter((d) => d.id !== dlEditing?.id);
-      if (!remove) rest.push({ id: dlEditing?.id || Date.now(), title, subject, due });
+      if (!remove) rest.push({ id: dlEditing?.id || Date.now(), title, subject, due, ...(every ? { every } : {}) });
       writeLocal(personalKey(), rest);
     }
   } catch {
@@ -7946,6 +7963,7 @@ async function saveDeadlineForm(remove = false) {
   haptic("success");
   closeDeadline();
   renderDeadlines();
+  renderPcAside();
 }
 
 function showDeadlines() {
@@ -9994,13 +10012,29 @@ function renderPcAside() {
   const dl = el("section", "pc-card");
   dl.append(el("div", "pc-kicker", t("Дедлайны")));
   if (due.length) {
+    const list = el("div", "pc-dl-list");
     for (const d of due) {
       const when = dueLabel(d.due);
-      const row = el("div", "pc-row");
-      row.append(el("span", `pc-due ${when.cls}`, when.text), el("span", "pc-subj", d.title || d.subject || ""));
-      dl.append(row);
+      const at = dueDate(d.due);
+      const row = el("button", `pc-dl ${when.cls}`);
+      row.type = "button";
+      const cal = el("span", "pc-dl-date");
+      cal.append(el("b", "", String(at.getDate())), el("small", "", at.toLocaleDateString(LOCALE || "ru-RU", { month: "short" }).replace(".", "")));
+      const text = el("span", "pc-dl-text");
+      text.append(el("b", "", d.title || d.subject || ""));
+      const meta = [when.text, d.every === "week" ? `↻ ${t("каждую неделю")}` : "", d.subject && d.title ? tr(d.subject) : ""].filter(Boolean).join(" · ");
+      text.append(el("small", "", meta));
+      row.append(cal, text);
+      if (!d.shared || notices.canEdit) row.addEventListener("click", () => openDeadline(d));
+      else row.addEventListener("click", () => openTab("deadlines"));
+      list.append(row);
     }
+    dl.append(list);
   } else dl.append(el("p", "pc-empty", t("Ничего не горит")));
+  const add = el("button", "pc-dl-add", `+ ${t("Дедлайн")}`);
+  add.type = "button";
+  add.addEventListener("click", () => openDeadline());
+  dl.append(add);
   const all = el("button", "pc-more", t("Все дедлайны →"));
   all.type = "button";
   all.addEventListener("click", () => openTab("deadlines"));
