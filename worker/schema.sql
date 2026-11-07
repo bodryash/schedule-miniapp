@@ -470,7 +470,8 @@ CREATE TABLE IF NOT EXISTS deadlines (
   subject TEXT NOT NULL DEFAULT '',
   due     TEXT NOT NULL,            -- 2026-11-03 или 2026-11-03T18:00
   author  INTEGER NOT NULL DEFAULT 0,
-  created TEXT NOT NULL
+  created TEXT NOT NULL,
+  every   TEXT NOT NULL DEFAULT ''  -- 'week' — повторяется каждую неделю
 );
 CREATE INDEX IF NOT EXISTS deadlines_grp ON deadlines (grp, due);
 
