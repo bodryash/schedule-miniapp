@@ -37,6 +37,7 @@ import {
 } from "./comments.js";
 import { gameApi, gameCommand, gameTick } from "./game.js";
 import { refActivate, refApi, refCommand, refStart, refTick } from "./referral.js";
+import { shownSubject } from "./subjects.js";
 import { avaSig, forumApi, forumCloseConfirm, forumCommand, forumFun, forumModerate, forumWipe } from "./forum.js";
 
 let forumErrorAt = 0;
@@ -1753,7 +1754,7 @@ function dayParity(weeks, day) {
   return found ? found.parity : null;
 }
 
-function dayLessons(schedule, group, day) {
+function dayLessons(schedule, group, day, tenantId = "") {
   const date = new Date(`${day}T00:00:00Z`);
   const weekday = date.getUTCDay();
   const parity = dayParity(schedule.weeks, day);
@@ -1765,7 +1766,8 @@ function dayLessons(schedule, group, day) {
     const on = l.dates ? l.dates.includes(day) : l.day === weekday && (l.week === "all" || !parity || l.week === parity);
     if (!on) continue;
     const start = l.start || bells.get(l.slot)?.start || "";
-    const line = `${start} ${l.subject}${l.room ? ` · ${l.room}` : ""}`;
+    // В строке — то же название, что в приложении («Мир Франции: история»).
+    const line = `${start} ${shownSubject(l, tenantId)}${l.room ? ` · ${l.room}` : ""}`;
     if (seen.has(line)) continue;
     seen.add(line);
     out.push({ start, line, key: [start, l.end || "", l.subject, l.type || "", l.room || "", l.teacher || "", l.subgroup || 0, l.week].join("|") });
@@ -1812,7 +1814,7 @@ async function watchSchedules(env) {
       const raw = tenantId === DEFAULT_TENANT ? grp : grp.slice(tenantId.length + 1);
       let groupChanged = false;
       for (const day of days) {
-        const list = dayLessons(schedule, raw, day);
+        const list = dayLessons(schedule, raw, day, tenantId);
         const hash = fingerprint(list);
         const old = await env.STATS.prepare("SELECT hash FROM plan_hash WHERE grp = ? AND day = ?").bind(grp, day).first();
         if (old?.hash === hash) continue;
@@ -2192,9 +2194,18 @@ async function deliverReminders(env, outgoing, now) {
   // Одно сообщение не ушло и после повторов — пропускаем его (без отметки,
   // уйдёт в следующую минуту) и шлём остальным. Останавливаемся, только
   // если подряд не ушли три: значит, связи нет совсем.
+  // Отметку ставим ДО отправки: на своём сервере минутная задача не ждёт
+  // прошлую, и пока одна ещё рассылает утренние сводки, следующая видела
+  // тех же людей «неотправленными» и слала им ту же сводку раз за разом.
+  // Кто первым занял отметку, тот и шлёт; не ушло — отметку снимаем.
   const sent = [];
   let failedInRow = 0;
   for (const item of outgoing) {
+    const claim = await env.STATS.prepare("INSERT OR IGNORE INTO reminder_sent (tg_id, key) VALUES (?, ?)")
+      .bind(item.tg_id, item.key)
+      .run()
+      .catch(() => null);
+    if (!claim?.meta?.changes) continue;
     try {
       await callTelegram(env.BOT_TOKEN, "sendMessage", {
         chat_id: item.tg_id,
@@ -2204,6 +2215,11 @@ async function deliverReminders(env, outgoing, now) {
       sent.push(item);
       failedInRow = 0;
     } catch (error) {
+      // Человек заблокировал бота — отметка остаётся (слать снова незачем).
+      // Сбой связи — снимаем, сообщение уйдёт в следующую минуту.
+      if (!/403|blocked|deactivated|chat not found/i.test(String(error?.message || error))) {
+        await env.STATS.prepare("DELETE FROM reminder_sent WHERE tg_id = ? AND key = ?").bind(item.tg_id, item.key).run().catch(() => {});
+      }
       failedInRow += 1;
       console.log("reminder failed", String(error?.message || error));
       if (failedInRow >= 3) {
@@ -2213,18 +2229,6 @@ async function deliverReminders(env, outgoing, now) {
     }
   }
 
-  // Все отметки — одним пакетом: это одно обращение к базе, а не по одному
-  // на сообщение.
-  if (sent.length) {
-    await env.STATS.batch(
-      sent.map((item) =>
-        env.STATS.prepare("INSERT OR IGNORE INTO reminder_sent (tg_id, key) VALUES (?, ?)").bind(
-          item.tg_id,
-          item.key
-        )
-      )
-    );
-  }
   if (outgoing.length) console.log(`reminders: sent ${sent.length} of ${outgoing.length}`);
 
   // Старые отметки не нужны: чистим раз в сутки, в начале утреннего окна.
@@ -3871,7 +3875,7 @@ const WATCH_NAMES = {
 const MOVED_TO = "https://api.bodryash.ru";
 
 // Для проверки на копии базы (без Telegram).
-export { runAlerts, scanAlerts, watchSchedules, dueReminders };
+export { runAlerts, scanAlerts, watchSchedules, dueReminders, deliverReminders };
 
 export default {
   async fetch(request, env) {
