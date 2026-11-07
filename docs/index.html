@@ -24,6 +24,21 @@
   <meta name="theme-color" content="#4c6ef5">
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Новый посетитель сайта bodryash.ru (не из Telegram, ничего ещё не
+       настраивал) — сначала на визитку с рассказом о функциях. Кнопка
+       «Открыть» на визитке ведёт сюда с ?app=1. -->
+  <script>
+    (function () {
+      try {
+        var wa = window.Telegram && window.Telegram.WebApp;
+        if (wa && wa.initData) return;
+        if (location.hostname !== "bodryash.ru") return;
+        if (/[?&]app=1/.test(location.search)) { localStorage.setItem("schedule.seenAbout", "1"); return; }
+        if (localStorage.getItem("schedule.prefs") || localStorage.getItem("schedule.seenAbout") || localStorage.getItem("schedule.weblogin")) return;
+        location.replace("/about/");
+      } catch (e) {}
+    })();
+  </script>
   <!-- Сайт на компьютере: вход через Telegram (Login Widget). Если открыто не
        в Telegram, а человек входил на сайте, подставляем его данные — тогда
        работают Подслушка, напоминания и всё личное, как в мини-приложении. -->
