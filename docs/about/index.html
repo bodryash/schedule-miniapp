@@ -151,6 +151,7 @@ section.block{padding:90px 0}
 .pairbtn span.miss.act{background:var(--red);border-color:var(--red)}
 .pairbtn span.work.act{background:var(--green);border-color:var(--green)}
 .pairbtn span.plan.act{background:var(--blue);border-color:var(--blue)}
+.pairbtn span.act,.pairbtn span.work.act{color:#fff!important}
 .pairbtn span.work{border-color:var(--green);color:var(--green)}
 @keyframes blink{0%,30%{background:transparent;color:var(--muted)}40%,100%{background:var(--red);color:#fff;border-color:var(--red);border-style:solid}}
 .lock{display:flex;gap:10px;align-items:center;margin-top:14px;font-size:13px;font-weight:600;color:var(--green)}
@@ -263,7 +264,7 @@ footer .logo{justify-content:center;margin-bottom:10px;color:var(--ink)}
 .grid .tile.reveal.on{transform:none}
 .statement p{font-size:clamp(48px,8vw,128px);letter-spacing:-.05em;line-height:1}
 .join h2{font-size:clamp(44px,6vw,84px);letter-spacing:-.045em}
-@media (max-width:920px){.feat .mock.reveal{transform:translateY(30px) scale(.97)}.grid .tile.reveal{transform:translateY(24px)}.feat{grid-template-columns:1fr;gap:28px;margin-bottom:100px}.feat.flip .mock{order:0}.feat > .reveal:first-child,.feat.flip > .reveal:first-child{transform:translateY(40px)}}
+@media (max-width:920px){.feat .mock{translate:none!important}.feat .mock.reveal{transform:translateY(30px) scale(.97)}.grid .tile.reveal{transform:translateY(24px)}.feat{grid-template-columns:1fr;gap:28px;margin-bottom:100px}.feat.flip .mock{order:0}.feat > .reveal:first-child,.feat.flip > .reveal:first-child{transform:none}}
 
 /* Кликабельные карточки: нажатие пружинит. */
 .tile,.mock,.stage .panel,.private{cursor:pointer;user-select:none}
@@ -816,33 +817,11 @@ body.land section,body.land footer{opacity:0;transform:translateY(32px);transiti
         miss.textContent = miss.classList.contains("act") ? "пропуск ✕" : "пропустил?";
         work.textContent = work.classList.contains("act") ? "отработан ✓" : "отработал?";
         planB.textContent = planB.classList.contains("act") ? "пропущу ✓" : "пропущу?";
-        var base = 0;
-        missed = base + (miss.classList.contains("act") && !work.classList.contains("act") ? 1 : 0) + (planB.classList.contains("act") ? 1 : 0);
-        var left = Math.max(0, 2 - missed);
-        swap(absMock.querySelector(".n"), String(missed));
-        absMock.querySelector(".s").textContent = (planB.classList.contains("act") ? "с запланированным: " : "пропущено ") + missed + " · прошло 38 из 62";
-        swap(absMock.querySelector(".chip-now"), "сейчас: «оценка 5» · можно ещё " + left);
         spring(b);
       });
     });
   }
 
-  // Долистал до карточки — она сама трижды показывает, что умеет.
-  if (!reduce && "IntersectionObserver" in window) {
-    var demo = new IntersectionObserver(function (es) {
-      es.forEach(function (e) {
-        if (!e.isIntersecting) return;
-        demo.unobserve(e.target);
-        var n = 0, card = e.target;
-        (function play() {
-          if (n++ >= 3) return;
-          card.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: innerWidth / 2, clientY: innerHeight / 2 }));
-          setTimeout(play, 1500);
-        })();
-      });
-    }, { threshold: 0.6 });
-    [weekMock, msgMock, absMock, semMock, searchMock, postMock].forEach(function (c) { if (c) demo.observe(c); });
-  }
 
   document.querySelectorAll(".mock, .stage .panel, .private").forEach(function (c) { c.addEventListener("click", function () { spring(c); }); });
 
