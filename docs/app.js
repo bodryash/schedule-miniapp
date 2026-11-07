@@ -9892,6 +9892,83 @@ function openTab(name) {
 }
 
 /** Пары дня с учётом настроек и замен — общая основа всех разделов. */
+/**
+ * Компьютер: справа от расписания дня — следующий учебный день и ближайшие
+ * дедлайны. На телефоне этой колонки нет (CSS прячет её на узком экране).
+ */
+const PC_WIDE = window.matchMedia?.("(min-width: 1100px) and (hover: hover) and (pointer: fine)");
+function renderPcAside() {
+  const host = els.schedule;
+  let aside = document.getElementById("pc-aside");
+  const group = activeGroup();
+  if (!PC_WIDE?.matches || !host || !group || !data) return aside?.remove();
+  if (!aside) {
+    aside = el("aside", "pc-aside");
+    aside.id = "pc-aside";
+    host.append(aside);
+  }
+  const blocks = [];
+  // Следующий день с парами после выбранного (до двух недель вперёд).
+  if (!group.planner) {
+    const bells = new Map((data.bells || []).map((b) => [b.n, b]));
+    let found = null;
+    for (let step = 1; step <= 14 && !found; step++) {
+      const index = selectedDay - 1 + step;
+      const week = selectedWeek + Math.floor(index / 7);
+      const day = (index % 7) + 1;
+      if (day === 7) continue;
+      const list = ownLessonsForDay(group, day, week);
+      if (list.length) found = { day, week, list };
+    }
+    if (found) {
+      const box = el("section", "pc-card");
+      const date = dateOfDay(found.day, found.week);
+      box.append(el("div", "pc-kicker", t("Следующий день")), el("h3", "pc-title", FULL_DATE.format(date)));
+      const seen = new Set();
+      for (const lesson of found.list) {
+        const time = timesOf(lesson, bells);
+        const key = `${lesson.slot}|${lesson.subject}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const row = el("div", "pc-row");
+        row.append(el("span", "pc-time", time?.start || ""), el("span", "pc-subj", tr(shownSubject(lesson))), el("span", "pc-room", lesson.room || ""));
+        box.append(row);
+      }
+      box.addEventListener("click", () => {
+        haptic("select");
+        selectedWeek = found.week;
+        selectedDay = found.day;
+        showSchedule();
+      });
+      box.classList.add("pc-card--link");
+      blocks.push(box);
+    }
+  }
+  // Ближайшие несданные дедлайны.
+  const done = new Set(readLocal("schedule.deadlinesDone", []));
+  const due = allDeadlines()
+    .filter((d) => !done.has(d.key))
+    .sort((a, b) => dueDate(a.due) - dueDate(b.due))
+    .slice(0, 4);
+  const dl = el("section", "pc-card");
+  dl.append(el("div", "pc-kicker", t("Дедлайны")));
+  if (due.length) {
+    for (const d of due) {
+      const when = dueLabel(d.due);
+      const row = el("div", "pc-row");
+      row.append(el("span", `pc-due ${when.cls}`, when.text), el("span", "pc-subj", d.title || d.subject || ""));
+      dl.append(row);
+    }
+  } else dl.append(el("p", "pc-empty", t("Ничего не горит")));
+  const all = el("button", "pc-more", t("Все дедлайны →"));
+  all.type = "button";
+  all.addEventListener("click", () => openTab("deadlines"));
+  dl.append(all);
+  blocks.push(dl);
+  aside.replaceChildren(...blocks);
+}
+PC_WIDE?.addEventListener?.("change", () => renderPcAside());
+
 function lessonsForDay(group, day, week) {
   const parity = weekParity(data.weeks, week);
   const list = group.teacher
@@ -10025,6 +10102,7 @@ function showSchedule() {
   els.weekLabel.hidden = Boolean(group?.planner);
 
   renderDays();
+  renderPcAside();
   renderRemindAsk();
   renderEvent();
   renderExamBanner();
