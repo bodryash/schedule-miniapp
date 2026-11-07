@@ -1510,7 +1510,8 @@ function reminderPlan() {
         if (lessonCancelOn(lesson, iso)) continue;
         const time = timesOf(lesson, bells);
         if (!time) continue;
-        plan.push({ day: iso, start: time.start, end: time.end, subject: tr(lesson.subject), raw: lesson.subject, room: roomLabel(lesson.room || "") });
+        // Название как на экране: «Мир Франции: история», а не «2-ой Французский язык».
+        plan.push({ day: iso, start: time.start, end: time.end, subject: tr(shownSubject(lesson)), raw: lesson.subject, room: roomLabel(lesson.room || "") });
       }
     }
   }
