@@ -5196,6 +5196,43 @@ body {
   animation: free-rise 460ms var(--ease-soft) 480ms both;
 }
 
+.free-day-caption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.free-day-caption .free-day-line {
+  margin-top: 0;
+}
+
+.free-day-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border-radius: 999px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.free-day-add-plus {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  font-size: 18px;
+  line-height: 1;
+}
+
 @keyframes free-drop {
   from { opacity: 0; transform: translateY(-46px) scale(0.5) rotate(-18deg); }
   55% { opacity: 1; }
@@ -6816,6 +6853,7 @@ body.volunteer .tab[aria-selected="true"] {
 }
 
 .own-add-plus {
+  position: relative;
   flex: 0 0 38px;
   display: grid;
   place-items: center;
@@ -7049,6 +7087,17 @@ body.volunteer .tab[aria-selected="true"] {
   background: linear-gradient(165deg, #ffd84d, var(--own) 55%, var(--own-deep));
   box-shadow: 0 8px 16px -8px color-mix(in srgb, var(--own-deep) 85%, transparent);
   color: #3a2800;
+  font-size: 0;
+}
+
+.own-add-plus::before {
+  content: "+";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding-bottom: 3px;
+  font: 500 24px/1 Arial, sans-serif;
 }
 
 .week-row--own .week-slot {
@@ -15569,4 +15618,76 @@ body {
 .web-login-text small {
   font-size: 12px;
   color: var(--muted);
+}
+
+
+/* «Месяц»: листание по семестру и пропуски в окне дня. */
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 4px 0 12px;
+}
+.month-nav-title {
+  font-size: 18px;
+  font-weight: 800;
+}
+.month-nav-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 12px;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  cursor: pointer;
+}
+.month-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.mgrid-cell--outside {
+  opacity: 0.35;
+}
+.mgrid-cell--missed {
+  position: relative;
+}
+.mgrid-cell--missed::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--danger, #e5484d);
+}
+.mday-abs {
+  grid-column: 2 / -1;
+  justify-self: start;
+  width: fit-content;
+  margin-top: 6px;
+  padding: 5px 12px;
+  border: 1.5px dashed color-mix(in srgb, var(--text) 25%, transparent);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  background: none;
+  cursor: pointer;
+}
+.mday-abs--on {
+  border-style: solid;
+  border-color: var(--danger, #e5484d);
+  color: #fff;
+  background: var(--danger, #e5484d);
+}
+.mday-abs--worked {
+  border-color: #16a571;
+  background: #16a571;
 }
