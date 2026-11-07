@@ -15412,13 +15412,19 @@ body {
   }
 }
 
-/* Правая колонка листается сама, когда курсор над ней; страница при этом стоит. */
+/* Правая колонка занимает высоту окна и не обрезается концом расписания. */
 @media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
   .pc-aside {
+    position: fixed !important;
     top: 0 !important;
-    max-height: 100vh;
+    right: max(32px, calc((100vw - var(--side) - 1180px) / 2 + 32px));
+    bottom: 0;
+    grid-row: auto;
+    width: 320px;
+    max-height: none;
     overflow-y: auto;
     overscroll-behavior: contain;
+    padding-top: 28px;
     padding-bottom: 28px;
     scrollbar-width: thin;
     scrollbar-color: color-mix(in srgb, var(--text) 18%, transparent) transparent;
@@ -15570,3 +15576,4 @@ body {
   font-size: 12px;
   color: var(--muted);
 }
+
