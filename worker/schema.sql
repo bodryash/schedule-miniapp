@@ -654,3 +654,11 @@ CREATE TABLE IF NOT EXISTS abs_group (
   updated TEXT NOT NULL,
   PRIMARY KEY (grp, subject)
 );
+
+-- Настройки приложения (тема, группа, язык) — чтобы на телефоне и компьютере было одинаково.
+-- Только оформление и выбор группы: пропуски и заметки сюда не попадают.
+CREATE TABLE IF NOT EXISTS user_prefs (
+  tg_id   INTEGER PRIMARY KEY,
+  data    TEXT NOT NULL,
+  updated INTEGER NOT NULL
+);
