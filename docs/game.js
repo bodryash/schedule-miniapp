@@ -160,6 +160,61 @@
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) flush();
     });
+    wireWheel(root);
+    // Компьютер: подсказка про управление — справа, под кнопками.
+    if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+      const hint = el("div", "g2-keys");
+      hint.innerHTML = `<span><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd></span><span>${t("стрелки, свайп по трекпаду или колесо мыши (с Shift — влево-вправо)")}</span>`;
+      root.append(hint);
+    }
+  }
+
+  /**
+   * Трекпад и колесо мыши: один жест — один ход. Трекпад шлёт поток мелких
+   * сдвигов — копим их до порога, потом ждём паузу, чтобы инерция прокрутки
+   * не сделала ещё десять ходов. Колесо: щелчок — ход вверх/вниз, с Shift —
+   * влево/вправо.
+   */
+  function wireWheel(root) {
+    let ax = 0;
+    let ay = 0;
+    let locked = false;
+    let idle = 0;
+    root.addEventListener(
+      "wheel",
+      (e) => {
+        if (!S.open) return;
+        e.preventDefault();
+        clearTimeout(idle);
+        idle = setTimeout(() => {
+          locked = false;
+          ax = 0;
+          ay = 0;
+        }, 160);
+        if (locked) return;
+        const k = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1;
+        let dx = e.deltaX * k;
+        let dy = e.deltaY * k;
+        if (e.shiftKey && !dx) {
+          dx = dy;
+        }
+        // Колесо мыши — крупные «щелчки» строго по вертикали: вниз — плитки вниз.
+        // Трекпад — мелкий поток: плитки едут туда, куда двигались пальцы
+        // (как при «естественной» прокрутке: пальцы влево — deltaX > 0).
+        const wheel = !ax && !ay && (e.deltaMode === 1 || (Math.abs(dy) >= 50 && !e.deltaX && Number.isInteger(e.deltaY)));
+        if (wheel) {
+          locked = true;
+          play(e.shiftKey ? (dx > 0 ? "R" : "L") : dy > 0 ? "D" : "U");
+          return;
+        }
+        ax += dx;
+        ay += dy;
+        if (Math.max(Math.abs(ax), Math.abs(ay)) < 40) return;
+        locked = true;
+        play(Math.abs(ax) > Math.abs(ay) ? (ax > 0 ? "L" : "R") : ay > 0 ? "U" : "D");
+      },
+      { passive: false }
+    );
   }
 
   function wireSwipes(board) {
