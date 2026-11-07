@@ -15161,8 +15161,8 @@ body.magnate .menu-pop button {
   from { opacity: 0; transform: translateY(10px) scale(0.98); }
 }
 
-/* Телефон: страница не «гуляет» влево-вправо. */
-html,
+/* Телефон: страница не «гуляет» влево-вправо. Только body: то же на html
+   ломает «прилипающие» блоки. */
 body {
   overflow-x: clip;
   overscroll-behavior-x: none;
