@@ -52,8 +52,13 @@
         if (!login || !login.hash || Date.now() / 1000 - login.auth_date > 29 * 86400) return;
         var p = new URLSearchParams({ web: "1" });
         Object.keys(login).forEach(function (k) { if (login[k] != null && login[k] !== "") p.set(k, String(login[k])); });
-        wa.initData = p.toString();
-        wa.initDataUnsafe = Object.assign({}, wa.initDataUnsafe, { user: { id: login.id, first_name: login.first_name, last_name: login.last_name, username: login.username, photo_url: login.photo_url } });
+        // У настоящего telegram-web-app.js initData — свойство только для чтения:
+        // простое присваивание молча не срабатывало, и Подслушка не открывалась.
+        // Поэтому подменяем сам объект: всё прочее наследуется от настоящего.
+        var unsafe = Object.assign({}, wa.initDataUnsafe, { user: { id: login.id, first_name: login.first_name, last_name: login.last_name, username: login.username, photo_url: login.photo_url } });
+        var web = Object.create(wa, { initData: { value: p.toString(), enumerable: true }, initDataUnsafe: { value: unsafe, enumerable: true } });
+        window.Telegram.WebApp = web;
+        wa = web;
         window.__webLogin = login;
       } catch (e) {}
     })();
@@ -144,8 +149,8 @@
       to { opacity: 1; transform: none; }
     }
     @keyframes splash-blur {
-      from { opacity: 0; filter: blur(14px); transform: scale(1.25); }
-      to { opacity: 1; filter: blur(0); transform: none; }
+      from { opacity: 0; transform: scale(1.18); }
+      to { opacity: 1; transform: none; }
     }
     @keyframes splash-rise {
       from { opacity: 0; clip-path: inset(100% 0 0 0); transform: translateY(24px); }
