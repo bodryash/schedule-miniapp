@@ -14975,6 +14975,11 @@ body.magnate .menu-pop button {
   .web-settings:hover {
     background: color-mix(in srgb, var(--text) 6%, transparent);
   }
+  .web-settings--on,
+  .web-settings--on:hover {
+    color: var(--accent);
+    background: var(--accent-soft, color-mix(in srgb, var(--accent) 12%, transparent));
+  }
   .web-settings-icon {
     width: 22px;
     height: 22px;
@@ -14987,10 +14992,11 @@ body.magnate .menu-pop button {
     left: calc(var(--side) + 12px) !important;
     right: auto !important;
     top: auto !important;
-    bottom: 24px !important;
-    max-height: calc(100vh - 48px);
+    bottom: var(--side-bottom, 24px) !important;
+    max-height: calc(100vh - var(--side-bottom, 24px) - 16px);
     overflow-y: auto;
     transform-origin: left bottom;
+    box-shadow: 0 20px 60px rgba(20, 22, 40, 0.18), 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent) !important;
   }
   .menu-pop.menu-pop--side::before,
   .menu-pop.menu-pop--side::after {
@@ -15103,7 +15109,7 @@ body.magnate .menu-pop button {
   to { opacity: 0; transform: scale(0.96); }
 }
 @keyframes pc-pop-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  from { opacity: 0; transform: translateX(-10px) scale(0.96); }
 }
 @keyframes pc-pop-out {
   to { opacity: 0; transform: translateY(6px) scale(0.98); }
