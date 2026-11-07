@@ -11725,7 +11725,7 @@ function pcDaySummary(group) {
     return; // данные ещё не объявлены — допишем, когда загрузятся
   }
   const box = els.splash?.isConnected && els.splash.querySelector(".splash-hello");
-  if (!box || box.querySelector(".splash-today")) return;
+  if (!box || box.querySelector(".splash-today--in")) return;
   const now = new Date();
   const day = ((now.getDay() + 6) % 7) + 1;
   let text;
@@ -11743,7 +11743,11 @@ function pcDaySummary(group) {
       text = `${t("Сегодня")} ${slots} ${word}${first?.start ? ` · ${t("с")} ${first.start}` : ""}`;
     }
   }
-  box.append(el("div", "splash-hello-wish splash-today", text));
+  let line = box.querySelector(".splash-today");
+  if (!line) box.append((line = el("div", "splash-hello-wish splash-today")));
+  line.textContent = text;
+  line.style.removeProperty("opacity");
+  requestAnimationFrame(() => line.classList.add("splash-today--in"));
 }
 
 function initWebLogin() {
@@ -13207,6 +13211,8 @@ function renderHello() {
   };
   // На заставке — только приветствие и дата, без пожелания.
   box.replaceChildren(words(title, "splash-hello-title"));
+  // Место под «Сегодня N пар» — сразу: когда текст придёт, ничего не сдвинется.
+  if (window.matchMedia?.("(min-width: 900px)").matches) box.append(el("div", "splash-hello-wish splash-today", "\u00a0"));
   try {
     pcDaySummary(activeGroup());
   } catch {

@@ -15153,7 +15153,14 @@ body.magnate .menu-pop button {
 /* Строка «Сегодня N пар» на заставке — проявляется мягко. */
 @media (min-width: 900px) {
   .splash-today {
-    animation: splash-today-in 900ms cubic-bezier(0.22, 1, 0.36, 1) both !important;
+    animation: none !important;
+    opacity: 0 !important;
+    transform: translateY(6px);
+    transition: opacity 900ms cubic-bezier(0.22, 1, 0.36, 1), transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .splash-today.splash-today--in {
+    opacity: 0.55 !important;
+    transform: none;
   }
 }
 @keyframes splash-today-in {
@@ -15162,10 +15169,16 @@ body.magnate .menu-pop button {
 }
 /* Плашка конкурса — выезжает, а не выскакивает. */
 .pot-banner {
-  animation: pot-banner-in 700ms cubic-bezier(0.22, 1, 0.36, 1) 250ms both;
+  animation: pot-banner-in 900ms cubic-bezier(0.22, 1, 0.36, 1) 200ms both;
+}
+/* Плашка раздвигает место плавно, а не толкает всё вниз рывком. */
+.pot-banner {
+  max-height: 120px;
 }
 @keyframes pot-banner-in {
-  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  0% { opacity: 0; max-height: 0; margin-top: 0; padding-top: 0; padding-bottom: 0; transform: scale(0.98); }
+  45% { opacity: 0; transform: scale(0.98); }
+  100% { opacity: 1; max-height: 120px; transform: none; }
 }
 
 /* Телефон: страница не «гуляет» влево-вправо. Только body: то же на html

@@ -401,6 +401,14 @@
             line.appendChild(document.createTextNode(" "));
           });
           hello.appendChild(line);
+          // Место под «Сегодня N пар» (компьютер) — с первого кадра, чтобы дата не прыгала.
+          if (window.matchMedia && matchMedia("(min-width: 900px)").matches) {
+            var today = document.createElement("div");
+            today.className = "splash-hello-wish splash-today";
+            today.style.opacity = "0";
+            today.textContent = "\u00a0";
+            hello.appendChild(today);
+          }
           splashBox.insertBefore(hello, splashBox.firstChild);
         }
       } catch (e) {}
