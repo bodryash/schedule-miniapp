@@ -67,10 +67,15 @@ const HIT_COOLDOWN = 3600;
 
 const avatarMemo = new Map();
 let avatarBusy = 0;
+// Счётчики аватарок для /healthz: только числа и текст последней ошибки.
+const avaStats = (globalThis.SCHEDULE_AVA_STATS = { asked: 0, anon: 0, ok: 0, noPhoto: 0, busy: 0, fail: 0, lastError: "" });
 async function avatarPhoto(env, tgId) {
   const hit = avatarMemo.get(tgId);
   if (hit && Date.now() < hit.until) return hit.data ? hit.data : hit.pending ? hit.pending : null;
-  if (avatarBusy >= 4) return null;
+  if (avatarBusy >= 4) {
+    avaStats.busy += 1;
+    return null;
+  }
   avatarBusy += 1;
   const pending = (async () => {
     const api = async (method, query) => {
@@ -83,8 +88,12 @@ async function avatarPhoto(env, tgId) {
       }
     };
     const photos = await api("getUserProfilePhotos", `user_id=${tgId}&limit=1`);
+    if (!photos?.ok) avaStats.lastError = `getUserProfilePhotos: ${String(photos?.description || "нет ответа").slice(0, 120)}`;
     const sizes = photos?.result?.photos?.[0];
-    if (!sizes?.length) return null;
+    if (!sizes?.length) {
+      avaStats.noPhoto += 1;
+      return null;
+    }
     const pick = sizes.find((x) => x.width >= 160) || sizes[sizes.length - 1];
     const info = await api("getFile", `file_id=${encodeURIComponent(pick.file_id)}`);
     if (!info?.result?.file_path) return null;
@@ -97,8 +106,11 @@ async function avatarPhoto(env, tgId) {
     const data = await pending;
     if (avatarMemo.size > 2000) avatarMemo.delete(avatarMemo.keys().next().value);
     avatarMemo.set(tgId, { until: Date.now() + (data ? 6 * 3600000 : 30 * 60000), data });
+    if (data) avaStats.ok += 1;
     return data;
-  } catch {
+  } catch (error) {
+    avaStats.fail += 1;
+    avaStats.lastError = String(error?.message || error).slice(0, 160);
     avatarMemo.set(tgId, { until: Date.now() + 10 * 60000, data: null });
     return null;
   } finally {
@@ -4085,7 +4097,11 @@ export default {
           const table = avaMatch[1] === "r" ? "forum_replies" : "forum_posts";
           row = await env.STATS.prepare(`SELECT tg_id, anon, hidden FROM ${table} WHERE id = ?`).bind(Number(avaMatch[2])).first();
         }
-        if (!row || row.anon || row.hidden || !row.tg_id) return miss();
+        avaStats.asked += 1;
+        if (!row || row.anon || row.hidden || !row.tg_id) {
+          avaStats.anon += 1;
+          return miss();
+        }
         // Фото человека один раз на 6 часов (нет фото — на 30 минут), одновременно
         // не больше 4 загрузок: лента с десятками аватарок не должна заваливать
         // сервер запросами к Telegram.
