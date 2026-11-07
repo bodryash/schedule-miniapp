@@ -2092,18 +2092,13 @@ body {
 /* Уход: экран сжимается сверху и снизу к полосе дня, потом гаснет. */
 .splash--gone {
   pointer-events: none;
-  animation: splash-fold 620ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  will-change: opacity, transform;
+  animation: splash-fold 520ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
 }
 
+/* Уход только прозрачностью и масштабом — это рисует видеокарта, без подлагиваний. */
 @keyframes splash-fold {
-  60% {
-    clip-path: inset(calc(var(--fold-y, 50%) - 1px) 0 calc(100% - var(--fold-y, 50%) - 1px) 0);
-    opacity: 1;
-  }
-  to {
-    clip-path: inset(calc(var(--fold-y, 50%) - 1px) 30% calc(100% - var(--fold-y, 50%) - 1px) 30%);
-    opacity: 0;
-  }
+  to { opacity: 0; transform: scale(1.04); }
 }
 
 .splash-day {
@@ -5623,8 +5618,8 @@ body[data-head="tall"] .splash-day {
 }
 
 @keyframes splash-title {
-  from { opacity: 0; letter-spacing: 0.22em; transform: translateY(8px); }
-  to { opacity: 1; letter-spacing: 0.015em; transform: none; }
+  from { opacity: 0; transform: translateY(10px) scale(.96); }
+  to { opacity: 1; transform: none; }
 }
 
 /* Полоса дня — толще, точки — крупнее и со свечением. */
@@ -5685,8 +5680,8 @@ body[data-head="tall"] .splash-day {
    содержимое чуть отстаёт — получается глубина. */
 .splash--gone {
   clip-path: none;
-  animation: splash-lift 640ms cubic-bezier(0.7, 0, 0.2, 1) forwards;
-  box-shadow: 0 30px 60px rgba(18, 22, 40, 0.28);
+  animation: splash-lift 620ms cubic-bezier(0.7, 0, 0.2, 1) forwards;
+  will-change: transform;
 }
 
 .splash--gone > * {
@@ -5696,10 +5691,7 @@ body[data-head="tall"] .splash-day {
 }
 
 @keyframes splash-lift {
-  to {
-    transform: translateY(-104%);
-    border-radius: 0 0 48px 48px;
-  }
+  to { transform: translate3d(0, -104%, 0); }
 }
 
 /* --- Свободный день: кольца, лучи и значок --- */
@@ -5773,7 +5765,8 @@ body[data-head="tall"] .splash-day {
 
 /* Уход свободного дня: экран стягивается в точку на месте значка. */
 .splash--free.splash--gone {
-  animation: splash-iris 560ms cubic-bezier(0.7, 0, 0.3, 1) forwards;
+  animation: splash-iris 480ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  will-change: opacity, transform;
   box-shadow: none;
 }
 
@@ -5789,8 +5782,7 @@ body[data-head="tall"] .splash-day {
 }
 
 @keyframes splash-iris {
-  from { clip-path: circle(150% at var(--iris-x, 50%) var(--iris-y, 50%)); }
-  to { clip-path: circle(0% at var(--iris-x, 50%) var(--iris-y, 50%)); }
+  to { opacity: 0; transform: scale(.94); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -14616,7 +14608,8 @@ body.magnate .menu-pop button {
     font-size: 15px;
     letter-spacing: -0.06em;
     color: #15131a;
-    background: #d6ff3a;
+    background: #fff;
+    border: 1px solid rgba(21, 19, 26, 0.12);
   }
   .tabs-drop {
     display: none !important;
@@ -14934,8 +14927,8 @@ body.magnate .menu-pop button {
   }
 }
 
-/* Компьютер: заставка «Добрый день» — крупно, под большой экран. */
-@media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
+/* Большой экран: заставка «Добрый день» — крупно. */
+@media (min-width: 900px) {
   .splash-hello {
     max-width: 760px !important;
   }
@@ -14956,5 +14949,61 @@ body.magnate .menu-pop button {
   .splash-times {
     width: min(620px, 60vw) !important;
     font-size: 16px !important;
+  }
+}
+
+/* Компьютер: настройки — пункт левого меню, меню открывается рядом с ним. */
+.web-settings {
+  display: none !important;
+}
+@media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
+  .web-settings {
+    display: flex !important;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    border: 0;
+    border-radius: 12px;
+    background: none;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    transition: background-color 150ms ease;
+  }
+  .web-settings:hover {
+    background: color-mix(in srgb, var(--text) 6%, transparent);
+  }
+  .web-settings-icon {
+    width: 22px;
+    height: 22px;
+  }
+  #menu {
+    display: none !important;
+  }
+  .menu-pop.menu-pop--side {
+    position: fixed !important;
+    left: calc(var(--side) + 12px) !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: 24px !important;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    transform-origin: left bottom;
+  }
+  .menu-pop.menu-pop--side::before,
+  .menu-pop.menu-pop--side::after {
+    display: none !important;
+  }
+  /* Кнопка входа Telegram: без чёрных углов вокруг. */
+  .web-login iframe {
+    display: block;
+    color-scheme: light;
+    border-radius: 12px;
+    background: transparent;
+  }
+  .web-login {
+    overflow: hidden;
   }
 }
