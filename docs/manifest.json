@@ -1,17 +1,25 @@
 {
-  "name": "Расписание ФГП",
-  "short_name": "Расписание",
-  "description": "Расписание занятий факультета глобальных процессов МГУ",
+  "name": ":Расписание",
+  "short_name": ":Расписание",
+  "description": "Расписание твоего вуза: пары, замены, аудитории и напоминания",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",
-  "theme_color": "#4c6ef5",
+  "theme_color": "#15131a",
   "lang": "ru",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
     {
       "src": "icons/icon-512.png",
       "sizes": "512x512",

@@ -11501,6 +11501,13 @@ if (!tg?.initData) document.getElementById("forum-btn")?.setAttribute("hidden", 
  * В самом Telegram не показываем: там человек и так известен.
  */
 function initWebLogin() {
+  // Название в меню слева (видно только на компьютере): знак :P и «:Расписание».
+  if (els.tabs && !els.tabs.querySelector(".web-brand")) {
+    const brand = el("a", "web-brand");
+    brand.href = "about/";
+    brand.append(el("span", "web-brand-mark", ":P"), el("b", "", ":Расписание"));
+    els.tabs.prepend(brand);
+  }
   const inTelegram = Boolean(tg?.initData) && !window.__webLogin;
   if (inTelegram || !els.tabs) return;
   const box = el("div", "web-login");
