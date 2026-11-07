@@ -14504,3 +14504,58 @@ body.magnate .menu-pop button {
   background: none;
   cursor: pointer;
 }
+
+/* Пропуски: «отработан» и общие условия старосты. */
+.abs-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.abs-work {
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 5px 11px;
+  border: 1.5px dashed color-mix(in srgb, #18b07a 55%, var(--line));
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: #18b07a;
+  background: none;
+  cursor: pointer;
+}
+.abs-work--on {
+  border-style: solid;
+  color: #fff;
+  background: #18b07a;
+}
+.abs-date--worked {
+  color: #fff !important;
+  background: #18b07a !important;
+  border-color: #18b07a !important;
+  text-decoration: line-through;
+}
+.abs-share {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.abs-share-btn,
+.abs-share-clear {
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.abs-share-btn {
+  color: var(--accent-text, #fff);
+  background: var(--accent);
+}
+.abs-share-clear {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
