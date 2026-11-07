@@ -4266,11 +4266,10 @@ function applyAbsenceButtons() {
   for (const card of els.lessons.querySelectorAll(".card")) {
     // Свои дела — не пары: у них нет предмета, пропуск к ним не относится.
     if (!card.dataset.subject || !isAbsTracked(card.dataset.type) || card.classList.contains("card--cancelled")) continue;
-    // Пропуски считаем по названию на экране («Мир Франции: история»), а не по исходному.
     // Будущие пары — тоже: пропуск можно запланировать заранее, он учтётся
     // в лимите как «в планах».
     const ahead = isoDate(date) > isoDate(now) || (today && card.dataset.start && minutes(card.dataset.start) > now.getHours() * 60 + now.getMinutes());
-    const subject = card.dataset.absSubject || card.dataset.subject;
+    const subject = card.dataset.subject;
     const slot = Number(card.dataset.slot);
     const missed = isMissed(subject, date, slot);
     const label = (on) => (on ? (ahead ? t("пропущу ✕") : t("пропуск ✕")) : ahead ? t("пропущу?") : t("пропустил?"));
@@ -4344,7 +4343,7 @@ function semesterSeminars(subject) {
           .filter(
             (l) =>
               l.group === group.id &&
-              shownSubject(l) === subject &&
+              l.subject === subject &&
               isAbsTracked(l.type) &&
               l.day === weekday &&
               onDate(l, parity, isoDate(cursor)) &&
@@ -4384,7 +4383,7 @@ function seminarCount(subject) {
         .filter(
           (l) =>
             l.group === group.id &&
-            shownSubject(l) === subject &&
+            l.subject === subject &&
             isAbsTracked(l.type) &&
             l.day === weekday &&
             onDate(l, parity, isoDate(cursor)) &&
@@ -4405,8 +4404,7 @@ function absenceSubjects() {
   const set = new Set(
     data.lessons
       .filter((l) => l.group === group.id && isAbsTracked(l.type) && matchesPrefs(l) && !MILITARY.test(l.subject))
-      // По названию на экране: «Мир Франции» — отдельный предмет, а не «2-ой Французский язык».
-      .map((l) => shownSubject(l))
+      .map((l) => l.subject)
   );
   return [...set].sort((a, b) => tr(a).localeCompare(tr(b), "ru"));
 }
@@ -5355,12 +5353,8 @@ function dayIndex() {
 
 function setDayIndex(index) {
   selectedWeek = Math.floor(index / DAYS.length);
-  // Прошлые недели — отрицательный номер: остаток берём «по кругу».
-  selectedDay = (((index % DAYS.length) + DAYS.length) % DAYS.length) + 1;
+  selectedDay = (index % DAYS.length) + 1;
 }
-
-// Сколько недель можно отлистать назад — чтобы отметить пропуски задним числом.
-const WEEKS_BACK = 6;
 
 /** Понедельник недели, в которую попадает дата. */
 function mondayOf(date) {
@@ -10330,10 +10324,8 @@ function renderDays() {
   const todayIso = isoDate(new Date());
   const group = activeGroup();
 
-  // Отлистали в прошлое — лента начинается с той недели, чтобы день был виден.
-  const firstWeek = Math.min(0, selectedWeek);
-  for (let week = firstWeek; week < WEEKS; week++) {
-    if (week > firstWeek) nodes.push(el("span", "days-split"));
+  for (let week = 0; week < WEEKS; week++) {
+    if (week > 0) nodes.push(el("span", "days-split"));
 
     for (let day = 1; day <= DAYS.length; day++) {
       const active = day === selectedDay && week === selectedWeek;
@@ -10540,7 +10532,14 @@ function renderFreeDay() {
   stage.append(el("span", "free-day-halo"));
   stage.append(el("div", "free-day-emoji", emoji));
   node.append(stage, el("div", "free-day-title", title));
-  if (line) node.append(el("div", "free-day-line", line));
+  const caption = el("div", "free-day-caption");
+  if (line) caption.append(el("div", "free-day-line", line));
+  const add = el("button", "free-day-add");
+  add.type = "button";
+  add.append(el("span", "free-day-add-plus", "+"), document.createTextNode(t("Добавить своё дело")));
+  add.addEventListener("click", () => openOwn(null));
+  caption.append(add);
+  node.append(caption);
   return node;
 }
 
@@ -10604,7 +10603,7 @@ function renderLessons(group, parity) {
     // Есть свои дела — вместо большой картинки «свободный день» показываем
     // ленту дня: видно, где в сутках стоит каждое дело.
     const head = own.length ? renderOwnStrip(dateOfDay(selectedDay)) : renderFreeDay();
-    els.lessons.replaceChildren(head, ...own, renderOwnAdd(), ...[renderStarostaAsk()].filter(Boolean));
+    els.lessons.replaceChildren(head, ...own, ...(own.length ? [renderOwnAdd()] : []), ...[renderStarostaAsk()].filter(Boolean));
     refreshNext();
     return;
   }
@@ -12329,7 +12328,7 @@ let enterFrom = 0;
 /** Переход на соседний день: карточки въезжают с той стороны, куда листали. */
 function goToDay(direction) {
   const next = dayIndex() + direction;
-  if (next < -WEEKS_BACK * DAYS.length || next >= DAY_COUNT) return false;
+  if (next < 0 || next >= DAY_COUNT) return false;
   setDayIndex(next);
   enterFrom = direction;
   pendingLabel = direction;
@@ -13040,7 +13039,6 @@ function renderCard(entries, bells, slots = [entries[0].slot]) {
   card.dataset.slot = first.slot;
   card.dataset.slots = slots.join(",");
   card.dataset.subject = first.subject;
-  card.dataset.absSubject = shownSubject(first);
   paintSubject(card);
   card.dataset.subgroups = [...new Set(entries.map((e) => e.subgroup).filter(Boolean))].join(",");
   card.dataset.teachers = entries.map((e) => e.teacher || "").join(" | ");
@@ -14282,3 +14280,4 @@ async function init() {
 }
 
 init();
+
