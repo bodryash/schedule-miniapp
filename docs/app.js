@@ -11732,7 +11732,13 @@ function openPcMore() {
   pcMore.replaceChildren(...rows);
   const r = pcMoreBtn.getBoundingClientRect();
   pcMore.style.left = `${Math.round(r.right + 12)}px`;
-  pcMore.style.bottom = `${Math.max(16, Math.round(innerHeight - r.bottom))}px`;
+  const bottom = Math.max(16, Math.round(innerHeight - r.bottom));
+  // Не выше окна: при крупном масштабе места над кнопкой мало — тогда меню
+  // опускаем к низу экрана и даём ему прокручиваться внутри.
+  const room = innerHeight - bottom - 16;
+  const fit = room >= 360 ? bottom : 16;
+  pcMore.style.bottom = `${fit}px`;
+  pcMore.style.maxHeight = `${innerHeight - fit - 16}px`;
   pcMore.hidden = false;
   pcMoreBtn.classList.add("web-settings--on");
 }
