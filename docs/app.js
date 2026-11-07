@@ -11638,6 +11638,17 @@ function webSettingsButton() {
     els.menu.click();
     if (pop.hidden || wasOpen) return;
     pop.classList.add("menu-pop--side");
+    // Меню растёт от кнопки: нижний край — вровень с «Ещё», справа от меню.
+    const r = btn.getBoundingClientRect();
+    pop.style.setProperty("--side-bottom", `${Math.max(16, Math.round(innerHeight - r.bottom))}px`);
+    btn.classList.add("web-settings--on");
+    const watch = new MutationObserver(() => {
+      if (pop.hidden || pop.classList.contains("menu-pop--out")) {
+        btn.classList.remove("web-settings--on");
+        watch.disconnect();
+      }
+    });
+    watch.observe(pop, { attributes: true, attributeFilter: ["hidden", "class"] });
     const cal = pop.querySelector('[data-menu="calendar"] span:last-child');
     if (cal) cal.textContent = t("В мой календарь");
     pop.style.removeProperty("top");
