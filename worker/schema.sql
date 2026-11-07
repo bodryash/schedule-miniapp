@@ -645,3 +645,12 @@ CREATE TABLE IF NOT EXISTS ref_hits (
   active_at TEXT
 );
 CREATE INDEX IF NOT EXISTS ref_hits_referrer ON ref_hits (referrer, active, active_at);
+
+-- Условия пропусков на всю группу (задаёт староста).
+CREATE TABLE IF NOT EXISTS abs_group (
+  grp     TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  data    TEXT NOT NULL,
+  updated TEXT NOT NULL,
+  PRIMARY KEY (grp, subject)
+);
