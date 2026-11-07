@@ -1892,6 +1892,39 @@ function minutesOfDay(time) {
  * Приложение присылает свой план на две недели: у каждого свои языки,
  * подгруппы и МФК, и восстановить их на стороне бота нельзя.
  */
+
+/**
+ * Синхронизация настроек между устройствами. Клиент шлёт свои настройки
+ * с меткой времени; сервер хранит самую свежую версию и отдаёт её.
+ */
+const PREFS_MAX = 16000;
+async function syncPrefs(env, body) {
+  const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+  if (!user?.id) return { ok: false, error: "no user" };
+  await env.STATS.prepare("CREATE TABLE IF NOT EXISTS user_prefs (tg_id INTEGER PRIMARY KEY, data TEXT NOT NULL, updated INTEGER NOT NULL)").run();
+  const row = await env.STATS.prepare("SELECT data, updated FROM user_prefs WHERE tg_id = ?").bind(user.id).first();
+  const set = body.set;
+  if (set && typeof set.data === "object" && set.data && Number.isFinite(Number(set.updated))) {
+    const updated = Math.min(Date.now() + 60000, Number(set.updated));
+    const data = JSON.stringify(set.data);
+    if (data.length > PREFS_MAX) return { ok: false, error: "too big" };
+    if (!row || updated > Number(row.updated)) {
+      await env.STATS.prepare(
+        "INSERT INTO user_prefs (tg_id, data, updated) VALUES (?, ?, ?) ON CONFLICT(tg_id) DO UPDATE SET data = excluded.data, updated = excluded.updated"
+      ).bind(user.id, data, updated).run();
+      return { ok: true, updated, data: set.data };
+    }
+  }
+  if (!row) return { ok: true, updated: 0, data: null };
+  let data = null;
+  try {
+    data = JSON.parse(row.data);
+  } catch {
+    data = null;
+  }
+  return { ok: true, updated: Number(row.updated), data };
+}
+
 async function saveReminders(env, body) {
   const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
   if (!user?.id) return { ok: false, error: "no user" };
@@ -4203,6 +4236,23 @@ export default {
           request.method === "POST"
             ? await shareSave(env, JSON.parse(await request.text()))
             : await shareLoad(env, url.searchParams.get("code"));
+      } catch {
+        result = { ok: false, error: "bad request" };
+      }
+      return new Response(JSON.stringify(result), {
+        status: result.ok ? 200 : 400,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "no-store",
+        },
+      });
+    }
+
+    if (url.pathname === "/prefs" && request.method === "POST") {
+      let result;
+      try {
+        result = await syncPrefs(env, JSON.parse(await request.text()));
       } catch {
         result = { ok: false, error: "bad request" };
       }
