@@ -41,9 +41,30 @@ export async function karmaMap(env) {
     "SELECT r.tg_id AS tg_id, COALESCE(SUM(l.v), 0) AS s FROM forum_reply_likes l JOIN forum_replies r ON r.id = l.reply WHERE r.hidden = 0 GROUP BY r.tg_id"
   ).all();
   for (const r of rl) add(r.tg_id, Math.max(0, r.s) * 2);
+  // Выданное владельцем вручную (/karma). Таблицы может не быть в старой базе.
+  const bonus = await env.STATS.prepare("SELECT tg_id, COALESCE(SUM(amount), 0) AS s FROM forum_karma_bonus GROUP BY tg_id")
+    .all()
+    .catch(() => ({ results: [] }));
+  for (const r of bonus.results || []) add(r.tg_id, r.s);
   karmaCache = { at: Date.now(), map };
   return map;
 }
+/** /karma @ник 25 — выдать (или с минусом снять) карму вручную. Только владелец. */
+export async function karmaCommand(env, text, findPerson) {
+  const m = String(text).replace(/^\/karma(@\w+)?/, "").trim().match(/^(\S+)\s+(-?\d{1,4})$/);
+  if (!m) return "Кому и сколько: <code>/karma @ник 25</code> (с минусом — снять).";
+  const person = await findPerson(env, m[1]);
+  if (!person?.tg_id) return `Не нашёл ${m[1]} — человек должен хоть раз открыть приложение или бота.`;
+  const amount = Number(m[2]);
+  await env.STATS.prepare("CREATE TABLE IF NOT EXISTS forum_karma_bonus (id INTEGER PRIMARY KEY AUTOINCREMENT, tg_id INTEGER NOT NULL, amount INTEGER NOT NULL, at TEXT NOT NULL)").run();
+  await env.STATS.prepare("INSERT INTO forum_karma_bonus (tg_id, amount, at) VALUES (?, ?, ?)").bind(person.tg_id, amount, new Date().toISOString()).run();
+  dropKarmaCache();
+  const total = (await karmaMap(env)).get(person.tg_id) || 0;
+  const level = levelOf(total);
+  const who = person.username ? `@${person.username}` : person.name || `id ${person.tg_id}`;
+  return `${amount >= 0 ? "Выдал" : "Снял"} ${Math.abs(amount)} кармы: ${who}. Теперь ${total} — ${level.icon} ${level.name}.`;
+}
+
 export function dropKarmaCache() {
   karmaCache.at = 0;
 }

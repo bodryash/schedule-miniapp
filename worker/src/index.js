@@ -36,6 +36,7 @@ import {
   unbanCommand,
 } from "./comments.js";
 import { gameApi, gameCommand, gameTick } from "./game.js";
+import { karmaCommand } from "./forum-fun.js";
 import { refActivate, refApi, refCommand, refStart, refTick } from "./referral.js";
 import { shownSubject } from "./subjects.js";
 import { avaSig, forumApi, forumCloseConfirm, forumCommand, forumFun, forumModerate, forumWipe } from "./forum.js";
@@ -5285,6 +5286,11 @@ ${invite}`,
         text: reply,
         parse_mode: "HTML",
       });
+    }
+
+    if (message && /^\/karma(?:@\w+)?(?:\s|$)/.test(text)) {
+      const reply = isOwner(env, message.chat.id) ? await karmaCommand(env, text, findPerson) : "Команда недоступна.";
+      await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: reply, parse_mode: "HTML" });
     }
 
     if (message && /^\/themes?(?:@\w+)?(?:\s|$)/.test(text)) {
