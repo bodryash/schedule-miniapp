@@ -15064,6 +15064,7 @@ body.magnate .menu-pop button {
   }
   .menu-pop--side > * {
     grid-column: auto !important;
+    flex-shrink: 0 !important;
   }
   .menu-pop--side [data-menu] {
     display: flex !important;
