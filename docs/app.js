@@ -5355,8 +5355,12 @@ function dayIndex() {
 
 function setDayIndex(index) {
   selectedWeek = Math.floor(index / DAYS.length);
-  selectedDay = (index % DAYS.length) + 1;
+  // Прошлые недели — отрицательный номер: остаток берём «по кругу».
+  selectedDay = (((index % DAYS.length) + DAYS.length) % DAYS.length) + 1;
 }
+
+// Сколько недель можно отлистать назад — чтобы отметить пропуски задним числом.
+const WEEKS_BACK = 6;
 
 /** Понедельник недели, в которую попадает дата. */
 function mondayOf(date) {
@@ -10326,8 +10330,10 @@ function renderDays() {
   const todayIso = isoDate(new Date());
   const group = activeGroup();
 
-  for (let week = 0; week < WEEKS; week++) {
-    if (week > 0) nodes.push(el("span", "days-split"));
+  // Отлистали в прошлое — лента начинается с той недели, чтобы день был виден.
+  const firstWeek = Math.min(0, selectedWeek);
+  for (let week = firstWeek; week < WEEKS; week++) {
+    if (week > firstWeek) nodes.push(el("span", "days-split"));
 
     for (let day = 1; day <= DAYS.length; day++) {
       const active = day === selectedDay && week === selectedWeek;
@@ -12323,7 +12329,7 @@ let enterFrom = 0;
 /** Переход на соседний день: карточки въезжают с той стороны, куда листали. */
 function goToDay(direction) {
   const next = dayIndex() + direction;
-  if (next < 0 || next >= DAY_COUNT) return false;
+  if (next < -WEEKS_BACK * DAYS.length || next >= DAY_COUNT) return false;
   setDayIndex(next);
   enterFrom = direction;
   pendingLabel = direction;
