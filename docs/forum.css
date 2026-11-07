@@ -2754,3 +2754,22 @@ body.fm-open .minihead {
     visibility: hidden;
   }
 }
+/* Компьютер: у стрелки — подпись «Назад». */
+@media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
+  .fm-nav > .fm-nav-btn:first-child {
+    width: auto !important;
+    gap: 6px;
+    padding: 0 14px 0 8px !important;
+    border-radius: 999px !important;
+    display: inline-flex !important;
+    align-items: center;
+  }
+  .fm-nav > .fm-nav-btn:first-child::after {
+    content: "Назад";
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .fm-nav > .fm-nav-btn:first-child:hover {
+    background: color-mix(in srgb, var(--text) 7%, transparent);
+  }
+}
