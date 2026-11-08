@@ -10266,12 +10266,14 @@ function setDateLabel(text, direction) {
   if (from === text) return;
   label.dataset.target = text;
   fitDateLabel(text);
-  // Прошлый переход не доиграл — обрываем его, чтобы надписи не копились.
+  // Прошлый переход не доиграл (быстрое листание) — без анимации ставим
+  // новую дату сразу: две полупрозрачные надписи друг на друге — каша.
+  const busy = label.children.length > 0;
   for (const child of label.children) {
     for (const running of child.getAnimations()) running.cancel();
   }
   const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  if (!direction || reduce || !from) {
+  if (!direction || reduce || !from || busy) {
     label.textContent = text;
     return;
   }
@@ -10281,18 +10283,19 @@ function setDateLabel(text, direction) {
   const shift = 22 * direction;
   old.animate(
     [
-      { transform: "translateX(0)", opacity: 1, filter: "blur(0)" },
-      { transform: `translateX(${-shift}px)`, opacity: 0, filter: "blur(2px)" },
+      { transform: "translateX(0)", opacity: 1 },
+      { transform: `translateX(${-shift}px)`, opacity: 0 },
     ],
-    { duration: 180, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }
+    { duration: 140, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }
   );
   fresh
     .animate(
       [
-        { transform: `translateX(${shift}px)`, opacity: 0, filter: "blur(2px)" },
-        { transform: "translateX(0)", opacity: 1, filter: "blur(0)" },
+        { transform: `translateX(${shift}px)`, opacity: 0 },
+        { transform: "translateX(0)", opacity: 1 },
       ],
-      { duration: 320, delay: 90, easing: "cubic-bezier(0.18, 0.89, 0.32, 1)", fill: "backwards" }
+      // Новая дата выходит, когда старая уже ушла, — они не наслаиваются.
+      { duration: 280, delay: 140, easing: "cubic-bezier(0.18, 0.89, 0.32, 1)", fill: "backwards" }
     )
     .finished.catch(() => {})
     .finally(() => {

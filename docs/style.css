@@ -14973,6 +14973,19 @@ body.magnate .menu-pop button {
   .web-login iframe {
     max-width: 100% !important;
   }
+  /* Уведомление — аккуратная плашка внизу по центру, а не полоса во весь экран. */
+  .toast {
+    left: 0;
+    right: 0;
+    bottom: 32px;
+    width: fit-content;
+    max-width: 440px;
+    margin: 0 auto;
+    padding: 12px 20px;
+    border-radius: 999px;
+    font-size: 14px;
+    text-align: center;
+  }
   /* Плавающая дата при прокрутке закрывала полосу дней — на компьютере не нужна. */
   .minihead {
     display: none !important;
