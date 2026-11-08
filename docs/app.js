@@ -10265,6 +10265,7 @@ function showSchedule() {
 
   const label = FULL_DATE.format(dateOfDay(selectedDay));
   setDateLabel(label[0].toUpperCase() + label.slice(1), pendingLabel);
+  renderDonorBanner();
   pendingLabel = 0;
   const parity = weekParity(data.weeks);
   // Голубой интерфейс — нечётная неделя, оранжевый — чётная.
@@ -14386,3 +14387,154 @@ async function init() {
 }
 
 init();
+
+
+/* ---------- День донора МГУ (9–13 и 16–17 ноября 2026) ---------- */
+
+const DONOR_KEY = "schedule.donorHidden";
+const DONOR_DAYS = ["2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13", "2026-11-16", "2026-11-17"];
+
+/** Плашка только студентам МГУ и только до последнего дня акции. */
+function donorVisible() {
+  const today = isoDate(new Date());
+  if (today > DONOR_DAYS.at(-1) || today < "2026-11-06") return false;
+  if (!String(tenantId()).startsWith("msu")) return false;
+  try {
+    if (localStorage.getItem(DONOR_KEY) === "1") return false;
+  } catch {}
+  return true;
+}
+
+/** Подпись: «сегодня, до 13 ноября» / «с понедельника 9 ноября» / «16–17 ноября». */
+function donorWhen() {
+  const today = isoDate(new Date());
+  if (DONOR_DAYS.includes(today)) return t("Сегодня · Ломоносовский, 27к10");
+  // Коротко, чтобы влезло в строку: дата и главный бонус. Адрес — в окне.
+  const next = DONOR_DAYS.find((d) => d > today);
+  const date = new Date(`${next}T12:00:00`);
+  const day = date.toLocaleDateString(LOCALE, { day: "numeric", month: "long" });
+  const tomorrow = isoDate(new Date(Date.now() + 86400000)) === next;
+  return `${tomorrow ? t("Завтра,") : t("С")} ${day} · ${t("+2 выходных")}`;
+}
+
+function renderDonorBanner() {
+  let node = document.getElementById("donor-banner");
+  if (!donorVisible() || !els.freedom) return node?.remove();
+  if (!node) {
+    node = el("div", "donor-banner");
+    node.id = "donor-banner";
+    const open = el("button", "donor-open");
+    open.type = "button";
+    open.addEventListener("click", () => {
+      haptic("medium");
+      openDonor();
+    });
+    const close = el("button", "donor-close", "×");
+    close.type = "button";
+    close.setAttribute("aria-label", t("Скрыть"));
+    close.addEventListener("click", (event) => {
+      event.stopPropagation();
+      try {
+        localStorage.setItem(DONOR_KEY, "1");
+      } catch {}
+      node.classList.add("donor-banner--out");
+      setTimeout(() => node.remove(), 320);
+    });
+    node.append(open, close);
+    (document.getElementById("pot-banner") || document.querySelector(".flag-ribbon") || els.freedom).after(node);
+  }
+  const open = node.querySelector(".donor-open");
+  const drop = el("span", "donor-drop", "🩸");
+  const body = el("span", "donor-body");
+  body.append(el("b", "", t("День донора МГУ")), el("span", "", donorWhen()));
+  open.replaceChildren(drop, body, el("span", "donor-cta", t("Подробнее")));
+}
+
+let donorSheet = null;
+function openDonor() {
+  if (!donorSheet) {
+    donorSheet = el("div", "sheet-backdrop donor-sheet-wrap");
+    donorSheet.hidden = true;
+    donorSheet.addEventListener("click", (event) => {
+      if (event.target === donorSheet) closeDonor();
+    });
+    document.body.append(donorSheet);
+  }
+  const sheet = el("div", "sheet donor-sheet");
+  sheet.setAttribute("role", "dialog");
+  sheet.setAttribute("aria-modal", "true");
+  const hero = el("div", "donor-hero");
+  hero.append(
+    el("div", "donor-hero-drop", "🩸"),
+    el("h2", "", t("Одна сдача — до трёх спасённых жизней")),
+    el("p", "", t("Самая добрая акция МГУ. Полчаса твоего времени — чьё-то «завтра»."))
+  );
+  const section = (title, items) => {
+    const box = el("section", "donor-sec");
+    box.append(el("h3", "", title));
+    const list = el("ul");
+    for (const item of items) list.append(el("li", "", item));
+    box.append(list);
+    return box;
+  };
+  const when = el("div", "donor-when");
+  when.append(
+    el("div", "donor-chip", "📅 9–13 ноября"),
+    el("div", "donor-chip", "📅 16–17 ноября"),
+    el("div", "donor-chip donor-chip--wide", "📍 Ломоносовский проспект, 27к10")
+  );
+  const bonus = el("div", "donor-bonus");
+  for (const [big, small] of [
+    ["1736 ₽", t("компенсация питания на месте")],
+    ["1500 ₽", t("премия от ректора студентам и аспирантам МГУ")],
+    ["2 выходных", t("в день сдачи и в любой другой день года")],
+  ]) {
+    const card = el("div", "donor-bonus-card");
+    card.append(el("b", "", big), el("span", "", small));
+    bonus.append(card);
+  }
+  const close = el("button", "primary", t("Я приду 💪"));
+  close.type = "button";
+  close.addEventListener("click", () => {
+    haptic("success");
+    closeDonor();
+    toast(t("Спасибо! Не забудь СНИЛС и лёгкий завтрак 🩸"));
+  });
+  sheet.append(
+    hero,
+    when,
+    bonus,
+    el("p", "donor-note", t("Ещё: денежные компенсации для членов профсоюзной организации МГУ.")),
+    section(t("Кто может стать донором"), [
+      t("Граждане РФ и иностранцы, легально живущие в РФ больше года"),
+      t("От 18 лет (или полностью дееспособные)"),
+      t("Вес от 50 кг"),
+      t("Абсолютно здоровы — осмотр врача на месте"),
+    ]),
+    section(t("Что взять с собой"), [
+      t("СНИЛС — обязательно!"),
+      t("Студентам МГУ: паспорт + студенческий или аспирантский билет"),
+      t("Остальным: паспорт (иностранцам — документ о проживании)"),
+    ]),
+    section(t("Перед сдачей"), [
+      t("🚭 Не курить за 1 час"),
+      t("🍷 Не пить алкоголь за 2 суток"),
+      t("🥗 Лёгкий завтрак без жирного и острого, сладкий чай"),
+    ]),
+    close
+  );
+  donorSheet.replaceChildren(sheet);
+  donorSheet.classList.remove("sheet-backdrop--out");
+  donorSheet.hidden = false;
+  document.body.classList.add("sheet-open");
+}
+
+function closeDonor() {
+  if (!donorSheet || donorSheet.hidden) return;
+  donorSheet.classList.add("sheet-backdrop--out");
+  document.body.classList.remove("sheet-open");
+  setTimeout(() => {
+    donorSheet.hidden = true;
+    donorSheet.classList.remove("sheet-backdrop--out");
+  }, 260);
+}
