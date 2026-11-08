@@ -10277,25 +10277,17 @@ function setDateLabel(text, direction) {
     label.textContent = text;
     return;
   }
-  const old = el("span", "date-old", from);
+  // Старую дату убираем сразу: в темах с градиентом текст красит сама
+  // шапка, и прозрачность уезжающей надписи не работает — две даты
+  // рисовались поверх друг друга. В шапке всегда одна надпись.
   const fresh = el("span", "date-new", text);
-  label.replaceChildren(old, fresh);
-  const shift = 22 * direction;
-  old.animate(
-    [
-      { transform: "translateX(0)", opacity: 1 },
-      { transform: `translateX(${-shift}px)`, opacity: 0 },
-    ],
-    { duration: 140, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }
-  );
+  label.replaceChildren(fresh);
+  // Только проявление, без сдвига: сдвинутый текст под градиентом шапки
+  // оставлял двойной контур.
   fresh
     .animate(
-      [
-        { transform: `translateX(${shift}px)`, opacity: 0 },
-        { transform: "translateX(0)", opacity: 1 },
-      ],
-      // Новая дата выходит, когда старая уже ушла, — они не наслаиваются.
-      { duration: 280, delay: 140, easing: "cubic-bezier(0.18, 0.89, 0.32, 1)", fill: "backwards" }
+      [{ opacity: 0 }, { opacity: 1 }],
+      { duration: 200, easing: "cubic-bezier(0.18, 0.89, 0.32, 1)", fill: "backwards" }
     )
     .finished.catch(() => {})
     .finally(() => {
