@@ -9838,8 +9838,8 @@ function buildSettingsNav() {
     const sections = [
       // Не «Учёба»: здесь выбирают, что показывать, — группу, преподавателя
       // или только свои дела. Учиться при этом не обязательно.
-      ["study", "🗓", "Расписание", [els.role?.closest("label"), "#teacher-row", "#tenant-uni-row", "#tenant-row", "#tenant-hint", "#student-fields"]],
-      ["courses", "📚", "Мои курсы (МФК)", ["#mfk-row", "#electives-row", "#pairs-row"]],
+      ["study", "🗓", "Расписание", [els.role?.closest("label"), "#teacher-row", "#tenant-uni-row", "#tenant-row", "#tenant-hint", "#student-fields", "#electives-row"]],
+      ["courses", "📚", "Мои курсы (МФК)", ["#mfk-row", "#pairs-row"]],
       ["look", "🎨", "Оформление", ["#digits"]],
       ["remind", "🔔", "Напоминания", ["#remind-row"]],
       ["themes", "⭐", "Темы", ["#owner-themes", "#volunteer-row"]],
