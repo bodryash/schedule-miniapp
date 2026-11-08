@@ -15892,3 +15892,9 @@ body {
   margin-top: 18px;
   background: linear-gradient(120deg, #d7263d, #b5172f) !important;
 }
+
+/* День донора МГУ: тема кроваво-красная, глубже обычной «Вишни». */
+body.donor-days.tint-cherry {
+  --tint1: #d7263d;
+  --tint2: #a8142c;
+}
