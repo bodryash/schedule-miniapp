@@ -7210,9 +7210,7 @@ function initScrollChrome() {
     const y = Math.max(0, page.scrollTop);
     const onSchedule = !document.getElementById("schedule")?.hidden;
     const date = document.getElementById("date-label");
-    // На компьютере дата не съёживается: при сжатии она наезжала на число.
-    const desk = window.matchMedia?.("(min-width: 1100px) and (hover: hover) and (pointer: fine)").matches;
-    const k = onSchedule && !desk ? Math.min(1, y / 90) : 0;
+    const k = onSchedule ? Math.min(1, y / 90) : 0;
     // Пишем стиль, только когда он меняется: дальше 90 px — ни одной записи.
     if (date && k !== lastK) {
       lastK = k;
