@@ -10266,28 +10266,33 @@ function setDateLabel(text, direction) {
   if (from === text) return;
   label.dataset.target = text;
   fitDateLabel(text);
-  // Прошлый переход не доиграл (быстрое листание) — без анимации ставим
-  // новую дату сразу: две полупрозрачные надписи друг на друге — каша.
-  const busy = label.children.length > 0;
+  // Прошлый переход не доиграл — обрываем его, чтобы надписи не копились.
   for (const child of label.children) {
     for (const running of child.getAnimations()) running.cancel();
   }
   const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  if (!direction || reduce || !from || busy) {
+  if (!direction || reduce || !from) {
     label.textContent = text;
     return;
   }
-  // Старую дату убираем сразу: в темах с градиентом текст красит сама
-  // шапка, и прозрачность уезжающей надписи не работает — две даты
-  // рисовались поверх друг друга. В шапке всегда одна надпись.
+  const old = el("span", "date-old", from);
   const fresh = el("span", "date-new", text);
-  label.replaceChildren(fresh);
-  // Только проявление, без сдвига: сдвинутый текст под градиентом шапки
-  // оставлял двойной контур.
+  label.replaceChildren(old, fresh);
+  const shift = 22 * direction;
+  old.animate(
+    [
+      { transform: "translateX(0)", opacity: 1, filter: "blur(0)" },
+      { transform: `translateX(${-shift}px)`, opacity: 0, filter: "blur(2px)" },
+    ],
+    { duration: 180, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }
+  );
   fresh
     .animate(
-      [{ opacity: 0 }, { opacity: 1 }],
-      { duration: 200, easing: "cubic-bezier(0.18, 0.89, 0.32, 1)", fill: "backwards" }
+      [
+        { transform: `translateX(${shift}px)`, opacity: 0, filter: "blur(2px)" },
+        { transform: "translateX(0)", opacity: 1, filter: "blur(0)" },
+      ],
+      { duration: 320, delay: 90, easing: "cubic-bezier(0.18, 0.89, 0.32, 1)", fill: "backwards" }
     )
     .finished.catch(() => {})
     .finally(() => {
