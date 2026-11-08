@@ -15808,16 +15808,37 @@ body {
 }
 
 .donor-sheet {
-  padding-top: 0 !important;
-  overflow-y: auto;
+  display: flex !important;
+  flex-direction: column;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+.donor-sheet > .sheet-fade {
+  display: none !important;
+}
+.donor-sheet::before {
+  z-index: 4;
+  background: rgba(255, 255, 255, 0.6) !important;
 }
 .donor-hero {
-  margin: 0 -16px 14px;
-  padding: 26px 22px 22px;
+  flex: none;
+  margin: 0;
+  padding: 30px 22px 22px;
   text-align: center;
   color: #fff;
   background: linear-gradient(160deg, #d7263d, #7a0f2a);
-  border-radius: 22px 22px 0 0;
+  border-radius: inherit;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.donor-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px 16px calc(env(safe-area-inset-bottom, 0px) + 18px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
 }
 .donor-hero-drop {
   font-size: 46px;
@@ -15897,4 +15918,53 @@ body {
 body.donor-days.tint-cherry {
   --tint1: #d7263d;
   --tint2: #a8142c;
+}
+
+/* Дни донора в расписании. */
+.day--donor .day-num {
+  color: #d7263d;
+}
+.day--donor.active .day-num {
+  color: inherit;
+}
+.mgrid-cell--donor {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, #d7263d 45%, transparent);
+}
+.donor-day {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 10px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, #d7263d 30%, transparent);
+  border-radius: 16px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: color-mix(in srgb, #d7263d 9%, var(--bg));
+  cursor: pointer;
+  animation: donor-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.donor-day-drop {
+  font-size: 26px;
+  animation: donor-beat 1.6s ease-in-out infinite;
+}
+.donor-day-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.donor-day-text b {
+  font-size: 15px;
+  color: #c41e3a;
+}
+.donor-day-text span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.donor-day-arrow {
+  font-size: 22px;
+  color: #c41e3a;
 }

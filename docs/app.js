@@ -1997,6 +1997,36 @@ function applyTheme(granted = grantedTheme) {
 /* ---------- Хеллоуин ---------- */
 
 /** 31 октября; «?halloween» в адресе — посмотреть заранее. */
+/** Этот день — день сдачи крови (и человек из МГУ). */
+function isDonorDay(iso) {
+  return DONOR_DAYS.includes(iso) && String(tenantId()).startsWith("msu");
+}
+
+/** Над парами выбранного донорского дня — карточка «Сегодня День донора». */
+function renderDonorDay() {
+  let card = document.getElementById("donor-day");
+  const date = dateOfDay(selectedDay, selectedWeek);
+  const iso = isoDate(date);
+  if (!isDonorDay(iso) || !els.lessons) return card?.remove();
+  if (!card) {
+    card = el("button", "donor-day");
+    card.id = "donor-day";
+    card.type = "button";
+    card.addEventListener("click", () => {
+      haptic("light");
+      openDonor();
+    });
+    els.lessons.before(card);
+  }
+  const today = iso === isoDate(new Date());
+  const left = DONOR_DAYS.filter((d) => d >= iso).length;
+  const title = today ? t("Сегодня — День донора МГУ") : t("В этот день — День донора МГУ");
+  const sub = `${t("Ломоносовский, 27к10")} · ${t("СНИЛС с собой")}${left > 1 ? ` · ${t("ещё дней акции")}: ${left - 1}` : ` · ${t("последний день")}`}`;
+  const text = el("span", "donor-day-text");
+  text.append(el("b", "", title), el("span", "", sub));
+  card.replaceChildren(el("span", "donor-day-drop", "🩸"), text, el("span", "donor-day-arrow", "›"));
+}
+
 function donorSplashMark() {
   const mark = el("div", "splash-donor");
   mark.append(el("span", "splash-donor-drop", "🩸"), el("span", "splash-donor-text", t("День донора МГУ")));
@@ -6978,6 +7008,10 @@ function renderMonth(group) {
       cell.append(el("span", "mgrid-num", num));
       const holiday = eventOn(iso);
       if (holiday && holiday.ours(group)) cell.append(el("span", "mgrid-holiday", holiday.icon));
+      else if (isDonorDay(iso)) {
+        cell.classList.add("mgrid-cell--donor");
+        cell.append(el("span", "mgrid-holiday", "🩸"));
+      }
       if (slots.size) {
         const starts = lessons.map((l) => l.start).filter(Boolean).sort();
         const ends = lessons.map((l) => l.end).filter(Boolean).sort();
@@ -10280,6 +10314,7 @@ function showSchedule() {
   const label = FULL_DATE.format(dateOfDay(selectedDay));
   setDateLabel(label[0].toUpperCase() + label.slice(1), pendingLabel);
   renderDonorBanner();
+  renderDonorDay();
   pendingLabel = 0;
   const parity = weekParity(data.weeks);
   // Голубой интерфейс — нечётная неделя, оранжевый — чётная.
@@ -10444,6 +10479,9 @@ function renderDays() {
       if (holiday && holiday.ours(group)) {
         btn.classList.add("day--event");
         btn.dataset.icon = holiday.icon;
+      } else if (isDonorDay(isoDate(date))) {
+        btn.classList.add("day--event", "day--donor");
+        btn.dataset.icon = "🩸";
       }
       btn.append(el("span", "day-name", DAYS[day - 1]), el("span", "day-num", String(date.getDate())));
       // Точки под числом — ровно столько, сколько пар в этот день, как на
@@ -14513,10 +14551,13 @@ function openDonor() {
   close.addEventListener("click", () => {
     haptic("success");
     closeDonor();
-    toast(t("Спасибо! Не забудь СНИЛС и лёгкий завтрак 🩸"));
+    toast(t("Не забудь СНИЛС 🩸"));
   });
-  sheet.append(
-    hero,
+  // Шапка стоит на месте, листается только содержимое под ней: красная шапка
+  // не уезжает, и сверху не остаётся белой полосы размытия.
+  const scroll = el("div", "donor-scroll");
+  sheet.append(hero, scroll);
+  scroll.append(
     when,
     bonus,
     el("p", "donor-note", t("Ещё: денежные компенсации для членов профсоюзной организации МГУ.")),
