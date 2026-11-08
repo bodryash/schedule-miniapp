@@ -1960,7 +1960,9 @@ function applyTheme(granted = grantedTheme) {
   const own = colorTheme();
   const ownName = own === "msu" ? (inMsu() ? "msu" : "") : THEMES[own] ? own : "";
   // 31 октября у всех Хеллоуин, выданная тема всё равно сильнее.
-  const name = worn || (isHalloween() ? "halloween" : "") || ownName || (ownGlam() ? "glam" : "");
+  const donor = !worn && isDonorDays();
+  document.body.classList.toggle("donor-days", donor);
+  const name = worn || (isHalloween() ? "halloween" : "") || (donor ? "cherry" : "") || ownName || (ownGlam() ? "glam" : "");
   // Неон — свои классы, не из THEMES; под выданной темой не включаем.
   document.body.classList.toggle("neon", !worn && own === "neon");
   document.body.classList.toggle("neon-day", !worn && own === "neon-day");
@@ -1995,6 +1997,18 @@ function applyTheme(granted = grantedTheme) {
 /* ---------- Хеллоуин ---------- */
 
 /** 31 октября; «?halloween» в адресе — посмотреть заранее. */
+function donorSplashMark() {
+  const mark = el("div", "splash-donor");
+  mark.append(el("span", "splash-donor-drop", "🩸"), el("span", "splash-donor-text", t("День донора МГУ")));
+  return mark;
+}
+
+/** День донора МГУ: студентам МГУ — красная тема и капля на заставке, до 17 ноября. */
+function isDonorDays() {
+  const today = isoDate(new Date());
+  return today >= "2026-11-08" && today <= "2026-11-17" && String(tenantId()).startsWith("msu");
+}
+
 function isHalloween() {
   const now = new Date();
   return (now.getMonth() === 9 && now.getDate() === 31) || /[?&]halloween\b/.test(location.search);
@@ -13408,6 +13422,7 @@ function renderHello() {
   };
   // На заставке — только приветствие и дата, без пожелания.
   box.replaceChildren(words(title, "splash-hello-title"));
+  if (isDonorDays() && !splash.querySelector(".splash-donor")) splash.insertBefore(donorSplashMark(), box);
   // Место под «Сегодня N пар» — сразу: когда текст придёт, ничего не сдвинется.
   if (window.matchMedia?.("(min-width: 900px)").matches) box.append(el("div", "splash-hello-wish splash-today", "\u00a0"));
   try {
