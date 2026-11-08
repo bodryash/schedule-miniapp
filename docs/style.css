@@ -15968,3 +15968,13 @@ body.donor-days.tint-cherry {
   font-size: 22px;
   color: #c41e3a;
 }
+
+/* Капля на плитке дня донора — целиком внутри плитки, без «огонька». */
+.day--donor::after {
+  top: 4px !important;
+  right: 4px !important;
+  font-size: 10px !important;
+  filter: none !important;
+  animation: none !important;
+  transform: none !important;
+}
