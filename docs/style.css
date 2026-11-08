@@ -5222,6 +5222,8 @@ body {
   font-size: 13px;
   font-weight: 650;
   cursor: pointer;
+  /* Появляется следом за подписью — так же плавно, как вся карточка. */
+  animation: free-rise 460ms var(--ease-soft) 580ms both;
 }
 
 .free-day-add-plus {
@@ -5272,7 +5274,8 @@ body {
   .free-day-emoji,
   .free-day-halo,
   .free-day-title,
-  .free-day-line {
+  .free-day-line,
+  .free-day-add {
     animation: none;
   }
 
