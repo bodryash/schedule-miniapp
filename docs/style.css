@@ -3062,7 +3062,6 @@ body {
    проступают сквозь прозрачность целиком и накладываются друг на друга. */
 .date:has(> .date-new) {
   background: none !important;
-  -webkit-text-fill-color: transparent !important;
 }
 
 /* ===== Плитки дат ===== */
