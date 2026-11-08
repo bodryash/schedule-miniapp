@@ -555,19 +555,6 @@
     "short": "ИМТУР"
   },
   {
-    "id": "msu-hist",
-    "university": "МГУ",
-    "faculty": "Исторический факультет",
-    "path": "msu-hist",
-    "features": [],
-    "short": "Истфак",
-    "source": {
-      "kind": "hist",
-      "base": "http://ccs2.hist.msu.ru",
-      "faculty": "all"
-    }
-  },
-  {
     "id": "mgimo-up-dip",
     "university": "МГИМО",
     "faculty": "Факультет управления и политики (Дип)",
@@ -642,6 +629,19 @@
       "kind": "ruz",
       "base": "https://ruz.mgimo.ru",
       "faculty": 32
+    }
+  },
+  {
+    "id": "msu-hist",
+    "university": "МГУ",
+    "faculty": "Исторический факультет",
+    "path": "msu-hist",
+    "features": [],
+    "short": "Истфак",
+    "source": {
+      "kind": "hist",
+      "base": "http://ccs2.hist.msu.ru",
+      "faculty": "all"
     }
   },
   {
