@@ -11457,8 +11457,9 @@ body[data-daypart="evening"] .sky-glow {
 
 /* Капля стоит в долях панели: панель сжимается — капля вместе с ней. */
 .tabs .tabs-drop {
-  top: var(--pad);
-  bottom: var(--pad);
+  /* На пиксель выше середины: тень панели снизу визуально опускала каплю. */
+  top: calc(var(--pad) - 1px);
+  bottom: calc(var(--pad) + 1px);
   left: calc(var(--pad) + (100% - 2 * var(--pad)) * var(--i, 0) / var(--n, 4));
   width: calc((100% - 2 * var(--pad)) / var(--n, 4));
   transform: none;
