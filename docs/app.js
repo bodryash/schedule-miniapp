@@ -10808,6 +10808,8 @@ function renderLessons(group, parity) {
   const from = enterFrom * 28;
   enterFrom = 0;
   els.lessons.classList.remove("no-cascade");
+  // Листали — пары проявляются из размытия, как дата в шапке.
+  els.lessons.classList.toggle("is-swap", from !== 0);
   nodes.forEach((node, i) => {
     node.style.setProperty("--i", i);
     // Глубина: чем ниже карточка, тем дальше она «стоит» и тем длиннее путь.

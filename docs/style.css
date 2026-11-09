@@ -15978,3 +15978,29 @@ body.donor-days.tint-cherry {
   animation: none !important;
   transform: none !important;
 }
+
+
+/* Смена дня листанием: пары проявляются из лёгкого размытия, как дата в
+   шапке. Только при листании — обычная перерисовка дня идёт без него.
+   Размытие короткое и небольшое, чтобы не тормозить на слабых телефонах. */
+#lessons.is-swap > * {
+  animation-name: day-in-blur;
+  animation-duration: 340ms;
+}
+
+@keyframes day-in-blur {
+  from {
+    opacity: 0;
+    filter: blur(5px);
+    transform: translate3d(var(--from-x, 0px), 6px, 0) scale(0.985);
+  }
+  to {
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #lessons.is-swap > * {
+    animation: none;
+  }
+}
