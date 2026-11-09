@@ -68,7 +68,7 @@ const STORAGE_KEY = "schedule.prefs";
 
 // Шрифт цифр — дело вкуса и к расписанию не относится: хранится отдельно
 // от настроек группы и не сбрасывается при смене факультета.
-const DIGITS = { tall: "Вытянутый", pixel: "Пиксельный", plain: "Обычный" };
+const DIGITS = { plain: "Обычный", tall: "Вытянутый", pixel: "Пиксельный" };
 // Два независимых выбора: цифры (числа дней, время пар) и шапка (день и дата).
 const FONT_PICKS = [
   { attr: "digits", key: "schedule.digits", title: "Шрифт цифр", sample: () => "09:00" },
@@ -77,9 +77,9 @@ const FONT_PICKS = [
 function fontStyle(pick) {
   try {
     const saved = localStorage.getItem(pick.key);
-    return DIGITS[saved] ? saved : "tall";
+    return DIGITS[saved] ? saved : "plain";
   } catch {
-    return "tall";
+    return "plain";
   }
 }
 for (const pick of FONT_PICKS) document.body.dataset[pick.attr] = fontStyle(pick);
