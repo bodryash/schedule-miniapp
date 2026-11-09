@@ -11457,9 +11457,8 @@ body[data-daypart="evening"] .sky-glow {
 
 /* Капля стоит в долях панели: панель сжимается — капля вместе с ней. */
 .tabs .tabs-drop {
-  /* На пиксель выше середины: тень панели снизу визуально опускала каплю. */
-  top: calc(var(--pad) - 1px);
-  bottom: calc(var(--pad) + 1px);
+  top: var(--pad);
+  bottom: var(--pad);
   left: calc(var(--pad) + (100% - 2 * var(--pad)) * var(--i, 0) / var(--n, 4));
   width: calc((100% - 2 * var(--pad)) / var(--n, 4));
   transform: none;
@@ -13713,7 +13712,8 @@ body.fm-open .fx-canvas {
 
 :where(html[data-fx="css"], html[data-fx="gl"]) .tabs-drop {
   background-image: linear-gradient(180deg, var(--fx-hi), transparent 60%);
-  box-shadow: inset 0 1px 0 var(--fx-rim), 0 4px 10px -6px color-mix(in srgb, var(--accent) 60%, transparent);
+  /* Тень ровно вокруг, а не вниз: иначе капля казалась опущенной в панели. */
+  box-shadow: 0 0 8px -4px color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
 /* Чипы и выбранные чипы. */
