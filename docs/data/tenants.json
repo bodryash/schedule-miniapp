@@ -656,5 +656,14 @@
       "base": "https://cacs.law.msu.ru",
       "faculty": "8,23"
     }
+  },
+  {
+    "id": "oomk-ld",
+    "university": "ООМК (Оренбургский медколледж)",
+    "faculty": "Лечебное дело",
+    "path": "oomk-ld",
+    "features": [],
+    "tz": 5,
+    "short": "ООМК"
   }
 ]
