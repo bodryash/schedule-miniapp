@@ -425,19 +425,6 @@
     }
   },
   {
-    "id": "mgimo-mo-en",
-    "university": "МГИМО",
-    "faculty": "Факультет международных отношений (на английском языке)",
-    "path": "mgimo-mo-en",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 41
-    },
-    "short": "МО (англ)"
-  },
-  {
     "id": "mgimo-miep",
     "university": "МГИМО",
     "faculty": "Международный институт энергетической политики и дипломатии",
@@ -449,19 +436,6 @@
       "faculty": 31
     },
     "short": "МИЭП"
-  },
-  {
-    "id": "mgimo-imar",
-    "university": "МГИМО",
-    "faculty": "Институт мировых аграрных рынков",
-    "path": "mgimo-imar",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 52
-    },
-    "short": "ИМАР"
   },
   {
     "id": "mgimo-mo",
@@ -488,19 +462,6 @@
       "faculty": 29
     },
     "short": "МБ"
-  },
-  {
-    "id": "mgimo-mp",
-    "university": "МГИМО",
-    "faculty": "Международно-правовой факультет",
-    "path": "mgimo-mp",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 27
-    },
-    "short": "МП"
   },
   {
     "id": "msu-philos",
@@ -594,19 +555,6 @@
     "short": "ЕУИ"
   },
   {
-    "id": "msu-vshga",
-    "university": "МГУ",
-    "faculty": "Высшая школа государственного аудита",
-    "path": "msu-vshga",
-    "features": [],
-    "source": {
-      "kind": "tt",
-      "base": "https://tt.audit.msu.ru",
-      "faculty": "3"
-    },
-    "short": "ВШГА"
-  },
-  {
     "id": "mgimo-mj",
     "university": "МГИМО",
     "faculty": "Факультет международной журналистики",
@@ -643,6 +591,58 @@
       "base": "http://ccs2.hist.msu.ru",
       "faculty": "all"
     }
+  },
+  {
+    "id": "mgimo-mo-en",
+    "university": "МГИМО",
+    "faculty": "Факультет международных отношений (на английском языке)",
+    "path": "mgimo-mo-en",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 41
+    },
+    "short": "МО (англ)"
+  },
+  {
+    "id": "mgimo-imar",
+    "university": "МГИМО",
+    "faculty": "Институт мировых аграрных рынков",
+    "path": "mgimo-imar",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 52
+    },
+    "short": "ИМАР"
+  },
+  {
+    "id": "mgimo-mp",
+    "university": "МГИМО",
+    "faculty": "Международно-правовой факультет",
+    "path": "mgimo-mp",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 27
+    },
+    "short": "МП"
+  },
+  {
+    "id": "msu-vshga",
+    "university": "МГУ",
+    "faculty": "Высшая школа государственного аудита",
+    "path": "msu-vshga",
+    "features": [],
+    "source": {
+      "kind": "tt",
+      "base": "https://tt.audit.msu.ru",
+      "faculty": "3"
+    },
+    "short": "ВШГА"
   },
   {
     "id": "msu-law",
