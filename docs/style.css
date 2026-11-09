@@ -16137,3 +16137,318 @@ body[data-digits="plain"] .day-num {
 .card .teacher {
   letter-spacing: -0.01em;
 }
+
+
+/* ===================================================================
+   Редакция «Чернила». Журнальная вёрстка вместо карточек: огромная
+   типографика, строки на тонких линиях, один чёрный цвет и акцент.
+   Текущая пара — залитый блок; нижняя панель — чёрная пилюля.
+   Темы со своим видом (МГУ, devil, nokia…) из неё исключены.
+   =================================================================== */
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) {
+  --ink: var(--text);
+  --paper: var(--bg);
+  --hair: color-mix(in srgb, var(--text) 13%, transparent);
+  --soft: color-mix(in srgb, var(--text) 52%, transparent);
+}
+
+/* --- Шапка --- */
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .group-name {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .week {
+  padding: 2px 8px;
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  background: none;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_)[data-head="plain"] .bar--schedule .date {
+  margin-top: 6px;
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1.02;
+  height: auto;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) #menu.icon {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--hair);
+}
+
+/* --- Полоса дней: цифры без плиток, выбранный — чернильный блок --- */
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(#days, .slide-ghost) > .day {
+  background: none;
+  box-shadow: none;
+  border-radius: 14px;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(#days, .slide-ghost) > .day .day-name,
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(#days, .slide-ghost) > .day:not(.active) .day-name {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--soft) !important;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_)[data-digits="plain"] .day-num {
+  font-size: 23px;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(#days, .slide-ghost) > .days-drop {
+  border-radius: 14px;
+  background: var(--ink);
+  box-shadow: none;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(#days, .slide-ghost) > .day.active,
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(#days, .slide-ghost) > .day.active .day-num,
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(#days, .slide-ghost) > .day.active .day-name {
+  color: var(--paper) !important;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(#days, .slide-ghost) > .day.day--today:not(.active) {
+  background: none;
+  box-shadow: none;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(#days, .slide-ghost) > .day.day--today:not(.active) .day-num {
+  color: var(--accent);
+}
+
+/* --- Пары: строки расписания, а не карточки --- */
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(#lessons, .slide-ghost) > .card {
+  margin: 0;
+  padding: 20px 2px 22px;
+  border-radius: 0;
+  border-top: 1px solid var(--hair);
+  background: none;
+  box-shadow: none;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(#lessons, .slide-ghost) > .card:first-child {
+  border-top: 2px solid var(--ink);
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_)[data-digits="plain"] .card-start {
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_)[data-digits="plain"] .card-end {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--soft);
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .card-line {
+  width: 2px;
+  background: var(--hair);
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .card .slot {
+  padding: 0;
+  background: none;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .card .subject {
+  margin-top: 6px;
+  font-size: 21px;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  line-height: 1.14;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .card .meta {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--soft);
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .card .room-badge {
+  right: 2px;
+  bottom: 20px;
+  padding: 5px 12px;
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  background: none;
+  color: var(--ink);
+  box-shadow: none;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .card .room-badge-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .abs-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--hair);
+}
+
+/* Идущая пара — чернильный блок: её видно с порога. */
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(#lessons, .slide-ghost) > .card.card--now {
+  margin: 10px -6px;
+  padding: 22px 16px 24px;
+  border: 0;
+  border-radius: 28px;
+  background: var(--ink);
+  color: var(--paper);
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(#lessons, .slide-ghost) > .card.card--now + .card,
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(#lessons, .slide-ghost) > .card.card--now + .gap + .card {
+  border-top-color: transparent;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .card--now :is(.card-start, .subject) {
+  color: var(--paper);
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .card--now :is(.card-end, .meta, .slot, .abs-toggle, .now-label, .now-left) {
+  color: color-mix(in srgb, var(--paper) 62%, transparent);
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .card--now .card-line {
+  background: color-mix(in srgb, var(--paper) 22%, transparent);
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .card--now .room-badge {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+/* Перемены и обед — подпись в разрыве строки. */
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .gap {
+  margin: 0;
+  padding: 10px 0;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .gap-text {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .gap-line {
+  background: var(--hair);
+  height: 1px;
+}
+
+/* Только телефон: на компьютере меню — боковая колонка со своим видом. */
+@media not all and (min-width: 1100px) and (hover: hover) and (pointer: fine) {
+/* --- Нижняя панель: чернильная пилюля --- */
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .tabs {
+  border: 0;
+  background: var(--ink);
+  background-image: none;
+  box-shadow: 0 14px 34px -10px color-mix(in srgb, var(--ink) 55%, transparent);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .tabs .tab {
+  color: color-mix(in srgb, var(--paper) 55%, transparent);
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .tabs .tab.tab--on {
+  color: var(--paper);
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .tabs .tabs-drop {
+  background: color-mix(in srgb, var(--paper) 17%, transparent);
+  background-image: none;
+  box-shadow: none;
+}
+
+}
+
+/* --- Кнопки: чёрные пилюли --- */
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(.primary, .dl-add) {
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: none;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* --- Календарь --- */
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) #week-switch .day {
+  border-radius: 999px;
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--hair);
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) #week-switch .day.active {
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: none;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) #week-switch .day.active * {
+  color: var(--paper) !important;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .wgrid-cell {
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+/* --- Дедлайны: строки --- */
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .dl-item {
+  padding: 18px 2px;
+  border-radius: 0;
+  border-top: 1px solid var(--hair);
+  background: none;
+  box-shadow: none;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .dl-item:first-child {
+  border-top: 2px solid var(--ink);
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .dl-item .dl-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .dl-check {
+  border-color: var(--ink);
+}
+
+/* --- Заставка --- */
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .splash-hello-title {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_)[data-head="plain"] .splash-day {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--soft);
+}
+
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .card:not(.card--now) .room-badge {
+  background: none !important;
+  color: var(--ink) !important;
+}
+@media not all and (min-width: 1100px) and (hover: hover) and (pointer: fine) {
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .tabs .tab.tab--on,
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .tabs .tab.tab--on * {
+  color: var(--paper) !important;
+}
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(#days, .slide-ghost) > .days-drop,
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) :is(#days, .slide-ghost) > .days-drop * {
+  color: var(--paper) !important;
+}
+body:not(:is(.nokia,.trump,.putin,.volunteer,.magnate,.devil,.msu,.neon,.neon-day,.cska,.glam,.glam-noir,.champion,.halloween,.birthday)):not(#_) .card--now .abs-toggle {
+  text-decoration-color: color-mix(in srgb, var(--paper) 30%, transparent);
+}
