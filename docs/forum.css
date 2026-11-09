@@ -2853,3 +2853,219 @@ body.fm-open .minihead {
   }
 }
 
+
+
+/* ===================================================================
+   Подслушка как соцсеть: лента начинается сразу под шапкой.
+   Вкладки — текстом с подчёркиванием, задание дня — одной строкой,
+   своё звание — чипом в шапке (подробности — в окне по нажатию).
+   =================================================================== */
+.fm-nav-title {
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.fm-me-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 11px 0 9px;
+  border: 0;
+  border-radius: 16px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: var(--fm-soft);
+  cursor: pointer;
+  transition: transform 160ms var(--fm-ease);
+}
+.fm-me-chip:active {
+  transform: scale(0.94);
+}
+.fm-me-chip[hidden] {
+  display: none;
+}
+.fm-me-ico {
+  font-size: 15px;
+}
+
+/* Вкладки: текст и черта под выбранной, как в лентах соцсетей. */
+.fm-segwrap {
+  padding: 0 16px;
+  border-bottom: 1px solid var(--fm-line);
+}
+.fm-seg {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+}
+.fm-seg button {
+  height: 44px;
+  border-radius: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+.fm-seg-thumb {
+  top: auto;
+  bottom: -1px;
+  left: 0;
+  width: calc(100% / var(--n, 2));
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+  box-shadow: none;
+}
+
+/* Задание дня — одна строка. */
+.fm-chal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 16px 2px;
+  padding: 11px 12px 11px 14px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--fm-soft);
+}
+.fm-chal[hidden] {
+  display: none;
+}
+.fm-chal-copy {
+  flex: 1;
+  min-width: 0;
+}
+.fm-chal-kicker {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #ff7a2f;
+}
+.fm-chal-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+.fm-chal-go {
+  flex: none;
+  padding: 8px 14px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  box-shadow: none;
+}
+
+/* Окно «моё звание». */
+.fm-me {
+  text-align: center;
+}
+.fm-me-big {
+  font-size: 54px;
+  line-height: 1.1;
+}
+.fm-me .fm-lvl-bar {
+  display: block;
+  margin: 14px 0 6px;
+}
+.fm-me-ranks {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+.fm-me-ranks li {
+  display: flex;
+  justify-content: space-between;
+  padding: 11px 2px;
+  border-top: 1px solid var(--fm-line);
+  font-size: 15px;
+}
+.fm-me-ranks li b {
+  font-weight: 500;
+  color: var(--muted);
+}
+.fm-me-ranks li.is-me,
+.fm-me-ranks li.is-me b {
+  font-weight: 700;
+  color: var(--accent);
+}
+.fm-me-note {
+  margin: 12px 0 16px;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+  color: var(--muted);
+}
+
+/* Посты: действия без плашек, воздух между ними. */
+.fm-row {
+  padding: 12px 16px 4px;
+}
+.fm-row .fm-text {
+  font-size: 15.5px;
+  line-height: 1.4;
+}
+.fm-acts {
+  gap: 14px;
+}
+.fm-vote {
+  margin-left: 2px;
+  background: none;
+}
+.fm-vote.is-up,
+.fm-vote.is-down {
+  background: none;
+}
+
+/* Кнопка «Написать»: обычная тень вместо фильтра — фильтр дороже при прокрутке. */
+.fm-fab {
+  filter: none;
+  box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+/* Ответ на ответ: сдвинут вправо, слева — линия ветки. */
+.fm-reply.is-child {
+  margin-left: 42px;
+  padding-left: 14px;
+}
+.fm-reply.is-child::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--fm-line);
+}
+.fm-reply.is-child::after {
+  left: 52px;
+}
+.fm-reply.is-child .fm-quote {
+  width: auto;
+  margin: 1px 0 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 12.5px;
+}
+.fm-reply.is-child .fm-quote > span:not(.fm-i) {
+  display: none;
+}
+.fm-reply.is-child .fm-quote b {
+  font-weight: 600;
+  color: var(--accent);
+}
