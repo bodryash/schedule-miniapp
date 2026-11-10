@@ -3069,3 +3069,34 @@ body.fm-open .minihead {
   font-weight: 600;
   color: var(--accent);
 }
+
+/* Задание дня: текст целиком и своя заметная плашка — не сливается с лентой. */
+.fm-chal {
+  align-items: flex-end;
+  padding: 13px 12px 12px 15px;
+  background:
+    radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, #ff8a3d 26%, transparent), transparent 65%),
+    color-mix(in srgb, #ff8a3d 10%, var(--bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #ff8a3d 32%, transparent);
+}
+.fm-chal-kicker {
+  font-size: 11.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #f0641e;
+}
+.fm-chal-text {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: none;
+  overflow: visible;
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text);
+}
+.fm-chal-go {
+  color: #fff;
+  background: linear-gradient(135deg, #ff9a4d, #ff5a3d);
+}
