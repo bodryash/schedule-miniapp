@@ -3323,7 +3323,7 @@ async function sayCommand(env, text) {
   await env.STATS.prepare("INSERT INTO owner_dialogs (tg_id, until) VALUES (?, ?) ON CONFLICT(tg_id) DO UPDATE SET until = excluded.until")
     .bind(Number(id), Date.now() + 7 * 864e5)
     .run();
-  return "✅ Отправлено. Его ответы неделю будут приходить сюда.";
+  return "✅ Отправлено. Его ответ придёт сюда.";
 }
 
 /** Файл от студента или владельца — на GitHub, в ветку inbox: оттуда его разбираем без доступа к серверу. */
@@ -5327,21 +5327,23 @@ ${invite}`,
         await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: reply, parse_mode: "HTML" });
       }
     }
-    // Студент, которому писал владелец, отвечает — передаём владельцу.
+    // Всё, что люди пишут боту в личку (кроме команд), — владельцу, с id:
+    // на любое такое сообщение можно ответить reply. Файлы-документы сюда не
+    // входят: их бот уже пересылает сам вместе с «📥 Расписание…».
     if (
       message &&
       message.chat.type === "private" &&
       !isOwner(env, message.chat.id) &&
       message.from?.id &&
-      (message.text ? !message.text.startsWith("/") : message.photo || message.document)
+      !message.document &&
+      (message.text ? !message.text.startsWith("/") && !/^\s*я\s+староста[\s.!)]*$/i.test(message.text) : message.photo || message.voice || message.sticker || message.video)
     ) {
-      const open = await env.STATS.prepare("SELECT until FROM owner_dialogs WHERE tg_id = ?").bind(message.from.id).first().catch(() => null);
-      if (open && open.until > Date.now()) {
+      {
         const who = `${clickerName(message.from)}${message.from.username ? ` @${message.from.username}` : ""}`;
         await callTelegram(env.BOT_TOKEN, "sendMessage", {
           chat_id: env.OWNER_ID,
           parse_mode: "HTML",
-          text: `💬 Ответ от ${escape(who)} · id ${message.from.id}\n\n${escape(message.text || message.caption || "(файл ниже)")}\n\n<i>Ответьте на это сообщение (reply) — уйдёт ему.</i>`,
+          text: `💬 ${escape(who)} · id ${message.from.id}\n\n${escape(message.text || message.caption || "(файл ниже)")}\n\n<i>Ответьте на это сообщение (reply) — уйдёт ему.</i>`,
         }).catch(() => {});
         if (!message.text) {
           await callTelegram(env.BOT_TOKEN, "forwardMessage", { chat_id: env.OWNER_ID, from_chat_id: message.chat.id, message_id: message.message_id }).catch(() => {});
