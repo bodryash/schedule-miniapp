@@ -16004,3 +16004,9 @@ body.donor-days.tint-cherry {
     animation: none;
   }
 }
+
+/* Плашку Дня донора смахивают вбок: вертикальную прокрутку браузер ведёт сам. */
+.donor-banner {
+  touch-action: pan-y;
+  will-change: transform;
+}

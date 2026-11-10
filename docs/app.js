@@ -14496,6 +14496,11 @@ function renderDonorBanner() {
       setTimeout(() => node.remove(), 320);
     });
     node.append(open, close);
+    swipeAway(node, () => {
+      try {
+        localStorage.setItem(DONOR_KEY, "1");
+      } catch {}
+    });
     (document.getElementById("pot-banner") || document.querySelector(".flag-ribbon") || els.freedom).after(node);
   }
   const open = node.querySelector(".donor-open");
@@ -14503,6 +14508,89 @@ function renderDonorBanner() {
   const body = el("span", "donor-body");
   body.append(el("b", "", t("День донора МГУ")), el("span", "", donorWhen()));
   open.replaceChildren(drop, body, el("span", "donor-cta", t("Подробнее")));
+}
+
+/**
+ * Плашку можно смахнуть вбок, как уведомление: тянется за пальцем и,
+ * если протянули дальше трети ширины или резко, улетает и закрывается.
+ * Жест не доходит до листания дней под ней.
+ */
+function swipeAway(node, onGone) {
+  let id = null;
+  let x0 = 0;
+  let y0 = 0;
+  let dx = 0;
+  let t0 = 0;
+  let locked = null;
+  let moved = false;
+  const reset = () => {
+    node.style.transition = "transform 280ms cubic-bezier(0.2, 0.9, 0.3, 1), opacity 280ms";
+    node.style.transform = "";
+    node.style.opacity = "";
+  };
+  node.addEventListener("pointerdown", (event) => {
+    event.stopPropagation();
+    id = event.pointerId;
+    x0 = event.clientX;
+    y0 = event.clientY;
+    dx = 0;
+    t0 = performance.now();
+    locked = null;
+    moved = false;
+  });
+  node.addEventListener("pointermove", (event) => {
+    if (event.pointerId !== id) return;
+    event.stopPropagation();
+    const mx = event.clientX - x0;
+    const my = event.clientY - y0;
+    if (!locked && Math.hypot(mx, my) > 8) locked = Math.abs(mx) > Math.abs(my) ? "x" : "y";
+    if (locked !== "x") return;
+    if (!moved) node.setPointerCapture?.(id);
+    moved = true;
+    dx = mx;
+    node.style.transition = "none";
+    node.style.transform = `translate3d(${dx}px, 0, 0) rotate(${dx / 60}deg)`;
+    node.style.opacity = String(Math.max(0.2, 1 - Math.abs(dx) / node.offsetWidth));
+  });
+  const end = (event) => {
+    if (event.pointerId !== id) return;
+    event.stopPropagation();
+    id = null;
+    if (!moved) return;
+    const fast = Math.abs(dx) / Math.max(1, performance.now() - t0) > 0.6;
+    if (Math.abs(dx) > node.offsetWidth / 3 || (fast && Math.abs(dx) > 40)) {
+      haptic("light");
+      onGone();
+      const dir = Math.sign(dx) || 1;
+      node.style.transition = "transform 260ms cubic-bezier(0.4, 0, 1, 1), opacity 260ms";
+      node.style.transform = `translate3d(${dir * (node.offsetWidth + 40)}px, 0, 0) rotate(${dir * 8}deg)`;
+      node.style.opacity = "0";
+      setTimeout(() => {
+        // Место под плашкой схлопывается плавно, а не рывком.
+        node.style.transition = "height 240ms ease, margin 240ms ease";
+        node.style.height = `${node.offsetHeight}px`;
+        node.style.overflow = "hidden";
+        requestAnimationFrame(() => {
+          node.style.height = "0px";
+          node.style.marginTop = "0px";
+          node.style.marginBottom = "0px";
+        });
+        setTimeout(() => node.remove(), 260);
+      }, 240);
+    } else {
+      reset();
+    }
+  };
+  node.addEventListener("pointerup", end);
+  node.addEventListener("pointercancel", end);
+  // Смахнули — это не нажатие: «Подробнее» не открываем.
+  node.addEventListener("click", (event) => {
+    if (moved) {
+      event.stopPropagation();
+      event.preventDefault();
+      moved = false;
+    }
+  }, true);
 }
 
 let donorSheet = null;
