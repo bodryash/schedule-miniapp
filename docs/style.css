@@ -16010,3 +16010,41 @@ body.donor-days.tint-cherry {
   touch-action: pan-y;
   will-change: transform;
 }
+
+
+/* Окно «Аудитория» для владельца и старосты. */
+.room-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.room-sheet h2 {
+  margin: 0;
+}
+.room-sheet .hint {
+  margin: 0 0 4px;
+}
+.room-input {
+  height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 600;
+}
+.room-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.room-sheet .secondary {
+  min-height: 46px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: inherit;
+  font-weight: 650;
+}

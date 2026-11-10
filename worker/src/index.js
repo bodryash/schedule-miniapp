@@ -1675,6 +1675,80 @@ async function appCancel(env, body) {
   return { ok: true };
 }
 
+/* ---------- Аудитории из приложения ----------
+ * Владелец или староста меняет аудиторию пары прямо в приложении:
+ * «только в этот день» — обычная замена (/change), «каждую неделю» —
+ * постоянная правка поверх расписания из файла (таблица room_overrides).
+ */
+async function ensureRoomTable(env) {
+  await env.STATS.prepare(
+    `CREATE TABLE IF NOT EXISTS room_overrides (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       grp TEXT NOT NULL, weekday INTEGER NOT NULL, slot INTEGER NOT NULL,
+       subject TEXT NOT NULL DEFAULT '', subgroup INTEGER NOT NULL DEFAULT 0,
+       room TEXT NOT NULL, created TEXT NOT NULL, removed INTEGER NOT NULL DEFAULT 0)`
+  ).run();
+}
+
+async function roomOverrides(env, groupId) {
+  if (!env.STATS || !groupId) return [];
+  await ensureRoomTable(env);
+  const { results = [] } = await env.STATS.prepare(
+    "SELECT id, weekday, slot, subject, subgroup, room FROM room_overrides WHERE grp = ? AND removed = 0 ORDER BY id"
+  )
+    .bind(groupId)
+    .all();
+  return results;
+}
+
+async function appRoom(env, body) {
+  const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+  if (!user) return { ok: false, error: "forbidden" };
+  const owner = isOwner(env, user.id);
+  const group = String(body.group || "");
+  if (!group || (!owner && !(await canEditHomework(env, body.initData || "", group)))) return { ok: false, error: "forbidden" };
+  const subject = String(body.subject || "").slice(0, 200);
+  const subgroup = Number(body.subgroup) || 0;
+  const slots = (body.slots || []).map(Number).filter((n) => n >= 1 && n <= 7);
+  const room = String(body.room || "").trim().slice(0, 40);
+  const day = String(body.day || "");
+  if (!slots.length || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return { ok: false, error: "bad lesson" };
+  const weekday = ((new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7) + 1;
+  await ensureRoomTable(env);
+  const stamp = new Date().toISOString();
+  // «Как в расписании»: снимаем и постоянную правку, и замены этого дня.
+  if (body.scope === "reset") {
+    await env.STATS.batch([
+      ...slots.map((slot) =>
+        env.STATS.prepare("UPDATE room_overrides SET removed = 1 WHERE grp = ? AND weekday = ? AND slot = ? AND subject = ? AND removed = 0").bind(group, weekday, slot, subject)
+      ),
+      env.STATS.prepare("UPDATE changes SET removed = 1 WHERE grp = ? AND day = ? AND slots = ? AND teacher = '' AND start = '' AND removed = 0").bind(group, day, slots.join(",")),
+    ]);
+    return { ok: true };
+  }
+  if (!room) return { ok: false, error: "no room" };
+  if (body.scope === "always") {
+    await env.STATS.batch(
+      slots.flatMap((slot) => [
+        env.STATS.prepare("UPDATE room_overrides SET removed = 1 WHERE grp = ? AND weekday = ? AND slot = ? AND subject = ? AND removed = 0").bind(group, weekday, slot, subject),
+        env.STATS.prepare("INSERT INTO room_overrides (grp, weekday, slot, subject, subgroup, room, created) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(group, weekday, slot, subject, subgroup, room, stamp),
+      ])
+    );
+  } else {
+    if (!owner && (day < iso(today()) || day > iso(addDays(today(), 30)))) return { ok: false, error: "bad day" };
+    await env.STATS.prepare(
+      `INSERT INTO changes (grp, day, slots, from_teacher, teacher, room, start, reason, created)
+       VALUES (?, ?, ?, '', '', ?, '', ?, ?)`
+    )
+      .bind(group, day, slots.join(","), room, "Другая аудитория", stamp)
+      .run();
+  }
+  if (!owner) {
+    await tellOwnerAbout(env, user, `🚪 аудитория ${room} · ${groupTitle(group)} · ${subject || slotsLabel(slots)} · ${body.scope === "always" ? "каждую неделю" : dateLabel(new Date(`${day}T00:00:00Z`))}`);
+  }
+  return { ok: true };
+}
+
 /** Владельцу — кто из старост что сделал: видно, если права используют не по делу. */
 async function tellOwnerAbout(env, user, what) {
   const who = user.username ? `@${user.username}` : [user.first_name, user.last_name].filter(Boolean).join(" ") || `id ${user.id}`;
@@ -4049,7 +4123,7 @@ export default {
           },
         });
       }
-      const [notices, cancels, changes, homework, canEdit, commenter, deadlines, polls] = await Promise.all([
+      const [notices, cancels, changes, homework, canEdit, commenter, deadlines, polls, rooms] = await Promise.all([
         activeNotices(env, group, user?.id).catch(() => []),
         activeCancels(env, group).catch(() => []),
         activeChanges(env, group).catch(() => []),
@@ -4058,13 +4132,14 @@ export default {
         user ? canComment(env, user, group.id).catch(() => false) : false,
         groupDeadlines(env, group.id).catch(() => []),
         groupPolls(env, group.id, user?.id).catch(() => []),
+        roomOverrides(env, group.id).catch(() => []),
       ]);
       // Счётчики комментариев — только своей группе: чужим они ни к чему.
       const comments = commenter ? await commentCounts(env, group.id, range).catch(() => []) : [];
       const theme = await themeFor(env, user?.id, group).catch(() => "");
       const important = await importantList(env).catch(() => []);
       const hello = await helloFor(env, user?.id, group).catch(() => "");
-      const payload = { notices, cancels, changes, theme, hello, important, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments, deadlines, polls };
+      const payload = { notices, cancels, changes, theme, hello, important, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments, deadlines, polls, rooms };
       return new Response(JSON.stringify(payload), {
         headers: {
           "content-type": "application/json; charset=utf-8",
@@ -4253,6 +4328,24 @@ export default {
       let result;
       try {
         result = await appCancel(env, JSON.parse(await request.text()));
+      } catch {
+        result = { ok: false, error: "bad request" };
+      }
+      return new Response(JSON.stringify(result), {
+        status: result.ok ? 200 : 400,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "no-store",
+        },
+      });
+    }
+
+    // Аудитория пары из приложения: на один день или каждую неделю.
+    if (url.pathname === "/room" && request.method === "POST") {
+      let result;
+      try {
+        result = await appRoom(env, JSON.parse(await request.text()));
       } catch {
         result = { ok: false, error: "bad request" };
       }

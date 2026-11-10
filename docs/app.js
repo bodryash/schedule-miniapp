@@ -434,6 +434,7 @@ async function loadNotices(group) {
     notices.list = body.notices || [];
     notices.cancels = body.cancels || [];
     notices.changes = body.changes || [];
+    notices.rooms = body.rooms || [];
     notices.owner = Boolean(body.owner);
     applyTheme(body.theme || "");
     notices.important = body.important || [];
@@ -496,6 +497,16 @@ function renderNotices(animate) {
  */
 function withChange(lesson, date = dateOfDay(selectedDay)) {
   const day = isoDate(date);
+  // Аудитория поверх файла: разово по примечанию расписания («11.11 разово в
+  // ауд. 440») и постоянная правка, сделанная в приложении.
+  const fixed = (notices.rooms || []).find(
+    (r) => r.weekday === lesson.day && r.slot === lesson.slot && (!r.subject || r.subject === lesson.subject) && (!r.subgroup || r.subgroup === lesson.subgroup)
+  );
+  const once = lesson.roomOn?.[day];
+  if (fixed || once) {
+    lesson = { ...lesson, room: once || fixed.room };
+    if (once) lesson.note = [lesson.note, t("Разово в ауд. {r}", { r: once })].filter(Boolean).join(" · ");
+  }
   const change = notices.changes.find(
     (c) =>
       c.day === day &&
@@ -530,9 +541,29 @@ function withChange(lesson, date = dateOfDay(selectedDay)) {
  * Отмены в показанный день, задевающие пару и предмет. Отмена по номеру
  * пары (без предмета) задевает всё; без номеров — весь день.
  */
+/**
+ * Отмены из самого файла расписания («02.11 разово отмена» в примечании):
+ * парсер кладёт их в lesson.cancelOn. Без id — вернуть их кнопкой нельзя,
+ * они часть расписания, как у всех.
+ */
+let fileCancelsCache = { key: null, list: [] };
+function allCancels() {
+  const group = typeof activeGroup === "function" ? activeGroup() : null;
+  const key = data && group ? `${group.id}` : "";
+  if (fileCancelsCache.key !== key || fileCancelsCache.data !== data) {
+    const list = [];
+    for (const l of data?.lessons || []) {
+      if (!group || l.group !== group.id || !l.cancelOn) continue;
+      for (const day of l.cancelOn) list.push({ day, slots: [l.slot], subject: l.subject, subgroup: l.subgroup || 0, reason: t("Отмена по расписанию") });
+    }
+    fileCancelsCache = { key, data, list };
+  }
+  return fileCancelsCache.list.length ? [...notices.cancels, ...fileCancelsCache.list] : notices.cancels;
+}
+
 function cancelsFor(slot, subject) {
   const day = isoDate(dateOfDay(selectedDay));
-  return notices.cancels.filter(
+  return allCancels().filter(
     (c) =>
       c.day === day &&
       (!c.slots.length || c.slots.includes(slot)) &&
@@ -543,7 +574,7 @@ function cancelsFor(slot, subject) {
 /** Отменено ли занятие в конкретный день — без опоры на выбранный день. */
 function lessonCancelOn(lesson, day) {
   return (
-    notices.cancels.find(
+    allCancels().find(
       (c) =>
         c.day === day &&
         (!c.slots.length || c.slots.includes(lesson.slot)) &&
@@ -4817,7 +4848,87 @@ function addOwnerButtons(card) {
     button.addEventListener("click", () => (own.length ? restoreLesson(own) : cancelLesson(card, [slot])));
     row.append(button);
   }
+  const roomBtn = el("button", "hw-edit", t("Аудитория"));
+  roomBtn.type = "button";
+  roomBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openRoomSheet(card, slots);
+  });
+  row.append(roomBtn);
   (card.querySelector(".card-body") || card).append(row);
+}
+
+/* ---------- Аудитория пары из приложения ---------- */
+
+const ROOM_URL = `${API_URL}/room`;
+let roomSheet = null;
+
+/** Окно «Аудитория»: новое значение и на когда — только этот день или каждую неделю. */
+function openRoomSheet(card, slots) {
+  const group = groupById(prefs.group);
+  if (!group) return;
+  haptic("light");
+  if (!roomSheet) {
+    roomSheet = el("div", "sheet-backdrop");
+    roomSheet.hidden = true;
+    roomSheet.addEventListener("click", (event) => {
+      if (event.target === roomSheet) roomSheet.hidden = true;
+    });
+    document.body.append(roomSheet);
+  }
+  const sheet = el("div", "sheet room-sheet");
+  sheet.setAttribute("role", "dialog");
+  const current = card.querySelector(".room-badge")?.textContent.replace(/^ауд\.?\s*/i, "").trim() || "";
+  const date = dateOfDay(selectedDay);
+  const subject = card.dataset.subject || "";
+  const input = el("input", "room-input");
+  input.type = "text";
+  input.value = current;
+  input.placeholder = t("Например, 509 или П6 1 ГУМ");
+  input.maxLength = 40;
+  input.autocomplete = "off";
+  const send = async (scope) => {
+    const room = input.value.trim();
+    if (scope !== "reset" && !room) return input.focus();
+    haptic("medium");
+    try {
+      const res = await fetch(ROOM_URL, {
+        method: "POST",
+        body: JSON.stringify({ initData: tg?.initData || "", group: group.id, subject, slots, day: isoDate(date), room, scope }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      tg?.showAlert ? tg.showAlert(t("Не получилось, попробуйте ещё раз")) : alert(t("Не получилось, попробуйте ещё раз"));
+      return;
+    }
+    roomSheet.hidden = true;
+    toast(scope === "reset" ? t("Аудитория — как в расписании") : t("Аудитория {r} сохранена", { r: room }));
+    notices.group = null;
+    await loadNotices(group);
+  };
+  const once = el("button", "primary", t("Только {d}", { d: date.toLocaleDateString(LANG === "ru" ? "ru-RU" : "en-GB", { day: "numeric", month: "long" }) }));
+  once.type = "button";
+  once.addEventListener("click", () => send("day"));
+  const always = el("button", "secondary", t("Каждую неделю"));
+  always.type = "button";
+  always.addEventListener("click", () => send("always"));
+  const reset = el("button", "ghost", t("Вернуть как в расписании"));
+  reset.type = "button";
+  reset.addEventListener("click", () => send("reset"));
+  sheet.append(
+    el("h2", "", t("Аудитория")),
+    el("p", "hint", `${subject} · ${slots.map((n) => t("{n} пара", { n })).join(", ")}`),
+    input,
+    once,
+    always,
+    reset
+  );
+  roomSheet.replaceChildren(sheet);
+  roomSheet.hidden = false;
+  document.body.classList.add("sheet-open");
+  // Фокус в том же касании — клавиатура выезжает сразу.
+  input.focus({ preventScroll: true });
+  input.select?.();
 }
 
 function askScope(group) {
