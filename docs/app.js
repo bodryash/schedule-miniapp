@@ -14013,6 +14013,10 @@ function addSheetGrab(backdrop) {
     // когда окно прокручено к началу, иначе мешали бы прокрутке.
     const top = p.clientY - sheet.getBoundingClientRect().top < 72;
     if (sheet.scrollTop > 0 && !top) return;
+    // Внутри окна своя прокрутка (окно Дня донора): тянем окно, только когда
+    // она у начала, иначе палец листает список.
+    const inner = event.target.closest(".donor-scroll");
+    if (inner && inner.scrollTop > 0) return;
     touch = { x: p.clientX, y: p.clientY, at: performance.now(), last: 0, dragging: false, top };
   }, { passive: true });
   sheet.addEventListener("touchmove", (event) => {
@@ -14022,7 +14026,8 @@ function addSheetGrab(backdrop) {
     const dx = Math.abs(p.clientX - touch.x);
     if (!touch.dragging) {
       // Решаем один раз: вниз и больше, чем вбок, — значит, тянут окно.
-      if (dy > 8 && dy > dx && (touch.top || sheet.scrollTop <= 0)) {
+      const inner = event.target.closest?.(".donor-scroll");
+      if (dy > 8 && dy > dx && (touch.top || (sheet.scrollTop <= 0 && !(inner && inner.scrollTop > 0)))) {
         touch.dragging = true;
         sheet.style.transition = "none";
         sheet.style.animation = "none";
@@ -14670,6 +14675,9 @@ function openDonor() {
     close
   );
   donorSheet.replaceChildren(sheet);
+  // Окно собирается заново при каждом открытии — ручку и жест «смахнуть
+  // вниз» (в том числе за красную шапку) вешаем на новое окно.
+  addSheetGrab(donorSheet);
   donorSheet.classList.remove("sheet-backdrop--out");
   donorSheet.hidden = false;
   document.body.classList.add("sheet-open");
