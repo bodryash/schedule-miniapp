@@ -3307,6 +3307,25 @@ async function watchCommand(env, message, on) {
   });
 }
 
+/** /say <id> текст — сообщение студенту от бота; его ответы неделю идут владельцу. */
+async function sayCommand(env, text) {
+  const m = /^\/say(?:@\w+)?\s+(\d{3,})\s+([\s\S]+)$/.exec(text.trim());
+  if (!m) return "Как писать: <code>/say 123456789 текст</code>\nid есть в сообщении «📥 Расписание … · id …».";
+  const [, id, body] = m;
+  const res = await callTelegram(env.BOT_TOKEN, "sendMessage", {
+    chat_id: id,
+    text: `💬 Сообщение от команды :Расписания\n\n${body.trim()}\n\nОтветьте сюда — я передам.`,
+  })
+    .then((r) => r.json())
+    .catch((error) => ({ ok: false, description: String(error) }));
+  if (!res?.ok) return `Не доставлено: ${escape(res?.description || "ошибка")}. Возможно, он остановил бота.`;
+  await env.STATS.prepare("CREATE TABLE IF NOT EXISTS owner_dialogs (tg_id INTEGER PRIMARY KEY, until INTEGER NOT NULL)").run();
+  await env.STATS.prepare("INSERT INTO owner_dialogs (tg_id, until) VALUES (?, ?) ON CONFLICT(tg_id) DO UPDATE SET until = excluded.until")
+    .bind(Number(id), Date.now() + 7 * 864e5)
+    .run();
+  return "✅ Отправлено. Его ответы неделю будут приходить сюда.";
+}
+
 /** Файл от студента или владельца — на GitHub, в ветку inbox: оттуда его разбираем без доступа к серверу. */
 async function sendToInbox(env, fileId, name, sender) {
   if (!env.GITHUB_TOKEN || !fileId) return false;
@@ -5286,6 +5305,48 @@ ${invite}`,
         text: reply,
         parse_mode: "HTML",
       });
+    }
+
+    // Написать студенту от имени бота: /say <id> текст. id — из сообщения
+    // «📥 Расписание … · id 123». Ответ студента приходит владельцу сюда же.
+    if (message && /^\/say(?:@\w+)?(?:\s|$)/.test(text)) {
+      const reply = isOwner(env, message.chat.id) ? await sayCommand(env, text) : "Команда недоступна.";
+      await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: reply, parse_mode: "HTML" });
+    }
+    // Владелец ответил (reply) на пересланный ответ студента — отправляем ему.
+    if (
+      message &&
+      isOwner(env, message.chat.id) &&
+      message.text &&
+      !message.text.startsWith("/") &&
+      message.reply_to_message?.text
+    ) {
+      const to = /· id (\d+)/.exec(message.reply_to_message.text)?.[1];
+      if (to) {
+        const reply = await sayCommand(env, `/say ${to} ${message.text}`);
+        await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: reply, parse_mode: "HTML" });
+      }
+    }
+    // Студент, которому писал владелец, отвечает — передаём владельцу.
+    if (
+      message &&
+      message.chat.type === "private" &&
+      !isOwner(env, message.chat.id) &&
+      message.from?.id &&
+      (message.text ? !message.text.startsWith("/") : message.photo || message.document)
+    ) {
+      const open = await env.STATS.prepare("SELECT until FROM owner_dialogs WHERE tg_id = ?").bind(message.from.id).first().catch(() => null);
+      if (open && open.until > Date.now()) {
+        const who = `${clickerName(message.from)}${message.from.username ? ` @${message.from.username}` : ""}`;
+        await callTelegram(env.BOT_TOKEN, "sendMessage", {
+          chat_id: env.OWNER_ID,
+          parse_mode: "HTML",
+          text: `💬 Ответ от ${escape(who)} · id ${message.from.id}\n\n${escape(message.text || message.caption || "(файл ниже)")}\n\n<i>Ответьте на это сообщение (reply) — уйдёт ему.</i>`,
+        }).catch(() => {});
+        if (!message.text) {
+          await callTelegram(env.BOT_TOKEN, "forwardMessage", { chat_id: env.OWNER_ID, from_chat_id: message.chat.id, message_id: message.message_id }).catch(() => {});
+        }
+      }
     }
 
     if (message && /^\/karma(?:@\w+)?(?:\s|$)/.test(text)) {
