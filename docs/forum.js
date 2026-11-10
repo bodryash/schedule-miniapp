@@ -459,7 +459,14 @@
     sub.textContent = t("студенты всех вузов");
     title.append(sub);
     const info = navButton("shield", t("Правила"), () => openRules(false));
-    nav.append(back, title, info);
+    // Своё звание — чипом в шапке, а не блоком над лентой: лента начинается сразу.
+    const meChip = document.createElement("button");
+    meChip.type = "button";
+    meChip.className = "fm-me-chip";
+    meChip.hidden = true;
+    meChip.addEventListener("click", () => openMe());
+    S.meChip = meChip;
+    nav.append(back, title, meChip, info);
 
     const scroll = document.createElement("div");
     scroll.className = "fm-scroll";
@@ -888,44 +895,52 @@
     if (!box) return;
     const c = S.challenge;
     const me = S.me;
-    box.hidden = !c && !me;
-    if (box.hidden) return;
-    const parts = [];
-    if (c) {
-      const head = document.createElement("div");
-      head.className = "fm-chal-head";
-      head.append(
-        Object.assign(document.createElement("span"), { className: "fm-chal-kicker", textContent: t("🎯 Задание дня") }),
-        Object.assign(document.createElement("span"), { className: "fm-chal-count", textContent: c.answers ? t("ответов: {n}", { n: c.answers }) : t("будь первым") })
-      );
-      const text = Object.assign(document.createElement("p"), { className: "fm-chal-text", textContent: c.text });
-      const go = Object.assign(document.createElement("button"), { type: "button", className: "fm-chal-go", textContent: t("Ответить") });
-      go.addEventListener("click", () => openComposer({ challenge: c }));
-      const note = Object.assign(document.createElement("small"), { className: "fm-chal-note", textContent: t("Лучший ответ в 21:00 получит «🔥 Ответ дня» и +25 кармы") });
-      parts.push(head, text, go, note);
+    if (S.meChip) {
+      S.meChip.hidden = !me;
+      if (me) {
+        S.meChip.replaceChildren(
+          Object.assign(document.createElement("span"), { className: "fm-me-ico", textContent: me.icon }),
+          Object.assign(document.createElement("b"), { textContent: String(me.karma) })
+        );
+        S.meChip.setAttribute("aria-label", t("Вы — {name} · {k} кармы", { name: me.name, k: me.karma }));
+      }
     }
-    if (me) {
-      const lvl = document.createElement("div");
-      lvl.className = "fm-lvl";
-      const bar = document.createElement("span");
-      bar.className = "fm-lvl-bar";
-      const fill = document.createElement("i");
-      const span = me.next ? me.next.need + me.karma : 1;
-      fill.style.width = `${me.next ? Math.max(4, Math.round((me.karma / span) * 100)) : 100}%`;
-      bar.append(fill);
-      lvl.append(
-        Object.assign(document.createElement("span"), { className: "fm-lvl-ico", textContent: me.icon }),
-        Object.assign(document.createElement("span"), { className: "fm-lvl-text", textContent: me.next ? t("Вы — {name} · {k} кармы · ещё {need} кармы — и вы {icon} {next}", { name: me.name, k: me.karma, icon: me.next.icon, next: me.next.name, need: me.next.need }) : t("Вы — {name} · {k} кармы", { name: me.name, k: me.karma }) }),
-        bar
-      );
-      parts.push(lvl);
-    }
+    box.hidden = !c;
+    if (!c) return;
+    // Одна строка: вопрос слева, «Ответить» справа. Подробности — в окне звания.
+    const copy = document.createElement("div");
+    copy.className = "fm-chal-copy";
+    copy.append(
+      Object.assign(document.createElement("span"), { className: "fm-chal-kicker", textContent: `${t("Задание дня")} · ${c.answers ? t("ответов: {n}", { n: c.answers }) : t("будь первым")}` }),
+      Object.assign(document.createElement("p"), { className: "fm-chal-text", textContent: c.text })
+    );
+    const go = Object.assign(document.createElement("button"), { type: "button", className: "fm-chal-go", textContent: t("Ответить") });
+    go.addEventListener("click", () => openComposer({ challenge: c }));
+    box.replaceChildren(copy, go);
+  }
 
-    const ranks = document.createElement("details");
-    ranks.className = "fm-ranks";
-    ranks.append(Object.assign(document.createElement("summary"), { textContent: t("Как работают звания?") }));
-    const intro = Object.assign(document.createElement("p"), { textContent: t("Карма начисляется за посты, ответы и лайки; лучший ответ дня даёт +25. Звания открываются на этих порогах:") });
+  /** Окно «моё звание»: карма, полоса до следующего звания и пороги. */
+  function openMe() {
+    const me = S.me;
+    if (!me) return;
+    haptic("light");
+    const sheet = (S.sheets.me ||= makeSheet("sheet--fm-me"));
+    const wrapper = document.createElement("div");
+    wrapper.className = "fm-sheet-in fm-me";
+    const bar = document.createElement("span");
+    bar.className = "fm-lvl-bar";
+    const fillBar = document.createElement("i");
+    const span = me.next ? me.next.need + me.karma : 1;
+    fillBar.style.width = `${me.next ? Math.max(4, Math.round((me.karma / span) * 100)) : 100}%`;
+    bar.append(fillBar);
+    wrapper.append(
+      Object.assign(document.createElement("div"), { className: "fm-me-big", textContent: me.icon }),
+      Object.assign(document.createElement("h2"), { textContent: me.name }),
+      Object.assign(document.createElement("p"), { className: "fm-sheet-sub", textContent: me.next ? t("{k} кармы · ещё {need} — и вы {icon} {next}", { k: me.karma, icon: me.next.icon, next: me.next.name, need: me.next.need }) : t("{k} кармы", { k: me.karma }) }),
+      bar
+    );
     const list = document.createElement("ul");
+    list.className = "fm-me-ranks";
     for (const [icon, name, need] of [
       ["🌱", "Новичок", 0],
       ["💬", "Голос", 20],
@@ -934,15 +949,22 @@
       ["👑", "Легенда", 500],
     ]) {
       const item = document.createElement("li");
+      if (t(name) === me.name || name === me.name) item.className = "is-me";
       item.append(
-        document.createTextNode(`${icon} ${name} — `),
+        Object.assign(document.createElement("span"), { textContent: `${icon} ${t(name)}` }),
         Object.assign(document.createElement("b"), { textContent: need ? t("{n} кармы", { n: need }) : t("старт") })
       );
       list.append(item);
     }
-    ranks.append(intro, list);
-    parts.push(ranks);
-    box.replaceChildren(...parts);
+    wrapper.append(
+      list,
+      Object.assign(document.createElement("p"), { className: "fm-me-note", textContent: t("Карма начисляется за посты, ответы и лайки. Лучший ответ на задание дня в 21:00 получает «🔥 Ответ дня» и +25 кармы.") })
+    );
+    const ok = Object.assign(document.createElement("button"), { type: "button", className: "primary", textContent: t("Понятно") });
+    ok.addEventListener("click", () => sheet.close());
+    wrapper.append(ok);
+    fill(sheet.sh, wrapper);
+    sheet.open();
   }
 
   /** Значок уровня у имени (только под своим именем — это решает сервер). */
@@ -1791,11 +1813,19 @@
     const vv = window.visualViewport;
     if (!vv) return;
     let frame = 0;
+    let last = -1;
     const apply = () => {
       frame = 0;
-      const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-      S.root.style.setProperty("--fm-kb", `${kb > 80 ? kb : 0}px`);
-      S.root.classList.toggle("is-kb", kb > 80);
+      // iOS при фокусе ещё и сдвигает всю страницу вверх — поле тогда
+      // «прыгало» дважды: со страницей и от нашего отступа. Страницу держим
+      // на месте, поле над клавиатурой ставим сами.
+      if (S.open && (window.scrollY || vv.offsetTop)) window.scrollTo(0, 0);
+      const raw = Math.max(0, Math.round(window.innerHeight - vv.height - Math.max(0, vv.offsetTop)));
+      const kb = raw > 80 ? raw : 0;
+      if (kb === last) return;
+      last = kb;
+      S.root.style.setProperty("--fm-kb", `${kb}px`);
+      S.root.classList.toggle("is-kb", kb > 0);
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(apply);
@@ -1828,6 +1858,9 @@
     T.dim.classList.add("is-on");
     S.feedPage.classList.add("is-under");
     T.page.classList.add("is-open");
+    // «Ответить» из ленты: поле в фокусе сразу, в том же касании — клавиатура
+    // выезжает вместе со страницей, а не через две секунды после загрузки.
+    if (focus) T.area.focus({ preventScroll: true });
     const slide = sleep(REDUCED ? 0 : 390);
     try {
       const body = await request("replies", { post: seed.id }, { retry: true });
@@ -1842,10 +1875,7 @@
       if (token !== T.token) return;
       renderThread({ fade: true });
       if (mark) setTimeout(() => highlight(mark), REDUCED ? 0 : 420);
-      if (focus) {
-        await sleep(60);
-        T.area.focus({ preventScroll: true });
-      }
+      if (focus && document.activeElement !== T.area) T.area.focus({ preventScroll: true });
     } catch (error) {
       if (token !== T.token) return;
       await slide;
@@ -1986,7 +2016,7 @@
     talk.disabled = Boolean(post.pending);
     talk.addEventListener("click", () => {
       setReplyTarget(null);
-      T.area.focus();
+      T.area.focus({ preventScroll: true });
     });
     acts.append(votes, talk);
     box.append(acts);
@@ -2054,13 +2084,36 @@
       return list;
     }
     list.append(Object.assign(document.createElement("div"), { className: "fm-th-title", textContent: t("Ответы") }));
-    for (const reply of T.replies) list.append(replyNode(reply));
+    // Ответ на чей-то ответ стоит сразу под ним, со сдвигом: видно, кому отвечают.
+    for (const reply of threaded(T.replies)) list.append(replyNode(reply));
     return list;
+  }
+
+  /** Ответы ветками: сначала ответ на пост, под ним — всё, что написали в ответ ему. */
+  function threaded(replies) {
+    const byId = new Map(replies.map((r) => [r.id, r]));
+    const rootOf = (r) => {
+      let cur = r;
+      for (let i = 0; i < 20 && cur.parent && byId.has(cur.parent.id); i++) cur = byId.get(cur.parent.id);
+      return cur;
+    };
+    const groups = new Map();
+    for (const r of replies) {
+      const root = rootOf(r);
+      if (!groups.has(root.id)) groups.set(root.id, []);
+      if (r !== root) groups.get(root.id).push(r);
+    }
+    const out = [];
+    for (const r of replies) {
+      if (rootOf(r) !== r) continue;
+      out.push(r, ...groups.get(r.id));
+    }
+    return out;
   }
 
   function replyNode(reply) {
     const row = document.createElement("article");
-    row.className = `fm-reply${reply.pending || reply.tmp ? " is-pending" : ""}`;
+    row.className = `fm-reply${reply.pending || reply.tmp ? " is-pending" : ""}${reply.parent ? " is-child" : ""}`;
     row.dataset.id = reply.id;
     const main = document.createElement("div");
     main.className = "fm-main";
@@ -2134,7 +2187,7 @@
     answer.textContent = t("Ответить");
     answer.addEventListener("click", () => {
       setReplyTarget(reply);
-      T.area.focus();
+      T.area.focus({ preventScroll: true });
     });
     acts.append(like, answer);
     return acts;
@@ -2285,7 +2338,11 @@
       list.replaceChildren(Object.assign(document.createElement("div"), { className: "fm-th-title", textContent: t("Ответы") }));
     }
     const node = replyNode(reply);
-    list.append(node);
+    // Ответ на ответ встаёт в конец своей ветки, а не в конец всего списка.
+    let after = reply.parent && !reply.parent.gone ? list.querySelector(`.fm-reply[data-id="${reply.parent.id}"]`) : null;
+    while (after?.nextElementSibling?.classList.contains("is-child")) after = after.nextElementSibling;
+    if (after) after.after(node);
+    else list.append(node);
     T.replies.push(reply);
     animate(node, [{ opacity: 0, transform: "translate3d(0, 14px, 0)" }, { opacity: 1, transform: "none" }], { duration: 380, fill: "backwards" });
     requestAnimationFrame(() => {
@@ -2974,7 +3031,12 @@
     redraw(false);
     update();
     sheet.open();
-    setTimeout(() => area.focus(), 320);
+    // Фокус — в том же нажатии: iOS и Telegram поднимают клавиатуру, только
+    // если поле получило фокус прямо из касания, а не через таймер.
+    area.focus({ preventScroll: true });
+    setTimeout(() => {
+      if (document.activeElement !== area) area.focus({ preventScroll: true });
+    }, 320);
   }
 
   const pick = (list) => list[Math.floor(Math.random() * list.length)];

@@ -4658,11 +4658,11 @@ body.champion .card--now {
 }
 
 .splash-hello-title {
-  font-family: "Unbounded", system-ui, sans-serif;
-  font-size: 21px;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
+  font-family: "Manrope", system-ui, sans-serif;
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
 }
 
 .splash-hello--custom .splash-hello-title {
@@ -13656,35 +13656,11 @@ body.fm-open .fx-canvas {
 }
 
 /* Кнопка Подслушки — главная: объёмная капсула с бликом. */
+/* Кнопка Подслушки — плоская: без градиента, блика и объёмной тени. */
 :where(html[data-fx="css"], html[data-fx="gl"]) .forum-btn {
-  background: linear-gradient(180deg, var(--fx-key-hi) 0%, var(--accent) 48%, var(--fx-key-lo) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.18),
-    0 0 0 0.5px color-mix(in srgb, var(--fx-key-lo) 80%, transparent),
-    0 1px 0 rgba(0, 0, 0, 0.1),
-    0 9px 16px -7px color-mix(in srgb, var(--accent) 75%, transparent);
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.22);
-  overflow: hidden;
-}
-
-/* Блик: светлое «стекло» на верхней половине капсулы. */
-:where(html[data-fx="css"], html[data-fx="gl"]) .forum-btn::before {
-  content: "";
-  position: absolute;
-  inset: 1px 3px auto;
-  height: 46%;
-  border-radius: 999px 999px 40% 40%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0));
-  pointer-events: none;
-}
-
-:where(html[data-fx="css"], html[data-fx="gl"]) .forum-btn:active {
-  transform: translateY(1px) scale(0.97);
-  box-shadow:
-    inset 0 2px 3px rgba(0, 0, 0, 0.25),
-    0 0 0 0.5px color-mix(in srgb, var(--fx-key-lo) 80%, transparent),
-    0 3px 8px -5px color-mix(in srgb, var(--accent) 70%, transparent);
+  background: var(--accent);
+  box-shadow: none;
+  overflow: visible;
 }
 
 /* Круглые кнопки («⋯», иконки шапки): шарики, подсвеченные сверху. */
@@ -16001,4 +15977,36 @@ body.donor-days.tint-cherry {
   filter: none !important;
   animation: none !important;
   transform: none !important;
+}
+
+
+/* Смена дня листанием: пары проявляются из лёгкого размытия, как дата в
+   шапке. Только при листании — обычная перерисовка дня идёт без него.
+   Размытие короткое и небольшое, чтобы не тормозить на слабых телефонах. */
+#lessons.is-swap > * {
+  animation-name: day-in-blur;
+  animation-duration: 340ms;
+}
+
+@keyframes day-in-blur {
+  from {
+    opacity: 0;
+    filter: blur(5px);
+    transform: translate3d(var(--from-x, 0px), 6px, 0) scale(0.985);
+  }
+  to {
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #lessons.is-swap > * {
+    animation: none;
+  }
+}
+
+/* Плашку Дня донора смахивают вбок: вертикальную прокрутку браузер ведёт сам. */
+.donor-banner {
+  touch-action: pan-y;
+  will-change: transform;
 }
