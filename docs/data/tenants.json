@@ -398,6 +398,28 @@
     "short": "МО (Дип)"
   },
   {
+    "id": "mgimo-up-dip",
+    "university": "МГИМО",
+    "faculty": "Факультет управления и политики (Дип)",
+    "path": "mgimo-up-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 63
+    },
+    "short": "УП (Дип)"
+  },
+  {
+    "id": "oomk-ld",
+    "university": "ООМК (Оренбургский медколледж)",
+    "faculty": "Лечебное дело",
+    "path": "oomk-ld",
+    "features": [],
+    "tz": 5,
+    "short": "ООМК"
+  },
+  {
     "id": "mgimo-meo",
     "university": "МГИМО",
     "faculty": "Факультет международных экономических отношений",
@@ -514,19 +536,6 @@
       "faculty": 28
     },
     "short": "ИМТУР"
-  },
-  {
-    "id": "mgimo-up-dip",
-    "university": "МГИМО",
-    "faculty": "Факультет управления и политики (Дип)",
-    "path": "mgimo-up-dip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 63
-    },
-    "short": "УП (Дип)"
   },
   {
     "id": "mgimo-up",
@@ -656,14 +665,5 @@
       "base": "https://cacs.law.msu.ru",
       "faculty": "8,23"
     }
-  },
-  {
-    "id": "oomk-ld",
-    "university": "ООМК (Оренбургский медколледж)",
-    "faculty": "Лечебное дело",
-    "path": "oomk-ld",
-    "features": [],
-    "tz": 5,
-    "short": "ООМК"
   }
 ]
