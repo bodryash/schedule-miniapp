@@ -1813,11 +1813,19 @@
     const vv = window.visualViewport;
     if (!vv) return;
     let frame = 0;
+    let last = -1;
     const apply = () => {
       frame = 0;
-      const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-      S.root.style.setProperty("--fm-kb", `${kb > 80 ? kb : 0}px`);
-      S.root.classList.toggle("is-kb", kb > 80);
+      // iOS при фокусе ещё и сдвигает всю страницу вверх — поле тогда
+      // «прыгало» дважды: со страницей и от нашего отступа. Страницу держим
+      // на месте, поле над клавиатурой ставим сами.
+      if (S.open && (window.scrollY || vv.offsetTop)) window.scrollTo(0, 0);
+      const raw = Math.max(0, Math.round(window.innerHeight - vv.height - Math.max(0, vv.offsetTop)));
+      const kb = raw > 80 ? raw : 0;
+      if (kb === last) return;
+      last = kb;
+      S.root.style.setProperty("--fm-kb", `${kb}px`);
+      S.root.classList.toggle("is-kb", kb > 0);
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(apply);
@@ -1850,6 +1858,9 @@
     T.dim.classList.add("is-on");
     S.feedPage.classList.add("is-under");
     T.page.classList.add("is-open");
+    // «Ответить» из ленты: поле в фокусе сразу, в том же касании — клавиатура
+    // выезжает вместе со страницей, а не через две секунды после загрузки.
+    if (focus) T.area.focus({ preventScroll: true });
     const slide = sleep(REDUCED ? 0 : 390);
     try {
       const body = await request("replies", { post: seed.id }, { retry: true });
@@ -1864,10 +1875,7 @@
       if (token !== T.token) return;
       renderThread({ fade: true });
       if (mark) setTimeout(() => highlight(mark), REDUCED ? 0 : 420);
-      if (focus) {
-        await sleep(60);
-        T.area.focus({ preventScroll: true });
-      }
+      if (focus && document.activeElement !== T.area) T.area.focus({ preventScroll: true });
     } catch (error) {
       if (token !== T.token) return;
       await slide;
@@ -2008,7 +2016,7 @@
     talk.disabled = Boolean(post.pending);
     talk.addEventListener("click", () => {
       setReplyTarget(null);
-      T.area.focus();
+      T.area.focus({ preventScroll: true });
     });
     acts.append(votes, talk);
     box.append(acts);
@@ -2179,7 +2187,7 @@
     answer.textContent = t("Ответить");
     answer.addEventListener("click", () => {
       setReplyTarget(reply);
-      T.area.focus();
+      T.area.focus({ preventScroll: true });
     });
     acts.append(like, answer);
     return acts;
