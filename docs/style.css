@@ -16048,3 +16048,8 @@ body.donor-days.tint-cherry {
   font: inherit;
   font-weight: 650;
 }
+
+/* Плавающий «остров» с датой при прокрутке убран: шапка просто уезжает. */
+.minihead {
+  display: none !important;
+}
