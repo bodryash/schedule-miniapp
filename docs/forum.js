@@ -3023,7 +3023,12 @@
     redraw(false);
     update();
     sheet.open();
-    setTimeout(() => area.focus(), 320);
+    // Фокус — в том же нажатии: iOS и Telegram поднимают клавиатуру, только
+    // если поле получило фокус прямо из касания, а не через таймер.
+    area.focus({ preventScroll: true });
+    setTimeout(() => {
+      if (document.activeElement !== area) area.focus({ preventScroll: true });
+    }, 320);
   }
 
   const pick = (list) => list[Math.floor(Math.random() * list.length)];
