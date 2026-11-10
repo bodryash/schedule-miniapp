@@ -15,6 +15,7 @@
   <!-- Шрифт названий нужен с первого кадра: без предзагрузки браузер
        вспоминает о нём, только встретив заголовок, и текст перескакивает. -->
   <link rel="preload" href="fonts/unbounded.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/manrope-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/oswald-cyr.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/oswald-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="icon" type="image/png" href="icons/favicon-48.png">
@@ -265,7 +266,9 @@
     @media (prefers-reduced-motion: reduce) { .hw-art, .hw-flame, .hw-bat { animation: none; } }
     .splash-hello-wish { margin-top: 6px; font-size: 14px; font-weight: 400; opacity: 0.6; }
     /* Слова приветствия выезжают по одному — с первого кадра, до стилей приложения. */
-    .splash-hello-title { font-family: "Unbounded", system-ui, sans-serif; letter-spacing: -0.01em; }
+    @font-face { font-family: "Manrope"; src: url("fonts/manrope-cyrillic-wght-normal.woff2") format("woff2"); font-weight: 200 800; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+    @font-face { font-family: "Manrope"; src: url("fonts/manrope-latin-wght-normal.woff2") format("woff2"); font-weight: 200 800; font-display: swap; unicode-range: U+0000-00FF, U+2000-206F; }
+    .splash-hello-title { font-family: "Manrope", system-ui, sans-serif; font-weight: 800; font-size: 25px; letter-spacing: -0.025em; line-height: 1.15; }
     .splash-hello span { display: inline-block; will-change: transform, opacity; animation: hello-word 520ms cubic-bezier(0.2, 0.9, 0.25, 1) backwards; animation-delay: calc(80ms + var(--w, 0) * 70ms); }
     @keyframes hello-word { from { opacity: 0; transform: translateY(12px); } }
     @media (prefers-reduced-motion: reduce) { .splash-hello span { animation: none; } }

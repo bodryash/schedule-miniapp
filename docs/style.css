@@ -4658,11 +4658,11 @@ body.champion .card--now {
 }
 
 .splash-hello-title {
-  font-family: "Unbounded", system-ui, sans-serif;
-  font-size: 21px;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
+  font-family: "Manrope", system-ui, sans-serif;
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
 }
 
 .splash-hello--custom .splash-hello-title {
