@@ -135,6 +135,7 @@ def main():
         sys.exit('Укажите путь к XLSX: python tools/parse_fgp_xlsx.py "расписание.xlsx"')
     old = json.loads(P.OUT.read_text(encoding="utf-8")) if P.OUT.exists() else {}
     data = parse(sys.argv[1], old)
+    P.dated_notes(data)
     # Запись — как у PDF: общий файл, список групп, файлы по группам, указатель преподавателей.
     P.OUT.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
     P.GROUPS.write_text(json.dumps(data["groups"], ensure_ascii=False, indent=1), encoding="utf-8")

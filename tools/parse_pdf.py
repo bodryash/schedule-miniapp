@@ -589,10 +589,44 @@ def parse(pdf_path):
     return data
 
 
+RE_ONCE = re.compile(
+    r"((?:\d{2}\.\d{2}\.\d{4})(?:\s*(?:,|и)\s*\d{2}\.\d{2}\.\d{4})*)\s*(?:разово\s*)?(?:в\s*ауд\.?\s*([^;]+?)|(отмена))\s*(?=;|$)",
+    re.I,
+)
+
+
+def dated_notes(data):
+    """Разовые изменения из примечаний — в данные пары, а не только текстом.
+
+    «11.11.2026 и 18.11.2026 разово в ауд.440» → lesson["roomOn"] = {"2026-11-11": "440", …}
+    «02.11.2026 разово отмена» → lesson["cancelOn"] = ["2026-11-02"].
+    Приложение само ставит аудиторию и отмену в нужный день; из примечания
+    этот кусок убираем, чтобы он не висел на паре каждую неделю.
+    """
+    moved = 0
+    for lesson in data["lessons"]:
+        note = lesson.get("note") or ""
+        if not note:
+            continue
+        rest = note
+        for m in list(RE_ONCE.finditer(note)):
+            days = ["{2}-{1}-{0}".format(*d.split(".")) for d in re.findall(r"\d{2}\.\d{2}\.\d{4}", m.group(1))]
+            if m.group(3):
+                lesson["cancelOn"] = sorted(set(lesson.get("cancelOn", []) + days))
+            else:
+                room = re.sub(r"\s+", " ", m.group(2)).strip()
+                lesson.setdefault("roomOn", {}).update({d: room for d in days})
+            rest = rest.replace(m.group(0), "")
+            moved += 1
+        lesson["note"] = "; ".join(p.strip() for p in rest.split(";") if p.strip())
+    return moved
+
+
 def main():
     if len(sys.argv) < 2:
         sys.exit("Укажите путь к PDF: python tools/parse_pdf.py schedule.pdf")
     data = parse(sys.argv[1])
+    dated_notes(data)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
 
