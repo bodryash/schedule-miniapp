@@ -40,6 +40,7 @@ import { karmaCommand } from "./forum-fun.js";
 import { refActivate, refApi, refCommand, refStart, refTick } from "./referral.js";
 import { shownSubject } from "./subjects.js";
 import { answerWidget, dayPayload, sendDayWidget } from "./widget.js";
+import { promoTick } from "./promo.js";
 import { avaSig, forumApi, forumCloseConfirm, forumCommand, forumFun, forumModerate, forumWipe } from "./forum.js";
 
 let forumErrorAt = 0;
@@ -5826,6 +5827,7 @@ ${invite}`,
         if (OWN_SERVER) await runAlerts(env).catch((error) => console.log("alerts failed", String(error?.message || error)));
         await forumFun(env, (chat, text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: chat, text })).catch((error) => console.log("forum fun failed", String(error?.message || error)));
         await refTick(env, (text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text, parse_mode: "HTML" })).catch((error) => console.log("ref tick failed", String(error?.message || error)));
+        await promoTick(env).catch((error) => console.log("promo tick failed", String(error?.message || error)));
         await gameTick(
           env,
           (text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text, parse_mode: "HTML" }),
