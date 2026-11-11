@@ -39,6 +39,7 @@ import { gameApi, gameCommand, gameTick } from "./game.js";
 import { karmaCommand } from "./forum-fun.js";
 import { refActivate, refApi, refCommand, refStart, refTick } from "./referral.js";
 import { shownSubject } from "./subjects.js";
+import { answerWidget, dayPayload, sendDayWidget } from "./widget.js";
 import { avaSig, forumApi, forumCloseConfirm, forumCommand, forumFun, forumModerate, forumWipe } from "./forum.js";
 
 let forumErrorAt = 0;
@@ -3381,6 +3382,21 @@ async function watchCommand(env, message, on) {
   });
 }
 
+/** Пары человека на день текстом — для временного ответа в чате курса и запасной для /today. */
+async function myPairsText(env, tgId, day) {
+  if (!tgId) return "Не получилось понять, кто нажал.";
+  const v = JSON.parse(await dayPayload(env, tgId, day, groupTitle));
+  const date = dateLabel(new Date(`${day}T00:00:00Z`));
+  if (v.e === "group") return `Сначала выберите группу в приложении — откройте @FGPshedulebot.`;
+  if (!v.l.length) return `📅 <b>${escape(date)}</b>${v.g ? ` · ${escape(v.g)}` : ""}\nПар нет 🎉`;
+  const lines = v.l.map(([start, end, subject, room, flag]) =>
+    flag === 1
+      ? `<s>${start} ${escape(subject)}</s> — отменена`
+      : `${start}–${end} ${escape(subject)}${room ? ` · ${flag === 2 ? "<b>" : ""}${escape(room)}${flag === 2 ? "</b>" : ""}` : ""}`
+  );
+  return [`📅 <b>${escape(date)}</b>${v.g ? ` · ${escape(v.g)}` : ""}`, ...lines].join("\n");
+}
+
 /** /say <id> текст — сообщение студенту от бота; его ответы неделю идут владельцу. */
 async function sayCommand(env, text) {
   const m = /^\/say(?:@\w+)?\s+(\d{3,})\s+([\s\S]+)$/.exec(text.trim());
@@ -4543,6 +4559,28 @@ export default {
       return new Response("ok");
     }
 
+    // Виджет «Мои пары» просит день: «d:2026-11-11».
+    if (update.widget_query) {
+      await answerWidget(env, callTelegram, update.widget_query, groupTitle);
+      return new Response("ok");
+    }
+
+    // «Мои пары» в чате курса: ответ видит только нажавший (временное сообщение).
+    const mine = update.callback_query?.data?.match(/^my:([01])$/);
+    if (mine) {
+      const query = update.callback_query;
+      const day = iso(addDays(new Date(Date.now() + 3 * 3600000), Number(mine[1])));
+      const text = await myPairsText(env, query.from?.id, day).catch(() => "Не получилось загрузить расписание, попробуйте ещё раз.");
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: query.message?.chat?.id,
+        text,
+        parse_mode: "HTML",
+        ephemeral_message_parameters: { callback_query_id: query.id },
+      }).catch(() => {});
+      await callTelegram(env.BOT_TOKEN, "answerCallbackQuery", { callback_query_id: query.id }).catch(() => {});
+      return new Response("ok");
+    }
+
     const pdf = update.callback_query?.data?.match(/^pdf:(\d+)$/);
     if (pdf || update.callback_query?.data === "pdfskip") {
       const query = update.callback_query;
@@ -5398,6 +5436,27 @@ ${invite}`,
         text: reply,
         parse_mode: "HTML",
       });
+    }
+
+    // /today в личке — виджет «Мои пары» (Bot API 10.4).
+    if (message && /^\/today(?:@\w+)?\s*$/.test(text) && message.chat.type === "private" && message.from?.id) {
+      const sent = await sendDayWidget(env, callTelegram, message.chat.id, message.from.id, groupTitle, WEB_APP_URL).catch(() => null);
+      if (!sent?.ok) {
+        await callTelegram(env.BOT_TOKEN, "sendMessage", {
+          chat_id: message.chat.id,
+          text: await myPairsText(env, message.from.id, iso(new Date(Date.now() + 3 * 3600000))),
+          parse_mode: "HTML",
+          reply_markup: { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] },
+        }).catch(() => {});
+      }
+    }
+    // /pairs в чате курса — кнопки «Мои пары»: каждому — его расписание, видно только ему.
+    if (message && /^\/pairs(?:@\w+)?\s*$/.test(text) && (message.chat.type === "group" || message.chat.type === "supergroup")) {
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: "📅 Нажмите — бот покажет ваши пары. Ответ увидите только вы.",
+        reply_markup: { inline_keyboard: [[{ text: "Мои пары сегодня", callback_data: "my:0" }, { text: "Завтра", callback_data: "my:1" }]] },
+      }).catch(() => {});
     }
 
     // Написать студенту от имени бота: /say <id> текст. id — из сообщения
