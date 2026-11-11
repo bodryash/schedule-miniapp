@@ -1866,7 +1866,13 @@ async function queueAlert(env, recipients, text) {
   if (!ALERTS_LIVE) recipients = recipients.filter((r) => String(r.id) === String(env.OWNER_ID));
   if (!recipients.length) return 0;
   const stamp = new Date().toISOString();
-  const unique = [...new Set(recipients.map((r) => r.id))];
+  // Тот же текст тому же человеку за последние 12 часов — не дублируем
+  // (одну замену могли внести дважды, отменить на группу и на курс).
+  const since = new Date(Date.now() - 12 * 3600000).toISOString();
+  const { results: already = [] } = await env.STATS.prepare("SELECT chat_id FROM alerts WHERE text = ? AND created >= ?").bind(text, since).all();
+  const had = new Set(already.map((r) => String(r.chat_id)));
+  const unique = [...new Set(recipients.map((r) => r.id))].filter((id) => !had.has(String(id)));
+  if (!unique.length) return 0;
   for (let i = 0; i < unique.length; i += 100) {
     await env.STATS.batch(
       unique.slice(i, i + 100).map((id) =>
@@ -1892,12 +1898,16 @@ async function scanAlerts(env) {
     const { results = [] } = await env.STATS.prepare(`SELECT * FROM ${kind} WHERE id > ? ORDER BY id LIMIT 50`)
       .bind(mark.last)
       .all();
+    // Сначала занимаем порцию: минутные задачи на своём сервере идут
+    // внахлёст, и две читали одну отметку — каждое уведомление уходило
+    // дважды. Кто сдвинул отметку, тот и рассылает.
+    const claimed = results.length ? results[results.length - 1].id : mark.last;
+    const claim = await env.STATS.prepare("UPDATE alert_marks SET last = ? WHERE kind = ? AND last = ?").bind(claimed, kind, mark.last).run();
+    if (!claim?.meta?.changes) continue;
     for (const row of results) {
       const live = kind === "notices" ? row.expires > new Date().toISOString() : !row.removed && row.day >= from && row.day <= until;
       if (live) await queueAlert(env, await alertRecipients(env, row.grp), alertText(kind, row));
     }
-    const last = results.length ? results[results.length - 1].id : mark.last;
-    await env.STATS.prepare("UPDATE alert_marks SET last = ? WHERE kind = ?").bind(last, kind).run();
   }
 }
 
@@ -1909,6 +1919,9 @@ async function drainAlerts(env) {
     .all();
   const open = { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] };
   for (const alert of results) {
+    // То же: занимаем сообщение до отправки, второй проход его уже не возьмёт.
+    const claim = await env.STATS.prepare("UPDATE alerts SET sent = 3 WHERE id = ? AND sent = 0").bind(alert.id).run();
+    if (!claim?.meta?.changes) continue;
     let ok = false;
     try {
       const reply = await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: alert.chat_id, text: alert.text, reply_markup: open });
@@ -2210,14 +2223,53 @@ async function sendReminders(env) {
 }
 
 /** Кому в этом часовом поясе пора написать: не больше limit сообщений. */
+/**
+ * Отменённые пары дня: по группе — время начала и предмет. Нужны, чтобы
+ * бот не писал «через 10 минут пара» про пару, которую уже отменили, и не
+ * ставил её в утренний список рядом со строкой «отменено».
+ */
+function cancelChecker(env, day) {
+  const cache = new Map();
+  let rows = null;
+  let groups = null;
+  return async (grp, start, subject) => {
+    if (!grp || !start) return false;
+    if (!cache.has(grp)) {
+      rows ||= await env.STATS.prepare("SELECT grp, slots, subject FROM cancels WHERE removed = 0 AND day = ?").bind(day).all().then((r) => r.results || []).catch(() => []);
+      if (!rows.length) {
+        cache.set(grp, []);
+      } else {
+        groups ||= new Map((await loadGroups().catch(() => [])).map((g) => [g.id, g]));
+        const group = groups.get(grp);
+        const mine = rows.filter((c) => c.grp === grp || c.grp === "*" || (group && c.grp === courseOf(group)));
+        let bells = new Map();
+        if (mine.length) {
+          const slash = grp.indexOf("/");
+          const tenantId = slash > 0 ? grp.slice(0, slash) : DEFAULT_TENANT;
+          const tenants = await loadJson("tenants.json").catch(() => []);
+          const tenant = tenants.find((t) => t.id === tenantId) || { path: "" };
+          const schedule = await loadJson(`${tenant.path ? `${tenant.path}/` : ""}schedule.json`).catch(() => null);
+          bells = new Map((schedule?.bells || []).map((b) => [b.n, b.start]));
+        }
+        cache.set(
+          grp,
+          mine.map((c) => ({ starts: String(c.slots || "").split(",").map(Number).filter(Boolean).map((n) => bells.get(n)), subject: c.subject || "" }))
+        );
+      }
+    }
+    return cache.get(grp).some((c) => (!c.starts.length || c.starts.includes(start)) && (!c.subject || !subject || subject.includes(c.subject)));
+  };
+}
+
 async function dueReminders(env, now, shift, limit) {
   const outgoing = [];
+  const isCancelled = cancelChecker(env, now.day);
 
   // Сначала «скоро пара»: оно срочнее утреннего списка. Одно сообщение на
   // время начала — если без выбранного языка в одну пару стоят несколько
   // предметов, они идут одной строкой, а не пятью уведомлениями подряд.
   const { results: soon = [] } = await env.STATS.prepare(
-    `SELECT p.tg_id, p.start, group_concat(p.subject, ' / ') AS subjects,
+    `SELECT p.tg_id, r.grp, p.start, group_concat(p.subject, ' / ') AS subjects,
             max(p.room) AS room, max(p.end) AS end, ${START_MINUTES} AS at
      FROM reminder_plan p JOIN reminders r ON r.tg_id = p.tg_id
      WHERE p.day = ? AND r.before > 0 AND r.shift = ?
@@ -2231,6 +2283,11 @@ async function dueReminders(env, now, shift, limit) {
     .bind(now.day, shift, now.minutes, SOON_EARLY, now.minutes, `${now.day}|`, limit)
     .all();
   for (const row of soon) {
+    // Пару отменили — не зовём на неё. Отметку ставим, чтобы не проверять каждую минуту.
+    if (await isCancelled(row.grp, row.start, row.subjects)) {
+      await env.STATS.prepare("INSERT OR IGNORE INTO reminder_sent (tg_id, key) VALUES (?, ?)").bind(row.tg_id, `${now.day}|${row.start}`).run().catch(() => {});
+      continue;
+    }
     const left = Math.max(1, row.at - now.minutes);
     outgoing.push({
       tg_id: row.tg_id,
@@ -2358,7 +2415,12 @@ async function dueReminders(env, now, shift, limit) {
           // Несколько предметов в одно время: блок кончается с самым длинным.
           if ((lesson.end || "") > (block.end || "")) block.end = lesson.end;
         }
-        const lessons = [...byStart.values()];
+        // Отменённые пары — не в списке, а строкой «отменено» ниже: иначе
+        // сводка противоречила себе (пара и в списке, и отменена).
+        const lessons = [];
+        for (const block of byStart.values()) {
+          if (!(await isCancelled(grpOf.get(id) || "", block.start, block.subjects.join(" / ")))) lessons.push(block);
+        }
         if (!lessons.length) continue;
         for (const l of lessons) l.pairs = pairsIn(l.start, l.end);
         const total = lessons.reduce((sum, l) => sum + l.pairs, 0);
@@ -2366,11 +2428,13 @@ async function dueReminders(env, now, shift, limit) {
         // Новое в сводке до публикации видит только владелец.
         const extras = ALERTS_LIVE || String(id) === String(env.OWNER_ID);
         lessons.forEach((l, i) => {
-          // Окно между парами от 40 минут — отдельной строкой: его видно сразу.
+          // Окно — только когда пропущена целая пара (от 80 минут). Перерыв
+          // 40–80 минут — это обед между парами, а не окно: так и пишем.
           const prev = lessons[i - 1];
           if (extras && prev?.end && l.start) {
             const gap = minutesOfDay(l.start) - minutesOfDay(prev.end);
-            if (gap >= 40) lines.push(`☕ окно ${prev.end}–${l.start}`);
+            if (gap >= 80) lines.push(`☕ окно ${prev.end}–${l.start}`);
+            else if (gap >= 40) lines.push(`🍽 обед ${prev.end}–${l.start}`);
           }
           lines.push(
             `${l.start}–${l.end || "?"} · ${escape(l.subjects.join(" / "))}` +
