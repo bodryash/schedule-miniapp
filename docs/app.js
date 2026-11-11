@@ -11029,7 +11029,8 @@ function renderLessons(group, parity) {
   nodes.push(renderOwnAdd());
   const ask = renderStarostaAsk();
   if (ask) nodes.push(ask);
-  const promo = renderPromo();
+  // Реклама пока только на бете.
+  const promo = location.hostname.startsWith("beta.") ? renderPromo() : null;
   if (promo) nodes.push(promo);
 
   // Сегодня и всё уже прошло — в конце списка карточка «на сегодня всё».
