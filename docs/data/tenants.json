@@ -420,6 +420,58 @@
     "short": "ООМК"
   },
   {
+    "id": "mgimo-mb",
+    "university": "МГИМО",
+    "faculty": "Факультет международного бизнеса",
+    "path": "mgimo-mb",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 29
+    },
+    "short": "МБ"
+  },
+  {
+    "id": "mgimo-imip",
+    "university": "МГИМО",
+    "faculty": "Институт маркетинга и предпринимательства",
+    "path": "mgimo-imip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 49
+    },
+    "short": "ИМиП"
+  },
+  {
+    "id": "mgimo-meo-dip",
+    "university": "МГИМО",
+    "faculty": "Факультет международных экономических отношений (Дип)",
+    "path": "mgimo-meo-dip",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 53
+    },
+    "short": "МЭО (Дип)"
+  },
+  {
+    "id": "mgimo-mj",
+    "university": "МГИМО",
+    "faculty": "Факультет международной журналистики",
+    "path": "mgimo-mj",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 26
+    },
+    "short": "МЖ"
+  },
+  {
     "id": "mgimo-meo",
     "university": "МГИМО",
     "faculty": "Факультет международных экономических отношений",
@@ -473,19 +525,6 @@
     "short": "МО"
   },
   {
-    "id": "mgimo-mb",
-    "university": "МГИМО",
-    "faculty": "Факультет международного бизнеса",
-    "path": "mgimo-mb",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 29
-    },
-    "short": "МБ"
-  },
-  {
     "id": "msu-philos",
     "university": "МГУ",
     "faculty": "Философский факультет",
@@ -497,32 +536,6 @@
       "base": "https://cacs.philos.msu.ru",
       "faculty": "1"
     }
-  },
-  {
-    "id": "mgimo-imip",
-    "university": "МГИМО",
-    "faculty": "Институт маркетинга и предпринимательства",
-    "path": "mgimo-imip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 49
-    },
-    "short": "ИМиП"
-  },
-  {
-    "id": "mgimo-meo-dip",
-    "university": "МГИМО",
-    "faculty": "Факультет международных экономических отношений (Дип)",
-    "path": "mgimo-meo-dip",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 53
-    },
-    "short": "МЭО (Дип)"
   },
   {
     "id": "mgimo-imtur",
@@ -562,19 +575,6 @@
       "faculty": 34
     },
     "short": "ЕУИ"
-  },
-  {
-    "id": "mgimo-mj",
-    "university": "МГИМО",
-    "faculty": "Факультет международной журналистики",
-    "path": "mgimo-mj",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 26
-    },
-    "short": "МЖ"
   },
   {
     "id": "mgimo-mag",
