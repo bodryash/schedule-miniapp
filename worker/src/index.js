@@ -5442,7 +5442,7 @@ ${invite}`,
     // (Bot API 10.4). Виджеты Telegram включает постепенно: на старых версиях
     // приложения вместо них «сообщение не поддерживается», поэтому пока они
     // по отдельной команде.
-    const wantsWidget = message && /^\/widget(?:@\w+)?\s*$/.test(text);
+    const wantsWidget = message && /^\/(?:widget|today)(?:@\w+)?\s*$/.test(text);
     if (message && (wantsWidget || /^\/today(?:@\w+)?\s*$/.test(text)) && message.chat.type === "private" && message.from?.id) {
       const sent = wantsWidget ? await sendDayWidget(env, callTelegram, message.chat.id, message.from.id, groupTitle, WEB_APP_URL).catch(() => null) : null;
       if (!sent?.ok) {
