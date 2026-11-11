@@ -5438,9 +5438,13 @@ ${invite}`,
       });
     }
 
-    // /today в личке — виджет «Мои пары» (Bot API 10.4).
-    if (message && /^\/today(?:@\w+)?\s*$/.test(text) && message.chat.type === "private" && message.from?.id) {
-      const sent = await sendDayWidget(env, callTelegram, message.chat.id, message.from.id, groupTitle, WEB_APP_URL).catch(() => null);
+    // /today — пары текстом (работает везде); /widget — то же живым виджетом
+    // (Bot API 10.4). Виджеты Telegram включает постепенно: на старых версиях
+    // приложения вместо них «сообщение не поддерживается», поэтому пока они
+    // по отдельной команде.
+    const wantsWidget = message && /^\/widget(?:@\w+)?\s*$/.test(text);
+    if (message && (wantsWidget || /^\/today(?:@\w+)?\s*$/.test(text)) && message.chat.type === "private" && message.from?.id) {
+      const sent = wantsWidget ? await sendDayWidget(env, callTelegram, message.chat.id, message.from.id, groupTitle, WEB_APP_URL).catch(() => null) : null;
       if (!sent?.ok) {
         await callTelegram(env.BOT_TOKEN, "sendMessage", {
           chat_id: message.chat.id,
