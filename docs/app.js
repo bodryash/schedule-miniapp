@@ -435,6 +435,7 @@ async function loadNotices(group) {
     notices.cancels = body.cancels || [];
     notices.changes = body.changes || [];
     notices.rooms = body.rooms || [];
+    notices.lnotes = body.lnotes || [];
     notices.owner = Boolean(body.owner);
     applyTheme(body.theme || "");
     notices.important = body.important || [];
@@ -738,7 +739,15 @@ function applyHomework() {
   for (const card of els.lessons.querySelectorAll(".card")) {
     card.querySelector(".hw")?.remove();
     card.querySelector(".owner-actions")?.remove();
+    card.querySelector(".card-bignote")?.remove();
     const subject = card.dataset.subject;
+    // Примечание владельца к паре — крупно, видят все.
+    const bignote = lessonNoteFor(card);
+    if (bignote) {
+      const box = el("div", "card-bignote");
+      box.append(el("span", "card-bignote-ico", "📌"), el("span", "", bignote.text));
+      (card.querySelector(".card-body") || card).prepend(box);
+    }
     // Отмена пары — у владельца и у старосты своей группы.
     if (subject && (notices.owner || notices.canEdit)) addOwnerButtons(card);
     if (!subject || seen.has(subject)) continue;
@@ -4868,6 +4877,15 @@ function addOwnerButtons(card) {
     button.addEventListener("click", () => (own.length ? restoreLesson(own) : cancelLesson(card, [slot])));
     row.append(button);
   }
+  if (notices.owner) {
+    const noteBtn = el("button", "hw-edit", t("Примечание"));
+    noteBtn.type = "button";
+    noteBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openRoomSheet(card, slots, "note");
+    });
+    row.append(noteBtn);
+  }
   const roomBtn = el("button", "hw-edit", t("Аудитория"));
   roomBtn.type = "button";
   roomBtn.addEventListener("click", (event) => {
@@ -4883,8 +4901,19 @@ function addOwnerButtons(card) {
 const ROOM_URL = `${API_URL}/room`;
 let roomSheet = null;
 
-/** Окно «Аудитория»: новое значение и на когда — только этот день или каждую неделю. */
-function openRoomSheet(card, slots) {
+/** Примечание владельца к паре на показанный день: разовое важнее постоянного. */
+function lessonNoteFor(card) {
+  const day = isoDate(dateOfDay(selectedDay));
+  const slot = Number(card.dataset.slot);
+  const subject = card.dataset.subject || "";
+  const list = (notices.lnotes || []).filter(
+    (n) => n.slot === slot && (!n.subject || n.subject === subject) && (n.day ? n.day === day : n.weekday === selectedDay)
+  );
+  return list.find((n) => n.day) || list[0] || null;
+}
+
+/** Окно «Аудитория» или «Примечание»: значение и на когда — только этот день или каждую неделю. */
+function openRoomSheet(card, slots, kind = "room") {
   const group = groupById(prefs.group);
   if (!group) return;
   haptic("light");
@@ -4898,23 +4927,24 @@ function openRoomSheet(card, slots) {
   }
   const sheet = el("div", "sheet room-sheet");
   sheet.setAttribute("role", "dialog");
-  const current = card.querySelector(".room-badge")?.textContent.replace(/^ауд\.?\s*/i, "").trim() || "";
+  const isNote = kind === "note";
+  const current = isNote ? lessonNoteFor(card)?.text || "" : card.querySelector(".room-badge")?.textContent.replace(/^ауд\.?\s*/i, "").trim() || "";
   const date = dateOfDay(selectedDay);
   const subject = card.dataset.subject || "";
   const input = el("input", "room-input");
   input.type = "text";
   input.value = current;
-  input.placeholder = t("Например, 509 или П6 1 ГУМ");
-  input.maxLength = 40;
+  input.placeholder = isNote ? t("Например: принести паспорт, контрольная") : t("Например, 509 или П6 1 ГУМ");
+  input.maxLength = isNote ? 160 : 40;
   input.autocomplete = "off";
   const send = async (scope) => {
     const room = input.value.trim();
     if (scope !== "reset" && !room) return input.focus();
     haptic("medium");
     try {
-      const res = await fetch(ROOM_URL, {
+      const res = await fetch(isNote ? `${API_URL}/lnote` : ROOM_URL, {
         method: "POST",
-        body: JSON.stringify({ initData: tg?.initData || "", group: group.id, subject, slots, day: isoDate(date), room, scope }),
+        body: JSON.stringify({ initData: tg?.initData || "", group: group.id, subject, slots, day: isoDate(date), room, text: room, scope }),
       });
       if (!res.ok) throw new Error();
     } catch {
@@ -4922,7 +4952,11 @@ function openRoomSheet(card, slots) {
       return;
     }
     roomSheet.hidden = true;
-    toast(scope === "reset" ? t("Аудитория — как в расписании") : t("Аудитория {r} сохранена", { r: room }));
+    toast(
+      isNote
+        ? scope === "reset" ? t("Примечание снято") : t("Примечание сохранено — его видят все")
+        : scope === "reset" ? t("Аудитория — как в расписании") : t("Аудитория {r} сохранена", { r: room })
+    );
     notices.group = null;
     await loadNotices(group);
   };
@@ -4932,11 +4966,11 @@ function openRoomSheet(card, slots) {
   const always = el("button", "secondary", t("Каждую неделю"));
   always.type = "button";
   always.addEventListener("click", () => send("always"));
-  const reset = el("button", "ghost", t("Вернуть как в расписании"));
+  const reset = el("button", "ghost", isNote ? t("Убрать примечание") : t("Вернуть как в расписании"));
   reset.type = "button";
   reset.addEventListener("click", () => send("reset"));
   sheet.append(
-    el("h2", "", t("Аудитория")),
+    el("h2", "", isNote ? t("Примечание к паре") : t("Аудитория")),
     el("p", "hint", `${subject} · ${slots.map((n) => t("{n} пара", { n })).join(", ")}`),
     input,
     once,

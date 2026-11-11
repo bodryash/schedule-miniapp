@@ -1750,6 +1750,60 @@ async function appRoom(env, body) {
   return { ok: true };
 }
 
+/* Примечания владельца к парам: на один день (day) или каждую неделю (weekday). */
+async function ensureNoteTable(env) {
+  await env.STATS.prepare(
+    `CREATE TABLE IF NOT EXISTS lesson_notes (
+       id INTEGER PRIMARY KEY AUTOINCREMENT, grp TEXT NOT NULL, day TEXT NOT NULL DEFAULT '',
+       weekday INTEGER NOT NULL DEFAULT 0, slot INTEGER NOT NULL, subject TEXT NOT NULL DEFAULT '',
+       text TEXT NOT NULL, created TEXT NOT NULL, removed INTEGER NOT NULL DEFAULT 0)`
+  ).run();
+}
+
+async function lessonNotes(env, groupId) {
+  if (!env.STATS || !groupId) return [];
+  await ensureNoteTable(env);
+  const { results = [] } = await env.STATS.prepare(
+    "SELECT day, weekday, slot, subject, text FROM lesson_notes WHERE grp = ? AND removed = 0 AND (day = '' OR day >= ?) ORDER BY id"
+  )
+    .bind(groupId, iso(addDays(today(), -1)))
+    .all();
+  return results;
+}
+
+async function appLessonNote(env, body) {
+  const user = await verifyInitData(body.initData || "", env.BOT_TOKEN);
+  if (!user || !isOwner(env, user.id)) return { ok: false, error: "forbidden" };
+  const group = String(body.group || "");
+  const subject = String(body.subject || "").slice(0, 200);
+  const slots = (body.slots || []).map(Number).filter((n) => n >= 1 && n <= 7);
+  const day = String(body.day || "");
+  const text = String(body.text || "").trim().slice(0, 160);
+  if (!group || !slots.length || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return { ok: false, error: "bad lesson" };
+  const weekday = ((new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7) + 1;
+  await ensureNoteTable(env);
+  const off = (slot) => [
+    env.STATS.prepare("UPDATE lesson_notes SET removed = 1 WHERE grp = ? AND slot = ? AND subject = ? AND day = ? AND removed = 0").bind(group, slot, subject, day),
+    env.STATS.prepare("UPDATE lesson_notes SET removed = 1 WHERE grp = ? AND slot = ? AND subject = ? AND day = '' AND weekday = ? AND removed = 0").bind(group, slot, subject, weekday),
+  ];
+  if (body.scope === "reset") {
+    await env.STATS.batch(slots.flatMap(off));
+    return { ok: true };
+  }
+  if (!text) return { ok: false, error: "no text" };
+  const always = body.scope === "always";
+  const stamp = new Date().toISOString();
+  await env.STATS.batch(
+    slots.flatMap((slot) => [
+      always
+        ? env.STATS.prepare("UPDATE lesson_notes SET removed = 1 WHERE grp = ? AND slot = ? AND subject = ? AND day = '' AND weekday = ? AND removed = 0").bind(group, slot, subject, weekday)
+        : env.STATS.prepare("UPDATE lesson_notes SET removed = 1 WHERE grp = ? AND slot = ? AND subject = ? AND day = ? AND removed = 0").bind(group, slot, subject, day),
+      env.STATS.prepare("INSERT INTO lesson_notes (grp, day, weekday, slot, subject, text, created) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(group, always ? "" : day, always ? weekday : 0, slot, subject, text, stamp),
+    ])
+  );
+  return { ok: true };
+}
+
 /** Владельцу — кто из старост что сделал: видно, если права используют не по делу. */
 async function tellOwnerAbout(env, user, what) {
   const who = user.username ? `@${user.username}` : [user.first_name, user.last_name].filter(Boolean).join(" ") || `id ${user.id}`;
@@ -4139,7 +4193,7 @@ export default {
           },
         });
       }
-      const [notices, cancels, changes, homework, canEdit, commenter, deadlines, polls, rooms] = await Promise.all([
+      const [notices, cancels, changes, homework, canEdit, commenter, deadlines, polls, rooms, lnotes] = await Promise.all([
         activeNotices(env, group, user?.id).catch(() => []),
         activeCancels(env, group).catch(() => []),
         activeChanges(env, group).catch(() => []),
@@ -4149,13 +4203,14 @@ export default {
         groupDeadlines(env, group.id).catch(() => []),
         groupPolls(env, group.id, user?.id).catch(() => []),
         roomOverrides(env, group.id).catch(() => []),
+        lessonNotes(env, group.id).catch(() => []),
       ]);
       // Счётчики комментариев — только своей группе: чужим они ни к чему.
       const comments = commenter ? await commentCounts(env, group.id, range).catch(() => []) : [];
       const theme = await themeFor(env, user?.id, group).catch(() => "");
       const important = await importantList(env).catch(() => []);
       const hello = await helloFor(env, user?.id, group).catch(() => "");
-      const payload = { notices, cancels, changes, theme, hello, important, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments, deadlines, polls, rooms };
+      const payload = { notices, cancels, changes, theme, hello, important, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments, deadlines, polls, rooms, lnotes };
       return new Response(JSON.stringify(payload), {
         headers: {
           "content-type": "application/json; charset=utf-8",
@@ -4354,6 +4409,20 @@ export default {
           "access-control-allow-origin": "*",
           "cache-control": "no-store",
         },
+      });
+    }
+
+    // Примечание к паре от владельца: крупно, у всей группы.
+    if (url.pathname === "/lnote" && request.method === "POST") {
+      let result;
+      try {
+        result = await appLessonNote(env, JSON.parse(await request.text()));
+      } catch {
+        result = { ok: false, error: "bad request" };
+      }
+      return new Response(JSON.stringify(result), {
+        status: result.ok ? 200 : 400,
+        headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*", "cache-control": "no-store" },
       });
     }
 
