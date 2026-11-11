@@ -3755,6 +3755,48 @@ function renderStarostaAsk() {
   return card;
 }
 
+/* Оплаченная реклама под парами — рядом с плашкой старосты, на время
+   кампании. Помечена «Реклама», закрывается крестиком на сутки. */
+const PROMO = {
+  id: "campus8-2026-11",
+  until: Date.parse("2026-11-18T23:59:59+03:00"),
+  icon: "💘",
+  title: "Знакомства для студентов",
+  hint: "Друзья, компания и пара из твоего вуза — @campus8bot",
+  link: "https://t.me/campus8bot?start=raspisanie",
+};
+
+function renderPromo() {
+  if (Date.now() > PROMO.until || prefs.teacher) return null;
+  const key = `schedule.promoOff.${PROMO.id}`;
+  try {
+    if (Number(localStorage.getItem(key)) > Date.now()) return null;
+  } catch {}
+  const card = el("div", "starosta-ask promo-card");
+  const open = el("button", "starosta-ask-main");
+  open.type = "button";
+  const text = el("span", "starosta-ask-text");
+  text.append(el("span", "starosta-ask-title", t(PROMO.title)), el("span", "starosta-ask-hint", t(PROMO.hint)));
+  open.append(el("span", "starosta-ask-icon", PROMO.icon), text, el("span", "promo-label", t("Реклама")));
+  open.addEventListener("click", () => {
+    haptic("light");
+    if (tg?.openTelegramLink) tg.openTelegramLink(PROMO.link);
+    else window.open(PROMO.link, "_blank", "noopener");
+  });
+  const close = el("button", "starosta-ask-close", "×");
+  close.type = "button";
+  close.setAttribute("aria-label", t("Скрыть"));
+  close.addEventListener("click", () => {
+    haptic("light");
+    try {
+      localStorage.setItem(key, String(Date.now() + 86400000));
+    } catch {}
+    card.remove();
+  });
+  card.append(open, close);
+  return card;
+}
+
 /** Ставит свои дела между карточками пар — по времени начала. */
 function placeOwn(nodes, date) {
   for (const event of ownEventsOn(date)) {
@@ -10987,6 +11029,8 @@ function renderLessons(group, parity) {
   nodes.push(renderOwnAdd());
   const ask = renderStarostaAsk();
   if (ask) nodes.push(ask);
+  const promo = renderPromo();
+  if (promo) nodes.push(promo);
 
   // Сегодня и всё уже прошло — в конце списка карточка «на сегодня всё».
   const now = new Date();

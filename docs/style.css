@@ -16086,3 +16086,24 @@ body.donor-days.tint-cherry {
 .card-bignote-ico {
   flex: none;
 }
+
+
+/* Рекламная плашка: как «Вы староста?», с тёплым розовым акцентом и меткой «Реклама». */
+.promo-card {
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(120deg, color-mix(in srgb, #ff4d8d 14%, var(--card)), color-mix(in srgb, #ff8a3d 10%, var(--card)));
+}
+.promo-card .starosta-ask-main {
+  position: relative;
+}
+.promo-label {
+  position: absolute;
+  top: 6px;
+  right: 34px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
