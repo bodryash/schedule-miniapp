@@ -1456,8 +1456,28 @@ function refreshFreedom() {
   if (!els.freedom || !data) return;
   const now = new Date();
   const line = freedomLine(now);
-  els.freedom.hidden = !line;
-  if (line) els.freedom.textContent = line;
+  const box = els.freedom;
+  const was = box.textContent;
+  box.hidden = !line;
+  if (!line || line === was) return refreshExamMode();
+  // Смена смысла строки («до конца пары» → «до конца дня») — плавно: старая
+  // уходит вверх и гаснет, новая поднимается. Ежеминутная смена цифр — без
+  // анимации, иначе строка мигала бы каждую минуту.
+  const kind = (text) => text.replace(/[\d\s:.,]+/g, " ").trim();
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  if (!was || kind(was) === kind(line) || reduce || !box.animate || box.offsetParent === null) {
+    box.textContent = line;
+    return refreshExamMode();
+  }
+  box.getAnimations().forEach((a) => a.cancel());
+  box
+    .animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(-6px)" }], { duration: 180, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" })
+    .finished.catch(() => {})
+    .then(() => {
+      box.textContent = line;
+      box.getAnimations().forEach((a) => a.cancel());
+      box.animate([{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], { duration: 320, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" });
+    });
   refreshExamMode();
 }
 
@@ -7346,6 +7366,8 @@ function initScrollChrome() {
     if (!document.body.classList.contains("tabs-mini")) return;
     document.body.classList.remove("tabs-mini");
     travel = 0;
+    // Нажали на уже открытый раздел — это «наверх»: нажатие пропускаем дальше.
+    if (event.target.closest?.(".tab")?.dataset.tab === tab) return;
     event.stopPropagation();
     event.preventDefault();
   }, true);
@@ -14460,7 +14482,15 @@ async function init() {
     if (event.target === els.qnSheet) els.qnSheet.hidden = true;
   });
   for (const button of els.tabs?.querySelectorAll(".tab") || []) {
-    button.addEventListener("click", () => openTab(button.dataset.tab));
+    button.addEventListener("click", () => {
+      // Нажали на уже открытый раздел — плавно наверх, как в приложениях iOS.
+      if (button.dataset.tab === tab && (document.scrollingElement?.scrollTop || 0) > 4) {
+        haptic("light");
+        window.scrollTo({ top: 0, behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+        return;
+      }
+      openTab(button.dataset.tab);
+    });
   }
   initHomeScreen();
   els.find.addEventListener("click", () => openTab("search"));
