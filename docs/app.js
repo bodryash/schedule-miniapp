@@ -5709,12 +5709,17 @@ function dataFile(name) {
  * расписание, и только потом страница перезапускается — уже на заставку
  * того же цвета, без белой вспышки.
  */
-async function switchTenant(next) {
+async function switchTenant(next, { fromSettings = false } = {}) {
   if (!next) return;
+  // Из настроек — после перезапуска сразу к выбору группы, а не к
+  // приветствию «кто вы» с самого начала.
+  if (fromSettings) {
+    try {
+      localStorage.setItem(AFTER_SWITCH_KEY, "1");
+    } catch {}
+  }
   // Сменили факультет руками — это уже не тот профиль, что был выбран:
   // отвязываемся, чтобы не переписать его чужим факультетом.
-  const store = readProfiles();
-  if (store.active) writeProfiles({ ...store, active: null });
   await restartWith(next.faculty, next.university, next, () => savePrefs({ tenant: next.id }));
 }
 
@@ -5851,7 +5856,7 @@ function fillTenants() {
       if (select.value === tenant().id) return;
       // Другой факультет — другое расписание целиком: проще начать с
       // чистого листа, чем менять данные под работающим приложением.
-      switchTenant(TENANTS.find((item) => item.id === select.value));
+      switchTenant(TENANTS.find((item) => item.id === select.value), { fromSettings: true });
     });
     const uniRow = el("label");
     uniRow.id = "tenant-uni-row";
@@ -5939,10 +5944,36 @@ function savePrefs(value) {
   // подгруппу — в профиле то же самое.
   const store = readProfiles();
   const current = store.list.find((profile) => profile.id === store.active);
-  if (current) {
+  const same = (p) => p.prefs && (p.prefs.tenant || DEFAULT_TENANT) === (value.tenant || DEFAULT_TENANT) && (p.prefs.group || "") === (value.group || "") && (p.prefs.teacher || "") === (value.teacher || "");
+  if (current && same(current)) {
     current.prefs = value;
     writeProfiles(store);
+    return;
   }
+  // Каждая выбранная группа (или преподаватель) — сразу профиль: к ней можно
+  // вернуться в одно касание, не выбирая заново вуз, факультет и курс.
+  if (!value.group && !value.teacher) {
+    if (current) writeProfiles({ ...store, active: null });
+    return;
+  }
+  const known = store.list.find(same);
+  if (known) {
+    known.prefs = value;
+    store.active = known.id;
+  } else {
+    const t0 = TENANTS.find((item) => item.id === (value.tenant || DEFAULT_TENANT));
+    const title = value.teacher ? String(value.teacher).split(" ")[0] : String(value.group).replace(/^.*\//, "");
+    const name = `${title}${t0?.short ? ` · ${t0.short}` : ""}`.slice(0, 24);
+    const id = Date.now().toString(36);
+    store.list.push({ id, name, prefs: value, auto: true });
+    // Не больше восьми: лишним вытесняем самый старый автоматический.
+    while (store.list.length > PROFILES_MAX) {
+      const drop = store.list.findIndex((p) => p.auto && p.id !== id);
+      store.list.splice(drop >= 0 ? drop : 0, 1);
+    }
+    store.active = id;
+  }
+  writeProfiles(store);
 }
 
 /* ---------- Профили расписания ---------- */
@@ -6348,9 +6379,18 @@ function fillProfiles(edit = null) {
         const target = fresh.list.find((profile) => profile.id === current.id);
         if (target) target.name = name;
       } else {
-        const id = Date.now().toString(36);
-        fresh.list.push({ id, name, prefs: readPrefs() });
-        fresh.active = id;
+        // Текущая группа уже сохранена сама — просто даём ей имя.
+        const now = readPrefs();
+        const known = fresh.list.find((p) => p.prefs && (p.prefs.tenant || DEFAULT_TENANT) === (now.tenant || DEFAULT_TENANT) && (p.prefs.group || "") === (now.group || "") && (p.prefs.teacher || "") === (now.teacher || ""));
+        if (known) {
+          known.name = name;
+          delete known.auto;
+          fresh.active = known.id;
+        } else {
+          const id = Date.now().toString(36);
+          fresh.list.push({ id, name, prefs: now });
+          fresh.active = id;
+        }
       }
       writeProfiles(fresh);
       haptic("success");
@@ -9796,7 +9836,16 @@ const ONBOARD_STEP_KEY = "schedule.onboardStep";
 const ONBOARD_UNI_KEY = "schedule.onboardUni";
 const onboard = { box: null, stack: [], skipped: false, uni: "" };
 
+const AFTER_SWITCH_KEY = "schedule.afterSwitch";
+
 function onboardingWanted() {
+  try {
+    if (localStorage.getItem(AFTER_SWITCH_KEY)) {
+      localStorage.removeItem(AFTER_SWITCH_KEY);
+      onboard.skipped = true;
+      return false;
+    }
+  } catch {}
   return !onboard.skipped && !prefs.group && !prefs.teacher && !prefs.planner;
 }
 
