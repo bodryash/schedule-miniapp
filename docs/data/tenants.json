@@ -857,5 +857,21 @@
     "path": "gnesin-smi",
     "features": [],
     "short": "Гнесинка"
+  },
+  {
+    "id": "ogarev-stom",
+    "university": "МГУ им. Н.П. Огарёва",
+    "faculty": "Медицинский институт, стоматология",
+    "path": "ogarev-stom",
+    "features": [],
+    "short": "Огарёва"
+  },
+  {
+    "id": "masi",
+    "university": "МАСИ (МГТУ-МАСИ)",
+    "faculty": "Дизайн",
+    "path": "masi",
+    "features": [],
+    "short": "МАСИ"
   }
 ]
