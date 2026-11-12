@@ -49,7 +49,7 @@ body{margin:0;padding:10px 12px 8px;font:15px/1.3 system-ui,sans-serif}
 <div class="g" id="g"></div><div id="l"></div>
 <script>
 const W=window.TelegramWidget,$=i=>document.getElementById(i);
-let day,cache={},busy=0,x0=0;
+let day,cache={},busy=0,x0=0,fail={};
 const iso=t=>{const z=new Date(t);return z.getFullYear()+'-'+String(z.getMonth()+1).padStart(2,'0')+'-'+String(z.getDate()).padStart(2,'0')};
 const add=(s,n)=>{const z=new Date(s+'T12:00');z.setDate(z.getDate()+n);return iso(z)};
 const min=s=>{const[a,b]=s.split(':');return a*60+ +b};
@@ -62,7 +62,7 @@ function draw(){const v=cache[day],l=$('l'),now=new Date(),t=iso(now),m=now.getH
 const rel=day==t?'Сегодня':day==add(t,1)?'Завтра':day==add(t,-1)?'Вчера':D.toLocaleDateString('ru-RU',{weekday:'long'});
 $('d').innerHTML='';$('d').append(E('b','',rel),E('small','',D.toLocaleDateString('ru-RU',{weekday:day==t||day==add(t,1)?'long':undefined,day:'numeric',month:'long'})));
 $('g').textContent=v&&v.g||'';l.textContent='';
-if(!v)return l.append(E('div','e','Загружаю…'));
+if(!v)return l.append(E('div','e',fail[day]?'Нет связи с ботом — нажми на дату, чтобы повторить':'Загружаю…'));
 if(v.e)return l.append(E('div','e',v.e=='group'?'Выберите группу в приложении':'Нет данных'));
 const L=v.l.filter(r=>r[4]!=1);
 if(!v.l.length)return l.append(E('div','e',D.getDay()?'Пар нет — свободный день 🎉':'Воскресенье — отдыхаем 🎉'));
@@ -78,11 +78,11 @@ if(prev&&k!=1&&min(s)-min(prev)>=40)l.append(E('div','o',(min(s)-min(prev)>=80?'
 const e=E('div','r'+(k==1?' x':k==2?' m':'')+(day==t&&k!=1?(m>=min(f)?' p':m>=min(s)?' n':''):'')),T=E('div','t',s);T.append(E('i','',f));
 const S=E('div','s',name);if(k==1)S.append(E('em','','отменена'));else if(k==2)S.append(E('em','','другая аудитория'));
 e.append(T,S);if(room)e.append(E('div','a',room));l.append(e);if(k!=1)prev=f}}
-function ask(d){if(!W||busy)return;busy=1;W.request('d:'+d).then(x=>{const v=P(x&&x.result);if(v&&v.d){keep(v);if(v.d==day)draw()}}).catch(()=>{}).finally(()=>{busy=0})}
+function ask(d){if(!W||busy)return;busy=1;fail[d]=0;const to=setTimeout(()=>{fail[d]=1;busy=0;draw()},5000);W.request('d:'+d).then(x=>{const v=P(x&&x.result);if(v&&v.d){keep(v);if(v.d==day)draw()}else{fail[d]=1;draw()}}).catch(()=>{fail[d]=1;draw()}).finally(()=>{clearTimeout(to);busy=0})}
 function go(n){day=n?add(day,n):home();draw();ask(day)}
 function home(){const t=iso(Date.now()),v=cache[t],h=new Date().getHours()*60+new Date().getMinutes();
-if(v&&v.l){const L=v.l.filter(r=>r[4]!=1);if((L.length?min(L[L.length-1][1]):17*60)<=h&&h>=15*60)return add(t,1)}return t}
-day=home();const c=W&&P(W.chatData);if(c&&c.d)keep(c);
+const T=add(t,1);if(v&&v.l&&cache[T]){const L=v.l.filter(r=>r[4]!=1);if((L.length?min(L[L.length-1][1]):17*60)<=h&&h>=15*60)return T}if(!v&&cache[T]&&h>=15*60)return T;return t}
+const c=W&&P(W.chatData);if(c&&c.d)keep(c);day=home();
 draw();ask(day);if(day!=add(iso(Date.now()),1))ask(add(iso(Date.now()),1));
 $('p').onclick=()=>go(-1);$('f').onclick=()=>go(1);$('d').onclick=()=>go(0);
 addEventListener('touchstart',e=>x0=e.touches[0].clientX,{passive:true});
@@ -191,8 +191,18 @@ export async function dayPayload(env, tgId, day, groupTitle = (g) => g) {
 
 /** /today — прислать виджет. */
 export async function sendDayWidget(env, callTelegram, chatId, tgId, groupTitle, appUrl) {
-  const day = iso(new Date(Date.now() + 3 * 3600000));
-  const chatData = await dayPayload(env, tgId, day, groupTitle);
+  // Вечером виджет открывается на завтра — завтра и кладём, чтобы не ждать запроса.
+  const msk = new Date(Date.now() + 3 * 3600000);
+  let day = iso(msk);
+  let chatData = await dayPayload(env, tgId, day, groupTitle);
+  const today = JSON.parse(chatData);
+  const live = (today.l || []).filter((r) => r[4] !== 1);
+  const lastEnd = live.length ? live[live.length - 1][1] : "17:00";
+  const nowHm = msk.toISOString().slice(11, 16);
+  if (!today.e && nowHm >= "15:00" && nowHm >= lastEnd) {
+    day = iso(new Date(msk.getTime() + 86400000));
+    chatData = await dayPayload(env, tgId, day, groupTitle);
+  }
   const res = await callTelegram(env.BOT_TOKEN, "sendWidget", {
     chat_id: chatId,
     html: WIDGET_HTML,

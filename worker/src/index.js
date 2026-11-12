@@ -3095,13 +3095,19 @@ async function grantVolunteer(env, from) {
 /** Один раз: /today в меню бота (остальные команды сохраняем как есть). */
 async function ensureTodayCommand(env) {
   if (!env.STATS || !env.BOT_TOKEN) return;
-  const key = "menu:today:v1";
+  const key = "menu:today:v2";
   if (await env.STATS.prepare("SELECT 1 FROM forum_settings WHERE key = ?").bind(key).first().catch(() => null)) return;
   await env.STATS.prepare("INSERT INTO forum_settings (key, value) VALUES (?, '1') ON CONFLICT(key) DO NOTHING").bind(key).run();
   const res = await callTelegram(env.BOT_TOKEN, "getMyCommands", {}).catch(() => null);
   const body = res ? await res.json().catch(() => ({})) : {};
-  const list = (body.result || []).filter((c) => c.command !== "today");
-  await callTelegram(env.BOT_TOKEN, "setMyCommands", { commands: [{ command: "today", description: "📅 Мои пары — живой виджет дня" }, ...list] }).catch(() => {});
+  const list = (body.result || []).filter((c) => !["today", "tomorrow"].includes(c.command));
+  await callTelegram(env.BOT_TOKEN, "setMyCommands", {
+    commands: [
+      { command: "today", description: "📅 Мои пары — живой виджет дня" },
+      { command: "tomorrow", description: "🌙 Пары на завтра" },
+      ...list,
+    ],
+  }).catch(() => {});
 }
 
 const PHOTO_ACK = new Map();
@@ -5651,6 +5657,15 @@ ${invite}`,
           reply_markup: { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] },
         }).catch(() => {});
       }
+    }
+    // /tomorrow — пары на завтра текстом (работает в любой версии Telegram).
+    if (message && /^\/tomorrow(?:@\w+)?\s*$/.test(text) && message.chat.type === "private" && message.from?.id) {
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: await myPairsText(env, message.from.id, iso(new Date(Date.now() + 27 * 3600000))),
+        parse_mode: "HTML",
+        reply_markup: { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] },
+      }).catch(() => {});
     }
     // /pairs в чате курса — кнопки «Мои пары»: каждому — его расписание, видно только ему.
     if (message && /^\/pairs(?:@\w+)?\s*$/.test(text) && (message.chat.type === "group" || message.chat.type === "supergroup")) {
