@@ -897,5 +897,21 @@
     "path": "chelgu-chem",
     "features": [],
     "short": "ЧелГУ химфак"
+  },
+  {
+    "id": "mgimo-odin-college",
+    "university": "МГИМО, Одинцовский филиал",
+    "faculty": "Университетский колледж (СПО)",
+    "path": "mgimo-odin-college",
+    "features": [],
+    "short": "Колледж МГИМО"
+  },
+  {
+    "id": "spbu-law",
+    "university": "СПбГУ",
+    "faculty": "Юридический факультет",
+    "path": "spbu-law",
+    "features": [],
+    "short": "СПбГУ юрфак"
   }
 ]
