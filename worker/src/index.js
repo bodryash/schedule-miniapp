@@ -4193,6 +4193,15 @@ async function watchServer(env) {
   if (new Date().getUTCMinutes() % 5 === 0) {
     const info = await callTelegram(env.BOT_TOKEN, "getWebhookInfo", {}).catch(() => null);
     const result = info?.result;
+    // Запросы виджетов («листать дни») приходят как widget_query. Если вебхук
+    // настроен с фильтром типов без него — Telegram их не присылает вовсе.
+    if (result?.url && Array.isArray(result.allowed_updates) && result.allowed_updates.length && !result.allowed_updates.includes("widget_query") && env.WEBHOOK_SECRET) {
+      await callTelegram(env.BOT_TOKEN, "setWebhook", {
+        url: result.url,
+        secret_token: env.WEBHOOK_SECRET,
+        allowed_updates: [...result.allowed_updates, "widget_query"],
+      }).catch(() => {});
+    }
     if (result) {
       const fresh = result.last_error_date && Date.now() / 1000 - result.last_error_date < 360;
       if (result.pending_update_count > 5 || (fresh && result.pending_update_count > 0)) {
@@ -4764,6 +4773,10 @@ export default {
 
     // Виджет «Мои пары» просит день: «d:2026-11-11».
     if (update.widget_query) {
+      const ws = (globalThis.SCHEDULE_WIDGET_STATS ||= { queries: 0, last: "", data: "" });
+      ws.queries += 1;
+      ws.last = new Date().toISOString();
+      ws.data = String(update.widget_query.data || "").slice(0, 20);
       await answerWidget(env, callTelegram, update.widget_query, groupTitle);
       return new Response("ok");
     }
