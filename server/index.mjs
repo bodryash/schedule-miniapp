@@ -494,6 +494,38 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Закрытый адрес: забрать страницу расписания с сайта вуза. Многие сайты
+    // вузов открываются только из России — сервер стоит здесь. Только по
+    // ключу, только GET и только с сайтов из списка.
+    if (String(req.url).startsWith("/admin/fetch")) {
+      let key = "";
+      try { key = readFileSync(READ_KEY_FILE, "utf8").trim(); } catch {}
+      const given = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      if (!key || given.length !== key.length || !(await import("node:crypto")).timingSafeEqual(Buffer.from(given), Buffer.from(key))) {
+        res.writeHead(404, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false }));
+        return;
+      }
+      const FETCH_HOSTS = ["rgsu.net", "lk.gubkin.ru", "gubkin.ru", "mpgu.su", "mgmsu.ru", "msmsu.ru"];
+      let target;
+      try { target = new URL(new URL(req.url, "http://x").searchParams.get("url") || ""); } catch {}
+      if (!target || !["http:", "https:"].includes(target.protocol) || !FETCH_HOSTS.some((h) => target.hostname === h || target.hostname.endsWith(`.${h}`))) {
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: "host not allowed" }));
+        return;
+      }
+      try {
+        const r = await fetch(target, { headers: { "user-agent": "Mozilla/5.0 (schedule-bot)" }, redirect: "follow", signal: AbortSignal.timeout(25000) });
+        const buf = Buffer.from(await r.arrayBuffer());
+        res.writeHead(200, { "content-type": "application/octet-stream", "x-upstream-status": String(r.status), "x-upstream-type": r.headers.get("content-type") || "" });
+        res.end(buf.subarray(0, 20 * 1024 * 1024));
+      } catch (e) {
+        res.writeHead(502, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: String(e).slice(0, 200) }));
+      }
+      return;
+    }
+
     // Закрытый адрес: расписание подключено — отправителям спасибо и тема волонтёра.
     // POST {"ids":[…], "title":"МПГУ, менеджмент"}. Только по ключу.
     if (String(req.url).startsWith("/admin/connected") && req.method === "POST") {
