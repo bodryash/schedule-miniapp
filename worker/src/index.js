@@ -3092,6 +3092,26 @@ async function grantVolunteer(env, from) {
     .run();
 }
 
+/**
+ * Раз в 5 минут на своём сервере: вебхук должен пропускать запросы виджетов
+ * (widget_query) — иначе листание дней в виджете «нет связи».
+ */
+async function ensureWidgetUpdates(env) {
+  if (!env.BOT_TOKEN || new Date().getUTCMinutes() % 5) return;
+  const res = await callTelegram(env.BOT_TOKEN, "getWebhookInfo", {}).catch(() => null);
+  const result = res ? (await res.json().catch(() => ({})))?.result : null;
+  const ws = (globalThis.SCHEDULE_WIDGET_STATS ||= { queries: 0, last: "", data: "" });
+  ws.webhook = result ? { allowed: result.allowed_updates || "по умолчанию", error: result.last_error_message || "" } : "нет ответа";
+  if (!result?.url || !env.WEBHOOK_SECRET) return;
+  const allowed = Array.isArray(result.allowed_updates) && result.allowed_updates.length ? result.allowed_updates : null;
+  if (allowed && allowed.includes("widget_query")) return;
+  // Без списка Telegram шлёт типы «по умолчанию» — новые виджетные туда
+  // могут не входить, поэтому задаём список явно.
+  const want = [...new Set([...(allowed || ["message", "edited_message", "callback_query", "inline_query", "chosen_inline_result", "my_chat_member", "chat_member", "pre_checkout_query", "message_reaction"]), "widget_query"])];
+  const r = await callTelegram(env.BOT_TOKEN, "setWebhook", { url: result.url, secret_token: env.WEBHOOK_SECRET, allowed_updates: want }).catch(() => null);
+  ws.set = r ? await r.text().catch(() => "") : "ошибка";
+}
+
 /** Один раз: /today в меню бота (остальные команды сохраняем как есть). */
 async function ensureTodayCommand(env) {
   if (!env.STATS || !env.BOT_TOKEN) return;
@@ -5925,6 +5945,7 @@ ${invite}`,
         await refTick(env, (text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text, parse_mode: "HTML" })).catch((error) => console.log("ref tick failed", String(error?.message || error)));
         await promoTick(env).catch((error) => console.log("promo tick failed", String(error?.message || error)));
         await ensureTodayCommand(env).catch(() => {});
+        await ensureWidgetUpdates(env).catch(() => {});
         await gameTick(
           env,
           (text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text, parse_mode: "HTML" }),
