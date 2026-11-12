@@ -3092,6 +3092,18 @@ async function grantVolunteer(env, from) {
     .run();
 }
 
+/** Один раз: /today в меню бота (остальные команды сохраняем как есть). */
+async function ensureTodayCommand(env) {
+  if (!env.STATS || !env.BOT_TOKEN) return;
+  const key = "menu:today:v1";
+  if (await env.STATS.prepare("SELECT 1 FROM forum_settings WHERE key = ?").bind(key).first().catch(() => null)) return;
+  await env.STATS.prepare("INSERT INTO forum_settings (key, value) VALUES (?, '1') ON CONFLICT(key) DO NOTHING").bind(key).run();
+  const res = await callTelegram(env.BOT_TOKEN, "getMyCommands", {}).catch(() => null);
+  const body = res ? await res.json().catch(() => ({})) : {};
+  const list = (body.result || []).filter((c) => c.command !== "today");
+  await callTelegram(env.BOT_TOKEN, "setMyCommands", { commands: [{ command: "today", description: "📅 Мои пары — живой виджет дня" }, ...list] }).catch(() => {});
+}
+
 const PHOTO_ACK = new Map();
 
 /**
@@ -5622,6 +5634,15 @@ ${invite}`,
     const wantsWidget = message && /^\/(?:widget|today)(?:@\w+)?\s*$/.test(text);
     if (message && (wantsWidget || /^\/today(?:@\w+)?\s*$/.test(text)) && message.chat.type === "private" && message.from?.id) {
       const sent = wantsWidget ? await sendDayWidget(env, callTelegram, message.chat.id, message.from.id, groupTitle, WEB_APP_URL).catch(() => null) : null;
+      // Виджет живой — пусть висит закреплённым сверху чата; прежний снимаем.
+      if (sent?.ok && sent.result?.message_id && env.STATS) {
+        const key = `widgetpin:${message.chat.id}`;
+        const prev = await env.STATS.prepare("SELECT value FROM forum_settings WHERE key = ?").bind(key).first().catch(() => null);
+        if (prev?.value) await callTelegram(env.BOT_TOKEN, "unpinChatMessage", { chat_id: message.chat.id, message_id: Number(prev.value) }).catch(() => {});
+        await callTelegram(env.BOT_TOKEN, "pinChatMessage", { chat_id: message.chat.id, message_id: sent.result.message_id, disable_notification: true }).catch(() => {});
+        await env.STATS.prepare("INSERT INTO forum_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+          .bind(key, String(sent.result.message_id)).run().catch(() => {});
+      }
       if (!sent?.ok) {
         await callTelegram(env.BOT_TOKEN, "sendMessage", {
           chat_id: message.chat.id,
@@ -5871,6 +5892,7 @@ ${invite}`,
         await forumFun(env, (chat, text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: chat, text })).catch((error) => console.log("forum fun failed", String(error?.message || error)));
         await refTick(env, (text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text, parse_mode: "HTML" })).catch((error) => console.log("ref tick failed", String(error?.message || error)));
         await promoTick(env).catch((error) => console.log("promo tick failed", String(error?.message || error)));
+        await ensureTodayCommand(env).catch(() => {});
         await gameTick(
           env,
           (text) => callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: env.OWNER_ID, text, parse_mode: "HTML" }),
