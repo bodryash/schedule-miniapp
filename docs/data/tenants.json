@@ -849,5 +849,13 @@
     "path": "rosbiotech-ld",
     "features": [],
     "short": "РОСБИОТЕХ"
+  },
+  {
+    "id": "gnesin-smi",
+    "university": "РАМ им. Гнесиных",
+    "faculty": "Современная музыкальная индустрия",
+    "path": "gnesin-smi",
+    "features": [],
+    "short": "Гнесинка"
   }
 ]
