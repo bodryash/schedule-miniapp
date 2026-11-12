@@ -81,7 +81,7 @@ function ask(d){if(!W||busy)return;busy=1;fail[d]=0;const to=setTimeout(()=>{fai
 function go(n){day=n?add(day,n):home();draw();ask(day)}
 function home(){const t=iso(Date.now()),v=cache[t],h=new Date().getHours()*60+new Date().getMinutes();
 const T=add(t,1);if(v&&v.l&&cache[T]){const L=v.l.filter(r=>r[4]!=1);if((L.length?min(L[L.length-1][1]):17*60)<=h&&h>=15*60)return T}if(!v&&cache[T]&&h>=15*60)return T;return t}
-const c=W&&P(W.chatData);if(c&&c.d)keep(c);day=home();
+const c=W&&P(W.chatData);if(c&&c.d)keep(c);day=c&&c.o?c.d:home();
 draw();ask(day);if(day!=add(iso(Date.now()),1))ask(add(iso(Date.now()),1));
 $('p').onclick=()=>go(-1);$('f').onclick=()=>go(1);$('d').onclick=()=>go(0);
 addEventListener('touchstart',e=>x0=e.touches[0].clientX,{passive:true});
@@ -189,7 +189,7 @@ export async function dayPayload(env, tgId, day, groupTitle = (g) => g) {
 }
 
 /** /today — прислать виджет. */
-export async function sendDayWidget(env, callTelegram, chatId, tgId, groupTitle, appUrl) {
+export async function sendDayWidget(env, callTelegram, chatId, tgId, groupTitle, appUrl, forceDay = null) {
   // Вечером виджет открывается на завтра — завтра и кладём, чтобы не ждать запроса.
   const msk = new Date(Date.now() + 3 * 3600000);
   let day = iso(msk);
@@ -198,7 +198,12 @@ export async function sendDayWidget(env, callTelegram, chatId, tgId, groupTitle,
   const live = (today.l || []).filter((r) => r[4] !== 1);
   const lastEnd = live.length ? live[live.length - 1][1] : "17:00";
   const nowHm = msk.toISOString().slice(11, 16);
-  if (!today.e && nowHm >= "15:00" && nowHm >= lastEnd) {
+  if (forceDay) {
+    day = forceDay;
+    // «o» — открыть именно этот день, а не «сегодня».
+    const v = JSON.parse(await dayPayload(env, tgId, day, groupTitle));
+    chatData = JSON.stringify({ ...v, o: 1 });
+  } else if (!today.e && nowHm >= "15:00" && nowHm >= lastEnd) {
     day = iso(new Date(msk.getTime() + 86400000));
     chatData = await dayPayload(env, tgId, day, groupTitle);
   }

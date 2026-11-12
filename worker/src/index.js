@@ -4977,7 +4977,7 @@ export default {
     }
 
     const message = update.message;
-    let text = message?.text ?? "";
+    const text = message?.text ?? "";
 
     // Запоминаем, кому потом можно написать. Telegram список пользователей
     // не отдаёт, так что кроме этой записи взять его неоткуда. Лежит в базе,
@@ -5651,10 +5651,10 @@ ${invite}`,
     // Кнопки над клавиатурой: «📅 Мои пары» — как /today, «🌙 Завтра» — как /tomorrow.
     const KB_TODAY = "📅 Мои пары";
     const KB_TOMORROW = "🌙 Завтра";
-    if (message && message.chat.type === "private" && text === KB_TOMORROW) text = "/tomorrow";
-    const wantsWidget = message && (/^\/(?:widget|today)(?:@\w+)?\s*$/.test(text) || (message.chat.type === "private" && text === KB_TODAY));
+    const wantsTomorrow = message && message.chat.type === "private" && (text === KB_TOMORROW || /^\/tomorrow(?:@\w+)?\s*$/.test(text));
+    const wantsWidget = message && (wantsTomorrow || /^\/(?:widget|today)(?:@\w+)?\s*$/.test(text) || (message.chat.type === "private" && text === KB_TODAY));
     if (message && (wantsWidget || /^\/today(?:@\w+)?\s*$/.test(text)) && message.chat.type === "private" && message.from?.id) {
-      const sent = wantsWidget ? await sendDayWidget(env, callTelegram, message.chat.id, message.from.id, groupTitle, WEB_APP_URL).catch(() => null) : null;
+      const sent = wantsWidget ? await sendDayWidget(env, callTelegram, message.chat.id, message.from.id, groupTitle, WEB_APP_URL, wantsTomorrow ? iso(new Date(Date.now() + 27 * 3600000)) : null).catch(() => null) : null;
       // Один раз — кнопки над клавиатурой, чтобы не набирать команды.
       if (env.STATS) {
         const kbKey = `kb:v1:${message.chat.id}`;
@@ -5680,20 +5680,11 @@ ${invite}`,
       if (!sent?.ok) {
         await callTelegram(env.BOT_TOKEN, "sendMessage", {
           chat_id: message.chat.id,
-          text: await myPairsText(env, message.from.id, iso(new Date(Date.now() + 3 * 3600000))),
+          text: await myPairsText(env, message.from.id, iso(new Date(Date.now() + (wantsTomorrow ? 27 : 3) * 3600000))),
           parse_mode: "HTML",
           reply_markup: { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] },
         }).catch(() => {});
       }
-    }
-    // /tomorrow — пары на завтра текстом (работает в любой версии Telegram).
-    if (message && /^\/tomorrow(?:@\w+)?\s*$/.test(text) && message.chat.type === "private" && message.from?.id) {
-      await callTelegram(env.BOT_TOKEN, "sendMessage", {
-        chat_id: message.chat.id,
-        text: await myPairsText(env, message.from.id, iso(new Date(Date.now() + 27 * 3600000))),
-        parse_mode: "HTML",
-        reply_markup: { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] },
-      }).catch(() => {});
     }
     // /pairs в чате курса — кнопки «Мои пары»: каждому — его расписание, видно только ему.
     if (message && /^\/pairs(?:@\w+)?\s*$/.test(text) && (message.chat.type === "group" || message.chat.type === "supergroup")) {
