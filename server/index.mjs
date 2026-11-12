@@ -494,6 +494,24 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Закрытый адрес: расписание подключено — отправителям спасибо и тема волонтёра.
+    // POST {"ids":[…], "title":"МПГУ, менеджмент"}. Только по ключу.
+    if (String(req.url).startsWith("/admin/connected") && req.method === "POST") {
+      let key = "";
+      try { key = readFileSync(READ_KEY_FILE, "utf8").trim(); } catch {}
+      const given = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      if (!key || given.length !== key.length || !(await import("node:crypto")).timingSafeEqual(Buffer.from(given), Buffer.from(key))) {
+        res.writeHead(404, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false }));
+        return;
+      }
+      const data = JSON.parse(Buffer.from((await readBody(req)) || "{}").toString("utf8"));
+      const result = await globalThis.SCHEDULE_NOTIFY_CONNECTED(env, Array.isArray(data.ids) ? data.ids.slice(0, 50) : [], String(data.title || "").slice(0, 120));
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: true, result }));
+      return;
+    }
+
     const body = req.method === "GET" || req.method === "HEAD" ? undefined : await readBody(req);
     const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost";
     const request = new Request(`https://${host}${req.url}`, { method: req.method, headers: req.headers, body });

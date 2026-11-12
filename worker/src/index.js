@@ -3083,6 +3083,34 @@ async function grantVolunteer(env, from) {
     .run();
 }
 
+const PHOTO_ACK = new Map();
+
+/**
+ * Расписание подключено: каждому, кто его прислал, — спасибо и зелёная тема
+ * волонтёра. Повторно одному человеку про тот же вуз не пишем.
+ */
+async function notifyConnected(env, ids, title) {
+  const out = [];
+  for (const id of [...new Set(ids.map(Number).filter(Boolean))]) {
+    const key = `connected:${id}:${title}`;
+    if (await env.STATS.prepare("SELECT 1 FROM forum_settings WHERE key = ?").bind(key).first()) {
+      out.push({ id, skipped: true });
+      continue;
+    }
+    await env.STATS.prepare("INSERT INTO forum_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING").bind(key, new Date().toISOString()).run();
+    await grantVolunteer(env, { id }).catch(() => {});
+    const r = await callTelegram(env.BOT_TOKEN, "sendMessage", {
+      chat_id: id,
+      parse_mode: "HTML",
+      text: `🎉 Спасибо! Твоё расписание подключено${title ? ` — <b>${escape(title)}</b>` : ""}.\n\nЗа помощь выдаю тебе зелёную тему волонтёра 💚 Она уже в приложении.\n\nРаздай бота всем, кому можешь, — одногруппникам и в чат курса: пусть тоже пользуются.`,
+      reply_markup: { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] },
+    }).catch((e) => ({ ok: false, description: String(e) }));
+    out.push({ id, ok: Boolean(r?.ok), error: r?.ok ? undefined : r?.description });
+  }
+  return out;
+}
+globalThis.SCHEDULE_NOTIFY_CONNECTED = notifyConnected;
+
 async function themesList(env) {
   const { results = [] } = await env.STATS.prepare(
     "SELECT target, theme FROM themes ORDER BY created DESC LIMIT 60"
@@ -5111,7 +5139,11 @@ ${invite}`,
         await Promise.resolve(
           globalThis.SCHEDULE_SAVE_FILE?.({ ...photo, file_name: "photo.jpg" }, message.from, message.caption || "")
         ).catch(() => {});
-        await grantVolunteer(env, message.from).catch(() => {});
+        const last = PHOTO_ACK.get(message.from.id) || 0;
+        if (Date.now() - last > 10 * 60 * 1000) {
+          PHOTO_ACK.set(message.from.id, Date.now());
+          await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: "Принято ✅ Скоро подключим — напишу, как будет готово." }).catch(() => {});
+        }
       }
       const words = message.text && !message.text.startsWith("/") ? message.text : message.caption || "";
       if (words || photo) {
@@ -5205,7 +5237,7 @@ ${invite}`,
             ? pdf
               ? await startUpdate(env, document)
               : "Это не PDF. Пришлите файл расписания."
-            : "Спасибо! Передал расписание — добавим факультет и сообщим. Если не написали, допишите следующим сообщением вуз и факультет.",
+            : "Принято ✅ Скоро подключим — напишу, как будет готово. Если не написали, допишите следующим сообщением вуз, факультет и группу.",
         });
         // Расписание чужого факультета от студента — владельцу, вместе с
         // тем, кто прислал: добавляет факультеты он.
@@ -5215,7 +5247,6 @@ ${invite}`,
           await Promise.resolve(globalThis.SCHEDULE_SAVE_FILE?.(document, message.from, message.caption || "")).catch(() => {});
           // И сразу на разбор (ветка inbox на GitHub) — пересылать вручную не нужно.
           await sendToInbox(env, document.file_id, document.file_name, `${clickerName(message.from || {})}${message.from?.username ? ` @${message.from.username}` : ""}${message.caption ? ` · ${message.caption}` : ""}`).catch(() => {});
-          await grantVolunteer(env, message.from).catch(() => {});
           await callTelegram(env.BOT_TOKEN, "forwardMessage", {
             chat_id: env.OWNER_ID,
             from_chat_id: message.chat.id,
