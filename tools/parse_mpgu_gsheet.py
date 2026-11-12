@@ -86,16 +86,22 @@ def lessons_in(text, weekday):
         chunk = text[s: starts[i + 1] if i + 1 < len(starts) else len(text)]
         m = RE_LESSON.match(chunk)
         subject = re.sub(r"\s+", " ", m.group(1)).strip(" :")
+        sg = re.search(r"\s*,?\s*п/г\s*(\d)", subject)
+        subgroup = int(sg.group(1)) if sg else None
+        subject = subject[:sg.start()].strip(" ,") if sg else subject
         rest = chunk[m.end():]
         teacher = (RE_TEACHER.search(rest) or [""])[0]
         teacher = re.sub(r"\s+", " ", teacher).replace("ст.преп", "ст. преп")
         room_m = RE_ROOM.search(rest)
         room = room_m.group(1).strip() if room_m else ""
+        if not room:
+            rooms = re.findall(r"АУД\.?\s*([\w\-/]+)", rest, re.I)
+            room = max(set(rooms), key=rooms.count) if rooms else ""
         if not room and "с/з" in rest:
             room = "спортзал"
         note = "дистанционно" if "дистанц" in rest else ""
         dates = dates_of(RE_ROOM.sub(" ", rest.split("http")[0]), weekday)
-        out.append({"subject": subject, "type": KIND[m.group(2)], "teacher": teacher, "room": room, "dates": [d.isoformat() for d in dates], "link": link if "http" in chunk else "", "note": note})
+        out.append({"subject": subject, "type": KIND[m.group(2)], "teacher": teacher, "room": room, "dates": [d.isoformat() for d in dates], "link": link if "http" in chunk else "", "note": note, "subgroup": subgroup})
     return out
 
 
@@ -120,7 +126,9 @@ def parse(paths):
         level_course = {"i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5}.get(cm.group(1) if cm else "", 1)
         form = "очно-заочная" if "очно-заочн" in title else "заочная" if "заочн" in title else ""
         for gc, g in gcols.items():
-            groups[g] = {"id": g, "title": g + (f" ({form})" if form else ""), "course": level_course, "level": "магистратура" if "магистр" in title else "бакалавриат"}
+            ym = re.search(r"(\d{2})\d{2}$", g)
+            gc_course = 2026 - 2000 - int(ym.group(1)) + 1 if ym and not form else level_course
+            groups[g] = {"id": g, "title": g + (f" ({form})" if form else ""), "course": gc_course, "level": "магистратура" if "магистр" in title else "бакалавриат"}
         seen = set()
         last_time = ""
         for r in range(head + 1, n):
@@ -141,7 +149,7 @@ def parse(paths):
                     continue
                 seen.add((origin, g))
                 for l in lessons_in(txt, wd):
-                    lessons.append({"group": g, "day": wd, "slot": 0, "start": start, "end": end, "subgroup": None, "elective": None, "week": "all", **l})
+                    lessons.append({"group": g, "day": wd, "slot": 0, "start": start, "end": end, "elective": None, "week": "all", **l})
     starts = sorted({l["start"] for l in lessons})
     bells = [{"n": i + 1, "start": s, "end": next(l["end"] for l in lessons if l["start"] == s)} for i, s in enumerate(starts)]
     slot = {b["start"]: b["n"] for b in bells}
