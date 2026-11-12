@@ -434,7 +434,7 @@ const server = createServer(async (req, res) => {
     if (req.url === "/healthz") {
       STATS.raw.prepare("SELECT 1").get();
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ ok: true, uptime: Math.round((Date.now() - stats.started) / 1000), ...stats, ...vitals(), avatars: globalThis.SCHEDULE_AVA_STATS || null }));
+      res.end(JSON.stringify({ ok: true, uptime: Math.round((Date.now() - stats.started) / 1000), ...stats, ...vitals(), avatars: globalThis.SCHEDULE_AVA_STATS || null, widgets: globalThis.SCHEDULE_WIDGET_STATS || null }));
       return;
     }
 
