@@ -753,5 +753,13 @@
     "path": "imes",
     "features": [],
     "short": "ИМЭС"
+  },
+  {
+    "id": "msal-spo",
+    "university": "МГЮА им. О.Е. Кутафина",
+    "faculty": "СПО (колледж)",
+    "path": "msal-spo",
+    "features": [],
+    "short": "МГЮА СПО"
   }
 ]
