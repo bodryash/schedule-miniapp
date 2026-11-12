@@ -4192,7 +4192,8 @@ async function watchServer(env) {
   // Доходят ли до бота сообщения от Telegram — раз в пять минут.
   if (new Date().getUTCMinutes() % 5 === 0) {
     const info = await callTelegram(env.BOT_TOKEN, "getWebhookInfo", {}).catch(() => null);
-    const result = info?.result;
+    // callTelegram отдаёт сам ответ fetch — JSON читаем отдельно.
+    const result = info ? (await info.json().catch(() => ({})))?.result : null;
     (globalThis.SCHEDULE_WIDGET_STATS ||= { queries: 0, last: "", data: "" }).webhook = result ? { allowed: result.allowed_updates || "все по умолчанию", error: result.last_error_message || "" } : null;
     // Запросы виджетов («листать дни») приходят как widget_query. Если вебхук
     // настроен с фильтром типов без него — Telegram их не присылает вовсе.
