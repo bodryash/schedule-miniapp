@@ -681,5 +681,13 @@
     "path": "mvd-kikot-fpsopp",
     "features": [],
     "short": "МосУ МВД"
+  },
+  {
+    "id": "mpgu-isgo-law",
+    "university": "МПГУ",
+    "faculty": "ИСГО, юриспруденция",
+    "path": "mpgu-isgo-law",
+    "features": [],
+    "short": "МПГУ"
   }
 ]
