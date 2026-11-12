@@ -689,5 +689,37 @@
     "path": "mpgu-isgo-law",
     "features": [],
     "short": "МПГУ"
+  },
+  {
+    "id": "mpgu-isgo-man",
+    "university": "МПГУ",
+    "faculty": "ИСГО, менеджмент",
+    "path": "mpgu-isgo-man",
+    "features": [],
+    "short": "МПГУ"
+  },
+  {
+    "id": "synergy-med",
+    "university": "Университет «Синергия»",
+    "faculty": "Медицинский факультет",
+    "path": "synergy-med",
+    "features": [],
+    "short": "Синергия"
+  },
+  {
+    "id": "tgtu-ti",
+    "university": "ТГТУ",
+    "faculty": "Технологический институт",
+    "path": "tgtu-ti",
+    "features": [],
+    "short": "ТГТУ"
+  },
+  {
+    "id": "mpgu-ipp",
+    "university": "МПГУ",
+    "faculty": "Институт педагогики и психологии",
+    "path": "mpgu-ipp",
+    "features": [],
+    "short": "МПГУ"
   }
 ]
