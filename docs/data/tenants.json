@@ -881,5 +881,13 @@
     "path": "sgu-ff",
     "features": [],
     "short": "СГУ"
+  },
+  {
+    "id": "msal-ipk",
+    "university": "МГЮА им. О.Е. Кутафина",
+    "faculty": "ИПК",
+    "path": "msal-ipk",
+    "features": [],
+    "short": "МГЮА ИПК"
   }
 ]
