@@ -689,5 +689,13 @@
     "path": "mpgu-isgo-law",
     "features": [],
     "short": "МПГУ"
+  },
+  {
+    "id": "mpgu-isgo-man",
+    "university": "МПГУ",
+    "faculty": "ИСГО, менеджмент",
+    "path": "mpgu-isgo-man",
+    "features": [],
+    "short": "МПГУ"
   }
 ]
