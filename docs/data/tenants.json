@@ -745,5 +745,13 @@
     "path": "mpgu-iiya",
     "features": [],
     "short": "МПГУ"
+  },
+  {
+    "id": "imes",
+    "university": "ИМЭС",
+    "faculty": "Бизнес-информатика и менеджмент",
+    "path": "imes",
+    "features": [],
+    "short": "ИМЭС"
   }
 ]
