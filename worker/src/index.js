@@ -1337,8 +1337,17 @@ async function handleStarosta(env, text) {
   } catch {
     return "Не удалось загрузить список групп. Попробуйте позже.";
   }
-  const group = groups.find((g) => normalize(g.id) === normalize(groupName));
-  if (!group) return `Не нашёл группу ${escape(groupName)}. Пишите полностью, например 311гэу.`;
+  let group = groups.find((g) => normalize(g.id) === normalize(groupName));
+  // Группа другого факультета: «msu-vshssn/УП-1» — так её id хранит приложение.
+  if (!group && groupName.includes("/")) {
+    const [tid, gid] = [groupName.slice(0, groupName.indexOf("/")), groupName.slice(groupName.indexOf("/") + 1)];
+    const tenants = await loadJson("tenants.json").catch(() => []);
+    const tenant = tenants.find((t) => t.id === tid);
+    const list = tenant ? await loadJson(`${tenant.path ? `${tenant.path}/` : ""}groups.json`).catch(() => []) : [];
+    const found = list.find((g) => normalize(g.id) === normalize(gid));
+    if (found) group = { ...found, id: `${tid}/${found.id}`, title: `${found.title || found.id} · ${tenant.short || tenant.faculty}` };
+  }
+  if (!group) return `Не нашёл группу ${escape(groupName)}. Пишите полностью, например 311гэу, а для других факультетов — факультет/группа, например msu-vshssn/УП-1.`;
 
   const person = await findPerson(env, who);
   if (!person) {
