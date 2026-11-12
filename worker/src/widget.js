@@ -19,11 +19,10 @@ import { shownSubject } from "./subjects.js";
 export const WIDGET_HTML = `<style>
 body{margin:0;padding:10px 10px 6px;font:15px/1.3 system-ui,sans-serif}
 .h{display:flex;align-items:center;gap:8px}
-.h div{flex:1;text-align:center;cursor:pointer}
+.h div{flex:1;text-align:center}
 .h b{display:block;font-size:20px;letter-spacing:-.3px}
 .h small,.g,.q,.t i,.o{color:var(--tg-theme-hint-color)}
 .h small{font-size:12px}
-.h button{width:34px;height:34px;padding:0;border-radius:17px;font-size:18px;border:0}
 .g{text-align:center;font-size:12px;margin-top:2px}
 .q{font-size:12px;text-align:center;margin:6px 0}
 .bar{height:4px;border-radius:2px;margin:6px 0 8px;background:var(--tg-theme-secondary-bg-color);overflow:hidden}
@@ -44,7 +43,7 @@ body{margin:0;padding:10px 10px 6px;font:15px/1.3 system-ui,sans-serif}
 .o{font-size:12px;text-align:center;margin:-2px 0}
 .e{padding:18px 0;text-align:center;color:var(--tg-theme-hint-color)}
 </style>
-<div class="h"><button id="p">‹</button><div id="d"></div><button id="f">›</button></div>
+<div class="h"><div id="d"></div></div>
 <div class="g" id="g"></div><div id="l"></div>
 <script>
 const W=window.TelegramWidget,$=i=>document.getElementById(i);
@@ -61,7 +60,7 @@ function draw(){const v=cache[day],l=$('l'),now=new Date(),t=iso(now),m=now.getH
 const rel=(day==t?'☀️ Сегодня':day==add(t,1)?'🌙 Завтра':day==add(t,-1)?'Вчера':D.toLocaleDateString('ru-RU',{weekday:'long'}));
 $('d').innerHTML='';$('d').append(E('b','',rel),E('small','',D.toLocaleDateString('ru-RU',{weekday:day==t||day==add(t,1)?'long':undefined,day:'numeric',month:'long'})));
 $('g').textContent=v&&v.g||'';l.textContent='';
-if(!v)return l.append(E('div','e',fail[day]?'Нет связи с ботом ('+fail[day]+') — нажми на дату':'Загружаю…'));
+if(!v)return l.append(E('div','e',fail[day]?'Не получилось загрузить — нажми кнопку ещё раз':'Загружаю…'));
 if(v.e)return l.append(E('div','e',v.e=='group'?'Выберите группу в приложении':'Нет данных'));
 const L=v.l.filter(r=>r[4]!=1);
 if(!v.l.length)return l.append(E('div','e',D.getDay()?'Пар нет — свободный день 🎉':'Воскресенье — отдыхаем 🎉'));
@@ -78,15 +77,9 @@ let hh=0;for(const ch of name)hh=(hh*31+ch.charCodeAt(0))%360;const e=E('div','r
 const S=E('div','s',name);if(k==1)S.append(E('em','','отменена'));else if(k==2)S.append(E('em','','другая аудитория'));
 e.append(T,S);if(room)e.append(E('div','a',room));l.append(e);if(k!=1)prev=f}}
 function ask(d,tap){if(!W||(busy&&!tap))return;busy=1;fail[d]=0;const to=setTimeout(()=>{fail[d]='нет ответа';busy=0;draw()},6000);W.request('d:'+d).then(x=>{const v=P(x&&x.result);if(v&&v.d){keep(v);if(v.d==day)draw()}else{fail[d]='пустой ответ';draw()}}).catch(e=>{fail[d]=(e&&(e.code||e.name||e.message))||'ошибка';draw()}).finally(()=>{clearTimeout(to);busy=0})}
-function go(n){day=n?add(day,n):home();draw();ask(day,1)}
-function home(){const t=iso(Date.now()),v=cache[t],h=new Date().getHours()*60+new Date().getMinutes();
-const T=add(t,1);if(v&&v.l&&cache[T]){const L=v.l.filter(r=>r[4]!=1);if((L.length?min(L[L.length-1][1]):17*60)<=h&&h>=15*60)return T}if(!v&&cache[T]&&h>=15*60)return T;return t}
-const c=W&&P(W.chatData);if(c&&c.d)keep(c);day=c&&c.o?c.d:home();
-draw();ask(day);if(day!=add(iso(Date.now()),1))ask(add(iso(Date.now()),1));
-$('p').onclick=()=>go(-1);$('f').onclick=()=>go(1);$('d').onclick=()=>go(0);
-addEventListener('touchstart',e=>x0=e.touches[0].clientX,{passive:true});
-addEventListener('touchend',e=>{const d=e.changedTouches[0].clientX-x0;if(Math.abs(d)>60)go(d<0?1:-1)});
-if(W){W.onEvent('activated',()=>{go(0)});W.onEvent('chatDataChanged',()=>{const v=P(W.chatData);if(v&&v.d){keep(v);draw()}});W.ready&&W.ready()}
+const c=W&&P(W.chatData);if(c&&c.d)keep(c);day=c&&c.d||iso(Date.now());
+draw();ask(day);
+if(W){W.onEvent('activated',()=>{draw();ask(day)});W.onEvent('chatDataChanged',()=>{const v=P(W.chatData);if(v&&v.d){keep(v);draw()}});W.ready&&W.ready()}
 setInterval(draw,30000);
 </script>`;
 
