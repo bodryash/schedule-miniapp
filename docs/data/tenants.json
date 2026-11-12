@@ -833,5 +833,13 @@
     "path": "mfua-college",
     "features": [],
     "short": "МФЮА колледж"
+  },
+  {
+    "id": "ranepa-lip",
+    "university": "РАНХиГС, Липецкий филиал",
+    "faculty": "Юриспруденция",
+    "path": "ranepa-lip",
+    "features": [],
+    "short": "РАНХиГС Липецк"
   }
 ]
