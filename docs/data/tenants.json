@@ -721,5 +721,13 @@
     "path": "mpgu-ipp",
     "features": [],
     "short": "МПГУ"
+  },
+  {
+    "id": "mai-6",
+    "university": "МАИ",
+    "faculty": "Институт №6 «Аэрокосмический»",
+    "path": "mai-6",
+    "features": [],
+    "short": "МАИ"
   }
 ]
