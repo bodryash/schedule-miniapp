@@ -777,5 +777,13 @@
     "path": "vavt-fvm",
     "features": [],
     "short": "ФВМ"
+  },
+  {
+    "id": "ithub",
+    "university": "Колледж IThub",
+    "faculty": "Программирование и управление ИТ-продуктом",
+    "path": "ithub",
+    "features": [],
+    "short": "IThub"
   }
 ]
