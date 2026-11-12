@@ -785,5 +785,13 @@
     "path": "ithub",
     "features": [],
     "short": "IThub"
+  },
+  {
+    "id": "rgsu",
+    "university": "РГСУ",
+    "faculty": "Педагогика (Лосиноостровская, 40)",
+    "path": "rgsu",
+    "features": [],
+    "short": "РГСУ"
   }
 ]
