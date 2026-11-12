@@ -61,7 +61,7 @@ function draw(){const v=cache[day],l=$('l'),now=new Date(),t=iso(now),m=now.getH
 const rel=(day==t?'☀️ Сегодня':day==add(t,1)?'🌙 Завтра':day==add(t,-1)?'Вчера':D.toLocaleDateString('ru-RU',{weekday:'long'}));
 $('d').innerHTML='';$('d').append(E('b','',rel),E('small','',D.toLocaleDateString('ru-RU',{weekday:day==t||day==add(t,1)?'long':undefined,day:'numeric',month:'long'})));
 $('g').textContent=v&&v.g||'';l.textContent='';
-if(!v)return l.append(E('div','e',fail[day]?'Нет связи с ботом — нажми на дату, чтобы повторить':'Загружаю…'));
+if(!v)return l.append(E('div','e',fail[day]?'Нет связи с ботом ('+fail[day]+') — нажми на дату':'Загружаю…'));
 if(v.e)return l.append(E('div','e',v.e=='group'?'Выберите группу в приложении':'Нет данных'));
 const L=v.l.filter(r=>r[4]!=1);
 if(!v.l.length)return l.append(E('div','e',D.getDay()?'Пар нет — свободный день 🎉':'Воскресенье — отдыхаем 🎉'));
@@ -77,8 +77,8 @@ if(prev&&k!=1&&min(s)-min(prev)>=40)l.append(E('div','o',(min(s)-min(prev)>=80?'
 let hh=0;for(const ch of name)hh=(hh*31+ch.charCodeAt(0))%360;const e=E('div','r'+(k==1?' x':k==2?' m':'')+(day==t&&k!=1?(m>=min(f)?' p':m>=min(s)?' n':''):'')),T=E('div','t',s);e.style.setProperty('--h',hh);T.append(E('i','',f));
 const S=E('div','s',name);if(k==1)S.append(E('em','','отменена'));else if(k==2)S.append(E('em','','другая аудитория'));
 e.append(T,S);if(room)e.append(E('div','a',room));l.append(e);if(k!=1)prev=f}}
-function ask(d){if(!W||busy)return;busy=1;fail[d]=0;const to=setTimeout(()=>{fail[d]=1;busy=0;draw()},5000);W.request('d:'+d).then(x=>{const v=P(x&&x.result);if(v&&v.d){keep(v);if(v.d==day)draw()}else{fail[d]=1;draw()}}).catch(()=>{fail[d]=1;draw()}).finally(()=>{clearTimeout(to);busy=0})}
-function go(n){day=n?add(day,n):home();draw();ask(day)}
+function ask(d,tap){if(!W||(busy&&!tap))return;busy=1;fail[d]=0;const to=setTimeout(()=>{fail[d]='нет ответа';busy=0;draw()},6000);W.request('d:'+d).then(x=>{const v=P(x&&x.result);if(v&&v.d){keep(v);if(v.d==day)draw()}else{fail[d]='пустой ответ';draw()}}).catch(e=>{fail[d]=(e&&(e.code||e.name||e.message))||'ошибка';draw()}).finally(()=>{clearTimeout(to);busy=0})}
+function go(n){day=n?add(day,n):home();draw();ask(day,1)}
 function home(){const t=iso(Date.now()),v=cache[t],h=new Date().getHours()*60+new Date().getMinutes();
 const T=add(t,1);if(v&&v.l&&cache[T]){const L=v.l.filter(r=>r[4]!=1);if((L.length?min(L[L.length-1][1]):17*60)<=h&&h>=15*60)return T}if(!v&&cache[T]&&h>=15*60)return T;return t}
 const c=W&&P(W.chatData);if(c&&c.d)keep(c);day=c&&c.o?c.d:home();
