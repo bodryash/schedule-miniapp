@@ -673,5 +673,13 @@
     "path": "fa-tula",
     "features": [],
     "short": "Тула"
+  },
+  {
+    "id": "mvd-kikot-fpsopp",
+    "university": "Московский университет МВД им. В.Я. Кикотя",
+    "faculty": "ФПСОПП",
+    "path": "mvd-kikot-fpsopp",
+    "features": [],
+    "short": "МосУ МВД"
   }
 ]
