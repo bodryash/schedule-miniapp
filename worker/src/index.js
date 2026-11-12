@@ -5144,7 +5144,7 @@ export default {
       });
     }
 
-    if (message && text.startsWith("/start") && !refLink && !shared && !invited && !forumLink && !gameLink && !/^\/start(?:@\w+)?\s+starosta$/.test(text)) {
+    if (message && text.startsWith("/start") && !refLink && !shared && !invited && !forumLink && !gameLink && !/^\/start(?:@\w+)?\s+(?:starosta|today)$/.test(text)) {
       // Китайский и корейский — сами по языку Telegram. Английский только
       // подсказкой: многие русские студенты держат Telegram на английском.
       const code = String(message.from?.language_code || "").toLowerCase();
@@ -5666,8 +5666,8 @@ ${invite}`,
     const KB_OLD = "📅 Мои пары";
     const KB_TOMORROW = "🌙 Завтра";
     const wantsTomorrow = message && message.chat.type === "private" && (text === KB_TOMORROW || /^\/tomorrow(?:@\w+)?\s*$/.test(text));
-    const wantsWidget = message && (wantsTomorrow || /^\/(?:widget|today)(?:@\w+)?\s*$/.test(text) || (message.chat.type === "private" && (text === KB_TODAY || text === KB_OLD)));
-    const wantsToday = message && message.chat.type === "private" && text === KB_TODAY;
+    const wantsWidget = message && (wantsTomorrow || /^\/(?:widget|today)(?:@\w+)?\s*$/.test(text) || (message.chat.type === "private" && (text === KB_TODAY || text === KB_OLD || /^\/start(?:@\w+)?\s+today$/.test(text))));
+    const wantsToday = message && message.chat.type === "private" && (text === KB_TODAY || /^\/start(?:@\w+)?\s+today$/.test(text));
     if (message && (wantsWidget || /^\/today(?:@\w+)?\s*$/.test(text)) && message.chat.type === "private" && message.from?.id) {
       const sent = wantsWidget ? await sendDayWidget(env, callTelegram, message.chat.id, message.from.id, groupTitle, WEB_APP_URL, wantsTomorrow ? iso(new Date(Date.now() + 27 * 3600000)) : wantsToday ? iso(new Date(Date.now() + 3 * 3600000)) : null).catch(() => null) : null;
       // В чате — только виджет: нажатие кнопки и прежний виджет убираем,
