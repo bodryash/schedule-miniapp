@@ -2059,7 +2059,7 @@ function applyTheme(granted = grantedTheme) {
 /** 31 октября; «?halloween» в адресе — посмотреть заранее. */
 /** Этот день — день сдачи крови (и человек из МГУ). */
 function isDonorDay(iso) {
-  return DONOR_DAYS.includes(iso) && String(tenantId()).startsWith("msu");
+  return DONOR_DAYS.includes(iso) && chosenMsu();
 }
 
 /** Над парами выбранного донорского дня — карточка «Сегодня День донора». */
@@ -2096,7 +2096,7 @@ function donorSplashMark() {
 /** День донора МГУ: студентам МГУ — красная тема и капля на заставке, до 17 ноября. */
 function isDonorDays() {
   const today = isoDate(new Date());
-  return today >= "2026-11-08" && today <= "2026-11-17" && String(tenantId()).startsWith("msu");
+  return today >= "2026-11-08" && today <= "2026-11-17" && chosenMsu();
 }
 
 function isHalloween() {
@@ -5678,6 +5678,20 @@ function el(tag, className, text) {
 const DEFAULT_TENANT = "msu-fgp";
 const TENANTS_KEY = "schedule.tenants";
 let TENANTS = [{ id: DEFAULT_TENANT, university: "МГУ", faculty: "Факультет глобальных процессов", path: "", features: ["mfk", "emails"], short: "ФГП" }];
+
+/**
+ * Человек сам выбрал факультет МГУ и группу (или преподавателя). Без выбора
+ * tenantId() по умолчанию — МГУ, и МГУ-шное (день донора) видели все новички
+ * других вузов.
+ */
+function chosenMsu() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {};
+    return String(saved.tenant || DEFAULT_TENANT).startsWith("msu") && Boolean(saved.group || saved.teacher);
+  } catch {
+    return false;
+  }
+}
 
 function tenantId() {
   try {
@@ -14726,7 +14740,7 @@ const DONOR_DAYS = ["2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "202
 function donorVisible() {
   const today = isoDate(new Date());
   if (today > DONOR_DAYS.at(-1) || today < "2026-11-06") return false;
-  if (!String(tenantId()).startsWith("msu")) return false;
+  if (!chosenMsu()) return false;
   try {
     if (localStorage.getItem(DONOR_KEY) === "1") return false;
   } catch {}
