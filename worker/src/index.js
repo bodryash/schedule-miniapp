@@ -4977,7 +4977,7 @@ export default {
     }
 
     const message = update.message;
-    const text = message?.text ?? "";
+    let text = message?.text ?? "";
 
     // Запоминаем, кому потом можно написать. Telegram список пользователей
     // не отдаёт, так что кроме этой записи взять его неоткуда. Лежит в базе,
@@ -5186,7 +5186,7 @@ ${invite}`,
           await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: "Принято ✅ Скоро подключим — напишу, как будет готово." }).catch(() => {});
         }
       }
-      const words = message.text && !message.text.startsWith("/") ? message.text : message.caption || "";
+      const words = message.text && !message.text.startsWith("/") && !["📅 Мои пары", "🌙 Завтра"].includes(message.text) ? message.text : message.caption || "";
       if (words || photo) {
         await Promise.resolve(globalThis.SCHEDULE_SAVE_NOTE(message.from, words, Boolean(photo || message.document))).catch(() => {});
       }
@@ -5648,9 +5648,26 @@ ${invite}`,
     // (Bot API 10.4). Виджеты Telegram включает постепенно: на старых версиях
     // приложения вместо них «сообщение не поддерживается», поэтому пока они
     // по отдельной команде.
-    const wantsWidget = message && /^\/(?:widget|today)(?:@\w+)?\s*$/.test(text);
+    // Кнопки над клавиатурой: «📅 Мои пары» — как /today, «🌙 Завтра» — как /tomorrow.
+    const KB_TODAY = "📅 Мои пары";
+    const KB_TOMORROW = "🌙 Завтра";
+    if (message && message.chat.type === "private" && text === KB_TOMORROW) text = "/tomorrow";
+    const wantsWidget = message && (/^\/(?:widget|today)(?:@\w+)?\s*$/.test(text) || (message.chat.type === "private" && text === KB_TODAY));
     if (message && (wantsWidget || /^\/today(?:@\w+)?\s*$/.test(text)) && message.chat.type === "private" && message.from?.id) {
       const sent = wantsWidget ? await sendDayWidget(env, callTelegram, message.chat.id, message.from.id, groupTitle, WEB_APP_URL).catch(() => null) : null;
+      // Один раз — кнопки над клавиатурой, чтобы не набирать команды.
+      if (env.STATS) {
+        const kbKey = `kb:v1:${message.chat.id}`;
+        const had = await env.STATS.prepare("SELECT 1 FROM forum_settings WHERE key = ?").bind(kbKey).first().catch(() => null);
+        if (!had) {
+          await env.STATS.prepare("INSERT INTO forum_settings (key, value) VALUES (?, '1') ON CONFLICT(key) DO NOTHING").bind(kbKey).run().catch(() => {});
+          await callTelegram(env.BOT_TOKEN, "sendMessage", {
+            chat_id: message.chat.id,
+            text: "Теперь пары — по кнопке внизу 👇",
+            reply_markup: { keyboard: [[{ text: KB_TODAY }, { text: KB_TOMORROW }]], resize_keyboard: true, is_persistent: true },
+          }).catch(() => {});
+        }
+      }
       // Виджет живой — пусть висит закреплённым сверху чата; прежний снимаем.
       if (sent?.ok && sent.result?.message_id && env.STATS) {
         const key = `widgetpin:${message.chat.id}`;
@@ -5716,7 +5733,7 @@ ${invite}`,
       !isOwner(env, message.chat.id) &&
       message.from?.id &&
       !message.document &&
-      (message.text ? !message.text.startsWith("/") && !/^\s*я\s+староста[\s.!)]*$/i.test(message.text) : message.photo || message.voice || message.sticker || message.video)
+      (message.text ? !message.text.startsWith("/") && !["📅 Мои пары", "🌙 Завтра"].includes(message.text) && !/^\s*я\s+староста[\s.!)]*$/i.test(message.text) : message.photo || message.voice || message.sticker || message.video)
     ) {
       {
         const who = `${clickerName(message.from)}${message.from.username ? ` @${message.from.username}` : ""}`;
