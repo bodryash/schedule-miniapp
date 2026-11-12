@@ -913,5 +913,13 @@
     "path": "spbu-law",
     "features": [],
     "short": "СПбГУ юрфак"
+  },
+  {
+    "id": "agu-ling",
+    "university": "АГУ (Адыгейский госуниверситет)",
+    "faculty": "Факультет иностранных языков, лингвистика",
+    "path": "agu-ling",
+    "features": [],
+    "short": "АГУ"
   }
 ]
