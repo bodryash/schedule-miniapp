@@ -793,5 +793,13 @@
     "path": "rgsu",
     "features": [],
     "short": "РГСУ"
+  },
+  {
+    "id": "rum-stom",
+    "university": "Российский университет медицины",
+    "faculty": "Стоматологический факультет",
+    "path": "rum-stom",
+    "features": [],
+    "short": "РосУниМед"
   }
 ]
