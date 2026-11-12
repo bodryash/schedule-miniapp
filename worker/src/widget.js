@@ -17,33 +17,32 @@ import { shownSubject } from "./subjects.js";
 
 // Без комментариев и лишних пробелов: лимит — 4096 байт после сжатия.
 export const WIDGET_HTML = `<style>
-body{margin:0;padding:10px 12px 8px;font:15px/1.3 system-ui,sans-serif}
+body{margin:0;padding:10px 10px 6px;font:15px/1.3 system-ui,sans-serif}
 .h{display:flex;align-items:center;gap:8px}
 .h div{flex:1;text-align:center;cursor:pointer}
-.h b{display:block;font-size:17px}
+.h b{display:block;font-size:20px;letter-spacing:-.3px}
 .h small,.g,.q,.t i,.o{color:var(--tg-theme-hint-color)}
 .h small{font-size:12px}
-.h button{width:34px;height:34px;padding:0;border-radius:17px;font-size:18px}
+.h button{width:34px;height:34px;padding:0;border-radius:17px;font-size:18px;border:0}
 .g{text-align:center;font-size:12px;margin-top:2px}
-.bar{height:4px;border-radius:2px;margin:8px 0;background:var(--tg-theme-secondary-bg-color);overflow:hidden}
-.bar i{display:block;height:100%;background:var(--tg-theme-button-color);border-radius:2px}
-.c{padding:9px 11px;border-radius:12px;margin-bottom:6px;background:var(--tg-theme-button-color);color:var(--tg-theme-button-text-color)}
+.q{font-size:12px;text-align:center;margin:6px 0}
+.bar{height:4px;border-radius:2px;margin:6px 0 8px;background:var(--tg-theme-secondary-bg-color);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--tg-theme-button-color)}
+.c{padding:10px 12px;border-radius:14px;margin-bottom:8px;background:linear-gradient(135deg,var(--tg-theme-button-color),#8e5cf7);color:#fff}
 .c b{display:block;font-size:16px}
-.c span{font-size:13px;opacity:.85}
-.q{font-size:12px;text-align:center;margin-bottom:4px}
-.r{display:flex;gap:10px;padding:7px 0;align-items:center}
-.t{width:42px;flex:none;font-weight:600;font-variant-numeric:tabular-nums}
+.c span{font-size:13px;opacity:.9}
+.r{display:flex;gap:10px;align-items:center;margin:6px 0;padding:9px 10px 9px 12px;border-radius:12px;background:var(--tg-theme-secondary-bg-color);border-left:4px solid hsl(var(--h),70%,58%)}
+.t{flex:none;min-width:46px;white-space:nowrap;font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
 .t i{display:block;font-style:normal;font-weight:400;font-size:12px}
-.s{flex:1;min-width:0}
-.a{flex:none;padding:2px 8px;border-radius:9px;font-size:13px;font-weight:600;background:var(--tg-theme-secondary-bg-color)}
-.x .s,.x .t{text-decoration:line-through;color:var(--tg-theme-hint-color)}
-.m .a{background:var(--tg-theme-button-color);color:var(--tg-theme-button-text-color)}
+.s{flex:1;min-width:0;font-weight:500}
+.a{flex:none;white-space:nowrap;padding:3px 9px;border-radius:10px;font-size:12px;font-weight:600;background:hsla(var(--h),70%,58%,.18);color:hsl(var(--h),60%,48%)}
+.s em{display:block;font-style:normal;font-size:12px;font-weight:400;color:var(--tg-theme-hint-color)}
+.x{opacity:.5}.x .s{text-decoration:line-through}
+.m .s em{color:hsl(var(--h),60%,48%)}
 .p{opacity:.45}
-.n .s{font-weight:600}
-.o{font-size:12px;padding:1px 0 1px 52px}
-.s em{display:block;font-style:normal;font-size:12px;color:var(--tg-theme-hint-color)}
-.m .s em{color:var(--tg-theme-link-color)}
-.e{padding:16px 0;text-align:center;color:var(--tg-theme-hint-color)}
+.n{box-shadow:0 0 0 2px hsl(var(--h),70%,58%)}
+.o{font-size:12px;text-align:center;margin:-2px 0}
+.e{padding:18px 0;text-align:center;color:var(--tg-theme-hint-color)}
 </style>
 <div class="h"><button id="p">‹</button><div id="d"></div><button id="f">›</button></div>
 <div class="g" id="g"></div><div id="l"></div>
@@ -59,7 +58,7 @@ const E=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=nul
 try{cache=JSON.parse(localStorage.getItem('c')||'{}')}catch(e){}
 function keep(v){cache[v.d]=v;const k=Object.keys(cache).sort();while(k.length>5)delete cache[k.shift()];try{localStorage.setItem('c',JSON.stringify(cache))}catch(e){}}
 function draw(){const v=cache[day],l=$('l'),now=new Date(),t=iso(now),m=now.getHours()*60+now.getMinutes(),D=new Date(day+'T12:00');
-const rel=day==t?'Сегодня':day==add(t,1)?'Завтра':day==add(t,-1)?'Вчера':D.toLocaleDateString('ru-RU',{weekday:'long'});
+const rel=(day==t?'☀️ Сегодня':day==add(t,1)?'🌙 Завтра':day==add(t,-1)?'Вчера':D.toLocaleDateString('ru-RU',{weekday:'long'}));
 $('d').innerHTML='';$('d').append(E('b','',rel),E('small','',D.toLocaleDateString('ru-RU',{weekday:day==t||day==add(t,1)?'long':undefined,day:'numeric',month:'long'})));
 $('g').textContent=v&&v.g||'';l.textContent='';
 if(!v)return l.append(E('div','e',fail[day]?'Нет связи с ботом — нажми на дату, чтобы повторить':'Загружаю…'));
@@ -74,8 +73,8 @@ if(cur){c.append(E('b','',cur[2]),E('span','','Идёт · ещё '+dur(min(cur[
 else if(nx){c.append(E('b','',nx[2]),E('span','','Через '+dur(min(nx[0])-m)+' · в '+nx[0]+(nx[3]?' · '+nx[3]:'')))}
 else c.append(E('b','','Пары закончились'),E('span','','Отдыхай ✨'));l.append(c)}
 let prev=null;for(const r of v.l){const[s,f,name,room,k]=r;
-if(prev&&k!=1&&min(s)-min(prev)>=40)l.append(E('div','o',(min(s)-min(prev)>=80?'окно ':'перерыв ')+dur(min(s)-min(prev))));
-const e=E('div','r'+(k==1?' x':k==2?' m':'')+(day==t&&k!=1?(m>=min(f)?' p':m>=min(s)?' n':''):'')),T=E('div','t',s);T.append(E('i','',f));
+if(prev&&k!=1&&min(s)-min(prev)>=40)l.append(E('div','o',(min(s)-min(prev)>=80?'☕ окно ':'перерыв ')+dur(min(s)-min(prev))));
+let hh=0;for(const ch of name)hh=(hh*31+ch.charCodeAt(0))%360;const e=E('div','r'+(k==1?' x':k==2?' m':'')+(day==t&&k!=1?(m>=min(f)?' p':m>=min(s)?' n':''):'')),T=E('div','t',s);e.style.setProperty('--h',hh);T.append(E('i','',f));
 const S=E('div','s',name);if(k==1)S.append(E('em','','отменена'));else if(k==2)S.append(E('em','','другая аудитория'));
 e.append(T,S);if(room)e.append(E('div','a',room));l.append(e);if(k!=1)prev=f}}
 function ask(d){if(!W||busy)return;busy=1;fail[d]=0;const to=setTimeout(()=>{fail[d]=1;busy=0;draw()},5000);W.request('d:'+d).then(x=>{const v=P(x&&x.result);if(v&&v.d){keep(v);if(v.d==day)draw()}else{fail[d]=1;draw()}}).catch(()=>{fail[d]=1;draw()}).finally(()=>{clearTimeout(to);busy=0})}
@@ -208,7 +207,7 @@ export async function sendDayWidget(env, callTelegram, chatId, tgId, groupTitle,
     html: WIDGET_HTML,
     chat_data: chatData,
     allow_queries: true,
-    caption: "📅 Мои пары · листай свайпом, тап по дате — сегодня",
+    caption: "📅 Мои пары",
     // Открыть приложение — обычной кнопкой под виджетом: ссылки t.me на
     // мини-приложение у бота может не быть, а web_app-кнопка работает всегда.
     reply_markup: { inline_keyboard: [[{ text: "Открыть расписание", web_app: { url: appUrl } }]] },
