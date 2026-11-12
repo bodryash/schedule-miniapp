@@ -873,5 +873,13 @@
     "path": "masi",
     "features": [],
     "short": "МАСИ"
+  },
+  {
+    "id": "sgu-ff",
+    "university": "СГУ им. Н.Г. Чернышевского (Саратов)",
+    "faculty": "Институт физики",
+    "path": "sgu-ff",
+    "features": [],
+    "short": "СГУ"
   }
 ]
