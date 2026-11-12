@@ -438,6 +438,46 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Закрытые адреса для владельца и его помощника — только по ключу (/readkey):
+    // сообщения студентов боту, список входящих файлов и сами файлы (фото,
+    // скрины расписаний), чтобы разбирать их без пересылки.
+    if (String(req.url).startsWith("/admin/inbox")) {
+      let key = "";
+      try { key = readFileSync(READ_KEY_FILE, "utf8").trim(); } catch {}
+      const given = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      if (!key || given.length !== key.length || !(await import("node:crypto")).timingSafeEqual(Buffer.from(given), Buffer.from(key))) {
+        res.writeHead(404, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false }));
+        return;
+      }
+      const url = new URL(req.url, "http://x");
+      const name = url.searchParams.get("file");
+      if (name) {
+        // Только имя из папки входящих — без путей.
+        if (!/^[^/\\]+$/.test(name) || name.startsWith(".") || !existsSync(join(INBOX, name))) {
+          res.writeHead(404, { "content-type": "application/json" });
+          res.end(JSON.stringify({ ok: false }));
+          return;
+        }
+        res.writeHead(200, { "content-type": "application/octet-stream" });
+        res.end(readFileSync(join(INBOX, name)));
+        return;
+      }
+      mkdirSync(INBOX, { recursive: true });
+      const files = readdirSync(INBOX)
+        .filter((n) => !n.endsWith(".json") && !n.endsWith(".synced") && n !== "messages.jsonl")
+        .sort()
+        .slice(-Math.min(200, Number(url.searchParams.get("limit")) || 50))
+        .map((n) => {
+          let meta = null;
+          try { meta = JSON.parse(readFileSync(join(INBOX, `${n}.json`), "utf8")); } catch {}
+          return { name: n, size: statSync(join(INBOX, n)).size, from: meta?.from || null, caption: meta?.caption || "", at: meta?.at || meta?.saved || "" };
+        });
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: true, files }));
+      return;
+    }
+
     // Закрытый адрес: последние сообщения студентов боту. Только по ключу.
     if (String(req.url).startsWith("/admin/messages")) {
       let key = "";
