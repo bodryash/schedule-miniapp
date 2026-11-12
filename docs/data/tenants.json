@@ -729,5 +729,13 @@
     "path": "mai-6",
     "features": [],
     "short": "МАИ"
+  },
+  {
+    "id": "rsmu-imd",
+    "university": "РНИМУ им. Пирогова",
+    "faculty": "Институт материнства и детства",
+    "path": "rsmu-imd",
+    "features": [],
+    "short": "РНИМУ"
   }
 ]
