@@ -737,5 +737,13 @@
     "path": "rsmu-imd",
     "features": [],
     "short": "РНИМУ"
+  },
+  {
+    "id": "mpgu-iiya",
+    "university": "МПГУ",
+    "faculty": "Институт иностранных языков",
+    "path": "mpgu-iiya",
+    "features": [],
+    "short": "МПГУ"
   }
 ]
