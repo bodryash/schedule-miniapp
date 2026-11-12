@@ -825,5 +825,13 @@
     "path": "miigaik",
     "features": [],
     "short": "ФУТ"
+  },
+  {
+    "id": "mfua-college",
+    "university": "МФЮА",
+    "faculty": "Колледж (УК Варшавский)",
+    "path": "mfua-college",
+    "features": [],
+    "short": "МФЮА колледж"
   }
 ]
