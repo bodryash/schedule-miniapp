@@ -70,7 +70,17 @@ jobs:
             # выложить. Подтягиваем свежий main и пробуем ещё раз.
             for attempt in 1 2 3; do
               if git push -q; then break; fi
+              # Список вузов берём из свежего main: пока шло обновление,
+              # туда могли добавить новые — старая копия их стёрла бы.
               git pull -q --rebase -X theirs origin main || git rebase --abort
+              git show origin/main:docs/data/tenants.json > /tmp/tenants.main.json && python - <<'PY'
+          import json
+          main = json.load(open("/tmp/tenants.main.json", encoding="utf-8"))
+          ours = {t["id"]: t for t in json.load(open("docs/data/tenants.json", encoding="utf-8"))}
+          merged = [ours.get(t["id"], t) for t in main] + [t for i, t in ours.items() if i not in {m["id"] for m in main}]
+          open("docs/data/tenants.json", "w", encoding="utf-8").write(json.dumps(merged, ensure_ascii=False, indent=2) + "\n")
+          PY
+              if ! git diff --quiet docs/data/tenants.json; then git commit -q -am "Список вузов: вернуть добавленные в main"; fi
               sleep $((attempt * 10))
             done
           fi
