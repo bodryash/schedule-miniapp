@@ -420,6 +420,19 @@
     "short": "ООМК"
   },
   {
+    "id": "mgimo-mb",
+    "university": "МГИМО",
+    "faculty": "Факультет международного бизнеса",
+    "path": "mgimo-mb",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 29
+    },
+    "short": "МБ"
+  },
+  {
     "id": "mgimo-imip",
     "university": "МГИМО",
     "faculty": "Институт маркетинга и предпринимательства",
@@ -457,69 +470,6 @@
       "faculty": 26
     },
     "short": "МЖ"
-  },
-  {
-    "id": "msu-hist",
-    "university": "МГУ",
-    "faculty": "Исторический факультет",
-    "path": "msu-hist",
-    "features": [],
-    "short": "Истфак",
-    "source": {
-      "kind": "hist",
-      "base": "http://ccs2.hist.msu.ru",
-      "faculty": "all"
-    }
-  },
-  {
-    "id": "mgimo-mp",
-    "university": "МГИМО",
-    "faculty": "Международно-правовой факультет",
-    "path": "mgimo-mp",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 27
-    },
-    "short": "МП"
-  },
-  {
-    "id": "fa-tula",
-    "university": "Финансовый университет, Тульский филиал",
-    "faculty": "Бакалавриат, очная форма",
-    "path": "fa-tula",
-    "features": [],
-    "short": "Тула"
-  },
-  {
-    "id": "mvd-kikot-fpsopp",
-    "university": "Московский университет МВД им. В.Я. Кикотя",
-    "faculty": "ФПСОПП",
-    "path": "mvd-kikot-fpsopp",
-    "features": [],
-    "short": "МосУ МВД"
-  },
-  {
-    "id": "mpgu-isgo-law",
-    "university": "МПГУ",
-    "faculty": "ИСГО, юриспруденция",
-    "path": "mpgu-isgo-law",
-    "features": [],
-    "short": "МПГУ"
-  },
-  {
-    "id": "mgimo-mb",
-    "university": "МГИМО",
-    "faculty": "Факультет международного бизнеса",
-    "path": "mgimo-mb",
-    "features": [],
-    "source": {
-      "kind": "ruz",
-      "base": "https://ruz.mgimo.ru",
-      "faculty": 29
-    },
-    "short": "МБ"
   },
   {
     "id": "mgimo-meo",
@@ -639,6 +589,19 @@
     }
   },
   {
+    "id": "msu-hist",
+    "university": "МГУ",
+    "faculty": "Исторический факультет",
+    "path": "msu-hist",
+    "features": [],
+    "short": "Истфак",
+    "source": {
+      "kind": "hist",
+      "base": "http://ccs2.hist.msu.ru",
+      "faculty": "all"
+    }
+  },
+  {
     "id": "mgimo-mo-en",
     "university": "МГИМО",
     "faculty": "Факультет международных отношений (на английском языке)",
@@ -665,6 +628,19 @@
     "short": "ИМАР"
   },
   {
+    "id": "mgimo-mp",
+    "university": "МГИМО",
+    "faculty": "Международно-правовой факультет",
+    "path": "mgimo-mp",
+    "features": [],
+    "source": {
+      "kind": "ruz",
+      "base": "https://ruz.mgimo.ru",
+      "faculty": 27
+    },
+    "short": "МП"
+  },
+  {
     "id": "msu-vshga",
     "university": "МГУ",
     "faculty": "Высшая школа государственного аудита",
@@ -689,5 +665,85 @@
       "base": "https://cacs.law.msu.ru",
       "faculty": "8,23"
     }
+  },
+  {
+    "id": "fa-tula",
+    "university": "Финансовый университет, Тульский филиал",
+    "faculty": "Бакалавриат, очная форма",
+    "path": "fa-tula",
+    "features": [],
+    "short": "Тула"
+  },
+  {
+    "id": "mvd-kikot-fpsopp",
+    "university": "Московский университет МВД им. В.Я. Кикотя",
+    "faculty": "ФПСОПП",
+    "path": "mvd-kikot-fpsopp",
+    "features": [],
+    "short": "МосУ МВД"
+  },
+  {
+    "id": "mpgu-isgo-law",
+    "university": "МПГУ",
+    "faculty": "ИСГО, юриспруденция",
+    "path": "mpgu-isgo-law",
+    "features": [],
+    "short": "МПГУ"
+  },
+  {
+    "id": "mpgu-isgo-man",
+    "university": "МПГУ",
+    "faculty": "ИСГО, менеджмент",
+    "path": "mpgu-isgo-man",
+    "features": [],
+    "short": "МПГУ"
+  },
+  {
+    "id": "synergy-med",
+    "university": "Университет «Синергия»",
+    "faculty": "Медицинский факультет",
+    "path": "synergy-med",
+    "features": [],
+    "short": "Синергия"
+  },
+  {
+    "id": "tgtu-ti",
+    "university": "ТГТУ",
+    "faculty": "Технологический институт",
+    "path": "tgtu-ti",
+    "features": [],
+    "short": "ТГТУ"
+  },
+  {
+    "id": "mpgu-ipp",
+    "university": "МПГУ",
+    "faculty": "Институт педагогики и психологии",
+    "path": "mpgu-ipp",
+    "features": [],
+    "short": "МПГУ"
+  },
+  {
+    "id": "mai-6",
+    "university": "МАИ",
+    "faculty": "Институт №6 «Аэрокосмический»",
+    "path": "mai-6",
+    "features": [],
+    "short": "МАИ"
+  },
+  {
+    "id": "rsmu-imd",
+    "university": "РНИМУ им. Пирогова",
+    "faculty": "Институт материнства и детства",
+    "path": "rsmu-imd",
+    "features": [],
+    "short": "РНИМУ"
+  },
+  {
+    "id": "mpgu-iiya",
+    "university": "МПГУ",
+    "faculty": "Институт иностранных языков",
+    "path": "mpgu-iiya",
+    "features": [],
+    "short": "МПГУ"
   }
 ]

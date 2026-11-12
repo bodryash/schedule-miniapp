@@ -180,7 +180,13 @@ def main():
     keep = next((t for t in tenants if t["id"] == args.id), {})
     entry = {**keep, "id": args.id, "university": args.university, "faculty": args.name, "path": args.id, "features": keep.get("features", []),
              "source": {"kind": "tt", "base": args.base, "faculty": args.faculty}}
-    registry.write_text(json.dumps([t for t in tenants if t["id"] != args.id] + [entry], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # Запись меняем на её же месте: так в tenants.json нет лишней разницы, и
+    # публикация не перетирает вузы, добавленные в main, пока шло обновление.
+    updated = [entry if t["id"] == args.id else t for t in tenants]
+    if not any(t["id"] == args.id for t in tenants):
+        updated.append(entry)
+    if updated != tenants:
+        registry.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Итого: групп {len(groups)}, строк {len(lessons)}, записано в docs/data/{args.id}/")
 
 
