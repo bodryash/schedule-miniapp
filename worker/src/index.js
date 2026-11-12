@@ -3105,7 +3105,10 @@ async function notifyConnected(env, ids, title) {
       text: `🎉 Спасибо! Твоё расписание подключено${title ? ` — <b>${escape(title)}</b>` : ""}.\n\nЗа помощь выдаю тебе зелёную тему волонтёра 💚 Она уже в приложении.\n\nРаздай бота всем, кому можешь, — одногруппникам и в чат курса: пусть тоже пользуются.`,
       reply_markup: { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] },
     }).catch((e) => ({ ok: false, description: String(e) }));
-    out.push({ id, ok: Boolean(r?.ok), error: r?.ok ? undefined : r?.description });
+    const why = r?.ok ? undefined : r?.description || (await r?.text?.().catch(() => ""))?.slice(0, 200);
+    // Не дошло — отметку снимаем, чтобы можно было отправить ещё раз.
+    if (!r?.ok) await env.STATS.prepare("DELETE FROM forum_settings WHERE key = ?").bind(key).run();
+    out.push({ id, ok: Boolean(r?.ok), error: why });
   }
   return out;
 }
