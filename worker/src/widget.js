@@ -215,7 +215,9 @@ export async function sendDayWidget(env, callTelegram, chatId, tgId, groupTitle,
     caption: "📅 Мои пары",
     // Открыть приложение — обычной кнопкой под виджетом: ссылки t.me на
     // мини-приложение у бота может не быть, а web_app-кнопка работает всегда.
-    reply_markup: { inline_keyboard: [[{ text: "Открыть расписание", web_app: { url: appUrl } }]] },
+    // Кнопки «Сегодня / Завтра» над клавиатурой приходят вместе с виджетом —
+    // отдельного текстового сообщения не нужно. Приложение — кнопкой меню.
+    reply_markup: { keyboard: [[{ text: "☀️ Сегодня" }, { text: "🌙 Завтра" }]], resize_keyboard: true, is_persistent: true },
   });
   const body = await res.json().catch(() => ({}));
   return body;

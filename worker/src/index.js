@@ -5670,35 +5670,16 @@ ${invite}`,
     const wantsToday = message && message.chat.type === "private" && text === KB_TODAY;
     if (message && (wantsWidget || /^\/today(?:@\w+)?\s*$/.test(text)) && message.chat.type === "private" && message.from?.id) {
       const sent = wantsWidget ? await sendDayWidget(env, callTelegram, message.chat.id, message.from.id, groupTitle, WEB_APP_URL, wantsTomorrow ? iso(new Date(Date.now() + 27 * 3600000)) : wantsToday ? iso(new Date(Date.now() + 3 * 3600000)) : null).catch(() => null) : null;
-      // Один раз — кнопки над клавиатурой, чтобы не набирать команды.
-      if (env.STATS) {
-        const kbKey = `kb:v2:${message.chat.id}`;
-        const had = await env.STATS.prepare("SELECT 1 FROM forum_settings WHERE key = ?").bind(kbKey).first().catch(() => null);
-        if (!had) {
-          await env.STATS.prepare("INSERT INTO forum_settings (key, value) VALUES (?, '1') ON CONFLICT(key) DO NOTHING").bind(kbKey).run().catch(() => {});
-          await callTelegram(env.BOT_TOKEN, "sendMessage", {
-            chat_id: message.chat.id,
-            text: "Пары — по кнопкам внизу 👇 «Сегодня» и «Завтра»",
-            reply_markup: { keyboard: [[{ text: KB_TODAY }, { text: KB_TOMORROW }]], resize_keyboard: true, is_persistent: true },
-          }).catch(() => {});
-        }
-      }
-      // Виджет живой — пусть висит закреплённым сверху чата; прежний снимаем.
+      // В чате — только виджет: нажатие кнопки и прежний виджет убираем,
+      // новый закрепляем. Текстом бот ничего не отвечает.
       if (sent?.ok && sent.result?.message_id && env.STATS) {
+        await callTelegram(env.BOT_TOKEN, "deleteMessage", { chat_id: message.chat.id, message_id: message.message_id }).catch(() => {});
         const key = `widgetpin:${message.chat.id}`;
         const prev = await env.STATS.prepare("SELECT value FROM forum_settings WHERE key = ?").bind(key).first().catch(() => null);
-        if (prev?.value) await callTelegram(env.BOT_TOKEN, "unpinChatMessage", { chat_id: message.chat.id, message_id: Number(prev.value) }).catch(() => {});
+        if (prev?.value) await callTelegram(env.BOT_TOKEN, "deleteMessage", { chat_id: message.chat.id, message_id: Number(prev.value) }).catch(() => {});
         await callTelegram(env.BOT_TOKEN, "pinChatMessage", { chat_id: message.chat.id, message_id: sent.result.message_id, disable_notification: true }).catch(() => {});
         await env.STATS.prepare("INSERT INTO forum_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
           .bind(key, String(sent.result.message_id)).run().catch(() => {});
-      }
-      if (!sent?.ok) {
-        await callTelegram(env.BOT_TOKEN, "sendMessage", {
-          chat_id: message.chat.id,
-          text: await myPairsText(env, message.from.id, iso(new Date(Date.now() + (wantsTomorrow ? 27 : 3) * 3600000))),
-          parse_mode: "HTML",
-          reply_markup: { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] },
-        }).catch(() => {});
       }
     }
     // /pairs в чате курса — кнопки «Мои пары»: каждому — его расписание, видно только ему.
