@@ -841,5 +841,13 @@
     "path": "ranepa-lip",
     "features": [],
     "short": "РАНХиГС Липецк"
+  },
+  {
+    "id": "rosbiotech-ld",
+    "university": "РОСБИОТЕХ",
+    "faculty": "Лечебное дело",
+    "path": "rosbiotech-ld",
+    "features": [],
+    "short": "РОСБИОТЕХ"
   }
 ]
