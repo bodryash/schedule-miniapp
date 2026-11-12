@@ -665,5 +665,13 @@
       "base": "https://cacs.law.msu.ru",
       "faculty": "8,23"
     }
+  },
+  {
+    "id": "fa-tula",
+    "university": "Финансовый университет, Тульский филиал",
+    "faculty": "Бакалавриат, очная форма",
+    "path": "fa-tula",
+    "features": [],
+    "short": "Тула"
   }
 ]
