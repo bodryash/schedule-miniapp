@@ -817,5 +817,13 @@
     "path": "bmstu-e",
     "features": [],
     "short": "Э"
+  },
+  {
+    "id": "miigaik",
+    "university": "МИИГАиК",
+    "faculty": "Землеустройство и кадастры",
+    "path": "miigaik",
+    "features": [],
+    "short": "МИИГАиК"
   }
 ]
