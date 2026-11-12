@@ -3116,7 +3116,7 @@ const PHOTO_ACK = new Map();
  * Расписание подключено: каждому, кто его прислал, — спасибо и зелёная тема
  * волонтёра. Повторно одному человеку про тот же вуз не пишем.
  */
-async function notifyConnected(env, ids, title) {
+async function notifyConnected(env, ids, title, target = null) {
   const out = [];
   for (const id of [...new Set(ids.map(Number).filter(Boolean))]) {
     const key = `connected:${id}:${title}`;
@@ -3126,11 +3126,22 @@ async function notifyConnected(env, ids, title) {
     }
     await env.STATS.prepare("INSERT INTO forum_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING").bind(key, new Date().toISOString()).run();
     await grantVolunteer(env, { id }).catch(() => {});
+    // Кнопка сразу открывает его группу: код приглашения, как у «Позвать группу».
+    let url = WEB_APP_URL;
+    if (target?.tenant && target?.group) {
+      const code = shareCode();
+      const group = target.tenant === DEFAULT_TENANT ? target.group : `${target.tenant}/${target.group}`;
+      await env.STATS.prepare("INSERT INTO shares (code, owner, name, prefs, created) VALUES (?, ?, ?, ?, ?)")
+        .bind(code, id, String(target.name || title || "").slice(0, 40), JSON.stringify({ tenant: target.tenant, group }), new Date().toISOString())
+        .run()
+        .then(() => { url = `${WEB_APP_URL}?grp=${code}`; })
+        .catch(() => {});
+    }
     const r = await callTelegram(env.BOT_TOKEN, "sendMessage", {
       chat_id: id,
       parse_mode: "HTML",
       text: `🎉 Спасибо! Твоё расписание подключено${title ? ` — <b>${escape(title)}</b>` : ""}.\n\nЗа помощь выдаю тебе зелёную тему волонтёра 💚 Она уже в приложении.\n\nРаздай бота всем, кому можешь, — одногруппникам и в чат курса: пусть тоже пользуются.`,
-      reply_markup: { inline_keyboard: [[{ text: "📅 Открыть расписание", web_app: { url: WEB_APP_URL } }]] },
+      reply_markup: { inline_keyboard: [[{ text: "📅 Открыть моё расписание", web_app: { url } }]] },
     }).catch((e) => ({ ok: false, description: String(e) }));
     const why = r?.ok ? undefined : r?.description || (await r?.text?.().catch(() => ""))?.slice(0, 200);
     // Не дошло — отметку снимаем, чтобы можно было отправить ещё раз.

@@ -538,7 +538,7 @@ const server = createServer(async (req, res) => {
         return;
       }
       const data = JSON.parse(Buffer.from((await readBody(req)) || "{}").toString("utf8"));
-      const result = await globalThis.SCHEDULE_NOTIFY_CONNECTED(env, Array.isArray(data.ids) ? data.ids.slice(0, 50) : [], String(data.title || "").slice(0, 120));
+      const result = await globalThis.SCHEDULE_NOTIFY_CONNECTED(env, Array.isArray(data.ids) ? data.ids.slice(0, 50) : [], String(data.title || "").slice(0, 120), data.tenant && data.group ? { tenant: String(data.tenant), group: String(data.group), name: String(data.name || "") } : null);
       res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
       res.end(JSON.stringify({ ok: true, result }));
       return;
