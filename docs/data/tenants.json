@@ -697,5 +697,21 @@
     "path": "mpgu-isgo-man",
     "features": [],
     "short": "МПГУ"
+  },
+  {
+    "id": "synergy-med",
+    "university": "Университет «Синергия»",
+    "faculty": "Медицинский факультет",
+    "path": "synergy-med",
+    "features": [],
+    "short": "Синергия"
+  },
+  {
+    "id": "tgtu-ti",
+    "university": "ТГТУ",
+    "faculty": "Технологический институт",
+    "path": "tgtu-ti",
+    "features": [],
+    "short": "ТГТУ"
   }
 ]
