@@ -889,5 +889,13 @@
     "path": "msal-ipk",
     "features": [],
     "short": "МГЮА ИПК"
+  },
+  {
+    "id": "chelgu-chem",
+    "university": "ЧелГУ (Челябинск)",
+    "faculty": "Химический факультет",
+    "path": "chelgu-chem",
+    "features": [],
+    "short": "ЧелГУ химфак"
   }
 ]
