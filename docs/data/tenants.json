@@ -1038,5 +1038,21 @@
     "path": "mephi-b26",
     "features": [],
     "short": "МИФИ Б26"
+  },
+  {
+    "id": "agz-mchs-gum",
+    "university": "Академия гражданской защиты МЧС России",
+    "faculty": "Гуманитарный факультет",
+    "path": "agz-mchs-gum",
+    "features": [],
+    "short": "АГЗ МЧС"
+  },
+  {
+    "id": "mipt-vshpi",
+    "university": "МФТИ",
+    "faculty": "ВШПИ, 1 курс",
+    "path": "mipt-vshpi",
+    "features": [],
+    "short": "ВШПИ"
   }
 ]
