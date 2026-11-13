@@ -506,7 +506,7 @@ const server = createServer(async (req, res) => {
         res.end(JSON.stringify({ ok: false }));
         return;
       }
-      const FETCH_HOSTS = ["mgavm.ru", "lunn.ru", "rusoil.net", "sgu.ru", "msal.ru", "rosbiotech.ru", "ranepa.ru", "rgsu.net", "lk.gubkin.ru", "gubkin.ru", "mpgu.su", "mgmsu.ru", "msmsu.ru"];
+      const FETCH_HOSTS = ["mgavm.ru", "lunn.ru", "rusoil.net", "sgu.ru", "msal.ru", "rosbiotech.ru", "ranepa.ru", "rgsu.net", "lk.gubkin.ru", "gubkin.ru", "mpgu.su", "mgmsu.ru", "msmsu.ru", "linguanet.ru", "mephi.ru", "dmami.ru", "mospolytech.ru"];
       let target;
       try { target = new URL(new URL(req.url, "http://x").searchParams.get("url") || ""); } catch {}
       if (!target || !["http:", "https:"].includes(target.protocol) || !FETCH_HOSTS.some((h) => target.hostname === h || target.hostname.endsWith(`.${h}`))) {
