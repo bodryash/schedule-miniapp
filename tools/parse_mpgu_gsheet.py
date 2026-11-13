@@ -101,7 +101,14 @@ def lessons_in(text, weekday):
             room = "спортзал"
         note = "дистанционно" if "дистанц" in rest else ""
         dates = dates_of(RE_ROOM.sub(" ", rest.split("http")[0]), weekday)
-        out.append({"subject": subject, "type": KIND[m.group(2)], "teacher": teacher, "room": room, "dates": [d.isoformat() for d in dates], "link": link if "http" in chunk else "", "note": note, "subgroup": subgroup})
+        explicit = bool(RE_DATE.search(RE_ROOM.sub(" ", rest.split("http")[0]))) or bool(re.search(r"\bс\s+\d", rest))
+        out.append({"subject": subject, "type": KIND[m.group(2)], "teacher": teacher, "room": room, "dates": [d.isoformat() for d in dates], "link": link if "http" in chunk else "", "note": note, "subgroup": subgroup, "_explicit": explicit})
+    # Занятие без дат рядом с датированными в той же клетке — идёт в остальные недели.
+    taken = {d for o in out if o["_explicit"] for d in o["dates"]}
+    for o in out:
+        if not o["_explicit"] and taken:
+            o["dates"] = [d for d in o["dates"] if d not in taken]
+        del o["_explicit"]
     return out
 
 

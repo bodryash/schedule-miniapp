@@ -937,5 +937,13 @@
     "path": "rosnou-gi",
     "features": [],
     "short": "РосНОУ"
+  },
+  {
+    "id": "mpgu-isgo-ivr",
+    "university": "МПГУ",
+    "faculty": "ИСГО, история (ИВР)",
+    "path": "mpgu-isgo-ivr",
+    "features": [],
+    "short": "МПГУ"
   }
 ]
