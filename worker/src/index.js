@@ -774,6 +774,7 @@ async function buildStats(env) {
     lines.push("", "Пока ни одного открытия.");
   }
 
+  lines.push(...(await catalogLines(env, week, today)));
   lines.push(...(await languageLines(env, week)));
 
   // Молчащие группы — самое полезное здесь: они отвечают на вопрос, до кого
@@ -869,6 +870,56 @@ function visitTime(iso) {
 
 function escape(text) {
   return String(text).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c]);
+}
+
+/**
+ * Охват каталога для /stats: сколько вузов и факультетов подключено, сколько
+ * из них реально открывают, какие вузы активнее всех, новые за неделю.
+ * Группа не основного вуза записана как «вуз/группа» — по префиксу и делим.
+ */
+async function catalogLines(env, week, today) {
+  const tenants = await loadJson("tenants.json").catch(() => []);
+  if (!tenants.length) return [];
+  const byId = new Map(tenants.map((t) => [t.id, t]));
+  const unis = new Set(tenants.map((t) => t.university));
+  const { results: rows = [] } = await env.STATS.prepare(
+    "SELECT grp, SUM(count) AS n, COUNT(DISTINCT day) AS d FROM opens WHERE day >= ? GROUP BY grp"
+  ).bind(week).all();
+  const tenantOf = (grp) => (String(grp).includes("/") ? String(grp).split("/")[0] : tenants[0].id);
+  const perTenant = new Map();
+  const perUni = new Map();
+  for (const r of rows) {
+    const t = byId.get(tenantOf(r.grp));
+    if (!t) continue;
+    perTenant.set(t.id, (perTenant.get(t.id) || 0) + r.n);
+    perUni.set(t.university, (perUni.get(t.university) || 0) + r.n);
+  }
+  const yesterday = new Date(Date.parse(today) - 86400000).toISOString().slice(0, 10);
+  const [y, newWeek, back] = await Promise.all([
+    env.STATS.prepare("SELECT COALESCE(SUM(count), 0) AS n FROM opens WHERE day = ?").bind(yesterday).first(),
+    env.STATS.prepare("SELECT COUNT(*) AS n FROM people WHERE first >= ?").bind(week).first(),
+    // Вернулись: пришли раньше недели назад и заходили на этой неделе.
+    env.STATS.prepare("SELECT COUNT(*) AS n FROM people WHERE first < ? AND last >= ?").bind(week, week).first(),
+  ]);
+  const top = [...perUni].sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const lines = [
+    "",
+    "<b>Каталог</b>",
+    `Вузов: ${unis.size}, факультетов: ${tenants.length}`,
+    `Открывали за неделю: вузов ${new Set([...perTenant.keys()].map((id) => byId.get(id).university)).size}, факультетов ${perTenant.size}`,
+    `Ни разу за неделю: факультетов ${tenants.length - perTenant.size}`,
+    "",
+    "<b>Динамика</b>",
+    `Вчера открытий: ${y.n}`,
+    `Новых людей за неделю: ${newWeek.n}, вернулись старые: ${back.n}`,
+  ];
+  const w = globalThis.SCHEDULE_WIDGET_STATS;
+  if (w?.queries) lines.push(`Виджет: запросов с запуска сервера ${w.queries}`);
+  if (top.length) {
+    lines.push("", "<b>Вузы — открытия за неделю</b>");
+    lines.push(top.map(([u, n]) => `${u} — ${n}`).join("\n"));
+  }
+  return lines;
 }
 
 async function silentGroups(env, since) {
