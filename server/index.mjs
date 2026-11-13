@@ -286,11 +286,11 @@ async function saveFile(document, from, caption) {
 }
 
 // Слова, которые студенты пишут боту: одной строкой на сообщение.
-globalThis.SCHEDULE_SAVE_NOTE = async (from, text, withFile) => {
+globalThis.SCHEDULE_SAVE_NOTE = async (from, text, withFile, owner = false) => {
   mkdirSync(INBOX, { recursive: true });
   appendFileSync(
     join(INBOX, "messages.jsonl"),
-    JSON.stringify({ at: new Date().toISOString(), id: from?.id, name: [from?.first_name, from?.last_name].filter(Boolean).join(" "), username: from?.username || "", text: String(text || "").slice(0, 1000), file: withFile }) + "\n"
+    JSON.stringify({ at: new Date().toISOString(), id: from?.id, name: [from?.first_name, from?.last_name].filter(Boolean).join(" "), username: from?.username || "", text: String(text || "").slice(0, 1000), file: withFile, ...(owner ? { owner: true } : {}) }) + "\n"
   );
 };
 
