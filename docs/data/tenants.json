@@ -1054,5 +1054,18 @@
     "path": "mipt-vshpi",
     "features": [],
     "short": "ВШПИ"
+  },
+  {
+    "id": "lunn-college",
+    "university": "НГЛУ им. Н.А. Добролюбова",
+    "faculty": "Колледж",
+    "path": "lunn-college",
+    "features": [],
+    "short": "Колледж НГЛУ",
+    "tz": 3,
+    "source": {
+      "kind": "lunn",
+      "base": "https://ucheb.lunn.ru/api/Rasp"
+    }
   }
 ]
