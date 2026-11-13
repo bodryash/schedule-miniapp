@@ -1980,7 +1980,7 @@ function rememberLook() {
 // Темы, привязанные к нику прямо в приложении: работают и без команды
 // /theme у бота. Личный подарок сильнее темы с сервера: та бывает выдана
 // на весь вуз («МГУ» всем студентам МГУ) и перекрывала бы его.
-const GIFTED_THEMES = { shizoemerald: "trump", bblamee: "putin", shzo: "trump", hellyeah: "putin" };
+const GIFTED_THEMES = { shizoemerald: "trump", shzo: "trump", hellyeah: "putin" };
 
 // День рождения: тема «Именинник» сама включается каждый год в этот день
 // (месяц-день) — по нику или по id Telegram.
