@@ -953,5 +953,70 @@
     "path": "rum-lech",
     "features": [],
     "short": "РосУниМед"
+  },
+  {
+    "id": "mgavm-fvm",
+    "university": "МГАВМиБ им. К.И. Скрябина",
+    "faculty": "Факультет ветеринарной медицины",
+    "path": "mgavm-fvm",
+    "features": [],
+    "short": "ФВМ",
+    "source": {
+      "kind": "mgavm",
+      "base": "https://plan.mgavm.ru/api/v1/schedule",
+      "faculty": "f1"
+    }
+  },
+  {
+    "id": "mgavm-fzta",
+    "university": "МГАВМиБ им. К.И. Скрябина",
+    "faculty": "Факультет зоотехнологии и агробизнеса",
+    "path": "mgavm-fzta",
+    "features": [],
+    "short": "ФЗТА",
+    "source": {
+      "kind": "mgavm",
+      "base": "https://plan.mgavm.ru/api/v1/schedule",
+      "faculty": "f2"
+    }
+  },
+  {
+    "id": "mgavm-fbe",
+    "university": "МГАВМиБ им. К.И. Скрябина",
+    "faculty": "Факультет биотехнологии и экологии",
+    "path": "mgavm-fbe",
+    "features": [],
+    "short": "ФБЭ",
+    "source": {
+      "kind": "mgavm",
+      "base": "https://plan.mgavm.ru/api/v1/schedule",
+      "faculty": "f3"
+    }
+  },
+  {
+    "id": "mgavm-college",
+    "university": "МГАВМиБ им. К.И. Скрябина",
+    "faculty": "Колледж Московской ветеринарной академии",
+    "path": "mgavm-college",
+    "features": [],
+    "short": "Колледж",
+    "source": {
+      "kind": "mgavm",
+      "base": "https://plan.mgavm.ru/api/v1/schedule",
+      "faculty": "f4"
+    }
+  },
+  {
+    "id": "mgavm-fzvo",
+    "university": "МГАВМиБ им. К.И. Скрябина",
+    "faculty": "Факультет заочного, очно-заочного (вечернего) образования",
+    "path": "mgavm-fzvo",
+    "features": [],
+    "short": "ФЗВО",
+    "source": {
+      "kind": "mgavm",
+      "base": "https://plan.mgavm.ru/api/v1/schedule",
+      "faculty": "f5"
+    }
   }
 ]
