@@ -945,5 +945,13 @@
     "path": "mpgu-isgo-ivr",
     "features": [],
     "short": "МПГУ"
+  },
+  {
+    "id": "rum-lech",
+    "university": "Российский университет медицины",
+    "faculty": "Лечебное дело",
+    "path": "rum-lech",
+    "features": [],
+    "short": "РосУниМед"
   }
 ]
