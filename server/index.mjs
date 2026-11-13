@@ -526,6 +526,26 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Закрытый адрес: написать человеку от бота. POST {"id":…, "text":"…"}. Только по ключу.
+    if (String(req.url).startsWith("/admin/say") && req.method === "POST") {
+      let key = "";
+      try { key = readFileSync(READ_KEY_FILE, "utf8").trim(); } catch {}
+      const given = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      if (!key || given.length !== key.length || !(await import("node:crypto")).timingSafeEqual(Buffer.from(given), Buffer.from(key))) {
+        res.writeHead(404, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false }));
+        return;
+      }
+      const data = JSON.parse(Buffer.from((await readBody(req)) || "{}").toString("utf8"));
+      const r = await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chat_id: data.id, text: String(data.text || "").slice(0, 4000) }), signal: AbortSignal.timeout(10000),
+      }).then((x) => x.json()).catch((e) => ({ ok: false, description: String(e) }));
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: !!r.ok, error: r.ok ? undefined : r.description }));
+      return;
+    }
+
     // Закрытый адрес: расписание подключено — отправителям спасибо и тема волонтёра.
     // POST {"ids":[…], "title":"МПГУ, менеджмент"}. Только по ключу.
     if (String(req.url).startsWith("/admin/connected") && req.method === "POST") {
