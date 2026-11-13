@@ -2096,8 +2096,10 @@ function donorSplashMark() {
 /** День донора МГУ: студентам МГУ — красная тема и капля на заставке, до 17 ноября. */
 function isDonorDays() {
   const today = isoDate(new Date());
-  return today >= "2026-11-08" && today <= "2026-11-17" && chosenMsu();
+  return today >= "2026-11-08" && today <= "2026-11-17" && chosenMsu() && !NO_DONOR.has(String(tg?.initDataUnsafe?.user?.username || "").toLowerCase());
 }
+// Попросили не включать им оформление Дня донора.
+const NO_DONOR = new Set(["bblamee"]);
 
 function isHalloween() {
   const now = new Date();
