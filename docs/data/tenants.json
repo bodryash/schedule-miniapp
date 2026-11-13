@@ -921,5 +921,21 @@
     "path": "agu-ling",
     "features": [],
     "short": "АГУ"
+  },
+  {
+    "id": "rgup-jur-1",
+    "university": "РГУП им. В.М. Лебедева",
+    "faculty": "Очный юридический факультет, 1 курс (2026)",
+    "path": "rgup-jur-1",
+    "features": [],
+    "short": "РГУП 1 курс"
+  },
+  {
+    "id": "rosnou-gi",
+    "university": "РосНОУ",
+    "faculty": "Гуманитарный институт, лингвистика",
+    "path": "rosnou-gi",
+    "features": [],
+    "short": "РосНОУ"
   }
 ]
