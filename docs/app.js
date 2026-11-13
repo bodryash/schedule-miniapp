@@ -1980,7 +1980,7 @@ function rememberLook() {
 // Темы, привязанные к нику прямо в приложении: работают и без команды
 // /theme у бота. Личный подарок сильнее темы с сервера: та бывает выдана
 // на весь вуз («МГУ» всем студентам МГУ) и перекрывала бы его.
-const GIFTED_THEMES = { shizoemerald: "trump", shzo: "trump", hellyeah: "putin" };
+const GIFTED_THEMES = { shizoemerald: "trump", bblamee: "putin", shzo: "trump", hellyeah: "putin" };
 
 // День рождения: тема «Именинник» сама включается каждый год в этот день
 // (месяц-день) — по нику или по id Telegram.
@@ -2096,8 +2096,10 @@ function donorSplashMark() {
 /** День донора МГУ: студентам МГУ — красная тема и капля на заставке, до 17 ноября. */
 function isDonorDays() {
   const today = isoDate(new Date());
-  return today >= "2026-11-08" && today <= "2026-11-17" && chosenMsu();
+  return today >= "2026-11-08" && today <= "2026-11-17" && chosenMsu() && !NO_DONOR.has(String(tg?.initDataUnsafe?.user?.username || "").toLowerCase());
 }
+// Попросили не включать им оформление Дня донора.
+const NO_DONOR = new Set(["bblamee"]);
 
 function isHalloween() {
   const now = new Date();
