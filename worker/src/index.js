@@ -5951,6 +5951,37 @@ ${invite}`,
       });
     }
 
+    // Бот запоминает группы, где он есть, — для /say владельца.
+    if (message && (message.chat.type === "group" || message.chat.type === "supergroup") && env.STATS) {
+      await env.STATS.prepare("CREATE TABLE IF NOT EXISTS bot_chats (chat_id TEXT PRIMARY KEY, title TEXT, seen TEXT)").run().catch(() => {});
+      await env.STATS.prepare("INSERT INTO bot_chats (chat_id, title, seen) VALUES (?, ?, ?) ON CONFLICT(chat_id) DO UPDATE SET title = excluded.title, seen = excluded.seen")
+        .bind(String(message.chat.id), message.chat.title || "", new Date().toISOString()).run().catch(() => {});
+    }
+
+    // /say — написать в группу от имени бота. Только владелец, только в личке.
+    // «/say» — список групп с номерами; «/say 3 текст» или «/say -100… текст» — отправить.
+    if (message && /^\/say(?:@\w+)?(?:\s|$)/.test(text) && message.chat.type === "private" && String(message.chat.id) === String(env.OWNER_ID)) {
+      await env.STATS.prepare("CREATE TABLE IF NOT EXISTS bot_chats (chat_id TEXT PRIMARY KEY, title TEXT, seen TEXT)").run().catch(() => {});
+      const { results: chats = [] } = await env.STATS.prepare("SELECT chat_id, title FROM bot_chats ORDER BY seen DESC LIMIT 50").all().catch(() => ({ results: [] }));
+      const m = text.match(/^\/say(?:@\w+)?\s+(\S+)\s+([\s\S]+)$/);
+      let reply;
+      if (!m) {
+        reply = chats.length
+          ? "Группы, где есть бот:\n" + chats.map((c, i) => `${i + 1}. ${c.title || "без названия"} (${c.chat_id})`).join("\n") + "\n\nОтправить: /say <номер или id> <текст>"
+          : "Пока не видел ни одной группы. Бот запоминает группу, когда в ней кто-то пишет.\nМожно сразу по id: /say -100… текст";
+      } else {
+        const target = /^\d{1,2}$/.test(m[1]) ? chats[Number(m[1]) - 1]?.chat_id : m[1];
+        if (!target) reply = "Нет группы с таким номером. /say — список.";
+        else {
+          const r = await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: target, text: m[2] }).then((x) => x.json()).catch((e) => ({ ok: false, description: String(e) }));
+          const title = chats.find((c) => c.chat_id === String(target))?.title || target;
+          reply = r.ok ? `✅ Отправлено в «${title}».` : `❌ Не отправилось: ${r.description || "ошибка"}`;
+        }
+      }
+      await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: reply });
+      return new Response("ok");
+    }
+
     // Дежурство Claude: раз в полчаса он читает входящие и подключает новые
     // расписания. /offduty — снять с дежурства, /onduty — вернуть. Метка
     // ложится в журнал сообщений с пометкой owner — её Claude и ищет.
