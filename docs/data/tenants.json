@@ -1018,5 +1018,25 @@
       "base": "https://plan.mgavm.ru/api/v1/schedule",
       "faculty": "f5"
     }
+  },
+  {
+    "id": "mospolytech-feu",
+    "university": "Московский Политех",
+    "faculty": "Факультет экономики и управления",
+    "path": "mospolytech-feu",
+    "features": [],
+    "short": "ФЭУ",
+    "source": {
+      "kind": "dmami",
+      "base": "https://rasp.dmami.ru/site/group"
+    }
+  },
+  {
+    "id": "mephi-b26",
+    "university": "НИЯУ МИФИ",
+    "faculty": "1 курс (группы Б26)",
+    "path": "mephi-b26",
+    "features": [],
+    "short": "МИФИ Б26"
   }
 ]
