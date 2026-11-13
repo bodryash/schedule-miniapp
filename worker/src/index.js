@@ -5951,6 +5951,16 @@ ${invite}`,
       });
     }
 
+    // Дежурство Claude: раз в полчаса он читает входящие и подключает новые
+    // расписания. /offduty — снять с дежурства, /onduty — вернуть. Метка
+    // ложится в журнал сообщений с пометкой owner — её Claude и ищет.
+    if (message && /^\/(offduty|onduty)\b/.test(text) && String(message.chat.id) === String(env.OWNER_ID)) {
+      const off = text.startsWith("/offduty");
+      await Promise.resolve(globalThis.SCHEDULE_SAVE_NOTE?.(message.from, off ? "#offduty" : "#onduty", false, true)).catch(() => {});
+      await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: off ? "🛑 Снял Claude с дежурства — на следующей проверке он остановится." : "✅ Claude снова на дежурстве." });
+      return new Response("ok");
+    }
+
     // Сводка и список — только владельцу: данные чужие.
     if (message && (text.startsWith("/stats") || text.startsWith("/who"))) {
       const allowed = String(message.chat.id) === String(env.OWNER_ID);
