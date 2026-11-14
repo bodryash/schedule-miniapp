@@ -16580,8 +16580,11 @@ body {
   opacity: 0.85;
 }
 
-/* Календарь: лента недель не даёт горизонтальной прокрутки страницы. */
-#week {
+/* Календарь: лента недель не даёт горизонтальной прокрутки страницы.
+   Обрезаем всю страницу по краям экрана, а не раздел — иначе обрезалась
+   белая шапка (она шире раздела) и по бокам были серые полосы. */
+html,
+body {
   overflow-x: clip;
 }
 .week-ghost {
@@ -16603,4 +16606,15 @@ body:not(.neon):not(.neon-day) #days > .day.day--today:not(.active) {
 #days > .day.day--today:not(.active) .day-num,
 #days > .day.day--today:not(.active) .day-name {
   color: var(--accent) !important;
+}
+
+/* Выбранный день: день недели на цветной «капле» — белый и читаемый. */
+#days .days-drop .day .day-name,
+#days .days-drop .day-name,
+.slide-ghost .days-drop .day .day-name {
+  color: var(--accent-text, #fff) !important;
+  opacity: 0.9 !important;
+}
+#days .days-drop .day .day-num {
+  color: var(--accent-text, #fff) !important;
 }
