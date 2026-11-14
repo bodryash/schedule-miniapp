@@ -10845,7 +10845,11 @@ function renderDays() {
         btn.classList.add("day--event", "day--donor");
         btn.dataset.icon = "🩸";
       }
-      btn.append(el("span", "day-name", DAYS[day - 1]), el("span", "day-num", String(date.getDate())));
+      // Отдельной строки с месяцем над днями нет (он есть в дате шапки) —
+      // первое число месяца подписано самим месяцем: «дек» вместо «вт».
+      const monthStart = date.getDate() === 1;
+      const dayName = monthStart ? date.toLocaleDateString(LOCALE || "ru-RU", { month: "short" }).replace(".", "") : DAYS[day - 1];
+      btn.append(el("span", `day-name${monthStart ? " day-name--month" : ""}`, dayName), el("span", "day-num", String(date.getDate())));
       // Точки под числом — ровно столько, сколько пар в этот день, как на
       // заставке. Раньше больше четырёх не рисовали, и в пятипарный день
       // точки под датой и на заставке расходились.
@@ -12823,7 +12827,9 @@ function slideSwap(container, direction, render, fromShift = 0) {
             { transform: `translateX(${direction * step}px)`, opacity: 0 },
             { transform: "translateX(0)", opacity: 1 },
           ],
-          { duration: 280, delay: 70, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)", fill: "backwards" }
+          // Календарь: сетки недель плотные, наложение двух читалось как
+          // мигание — новая неделя появляется, когда старая уже ушла.
+          { duration: 280, delay: container.closest("#week") ? 130 : 70, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)", fill: "backwards" }
         )
         .finished.catch(() => {})
         .finally(() => (container.style.minHeight = ""));

@@ -16490,3 +16490,48 @@ body:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .days-drop {
 .bar--search {
   padding-bottom: 0 !important;
 }
+
+/* Смена чётности недели (оранжевый ↔ синий) — плавным перетеканием цвета,
+   а не скачком: акцент зарегистрирован как цвет, поэтому его можно
+   анимировать. */
+@property --accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #2a63f5;
+}
+@property --accent-soft {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: rgba(42, 99, 245, 0.12);
+}
+body {
+  transition: --accent 450ms ease, --accent-soft 450ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  body {
+    transition: none;
+  }
+}
+
+/* Строки «НОЯБРЬ» над днями больше нет: месяц есть в дате шапки, а первое
+   число подписано месяцем прямо на плитке. */
+#schedule > #month {
+  display: none !important;
+}
+.day-name--month {
+  font-weight: 800 !important;
+  color: var(--accent) !important;
+}
+.day.active .day-name--month {
+  color: inherit !important;
+}
+
+/* Поиск: «борода» под фильтрами — как у остальных шапок. */
+@media (max-width: 899px) {
+  #search > .bar--search::before {
+    bottom: -14px;
+  }
+  #search > .bar--search {
+    margin-bottom: 24px !important;
+  }
+}
