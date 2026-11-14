@@ -450,17 +450,6 @@
             hello.appendChild(today);
           }
           splashBox.insertBefore(hello, splashBox.firstChild);
-          // День донора МГУ (до 17 ноября): капля над приветствием, с первого кадра.
-          try {
-            var pf = JSON.parse(localStorage.getItem("schedule.prefs") || "{}");
-            var iso = day.getFullYear() + "-" + String(day.getMonth() + 1).padStart(2, "0") + "-" + String(day.getDate()).padStart(2, "0");
-            if (String(pf.tenant || "msu-fgp").indexOf("msu") === 0 && iso >= "2026-11-08" && iso <= "2026-11-17") {
-              var mark = document.createElement("div");
-              mark.className = "splash-donor";
-              mark.innerHTML = '<span class="splash-donor-drop">🩸</span><span class="splash-donor-text">День донора МГУ</span>';
-              splashBox.insertBefore(mark, hello);
-            }
-          } catch (e) {}
         }
       } catch (e) {}
     })();
@@ -854,7 +843,7 @@
     </header>
 
     <div id="menu-pop" class="menu-pop" hidden>
-      <button type="button" data-menu="ref"><span>💰</span><span data-i18n>Моя ссылка для друзей</span></button>
+      <button type="button" data-menu="ref"><span>🔗</span><span data-i18n>Моя ссылка для друзей</span></button>
       <button type="button" data-menu="invite"><span>👥</span><span data-i18n>Позвать группу</span></button>
       <button type="button" data-menu="calendar"><span>📅</span><span data-i18n>В календарь телефона</span></button>
       <button type="button" data-menu="rooms"><span>🚪</span><span data-i18n>Свободные аудитории</span></button>
@@ -875,19 +864,20 @@
 
   <!-- Поиск по преподавателю, аудитории и предмету -->
   <section id="search" hidden>
-    <header class="bar">
-      <h1 data-i18n>Поиск</h1>
-      <button id="search-close" class="icon" type="button" aria-label="Закрыть" hidden>×</button>
+    <header class="bar bar--schedule bar--search">
+      <div class="bar-top search-top">
+        <h1 class="date" data-i18n>Поиск</h1>
+        <button id="search-close" class="icon" type="button" aria-label="Закрыть" hidden>×</button>
+      </div>
+      <input id="query" type="search" autocomplete="off"
+             placeholder="Преподаватель, аудитория или предмет">
+      <nav class="chips" id="search-tabs">
+        <button type="button" class="chip chip--on" data-kind="all" data-i18n>Всё</button>
+        <button type="button" class="chip" data-kind="teacher" data-i18n>Преподаватели</button>
+        <button type="button" class="chip" data-kind="room" data-i18n>Аудитории</button>
+        <button type="button" class="chip" data-kind="subject" data-i18n>Предметы</button>
+      </nav>
     </header>
-
-    <input id="query" type="search" autocomplete="off"
-           placeholder="Преподаватель, аудитория или предмет">
-    <nav class="chips" id="search-tabs">
-      <button type="button" class="chip chip--on" data-kind="all" data-i18n>Всё</button>
-      <button type="button" class="chip" data-kind="teacher" data-i18n>Преподаватели</button>
-      <button type="button" class="chip" data-kind="room" data-i18n>Аудитории</button>
-      <button type="button" class="chip" data-kind="subject" data-i18n>Предметы</button>
-    </nav>
     <p class="hint" id="search-hint" data-i18n>Например: Шестова, 614, микроэкономика</p>
     <div id="results"></div>
   </section>

@@ -123,8 +123,9 @@
     const a = document.createElement("span");
     a.className = `fm-ava${size ? ` fm-ava--${size}` : ""}`;
     a.style.setProperty("--h", Number.isFinite(p.hue) ? p.hue : hueOf(p.name || "?"));
-    // Системные итоги турнира публикуются от имени владельца, но аватар им нужен фирменный.
-    if (p.name === "Подслушка" && p.tag === "🎮 Сессия 2048") {
+    // Посты и ответы от имени «Подслушки» публикует владелец, но аватар у них
+    // всегда фирменный — не его фото.
+    if (String(p.name || "").trim() === "Подслушка") {
       a.classList.add("fm-ava--brand");
       a.textContent = ":P";
       return a;
@@ -647,7 +648,9 @@
     S.open = true;
     document.body.classList.add("fm-open");
     S.root.hidden = false;
-    S.origin = opts.origin || originOf(document.getElementById("forum-btn"));
+    // Раскрывается из той кнопки, что видна: на телефоне — круглая внизу.
+    const fab = document.getElementById("forum-fab");
+    S.origin = opts.origin || originOf(fab && !fab.hidden && fab.getBoundingClientRect().width ? fab : document.getElementById("forum-btn"));
     // instant — появиться сразу, без анимации: так Подслушка встаёт под
     // уезжающей игрой, и расписание между ними не мелькает.
     // Закрываться Подслушка должна одинаково красиво, как бы её ни открыли:
