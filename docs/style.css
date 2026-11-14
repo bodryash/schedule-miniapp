@@ -16203,19 +16203,48 @@ body:has(.ribbon--chips:not([hidden])) #freedom {
   box-shadow: none !important;
 }
 
-/* Шапка дня — отдельным блоком: группа, неделя, дата и плашки. */
+/* Фон страницы — сероватый, информативные блоки — белые (в тёмной теме:
+   фон темнее, блоки — цвета фона Telegram). */
+body:not(.onboarding) {
+  --page: color-mix(in srgb, var(--text) 5%, var(--bg));
+  background: var(--page);
+}
+body:not(.onboarding) #schedule {
+  background: transparent;
+}
+/* Шапка дня — белым блоком, но раскладка внутри не трогается: подложка
+   рисуется позади и чуть шире, ничего не сдвигая и не уменьшая. */
 .bar.bar--schedule {
-  margin: 8px 0 6px;
-  padding: 14px 14px 12px;
+  position: relative;
+  isolation: isolate;
+}
+.bar.bar--schedule::before {
+  content: "";
+  position: absolute;
+  inset: -10px -10px -8px;
+  z-index: -1;
   border-radius: 24px;
-  background: color-mix(in srgb, var(--text) 4.5%, var(--bg));
+  background: var(--bg);
 }
-.bar.bar--schedule .ribbon--chips {
-  margin-bottom: 0;
+#lessons .card:not(.card--now):not(.card--cancelled),
+#next.next,
+.donor-day {
+  background: var(--bg) !important;
 }
-/* Чипы на фоне блока — чуть плотнее, чтобы не растворялись. */
-.bar--schedule .chip:not(.chip--on):not(.chip--calm):not(.chip--warn) {
-  background: color-mix(in srgb, var(--text) 7%, var(--bg));
+/* Ровно по центру: плашки одной высоты, текст и точка — по оси. */
+.chip {
+  height: 30px;
+  min-height: 0;
+  padding: 0 11px;
+  line-height: 1;
+}
+.chip-dot {
+  flex: none;
+}
+.bar--schedule .bar-top,
+.bar--schedule .context,
+.bar--schedule .bar-actions {
+  align-items: center !important;
 }
 
 /* День донора: только плашка «Сегодня — День донора» над парами, без баннера в шапке. */

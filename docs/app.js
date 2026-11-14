@@ -7654,20 +7654,20 @@ function renderRibbon() {
     if (today && k >= 0) {
       const left = humanLeft(list[k].end - now);
       chips.push(live(k === list.length - 1 ? t("Последняя · ещё {left}", { left }) : t("Идёт · ещё {left}", { left })));
-      chips.push(chip(t("{k} из {n}", { k: k + 1, n: list.length })));
+      chips.push(chip(t("{k} из {n}", { k: [...spans.keys()].filter((st) => st <= now).length || k + 1, n: spans.size })));
       if (k < list.length - 1) chips.push(chip(t("до {time}", { time: hhmm(to) })));
       else if (selectedDay >= 5) chips.push(chip(t("потом выходные"), "calm"));
     } else if (today && now >= from && now < to) {
       const nextSpan = list.find((x) => x.start > now);
       chips.push(live(t("Перерыв · ещё {left}", { left: humanLeft(nextSpan.start - now) })));
-      chips.push(chip(t("{k} из {n}", { k: list.indexOf(nextSpan) + 1, n: list.length })));
+      chips.push(chip(t("{k} из {n}", { k: [...spans.keys()].filter((st) => st < nextSpan.start).length + 1, n: spans.size })));
       chips.push(chip(t("до {time}", { time: hhmm(to) })));
     } else if (today && now >= to) {
       chips.push(chip(t("Пары закончились"), "calm"));
       semester();
     } else {
       if (today && from - now <= 180) chips.push(live(t("через {left}", { left: humanLeft(from - now) })));
-      chips.push(chip(`${pairs(list.length)} · ${hhmm(from)}–${hhmm(to)}`));
+      chips.push(chip(`${pairs(spans.size)} · ${hhmm(from)}–${hhmm(to)}`));
     }
   }
   box.replaceChildren(...chips);
