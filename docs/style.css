@@ -16834,3 +16834,45 @@ body:not(.neon):not(.neon-day) #days > .day.day--today:not(.active) {
 .ask .ask-chips {
   margin: 0 !important;
 }
+
+@media (max-width: 899px) {
+  /* Подпись открытого раздела не прячется при прокрутке. */
+  body.tabs-mini #tabs .tab.tab--on > span:not(.tab-icon) {
+    max-height: none !important;
+    opacity: 1 !important;
+    display: inline !important;
+  }
+  body.tabs-mini #tabs .tab {
+    padding: 0 12px !important;
+  }
+  body.tabs-mini #tabs .tab.tab--on {
+    padding: 0 15px 0 12px !important;
+  }
+  /* Бар не сливается с белыми карточками: тонкая окантовка и тень гуще. */
+  #tabs.tabs {
+    border: 1px solid color-mix(in srgb, var(--text) 10%, transparent) !important;
+    box-shadow: 0 10px 30px -8px rgba(15, 20, 40, 0.28), 0 2px 6px rgba(15, 20, 40, 0.08) !important;
+  }
+  .forum-fab {
+    box-shadow: 0 10px 26px -8px color-mix(in srgb, var(--accent) 70%, #000), 0 0 0 3px var(--bg) !important;
+  }
+}
+
+/* Смена раздела — мягко: содержимое проявляется с лёгким подъёмом, шапка
+   стоит. Без сдвига вбок — он и читался топорно. */
+.screen-slide > :not(.bar--schedule),
+.screen-slide > .bar--schedule > * {
+  animation: screen-soft 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important;
+}
+.screen-slide > :not(.bar--schedule) {
+  animation-delay: 40ms !important;
+}
+@keyframes screen-soft {
+  from { opacity: 0; transform: translateY(8px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen-slide > *,
+  .screen-slide > .bar--schedule > * {
+    animation: none !important;
+  }
+}
