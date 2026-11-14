@@ -16796,3 +16796,41 @@ body:not(.neon):not(.neon-day) #days > .day.day--today:not(.active) {
     font-size: 13.5px !important;
   }
 }
+/* Капсула — жёстко между левым краем и кнопкой Подслушки: на iPhone
+   ширина «по содержимому» считалась иначе и кнопки вылезали за подложку. */
+@media (max-width: 899px) {
+  #tabs.tabs {
+    left: 16px !important;
+    right: 84px !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    overflow: hidden;
+    margin: 0 !important;
+  }
+  #tabs.tabs::before,
+  #tabs.tabs::after {
+    display: none !important;
+  }
+  #tabs .tab {
+    flex: 0 0 auto !important;
+  }
+  body:not(:has(#forum-fab:not([hidden]))) #tabs.tabs {
+    right: 16px !important;
+  }
+}
+/* Предложение напоминаний: во всю ширину, как карточки, и ниже ростом. */
+#remind-ask.ask,
+.ask {
+  margin: 0 0 10px !important;
+  padding: 10px 12px !important;
+  gap: 6px 10px !important;
+}
+.ask .ask-line {
+  display: none !important;
+}
+.ask .ask-chips {
+  margin: 0 !important;
+}
