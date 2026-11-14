@@ -3142,3 +3142,16 @@ body.fm-open .minihead {
   background: currentColor;
   opacity: 0.85;
 }
+.fm-rule-i {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+.fm-rule-i svg {
+  margin: 0 auto;
+}
+.fm-rule-i::after {
+  background: var(--accent);
+  opacity: 0.55;
+}

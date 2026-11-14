@@ -17092,3 +17092,24 @@ body::-webkit-scrollbar {
     -webkit-tap-highlight-color: transparent;
   }
 }
+
+/* Заставка: точки пар без белого «ореола» — на сером фоне он вырезал
+   в линии дыры. */
+.splash-dot--pair {
+  box-shadow: 0 4px 12px -3px color-mix(in srgb, var(--accent) 60%, transparent) !important;
+}
+@media (max-width: 899px) {
+  /* Карандаш — только в ленте Подслушки: в обсуждении, при написании ответа
+     и в окнах он закрывал кнопку «Отправить». */
+  body.fm-open:not(:has(.fm-fab.is-on)) .forum-fab,
+  body.fm-open:has(.fm-page--feed.is-under) .forum-fab,
+  body.fm-open.sheet-open .forum-fab,
+  body.fm-open:has(.sheet-backdrop:not([hidden])) .forum-fab {
+    opacity: 0 !important;
+    transform: scale(0.6) !important;
+    pointer-events: none !important;
+  }
+  .forum-fab {
+    transition: transform 220ms ease, opacity 200ms ease !important;
+  }
+}

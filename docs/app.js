@@ -15243,6 +15243,21 @@ function closeDonor() {
     start = { x: e.clientX, y: e.clientY, at: performance.now(), id: e.pointerId };
     swiped = false;
   });
+  // Свайп по бару не должен тянуть окно Telegram вниз (сворачивать приложение).
+  bar.addEventListener("touchstart", () => {
+    try {
+      tg?.disableVerticalSwipes?.();
+    } catch {}
+  }, { passive: true });
+  bar.addEventListener("touchmove", (e) => e.cancelable && e.preventDefault(), { passive: false });
+  bar.addEventListener("touchend", () => {
+    setTimeout(() => {
+      if (document.body.classList.contains("fm-open") || document.body.classList.contains("sheet-open")) return;
+      try {
+        tg?.enableVerticalSwipes?.();
+      } catch {}
+    }, 400);
+  }, { passive: true });
   bar.addEventListener("pointerup", (e) => {
     if (!start || e.pointerId !== start.id) return;
     const dx = e.clientX - start.x;
