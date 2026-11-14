@@ -16251,3 +16251,17 @@ body:not(.onboarding) #schedule {
 #donor-banner {
   display: none !important;
 }
+
+/* Телефон: блок с датой без краёв — слева, справа и сверху уходит под шапку
+   Telegram, скруглён только снизу. На компьютере остаётся карточкой. */
+@media (max-width: 899px) {
+  .bar.bar--schedule::before {
+    top: -400px;
+    bottom: -12px;
+    left: 50%;
+    right: auto;
+    width: 100vw;
+    transform: translateX(-50%);
+    border-radius: 0 0 28px 28px;
+  }
+}
