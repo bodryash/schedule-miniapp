@@ -1994,7 +1994,8 @@ function rememberLook() {
       if (hex) {
         try {
           tg?.setBackgroundColor?.(hex);
-          tg?.setHeaderColor?.(blockHex || hex);
+          window.__headColors = { block: blockHex || hex, page: hex };
+          syncHeadColor(true);
           tg?.setBottomBarColor?.(hex);
         } catch {
           // Старый Telegram — красит сам.
@@ -15266,3 +15267,23 @@ function closeDonor() {
     e.preventDefault();
   }, true);
 })();
+
+/* Шапка Telegram — цвета белого блока, пока он у верхнего края, и цвета
+   серого фона, когда блок уехал при прокрутке: иначе на стыке белого
+   и серого видна полоса, режущая содержимое пополам. */
+let headColorNow = "";
+function syncHeadColor(force = false) {
+  const c = window.__headColors;
+  if (!c || !tg?.setHeaderColor) return;
+  const bar = document.querySelector("section:not([hidden]) > .bar--schedule");
+  // Блок с датой ещё касается верха — шапка белая; уехал целиком — серая.
+  const want = bar && bar.getBoundingClientRect().bottom + 22 > 0 ? c.block : c.page;
+  if (!force && want === headColorNow) return;
+  headColorNow = want;
+  try {
+    tg.setHeaderColor(want);
+  } catch {
+    // Старый Telegram — шапка как есть.
+  }
+}
+window.addEventListener("scroll", () => syncHeadColor(), { passive: true });

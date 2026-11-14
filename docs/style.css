@@ -17074,3 +17074,21 @@ body::-webkit-scrollbar {
   width: 0;
   height: 0;
 }
+
+@media (max-width: 899px) {
+  /* Нажатие/свайп по бару не перекрашивает кнопку в белый. */
+  #tabs .tab:active,
+  #tabs .tab:hover,
+  #tabs .tab:focus,
+  #tabs .tab:focus-visible {
+    background: transparent !important;
+    outline: none;
+    transform: none !important;
+  }
+  #tabs .tab.tab--on:active * {
+    color: var(--accent-text, #fff) !important;
+  }
+  #tabs {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
