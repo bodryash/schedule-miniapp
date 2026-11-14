@@ -1984,10 +1984,17 @@ function rememberLook() {
       // В Telegram за верхним и нижним краем виден не html, а само окно
       // мини-приложения — красим и его, и шапку, в цвет расписания.
       const hex = toHex(paint);
+      // Шапка Telegram — цвета белого блока с датой (он уходит под неё),
+      // а не серого фона страницы, иначе на стыке видна граница.
+      const blockProbe = el("span");
+      blockProbe.style.cssText = "position:absolute;visibility:hidden;background:var(--bg)";
+      document.body.append(blockProbe);
+      const blockHex = toHex(getComputedStyle(blockProbe).backgroundColor);
+      blockProbe.remove();
       if (hex) {
         try {
           tg?.setBackgroundColor?.(hex);
-          tg?.setHeaderColor?.(hex);
+          tg?.setHeaderColor?.(blockHex || hex);
           tg?.setBottomBarColor?.(hex);
         } catch {
           // Старый Telegram — красит сам.

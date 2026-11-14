@@ -1566,7 +1566,10 @@ body {
 
 /* Переключение раздела: короткий сдвиг вбок и проявление. Дольше 200 мс
    ощущается как задержка — вкладки нажимают часто. */
-.screen-slide {
+/* Въезжает содержимое раздела, а белая подложка шапки стоит на месте —
+   иначе она проявлялась вместе с разделом и шапка «моргала». */
+.screen-slide > :not(.bar--schedule),
+.screen-slide > .bar--schedule > * {
   animation: slide-in 340ms var(--ease-soft);
 }
 
@@ -16270,4 +16273,42 @@ body:not(.onboarding) #schedule {
   .bar.bar--schedule {
     margin-bottom: 18px;
   }
+}
+
+/* Плитки дней — белые блоки (выбранный и сегодняшний красятся своей подложкой). */
+#days .day:not(.active):not(.day--today) {
+  background: var(--bg);
+}
+/* Предложение напоминаний — компактнее. */
+.ask {
+  gap: 8px !important;
+  padding: 11px 13px !important;
+  border-radius: 16px !important;
+}
+.ask .ask-title {
+  font-size: 14px !important;
+}
+.ask .ask-line {
+  font-size: 12px !important;
+  margin-top: 1px !important;
+}
+.ask .ask-chips .chip,
+.ask .ask-actions button {
+  min-height: 0 !important;
+  padding: 7px 11px !important;
+  font-size: 13px !important;
+}
+/* Смена раздела: проявляется содержимое, а белая подложка шапки стоит
+   неподвижно — секция и шапка целиком больше не мигают. */
+section {
+  animation: none;
+}
+section > :not(.bar--schedule) {
+  animation: appear 300ms var(--ease-soft);
+}
+.bar--schedule {
+  animation: none;
+}
+.bar--schedule > * {
+  animation: head-in 420ms var(--ease-soft) both;
 }
