@@ -16366,3 +16366,107 @@ section > :not(.bar--schedule) {
     margin-bottom: 38px !important;
   }
 }
+
+/* ===== Аскетичные кнопки — как в Подслушке =====
+ * Плоско: без стекла, бликов, градиентов и теней. Мягкая заливка, ровные
+ * скругления. */
+#menu.icon {
+  background: color-mix(in srgb, var(--text) 6%, var(--bg)) !important;
+  box-shadow: none !important;
+}
+#menu.icon .icon-fill {
+  fill: currentColor !important;
+  stroke: none !important;
+}
+body:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .day,
+body[data-tone="dark"]:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .day {
+  background: var(--bg) !important;
+  box-shadow: none !important;
+}
+body:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .day.active {
+  background: transparent !important;
+}
+body:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .days-drop {
+  background: var(--accent) !important;
+  box-shadow: none !important;
+}
+#week-switch .day,
+#week-switch button,
+#search-tabs .chip,
+.dl-add,
+#deadlines button,
+.ask button,
+.forum-btn,
+.tabs .tab,
+.tabs .tab--on,
+.next,
+.room-badge,
+.card .abs-toggle,
+.card .slot {
+  box-shadow: none !important;
+  background-image: none !important;
+}
+#week-switch .day:not(.active),
+#search-tabs .chip:not(.chip--on) {
+  background: var(--bg) !important;
+}
+.forum-btn,
+.forum-btn--breathe {
+  animation: none !important;
+}
+
+/* ===== Поиск: шапка как у всех, строка поиска — в шапке ===== */
+.bar--search .search-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.bar--search .date {
+  margin: 0;
+}
+.bar--search #query {
+  display: block;
+  width: 100%;
+  height: 42px;
+  margin: 12px 0 0;
+  padding: 0 14px 0 40px;
+  border-radius: 12px;
+  background-color: color-mix(in srgb, var(--text) 6%, var(--bg)) !important;
+  background-position: 13px 50% !important;
+  box-shadow: none !important;
+  font-size: 15px;
+}
+.bar--search #query:focus {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent) !important;
+}
+.bar--search #search-tabs {
+  margin: 10px 0 0;
+  padding: 0;
+  gap: 6px;
+}
+.bar--search #search-tabs .chip {
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.bar--search #search-tabs .chip:not(.chip--on) {
+  background: color-mix(in srgb, var(--text) 6%, var(--bg)) !important;
+}
+
+/* ===== Календарь: недели при переходе в раздел не мигают ===== */
+#week-switch,
+#week-switch *,
+#week-body > *,
+#week-range {
+  animation: none !important;
+  opacity: 1;
+}
+#week-switch .day.active,
+#week-switch button.active {
+  background: var(--accent) !important;
+  color: var(--accent-text, #fff) !important;
+}
+#week-switch .day.active * {
+  color: inherit !important;
+}

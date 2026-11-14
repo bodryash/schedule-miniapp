@@ -864,19 +864,20 @@
 
   <!-- Поиск по преподавателю, аудитории и предмету -->
   <section id="search" hidden>
-    <header class="bar">
-      <h1 data-i18n>Поиск</h1>
-      <button id="search-close" class="icon" type="button" aria-label="Закрыть" hidden>×</button>
+    <header class="bar bar--schedule bar--search">
+      <div class="bar-top search-top">
+        <h1 class="date" data-i18n>Поиск</h1>
+        <button id="search-close" class="icon" type="button" aria-label="Закрыть" hidden>×</button>
+      </div>
+      <input id="query" type="search" autocomplete="off"
+             placeholder="Преподаватель, аудитория или предмет">
+      <nav class="chips" id="search-tabs">
+        <button type="button" class="chip chip--on" data-kind="all" data-i18n>Всё</button>
+        <button type="button" class="chip" data-kind="teacher" data-i18n>Преподаватели</button>
+        <button type="button" class="chip" data-kind="room" data-i18n>Аудитории</button>
+        <button type="button" class="chip" data-kind="subject" data-i18n>Предметы</button>
+      </nav>
     </header>
-
-    <input id="query" type="search" autocomplete="off"
-           placeholder="Преподаватель, аудитория или предмет">
-    <nav class="chips" id="search-tabs">
-      <button type="button" class="chip chip--on" data-kind="all" data-i18n>Всё</button>
-      <button type="button" class="chip" data-kind="teacher" data-i18n>Преподаватели</button>
-      <button type="button" class="chip" data-kind="room" data-i18n>Аудитории</button>
-      <button type="button" class="chip" data-kind="subject" data-i18n>Предметы</button>
-    </nav>
     <p class="hint" id="search-hint" data-i18n>Например: Шестова, 614, микроэкономика</p>
     <div id="results"></div>
   </section>
