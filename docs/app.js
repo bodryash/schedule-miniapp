@@ -7677,6 +7677,23 @@ function renderRibbon() {
       chips.push(chip(`${pairs(spans.size)} · ${hhmm(from)}–${hhmm(to)}`));
     }
   }
+  // Справа — кнопка прогресса семестра: кольцо с долей пройденного, нажатие
+  // открывает «Мой семестр».
+  if (weeks.length && !prefs.planner) {
+    const start = new Date(`${weeks[0].from}T00:00:00`);
+    const end = new Date(`${weeks.at(-1).to}T23:59:59`);
+    const share = Math.min(1, Math.max(0, (Date.now() - start) / (end - start)));
+    const btn = el("button", "sem-ring");
+    btn.type = "button";
+    btn.style.setProperty("--p", String(share));
+    btn.setAttribute("aria-label", t("Прогресс семестра: {p}%", { p: Math.round(share * 100) }));
+    btn.append(el("span", "sem-ring-num", `${Math.round(share * 100)}%`));
+    btn.addEventListener("click", () => {
+      haptic("light");
+      openSemester();
+    });
+    chips.push(btn);
+  }
   box.replaceChildren(...chips);
   box.classList.add("ribbon--chips");
   box.hidden = false;

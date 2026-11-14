@@ -16217,11 +16217,13 @@ body:not(.onboarding) #schedule {
 }
 /* Шапка дня — белым блоком, но раскладка внутри не трогается: подложка
    рисуется позади и чуть шире, ничего не сдвигая и не уменьшая. */
-.bar.bar--schedule {
+.bar.bar--schedule,
+#search > .bar {
   position: relative;
   isolation: isolate;
 }
-.bar.bar--schedule::before {
+.bar.bar--schedule::before,
+#search > .bar::before {
   content: "";
   position: absolute;
   inset: -10px -10px -8px;
@@ -16258,7 +16260,8 @@ body:not(.onboarding) #schedule {
 /* Телефон: блок с датой без краёв — слева, справа и сверху уходит под шапку
    Telegram, скруглён только снизу. На компьютере остаётся карточкой. */
 @media (max-width: 899px) {
-  .bar.bar--schedule::before {
+  .bar.bar--schedule::before,
+  #search > .bar::before {
     top: -400px;
     bottom: -22px;
     left: 50%;
@@ -16276,7 +16279,9 @@ body:not(.onboarding) #schedule {
 }
 
 /* Плитки дней — белые блоки (выбранный и сегодняшний красятся своей подложкой). */
-#days .day:not(.active):not(.day--today) {
+/* Только сами плитки: внутри «капли» выбранного дня лежит их копия —
+   её не трогаем, иначе подсветка выбранного дня становилась белой. */
+#days > .day {
   background: var(--bg);
 }
 /* Предложение напоминаний — компактнее. */
@@ -16311,4 +16316,53 @@ section > :not(.bar--schedule) {
 }
 .bar--schedule > * {
   animation: head-in 420ms var(--ease-soft) both;
+}
+
+/* Кнопка прогресса семестра — справа в строке плашек. */
+.ribbon--chips {
+  align-items: center;
+}
+.sem-ring {
+  --p: 0;
+  flex: none;
+  margin-left: auto;
+  width: 40px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font: inherit;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--text) 6%, var(--bg));
+  position: relative;
+}
+.sem-ring::before {
+  content: "";
+  position: absolute;
+  inset: 4px 9px;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--p) * 360deg), color-mix(in srgb, var(--text) 12%, transparent) 0);
+  -webkit-mask: radial-gradient(circle, transparent 7px, #000 7.5px);
+  mask: radial-gradient(circle, transparent 7px, #000 7.5px);
+}
+.sem-ring-num {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0;
+}
+.sem-ring:active {
+  transform: scale(0.94);
+}
+
+/* Отступ под шапкой — один для всех разделов: от нижнего края белого
+   блока до содержимого 16 px. */
+@media (max-width: 899px) {
+  .bar.bar--schedule,
+  #search > .bar {
+    margin-bottom: 38px !important;
+  }
 }
