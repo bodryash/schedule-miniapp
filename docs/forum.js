@@ -123,8 +123,9 @@
     const a = document.createElement("span");
     a.className = `fm-ava${size ? ` fm-ava--${size}` : ""}`;
     a.style.setProperty("--h", Number.isFinite(p.hue) ? p.hue : hueOf(p.name || "?"));
-    // Системные итоги турнира публикуются от имени владельца, но аватар им нужен фирменный.
-    if (p.name === "Подслушка" && p.tag === "🎮 Сессия 2048") {
+    // Посты и ответы от имени «Подслушки» публикует владелец, но аватар у них
+    // всегда фирменный — не его фото.
+    if (String(p.name || "").trim() === "Подслушка") {
       a.classList.add("fm-ava--brand");
       a.textContent = ":P";
       return a;
