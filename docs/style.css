@@ -16128,8 +16128,7 @@ body.pc-no-emoji .pc-emoji-gone {
   margin: 10px 0 6px;
 }
 .ribbon--chips ~ .freedom,
-#freedom:has(~ .ribbon--chips),
-body:has(.ribbon--chips:not([hidden])) #freedom {
+#schedule #freedom {
   display: none !important;
 }
 .chip {
@@ -16817,7 +16816,7 @@ body:not(.neon):not(.neon-day) #days > .day.day--today:not(.active) {
   #tabs .tab {
     flex: 0 0 auto !important;
   }
-  body:not(:has(#forum-fab:not([hidden]))) #tabs.tabs {
+  body.no-fab #tabs.tabs {
     right: 16px !important;
   }
 }
@@ -17101,9 +17100,8 @@ body::-webkit-scrollbar {
 @media (max-width: 899px) {
   /* Карандаш — только в ленте Подслушки: в обсуждении, при написании ответа
      и в окнах он закрывал кнопку «Отправить». */
-  body.fm-open:has(.fm-page--feed.is-under) .forum-fab,
-  body.fm-open.sheet-open .forum-fab,
-  body.fm-open:has(.sheet-backdrop:not([hidden])) .forum-fab {
+  body.fm-open.fab-off .forum-fab,
+  body.fm-open.sheet-open .forum-fab {
     opacity: 0 !important;
     transform: scale(0.6) !important;
     pointer-events: none !important;

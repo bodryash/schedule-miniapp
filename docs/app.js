@@ -15226,10 +15226,23 @@ function closeDonor() {
   // Видна вместе с баром и только там, где Подслушка доступна.
   const sync = () => {
     fab.hidden = tabs.hidden || src.hasAttribute("hidden");
+    document.body.classList.toggle("no-fab", fab.hidden);
   };
   sync();
   new MutationObserver(sync).observe(tabs, { attributes: true, attributeFilter: ["hidden"] });
   new MutationObserver(sync).observe(src, { attributes: true, attributeFilter: ["hidden"] });
+  // В обсуждении Подслушки карандаш прячется. Следим за одним классом ленты,
+  // без :has() в стилях — тот пересчитывался на каждом кадре анимации.
+  let watched = null;
+  const watchFeed = () => {
+    const feed = document.querySelector(".fm-page--feed");
+    if (!feed || feed === watched) return;
+    watched = feed;
+    const upd = () => document.body.classList.toggle("fab-off", feed.classList.contains("is-under"));
+    new MutationObserver(upd).observe(feed, { attributes: true, attributeFilter: ["class"] });
+    upd();
+  };
+  new MutationObserver(watchFeed).observe(document.body, { attributes: true, attributeFilter: ["class"] });
 })();
 
 
