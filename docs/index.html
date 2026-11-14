@@ -450,17 +450,6 @@
             hello.appendChild(today);
           }
           splashBox.insertBefore(hello, splashBox.firstChild);
-          // День донора МГУ (до 17 ноября): капля над приветствием, с первого кадра.
-          try {
-            var pf = JSON.parse(localStorage.getItem("schedule.prefs") || "{}");
-            var iso = day.getFullYear() + "-" + String(day.getMonth() + 1).padStart(2, "0") + "-" + String(day.getDate()).padStart(2, "0");
-            if (String(pf.tenant || "msu-fgp").indexOf("msu") === 0 && iso >= "2026-11-08" && iso <= "2026-11-17") {
-              var mark = document.createElement("div");
-              mark.className = "splash-donor";
-              mark.innerHTML = '<span class="splash-donor-drop">🩸</span><span class="splash-donor-text">День донора МГУ</span>';
-              splashBox.insertBefore(mark, hello);
-            }
-          } catch (e) {}
         }
       } catch (e) {}
     })();

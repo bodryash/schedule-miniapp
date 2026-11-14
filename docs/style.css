@@ -16113,3 +16113,88 @@ body.donor-days.tint-cherry {
 body.pc-no-emoji .pc-emoji-gone {
   display: none !important;
 }
+
+/* ===== Плашки (блоки) =====
+ * Под датой вместо полосы дня и строки «до конца семестра» — короткие
+ * плашки: главная синяя, остальные спокойные. Тем же языком — метка недели,
+ * «через N мин», номер пары, «пропущу?» и аудитория. */
+.ribbon.ribbon--chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 6px;
+}
+.ribbon--chips ~ .freedom,
+#freedom:has(~ .ribbon--chips),
+body:has(.ribbon--chips:not([hidden])) #freedom {
+  display: none !important;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 6px 11px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--text) 78%, var(--muted));
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.chip--on {
+  color: var(--accent-text, #fff);
+  background: var(--accent);
+}
+.chip--calm {
+  color: #1d8a4b;
+  background: color-mix(in srgb, #22a35a 13%, transparent);
+}
+.chip--warn {
+  color: #c2410c;
+  background: color-mix(in srgb, #f97316 14%, transparent);
+}
+.chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 30%, transparent);
+  animation: chip-pulse 1.8s ease-in-out infinite;
+}
+@keyframes chip-pulse {
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, currentColor 10%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chip-dot { animation: none; }
+}
+
+/* Тот же язык — по всему экрану дня. */
+.bar--schedule .week {
+  border-radius: 10px !important;
+  padding: 4px 10px !important;
+  font-weight: 600 !important;
+}
+#next.next {
+  border-radius: 12px !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  background: color-mix(in srgb, var(--text) 5%, transparent) !important;
+}
+.card .slot {
+  border-radius: 8px !important;
+  padding: 3px 8px !important;
+  font-weight: 600 !important;
+  background: color-mix(in srgb, var(--text) 6%, transparent) !important;
+}
+.card .abs-toggle {
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: color-mix(in srgb, var(--text) 5%, transparent) !important;
+}
+.card .room-badge {
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}

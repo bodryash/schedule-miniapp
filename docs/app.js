@@ -7617,32 +7617,62 @@ function renderRibbon() {
     if (last && span.start <= last.end) last.end = Math.max(last.end, span.end);
     else list.push({ ...span });
   }
-  if (!list.length) {
-    box.hidden = true;
-    return;
-  }
-  const from = list[0].start;
-  const to = Math.max(...list.map((s) => s.end));
-  const width = Math.max(1, to - from);
-  const today = isoDate(dateOfDay(selectedDay)) === isoDate(new Date());
-  const clock = new Date();
-  const now = clock.getHours() * 60 + clock.getMinutes() + clock.getSeconds() / 60;
-  const track = el("div", "ribbon-track");
-  for (const span of list) {
-    const piece = el("span", "ribbon-seg");
-    piece.style.left = `${((span.start - from) / width) * 100}%`;
-    piece.style.width = `${((span.end - span.start) / width) * 100}%`;
-    if (today && now >= span.end) piece.classList.add("ribbon-seg--past");
-    if (today && now >= span.start && now < span.end) piece.classList.add("ribbon-seg--now");
-    track.append(piece);
-  }
-  if (today && now >= from - 60 && now <= to) {
-    const dot = el("span", "ribbon-dot");
-    dot.style.left = `${Math.min(100, Math.max(0, ((now - from) / width) * 100))}%`;
-    track.append(dot);
-  }
+  // Под датой — строка плашек: главная (что сейчас) синяя, остальные спокойные.
+  // Полосу дня и строку «до конца семестра» заменяет целиком.
   const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(Math.round(m % 60)).padStart(2, "0")}`;
-  box.replaceChildren(el("span", "ribbon-time", hhmm(from)), track, el("span", "ribbon-time", hhmm(to)));
+  const chip = (text, kind) => el("span", `chip${kind ? ` chip--${kind}` : ""}`, text);
+  const live = (text) => {
+    const c = chip("", "on");
+    c.append(el("span", "chip-dot"), document.createTextNode(text));
+    return c;
+  };
+  const pairs = (n) => t(n % 10 === 1 && n % 100 !== 11 ? "{n} пара" : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? "{n} пары" : "{n} пар", { n });
+  const chips = [];
+  const today = isoDate(dateOfDay(selectedDay, selectedWeek)) === isoDate(new Date());
+  // Неделя семестра и сессия — для дней без пар и после пар.
+  const weeks = data.weeks || [];
+  const wIndex = weeks.findIndex((w) => date >= w.from && date <= w.to);
+  const daysLeft = weeks.length ? Math.ceil((new Date(`${weeks.at(-1).to}T23:59:59`) - new Date()) / 86400000) : null;
+  const semester = () => {
+    if (daysLeft !== null && daysLeft <= 0) return chips.push(chip(t("Семестр кончился"), "calm"));
+    if (daysLeft !== null && daysLeft <= 14) return chips.push(chip(t("Сессия через {d} дн.", { d: daysLeft }), "warn"));
+    if (wIndex >= 0) chips.push(chip(t("Неделя {k} из {n}", { k: wIndex + 1, n: weeks.length })));
+  };
+  if (!list.length) {
+    if (prefs.planner) {
+      box.hidden = true;
+      return;
+    }
+    chips.push(chip(selectedDay === 7 || selectedDay > 6 ? t("Выходной") : t("Пар нет"), "calm"));
+    semester();
+  } else {
+    const from = list[0].start;
+    const to = Math.max(...list.map((x) => x.end));
+    const clock = new Date();
+    const now = clock.getHours() * 60 + clock.getMinutes() + clock.getSeconds() / 60;
+    const k = list.findIndex((x) => now >= x.start && now < x.end);
+    if (today && k >= 0) {
+      const left = humanLeft(list[k].end - now);
+      chips.push(live(k === list.length - 1 ? t("Последняя · ещё {left}", { left }) : t("Идёт · ещё {left}", { left })));
+      chips.push(chip(t("{k} из {n}", { k: k + 1, n: list.length })));
+      if (k < list.length - 1) chips.push(chip(t("до {time}", { time: hhmm(to) })));
+      else if (selectedDay >= 5) chips.push(chip(t("потом выходные"), "calm"));
+    } else if (today && now >= from && now < to) {
+      const nextSpan = list.find((x) => x.start > now);
+      chips.push(live(t("Перерыв · ещё {left}", { left: humanLeft(nextSpan.start - now) })));
+      chips.push(chip(t("{k} из {n}", { k: list.indexOf(nextSpan) + 1, n: list.length })));
+      chips.push(chip(t("до {time}", { time: hhmm(to) })));
+    } else if (today && now >= to) {
+      chips.push(chip(t("Пары закончились"), "calm"));
+      semester();
+    } else {
+      if (today && from - now <= 180) chips.push(live(t("Начало через {left}", { left: humanLeft(from - now) })));
+      chips.push(chip(pairs(list.length)));
+      chips.push(chip(`${hhmm(from)}–${hhmm(to)}`));
+    }
+  }
+  box.replaceChildren(...chips);
+  box.classList.add("ribbon--chips");
   box.hidden = false;
 }
 
@@ -14723,6 +14753,7 @@ async function init() {
       refreshNow();
       refreshNext();
       refreshFreedom();
+      renderRibbon();
     }
 
   }, 30_000);
