@@ -1075,5 +1075,13 @@
     "path": "bgu-fmf",
     "features": [],
     "short": "ФМФ БГУ"
+  },
+  {
+    "id": "msal-ip",
+    "university": "МГЮА им. О.Е. Кутафина",
+    "faculty": "Институт прокуратуры",
+    "path": "msal-ip",
+    "features": [],
+    "short": "МГЮА ИП"
   }
 ]
