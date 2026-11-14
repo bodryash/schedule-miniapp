@@ -15329,7 +15329,7 @@ window.addEventListener("scroll", () => syncHeadColor(), { passive: true });
   if (!window.matchMedia?.("(max-width: 899px)").matches) return;
   const show = () => {
     const bar = document.getElementById("tabs");
-    if (!bar || bar.hidden || document.body.classList.contains("onboarding")) return setTimeout(show, 1500);
+    if (!bar || bar.hidden || document.body.classList.contains("onboarding")) return setTimeout(show, 300);
     try {
       localStorage.setItem(KEY, "1");
     } catch {}
@@ -15346,5 +15346,5 @@ window.addEventListener("scroll", () => syncHeadColor(), { passive: true });
     bar.addEventListener("pointerdown", hide, { once: true });
     tip.addEventListener("click", hide);
   };
-  setTimeout(show, 2500);
+  show();
 })();
