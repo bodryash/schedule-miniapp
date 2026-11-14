@@ -11130,7 +11130,10 @@ function renderFreeDay() {
   if (line) caption.append(el("div", "free-day-line", line));
   const add = el("button", "free-day-add");
   add.type = "button";
-  add.append(el("span", "free-day-add-plus", "+"), document.createTextNode(t("Добавить своё дело")));
+  const plus = el("span", "free-day-add-plus");
+  // Плюс нарисован, а не символом: у «+» в шрифтах разная посадка, на iPhone он съезжал.
+  plus.innerHTML = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.5v9M1.5 6h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  add.append(plus, document.createTextNode(t("Добавить своё дело")));
   add.addEventListener("click", () => openOwn(null));
   caption.append(add);
   node.append(caption);
@@ -15315,3 +15318,37 @@ function syncHeadColor(force = false) {
   }
 }
 window.addEventListener("scroll", () => syncHeadColor(), { passive: true });
+/* Одна подсказка про свайп по бару — первый раз на телефоне. */
+(function swipeHint() {
+  const KEY = "schedule.barSwipeHint2";
+  try {
+    if (localStorage.getItem(KEY)) return;
+  } catch {
+    return;
+  }
+  if (!window.matchMedia?.("(max-width: 899px)").matches) return;
+  const show = () => {
+    const bar = document.getElementById("tabs");
+    const splash = document.getElementById("splash");
+    const splashUp = splash && splash.isConnected && !splash.hidden && getComputedStyle(splash).display !== "none" && Number(getComputedStyle(splash).opacity) > 0.05;
+    // Ждём, пока уйдёт заставка: иначе подсказка показывалась под ней и
+    // засчитывалась как увиденная.
+    if (!bar || bar.hidden || splashUp || document.body.classList.contains("onboarding")) return setTimeout(show, 300);
+    try {
+      localStorage.setItem(KEY, "1");
+    } catch {}
+    const tip = el("div", "bar-hint");
+    tip.append(el("span", "bar-hint-hand", "⇆"), document.createTextNode(t("Листайте бар свайпом — так быстрее между разделами")));
+    document.body.append(tip);
+    bar.classList.add("bar-hint-nudge");
+    const hide = () => {
+      tip.classList.add("bar-hint--out");
+      bar.classList.remove("bar-hint-nudge");
+      setTimeout(() => tip.remove(), 300);
+    };
+    setTimeout(hide, 5000);
+    bar.addEventListener("pointerdown", hide, { once: true });
+    tip.addEventListener("click", hide);
+  };
+  show();
+})();
