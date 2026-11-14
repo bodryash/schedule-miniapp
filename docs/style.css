@@ -17202,3 +17202,36 @@ body::-webkit-scrollbar {
 @media (min-width: 900px) {
   .bar-hint { display: none; }
 }
+
+/* Окно «В календарь телефона»: текст на синих кнопках — белый. */
+.cal-btn:not(.cal-btn--plain) {
+  color: var(--accent-text, #fff) !important;
+}
+/* Полоска-«ручка» сверху окон убрана — закрывает крестик. */
+.sheet::before,
+.sheet-grab {
+  display: none !important;
+}
+/* Кнопка «:P» только на главных разделах: в окнах и очередях её нет. */
+body.sheet-open .forum-fab,
+#queues:not([hidden]) ~ .forum-fab {
+  display: none !important;
+}
+/* Очереди: в баре нет своей кнопки — капля не выделяет чужие разделы. */
+#queues:not([hidden]) ~ #tabs .tabs-drop {
+  opacity: 0 !important;
+}
+#queues:not([hidden]) ~ #tabs .tab.tab--on {
+  color: color-mix(in srgb, var(--text) 55%, var(--bg)) !important;
+}
+#queues:not([hidden]) ~ #tabs .tab.tab--on > span:not(.tab-icon) {
+  display: none !important;
+}
+/* Кнопка «Создать очередь» — по центру, как «Добавить дедлайн». */
+.q-add {
+  display: flex;
+  margin: 18px auto 8px;
+}
+#queues-body > .empty {
+  margin-top: 40px;
+}

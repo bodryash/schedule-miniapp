@@ -2779,10 +2779,15 @@ function renderQueues() {
     els.queuesBody.replaceChildren(el("p", "empty", t("Загружаем…")));
     return;
   }
+  const addBtn = () => {
+    const b = el("button", "dl-add q-add");
+    b.type = "button";
+    b.append(el("span", "", "＋"), el("span", "", t("Создать очередь")));
+    b.addEventListener("click", openQueueSheet);
+    return b;
+  };
   if (!queues.list.length) {
-    els.queuesBody.replaceChildren(
-      el("p", "empty", t("Очередей нет. Создайте первую кнопкой ＋"))
-    );
+    els.queuesBody.replaceChildren(el("p", "empty", t("Очередей пока нет")), addBtn());
     return;
   }
 
@@ -2875,7 +2880,7 @@ function renderQueues() {
   });
 
   nodes.forEach((node, i) => node.style.setProperty("--i", i));
-  els.queuesBody.replaceChildren(...nodes);
+  els.queuesBody.replaceChildren(...nodes, addBtn());
 }
 
 const QUEUE_ERRORS = {
@@ -14791,7 +14796,11 @@ async function init() {
     const text = els.dateLabel?.dataset.target || els.dateLabel?.textContent;
     if (text) fitDateLabel(text);
   });
-  els.queueAdd?.addEventListener("click", openQueueSheet);
+  // В углу — закрыть очереди (назад к расписанию); создать — кнопкой по центру.
+  els.queueAdd?.addEventListener("click", () => {
+    haptic("light");
+    openTab("schedule");
+  });
   els.qSave?.addEventListener("click", createQueue);
   els.qCancel?.addEventListener("click", () => (els.qSheet.hidden = true));
   els.qSheet?.addEventListener("click", (event) => {
