@@ -16257,11 +16257,17 @@ body:not(.onboarding) #schedule {
 @media (max-width: 899px) {
   .bar.bar--schedule::before {
     top: -400px;
-    bottom: -12px;
+    bottom: -22px;
     left: 50%;
     right: auto;
     width: 100vw;
     transform: translateX(-50%);
     border-radius: 0 0 28px 28px;
+  }
+}
+@media (max-width: 899px) {
+  /* Под блоком с датой — воздух, чтобы скругление не липло к строке дней. */
+  .bar.bar--schedule {
+    margin-bottom: 18px;
   }
 }
