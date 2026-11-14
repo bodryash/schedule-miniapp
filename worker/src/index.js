@@ -5421,7 +5421,7 @@ ${invite}`,
             "Одному факультету — с решёткой впереди: /broadcast #фгп Завтра занятий нет.",
             "Всем, кроме факультета — с минусом: /broadcast #-фгп Новая функция для вас.",
             "Всему вузу: /broadcast #вуз:мгу Текст — всем факультетам МГУ.",
-            "Только студентам, без преподавателей: /broadcast #студенты Текст.",
+            "По умолчанию рассылка уходит только студентам. Всем вместе с преподавателями: /broadcast #все Текст.",
             "Одной группе: /broadcast #фгп гр:301 Текст.",
             "Курсу: /broadcast #фгп курс:3 Текст (магистратура — маг:1).",
             "Одному человеку: /broadcast @ник Текст или /broadcast id:123456 Текст.",
@@ -5470,10 +5470,14 @@ ${invite}`,
         } else if (tag) {
           found = await findAudience(except ? tag[1].slice(1) : tag[1]);
         }
-        let audience = found ? { ...found, except } : null;
-        let words = audience ? (tag[2] || "").trim() : body;
+        // По умолчанию рассылка — только студентам. «#все Текст» — всем,
+        // вместе с преподавателями (как раньше было без решётки).
+        const allTag = tag && /^(все|all)$/i.test(tag[1]);
+        if (!tag) found = { id: "students", university: "Все студенты", short: "без преподавателей", label: "Всем студентам, без преподавателей" };
+        let audience = allTag ? null : found ? { ...found, except } : null;
+        let words = allTag ? (tag[2] || "").trim() : tag ? (tag[2] || "").trim() : body;
         // «#фгп гр:301 Текст» — одной группе, «#фгп курс:3» / «маг:1» — курсу.
-        const narrow = audience && !except && !uniTag && !studentsTag ? words.match(/^(гр|курс|маг):(\S+)(?:\s+([\s\S]*))?$/i) : null;
+        const narrow = tag && audience && !except && !uniTag && !studentsTag ? words.match(/^(гр|курс|маг):(\S+)(?:\s+([\s\S]*))?$/i) : null;
         if (narrow) {
           const kind = narrow[1].toLowerCase();
           let groups = [];
@@ -5507,7 +5511,7 @@ ${invite}`,
             return new Response("ok");
           }
         }
-        if (tag && !audience) {
+        if (tag && !audience && !allTag) {
           await callTelegram(env.BOT_TOKEN, "sendMessage", {
             chat_id: message.chat.id,
             text: `Не знаю факультета «${tag[1]}». Названия — в /faculties. Ничего не отправлено.`,
