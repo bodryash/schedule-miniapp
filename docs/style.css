@@ -16363,7 +16363,7 @@ section > :not(.bar--schedule) {
 @media (max-width: 899px) {
   .bar.bar--schedule,
   #search > .bar {
-    margin-bottom: 38px !important;
+    margin-bottom: 32px !important;
   }
 }
 
@@ -16469,4 +16469,24 @@ body:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .days-drop {
 }
 #week-switch .day.active * {
   color: inherit !important;
+}
+
+/* Ровный шаг 10 px между всеми блоками под строкой дней — как между
+   карточками пар: плитки дней → «Идёт сейчас» → плашки → пары. */
+#schedule > #days {
+  margin-bottom: -30px !important;
+}
+#schedule > #days ~ :not(#lessons):not([hidden]) {
+  margin-top: 0 !important;
+  margin-bottom: 10px !important;
+}
+#schedule > #days ~ #lessons {
+  margin-top: 0 !important;
+}
+.bar--search #search-tabs {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+.bar--search {
+  padding-bottom: 0 !important;
 }
