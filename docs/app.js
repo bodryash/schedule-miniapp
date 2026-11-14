@@ -15176,3 +15176,27 @@ function closeDonor() {
   else document.addEventListener("DOMContentLoaded", apply, { once: true });
   pc.addEventListener?.("change", apply);
 })();
+
+/* ---------- Телефон: круглая кнопка Подслушки рядом с нижним баром ----------
+ * Подслушка переехала из шапки вниз, справа от капсулы разделов: вход всегда
+ * под пальцем, а шапка разгружена. Кнопка в шапке остаётся для компьютера. */
+(function forumFab() {
+  const src = document.getElementById("forum-btn");
+  const tabs = document.getElementById("tabs");
+  if (!src || !tabs) return;
+  const fab = document.createElement("button");
+  fab.type = "button";
+  fab.id = "forum-fab";
+  fab.className = "forum-fab";
+  fab.setAttribute("aria-label", src.getAttribute("aria-label") || "Подслушка");
+  fab.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4 3.5V16h.5A2.5 2.5 0 0 1 5 13.5z"/></svg>';
+  fab.addEventListener("click", () => src.click());
+  document.body.append(fab);
+  // Видна вместе с баром и только там, где Подслушка доступна.
+  const sync = () => {
+    fab.hidden = tabs.hidden || src.hasAttribute("hidden");
+  };
+  sync();
+  new MutationObserver(sync).observe(tabs, { attributes: true, attributeFilter: ["hidden"] });
+  new MutationObserver(sync).observe(src, { attributes: true, attributeFilter: ["hidden"] });
+})();

@@ -16628,3 +16628,171 @@ body:not(.neon):not(.neon-day) #days > .day.day--today:not(.active) {
 .sheet-backdrop--out .sheet {
   will-change: transform, opacity;
 }
+
+/* ===== Нижний бар на телефоне: компактная капсула + круглая Подслушка =====
+ * Капсула — только значки, подпись у открытого раздела (он залит цветом
+ * недели). Справа — круглая кнопка Подслушки; в шапке её больше нет. */
+.forum-fab {
+  display: none;
+}
+@media (max-width: 899px) {
+  #tabs.tabs {
+    left: 16px !important;
+    right: auto !important;
+    width: auto !important;
+    max-width: calc(100vw - 32px - 68px);
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px)) !important;
+    transform: none !important;
+    display: inline-flex;
+    gap: 2px;
+    padding: 5px !important;
+    height: auto !important;
+    border-radius: 999px !important;
+    background: var(--bg) !important;
+    border: 0 !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: 0 6px 24px -10px rgba(0, 0, 0, 0.28) !important;
+  }
+  #tabs[hidden] {
+    display: none !important;
+  }
+  #tabs .tabs-drop {
+    display: none !important;
+  }
+  #tabs .tab {
+    flex: none !important;
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center;
+    gap: 7px;
+    height: 46px;
+    min-width: 50px;
+    justify-content: center;
+    padding: 0 13px !important;
+    border-radius: 999px !important;
+    background: transparent !important;
+    color: color-mix(in srgb, var(--text) 55%, var(--bg)) !important;
+    transition: background-color 220ms ease, color 220ms ease, padding 220ms ease;
+  }
+  #tabs .tab > span:not(.tab-icon) {
+    display: none;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  #tabs .tab.tab--on {
+    background: var(--accent) !important;
+    color: var(--accent-text, #fff) !important;
+    padding: 0 17px 0 14px !important;
+  }
+  #tabs .tab.tab--on > span:not(.tab-icon) {
+    display: inline;
+  }
+  #tabs .tab .tab-icon,
+  #tabs .tab .tab-icon svg {
+    width: 22px !important;
+    height: 22px !important;
+    margin: 0 !important;
+  }
+  /* Мини-режим при прокрутке больше не нужен — капсула и так маленькая. */
+  body.tabs-mini #tabs.tabs {
+    transform: none !important;
+  }
+  .forum-fab {
+    position: fixed;
+    z-index: 50;
+    right: 16px;
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    width: 56px;
+    height: 56px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    color: #fff;
+    background: var(--accent);
+    box-shadow: 0 8px 22px -10px var(--accent);
+    cursor: pointer;
+    transition: transform 160ms ease;
+  }
+  .forum-fab[hidden] {
+    display: none;
+  }
+  .forum-fab:active {
+    transform: scale(0.92);
+  }
+  .forum-fab svg {
+    width: 25px;
+    height: 25px;
+  }
+  /* Подслушка из шапки ушла вниз. */
+  .bar--schedule #forum-btn {
+    display: none !important;
+  }
+}
+@media (max-width: 899px) {
+  #tabs .tab.tab--on,
+  #tabs .tab.tab--on * {
+    color: var(--accent-text, #fff) !important;
+  }
+  #tabs .tab {
+    min-width: 46px;
+    height: 44px;
+    padding: 0 12px !important;
+    gap: 6px;
+  }
+  #tabs .tab.tab--on {
+    padding: 0 15px 0 12px !important;
+  }
+  #tabs .tab > span:not(.tab-icon) {
+    font-size: 13.5px;
+  }
+  .forum-fab {
+    width: 54px;
+    height: 54px;
+  }
+}
+
+/* Плашки под датой — всегда одной строкой, кольцо семестра справа.
+   На узких телефонах плашки компактнее, а последняя при нехватке места
+   сокращается многоточием, а не переносится. */
+.ribbon.ribbon--chips {
+  flex-wrap: nowrap !important;
+  min-width: 0;
+}
+.ribbon--chips .chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ribbon--chips .chip--on {
+  flex-shrink: 0;
+}
+@media (max-width: 400px) {
+  .ribbon--chips {
+    gap: 5px !important;
+  }
+  .ribbon--chips .chip {
+    padding: 0 9px;
+    font-size: 12.5px;
+    gap: 5px;
+  }
+  .sem-ring {
+    width: 34px;
+  }
+  .sem-ring::before {
+    inset: 4px 6px;
+  }
+}
+@media (max-width: 899px) {
+  #tabs .tab.tab--on > span:not(.tab-icon) {
+    display: inline !important;
+    opacity: 1 !important;
+    max-width: none !important;
+    width: auto !important;
+    transform: none !important;
+    font-size: 13.5px !important;
+  }
+}
