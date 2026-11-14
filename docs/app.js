@@ -15233,7 +15233,7 @@ function closeDonor() {
 })();
 
 
-/* Свайп по бару — соседний раздел: влево — следующий, вправо — предыдущий. */
+/* Свайп по бару — соседний раздел: вправо — следующий, влево — предыдущий. */
 (function tabsSwipe() {
   const bar = document.getElementById("tabs");
   if (!bar) return;
@@ -15252,7 +15252,7 @@ function closeDonor() {
     if (!quick || Math.abs(dx) < 28 || Math.abs(dx) < Math.abs(dy)) return;
     const tabs = [...bar.querySelectorAll(".tab")].filter((t) => !t.hidden);
     const now = tabs.findIndex((t) => t.classList.contains("tab--on"));
-    const next = tabs[Math.max(0, Math.min(tabs.length - 1, now + (dx < 0 ? 1 : -1)))];
+    const next = tabs[Math.max(0, Math.min(tabs.length - 1, now + (dx > 0 ? 1 : -1)))];
     if (!next || next === tabs[now]) return;
     swiped = true;
     haptic("select");
