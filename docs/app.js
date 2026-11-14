@@ -10410,6 +10410,21 @@ window.addEventListener("resize", pinTabs);
 if (window.ResizeObserver && els.tabs) new ResizeObserver(() => requestAnimationFrame(pinTabs)).observe(els.tabs);
 window.addEventListener("orientationchange", () => setTimeout(pinTabs, 300));
 
+/** Телефон: капля — точно под кнопкой с классом tab--on (по замеру). */
+function placeTabsDrop() {
+  const bar = els.tabs;
+  const drop = els.tabsDrop;
+  const button = bar?.querySelector(".tab.tab--on");
+  if (!bar || !drop || !button || bar.hidden) return;
+  const box = bar.getBoundingClientRect();
+  const r = button.getBoundingClientRect();
+  if (!r.width) return;
+  drop.style.setProperty("--x", `${r.left - box.left - bar.clientLeft}px`);
+  drop.style.setProperty("--w", `${r.width}px`);
+}
+// Бар появился, сменил размер (Telegram раскрылся, повернули экран) — перемерить.
+if (window.ResizeObserver && els.tabs) new ResizeObserver(() => placeTabsDrop()).observe(els.tabs);
+
 function moveDrop(name, animate = true) {
   pinTabs();
   const drop = els.tabsDrop;
@@ -10427,15 +10442,9 @@ function moveDrop(name, animate = true) {
   // Телефон: кнопки разной ширины (у открытой — подпись), поэтому капля
   // встаёт точно под кнопку по замеру, когда та уже раскрылась.
   if (window.matchMedia?.("(max-width: 899px)").matches) {
-    const place = () => {
-      const box = els.tabs.getBoundingClientRect();
-      const r = button.getBoundingClientRect();
-      drop.style.setProperty("--x", `${r.left - box.left - els.tabs.clientLeft}px`);
-      drop.style.setProperty("--w", `${r.width}px`);
-    };
-    place();
-    requestAnimationFrame(place);
-    setTimeout(place, 60);
+    placeTabsDrop();
+    requestAnimationFrame(placeTabsDrop);
+    setTimeout(placeTabsDrop, 60);
   }
   if (!animate) {
     // Отключили переход только на этот кадр: при первом показе капля должна
@@ -15223,52 +15232,37 @@ function closeDonor() {
 })();
 
 
-/* Бар можно «листать»: ведёшь пальцем по капсуле — капля едет за ним,
-   отпустил — открывается раздел под пальцем. */
-(function tabsScrub() {
+/* Свайп по бару — соседний раздел: влево — следующий, вправо — предыдущий. */
+(function tabsSwipe() {
   const bar = document.getElementById("tabs");
   if (!bar) return;
   let start = null;
-  let target = null;
-  const tabAt = (x) => [...bar.querySelectorAll(".tab")].find((b) => {
-    const r = b.getBoundingClientRect();
-    return x >= r.left && x <= r.right;
-  });
+  let swiped = false;
   bar.addEventListener("pointerdown", (e) => {
-    start = { x: e.clientX, id: e.pointerId, moved: false };
-    target = null;
+    start = { x: e.clientX, y: e.clientY, at: performance.now(), id: e.pointerId };
+    swiped = false;
   });
-  bar.addEventListener("pointermove", (e) => {
+  bar.addEventListener("pointerup", (e) => {
     if (!start || e.pointerId !== start.id) return;
-    if (!start.moved && Math.abs(e.clientX - start.x) < 10) return;
-    start.moved = true;
-    const tab = tabAt(e.clientX);
-    if (tab && tab !== target) {
-      target = tab;
-      haptic("select");
-      const drop = document.getElementById("tabs-drop");
-      const box = bar.getBoundingClientRect();
-      const r = tab.getBoundingClientRect();
-      drop?.style.setProperty("--x", `${r.left - box.left - bar.clientLeft}px`);
-      drop?.style.setProperty("--w", `${r.width}px`);
-    }
-  });
-  const end = (e) => {
-    if (!start || e.pointerId !== start.id) return;
-    const moved = start.moved;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    const quick = performance.now() - start.at < 600;
     start = null;
-    if (!moved || !target) return;
-    e.preventDefault();
-    openTab(target.dataset.tab);
-    target = null;
-  };
-  bar.addEventListener("pointerup", end);
+    if (!quick || Math.abs(dx) < 28 || Math.abs(dx) < Math.abs(dy)) return;
+    const tabs = [...bar.querySelectorAll(".tab")].filter((t) => !t.hidden);
+    const now = tabs.findIndex((t) => t.classList.contains("tab--on"));
+    const next = tabs[Math.max(0, Math.min(tabs.length - 1, now + (dx < 0 ? 1 : -1)))];
+    if (!next || next === tabs[now]) return;
+    swiped = true;
+    haptic("select");
+    openTab(next.dataset.tab);
+  });
   bar.addEventListener("pointercancel", () => (start = null));
-  // После «листания» обычный клик по кнопке не срабатывает повторно.
+  // Свайп закончился над кнопкой — её клик не должен открыть другой раздел.
   bar.addEventListener("click", (e) => {
-    if (bar.dataset.scrubbed) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
+    if (!swiped) return;
+    swiped = false;
+    e.stopPropagation();
+    e.preventDefault();
   }, true);
 })();

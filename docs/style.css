@@ -17036,3 +17036,29 @@ body.fm-open .forum-fab .forum-fab-pen {
 @media (prefers-reduced-motion: reduce) {
   .screen-slide > * { animation: none !important; }
 }
+
+/* «:P» ↔ карандаш — плавно: одно уходит с поворотом и сжатием, другое
+   появляется на его месте. */
+@media (max-width: 899px) {
+  .forum-fab {
+    position: fixed;
+  }
+  .forum-fab .forum-fab-p,
+  .forum-fab .forum-fab-pen {
+    grid-area: 1 / 1;
+    display: block !important;
+    transition: opacity 260ms ease, transform 380ms cubic-bezier(0.3, 1.4, 0.5, 1);
+  }
+  .forum-fab .forum-fab-pen {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.4);
+  }
+  body.fm-open .forum-fab .forum-fab-p {
+    opacity: 0;
+    transform: rotate(90deg) scale(0.4);
+  }
+  body.fm-open .forum-fab .forum-fab-pen {
+    opacity: 1;
+    transform: none;
+  }
+}
