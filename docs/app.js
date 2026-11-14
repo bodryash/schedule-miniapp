@@ -15320,7 +15320,7 @@ function syncHeadColor(force = false) {
 window.addEventListener("scroll", () => syncHeadColor(), { passive: true });
 /* Одна подсказка про свайп по бару — первый раз на телефоне. */
 (function swipeHint() {
-  const KEY = "schedule.barSwipeHint";
+  const KEY = "schedule.barSwipeHint2";
   try {
     if (localStorage.getItem(KEY)) return;
   } catch {
@@ -15329,7 +15329,11 @@ window.addEventListener("scroll", () => syncHeadColor(), { passive: true });
   if (!window.matchMedia?.("(max-width: 899px)").matches) return;
   const show = () => {
     const bar = document.getElementById("tabs");
-    if (!bar || bar.hidden || document.body.classList.contains("onboarding")) return setTimeout(show, 300);
+    const splash = document.getElementById("splash");
+    const splashUp = splash && splash.isConnected && !splash.hidden && getComputedStyle(splash).display !== "none" && Number(getComputedStyle(splash).opacity) > 0.05;
+    // Ждём, пока уйдёт заставка: иначе подсказка показывалась под ней и
+    // засчитывалась как увиденная.
+    if (!bar || bar.hidden || splashUp || document.body.classList.contains("onboarding")) return setTimeout(show, 300);
     try {
       localStorage.setItem(KEY, "1");
     } catch {}
