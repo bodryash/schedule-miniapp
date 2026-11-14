@@ -17248,3 +17248,13 @@ body.sheet-open .forum-fab,
 body.sheet-open .bar-hint {
   display: none;
 }
+
+/* Кнопка :P — ниже любых окон (их подложка z-index 40). */
+@media (max-width: 899px) {
+  .forum-fab {
+    z-index: 35 !important;
+  }
+  body.fm-open .forum-fab {
+    z-index: 60 !important;
+  }
+}
