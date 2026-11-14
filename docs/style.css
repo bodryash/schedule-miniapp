@@ -16618,3 +16618,13 @@ body:not(.neon):not(.neon-day) #days > .day.day--today:not(.active) {
 #days .days-drop .day .day-num {
   color: var(--accent-text, #fff) !important;
 }
+
+/* Закрытие окон — без размытия фона: пересчёт blur на каждом кадре и
+   давал лаг; окно уезжает только сдвигом и прозрачностью. */
+.sheet-backdrop--out {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+.sheet-backdrop--out .sheet {
+  will-change: transform, opacity;
+}

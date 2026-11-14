@@ -8458,6 +8458,9 @@ function syncDeadlineSheet() {
 /** Окно уезжает вниз, затемнение тает — как у остальных окон. */
 function slideSheetAway(sheet) {
   if (!sheet || sheet.hidden || sheet.classList.contains("sheet-backdrop--out")) return;
+  // Курсор в поле — сначала убираем клавиатуру, иначе её уход и перестройка
+  // экрана совпадали с анимацией закрытия, и окно дёргалось.
+  if (sheet.contains(document.activeElement)) document.activeElement.blur();
   sheet.classList.add("sheet-backdrop--out");
   setTimeout(() => {
     sheet.hidden = true;
