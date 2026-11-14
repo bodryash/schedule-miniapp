@@ -350,6 +350,11 @@ const AUDIENCE_EXCEPT_SQL = AUDIENCE_SQL.replace(/END = \?$/, "END != ?");
  * Возвращает [запрос, ...значения для bind].
  */
 function audienceQuery(audience) {
+  // «students» — все, кто выбрал учебную группу; преподаватели (преп:…) и
+  // ежедневник без группы не получают.
+  if (audience === "students") {
+    return [`SELECT DISTINCT u.id FROM users u JOIN people p ON p.tg_id = u.id WHERE p.grp IS NOT NULL AND p.grp != '' AND p.grp NOT LIKE 'преп:%'`];
+  }
   // «u:123» — один человек.
   if (audience.startsWith("u:")) return ["SELECT id FROM users WHERE id = ?", Number(audience.slice(2))];
   // «g:msu-fgp-группа|…» — точные группы (одна группа или весь курс), как
@@ -5416,6 +5421,7 @@ ${invite}`,
             "Одному факультету — с решёткой впереди: /broadcast #фгп Завтра занятий нет.",
             "Всем, кроме факультета — с минусом: /broadcast #-фгп Новая функция для вас.",
             "Всему вузу: /broadcast #вуз:мгу Текст — всем факультетам МГУ.",
+            "Только студентам, без преподавателей: /broadcast #студенты Текст.",
             "Одной группе: /broadcast #фгп гр:301 Текст.",
             "Курсу: /broadcast #фгп курс:3 Текст (магистратура — маг:1).",
             "Одному человеку: /broadcast @ник Текст или /broadcast id:123456 Текст.",
@@ -5454,7 +5460,11 @@ ${invite}`,
         // «#вуз:мгу» — всем факультетам вуза сразу.
         const uniTag = tag && !except ? tag[1].match(/^вуз:(.+)$/i) : null;
         let found = null;
-        if (uniTag) {
+        // «#студенты Текст» — всем студентам, без преподавателей.
+        const studentsTag = tag && !except && /^(студенты|students)$/i.test(tag[1]);
+        if (studentsTag) {
+          found = { id: "students", university: "Все студенты", short: "без преподавателей", label: "Всем студентам, без преподавателей" };
+        } else if (uniTag) {
           const all = (await loadTenants().catch(() => [])).filter((t) => normalize(t.university) === normalize(uniTag[1]));
           if (all.length) found = { id: `in:${all.map((t) => t.id).join(",")}`, university: all[0].university, short: "все факультеты" };
         } else if (tag) {
@@ -5463,7 +5473,7 @@ ${invite}`,
         let audience = found ? { ...found, except } : null;
         let words = audience ? (tag[2] || "").trim() : body;
         // «#фгп гр:301 Текст» — одной группе, «#фгп курс:3» / «маг:1» — курсу.
-        const narrow = audience && !except && !uniTag ? words.match(/^(гр|курс|маг):(\S+)(?:\s+([\s\S]*))?$/i) : null;
+        const narrow = audience && !except && !uniTag && !studentsTag ? words.match(/^(гр|курс|маг):(\S+)(?:\s+([\s\S]*))?$/i) : null;
         if (narrow) {
           const kind = narrow[1].toLowerCase();
           let groups = [];
