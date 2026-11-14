@@ -3168,7 +3168,8 @@ function initWeekSwipe() {
     }
     if (!dragging) return;
     // Дальше двух недель листать некуда — сопротивление на краю.
-    const edge = (dx > 0 && selectedWeek <= -WEEKS_BACK) || (dx < 0 && selectedWeek >= NEAR_WEEKS - 1);
+    // После «Следующей» дальше — «Месяц», из месяца назад — «Следующая».
+    const edge = weekMode === "month" ? dx < 0 : (dx > 0 && selectedWeek <= -WEEKS_BACK);
     shift = edge ? dx * 0.25 : dx;
     body.style.transform = `translateX(${shift.toFixed(1)}px)`;
   });
@@ -3181,6 +3182,22 @@ function initWeekSwipe() {
     const far = Math.abs(shift) > body.clientWidth * SWIPE_DISTANCE;
     const target = selectedWeek + (shift < 0 ? 1 : -1);
     body.style.transition = "";
+    if (far || velocity > SWIPE_VELOCITY) {
+      // «Следующая» → свайп влево → «Месяц»; из «Месяца» свайп вправо → «Следующая».
+      if (weekMode === "week" && shift < 0 && target >= NEAR_WEEKS) {
+        body.style.transform = "";
+        haptic("select");
+        weekMode = "month";
+        return morphWeek(true);
+      }
+      if (weekMode === "month" && shift > 0) {
+        body.style.transform = "";
+        haptic("select");
+        weekMode = "week";
+        selectedWeek = NEAR_WEEKS - 1;
+        return morphWeek(false);
+      }
+    }
     if ((far || velocity > SWIPE_VELOCITY) && target >= -WEEKS_BACK && target < NEAR_WEEKS) {
       const from = shift;
       body.style.transform = "";
