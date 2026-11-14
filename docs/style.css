@@ -15969,8 +15969,9 @@ body.donor-days.tint-cherry {
   color: #c41e3a;
 }
 
-/* Капля на плитке дня донора — целиком внутри плитки, без «огонька». */
+/* Капли на плитках дней донора убраны: дни выделены только красным числом. */
 .day--donor::after {
+  display: none !important;
   top: 2px !important;
   right: 4px !important;
   font-size: 10px !important;

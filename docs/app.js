@@ -2055,7 +2055,8 @@ function applyTheme(granted = grantedTheme) {
   const own = colorTheme();
   const ownName = own === "msu" ? (inMsu() ? "msu" : "") : THEMES[own] ? own : "";
   // 31 октября у всех Хеллоуин, выданная тема всё равно сильнее.
-  const donor = !worn && isDonorDays();
+  // Красное оформление Дня донора выключено для всех: дни донора и плашка остаются.
+  const donor = false;
   document.body.classList.toggle("donor-days", donor);
   const name = worn || (isHalloween() ? "halloween" : "") || (donor ? "cherry" : "") || ownName || (ownGlam() ? "glam" : "");
   // Неон — свои классы, не из THEMES; под выданной темой не включаем.
@@ -7513,7 +7514,6 @@ function initScrollChrome() {
     if (date && k !== lastK) {
       lastK = k;
       date.style.transform = k ? `translateY(${k * 6}px) scale(${1 - k * 0.22})` : "";
-      date.style.opacity = k ? `${1 - k * 0.85}` : "";
     }
     document.body.classList.toggle("head-compact", onSchedule && y > 96);
 
@@ -13773,7 +13773,6 @@ function renderHello() {
   };
   // На заставке — только приветствие и дата, без пожелания.
   box.replaceChildren(words(title, "splash-hello-title"));
-  if (isDonorDays() && !splash.querySelector(".splash-donor")) splash.insertBefore(donorSplashMark(), box);
   // Место под «Сегодня N пар» — сразу: когда текст придёт, ничего не сдвинется.
   if (window.matchMedia?.("(min-width: 900px)").matches) box.append(el("div", "splash-hello-wish splash-today", "\u00a0"));
   try {
