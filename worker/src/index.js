@@ -3152,7 +3152,16 @@ async function ensureWidgetUpdates(env) {
   const res = await callTelegram(env.BOT_TOKEN, "getWebhookInfo", {}).catch(() => null);
   const result = res ? (await res.json().catch(() => ({})))?.result : null;
   const ws = (globalThis.SCHEDULE_WIDGET_STATS ||= { queries: 0, last: "", data: "" });
-  ws.webhook = result ? { allowed: result.allowed_updates || "по умолчанию", error: result.last_error_message || "" } : "нет ответа";
+  ws.webhook = result
+    ? {
+        allowed: result.allowed_updates || "по умолчанию",
+        error: result.last_error_message || "",
+        errorAgoMin: result.last_error_date ? Math.round((Date.now() / 1000 - result.last_error_date) / 60) : null,
+        pending: result.pending_update_count || 0,
+        host: (() => { try { return new URL(result.url).host; } catch { return ""; } })(),
+        ip: result.ip_address || "",
+      }
+    : "нет ответа";
   if (!result?.url || !env.WEBHOOK_SECRET) return;
   const allowed = Array.isArray(result.allowed_updates) && result.allowed_updates.length ? result.allowed_updates : null;
   if (allowed && allowed.includes("widget_query")) return;
@@ -5742,7 +5751,10 @@ ${invite}`,
     const wantsWidget = message && (wantsTomorrow || /^\/(?:widget|today)(?:@\w+)?\s*$/.test(text) || (message.chat.type === "private" && (text === KB_TODAY || text === KB_OLD || /^\/start(?:@\w+)?\s+today$/.test(text))));
     const wantsToday = message && message.chat.type === "private" && (text === KB_TODAY || /^\/start(?:@\w+)?\s+today$/.test(text));
     if (message && (wantsWidget || /^\/today(?:@\w+)?\s*$/.test(text)) && message.chat.type === "private" && message.from?.id) {
-      const sent = wantsWidget ? await sendDayWidget(env, callTelegram, message.chat.id, message.from.id, groupTitle, WEB_APP_URL, wantsTomorrow ? iso(new Date(Date.now() + 27 * 3600000)) : wantsToday ? iso(new Date(Date.now() + 3 * 3600000)) : null).catch(() => null) : null;
+      const sent = wantsWidget ? await sendDayWidget(env, callTelegram, message.chat.id, message.from.id, groupTitle, WEB_APP_URL, wantsTomorrow ? iso(new Date(Date.now() + 27 * 3600000)) : wantsToday ? iso(new Date(Date.now() + 3 * 3600000)) : null).catch((e) => ({ ok: false, description: `исключение: ${String(e?.message || e).slice(0, 200)}` })) : null;
+      // Последняя попытка — в /healthz: если виджет не ушёл, видно почему.
+      const wsStat = (globalThis.SCHEDULE_WIDGET_STATS ||= { queries: 0, last: "", data: "" });
+      wsStat.send = { at: new Date().toISOString(), ok: Boolean(sent?.ok), error: sent?.ok ? "" : String(sent?.description || "нет ответа").slice(0, 300) };
       // В чате — только виджет: нажатие кнопки и прежний виджет убираем,
       // новый закрепляем. Текстом бот ничего не отвечает.
       if (sent?.ok && sent.result?.message_id && env.STATS) {
