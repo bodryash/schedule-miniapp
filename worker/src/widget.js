@@ -213,7 +213,36 @@ export async function sendDayWidget(env, callTelegram, chatId, tgId, groupTitle,
     reply_markup: { keyboard: [[{ text: "☀️ Сегодня" }, { text: "🌙 Завтра" }]], resize_keyboard: true, is_persistent: true },
   });
   const body = await res.json().catch(() => ({}));
-  return body;
+  if (body.ok) return body;
+  // Telegram сейчас не пускает виджеты (INPUT_MEDIA_WIDGET_NOT_ALLOWED и т. п.) —
+  // те же пары обычным сообщением, с теми же кнопками «Сегодня / Завтра».
+  const text = dayText(JSON.parse(chatData), appUrl);
+  const fallback = await callTelegram(env.BOT_TOKEN, "sendMessage", {
+    chat_id: chatId,
+    text,
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+    reply_markup: { keyboard: [[{ text: "☀️ Сегодня" }, { text: "🌙 Завтра" }]], resize_keyboard: true, is_persistent: true },
+  });
+  const sent = await fallback.json().catch(() => ({}));
+  return sent.ok ? { ...sent, viaText: true, widgetError: body.description || "" } : body;
+}
+
+const esc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+const WEEKDAYS = ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
+
+/** Пары дня текстом — запасной вид, когда виджет нельзя отправить. */
+function dayText(p) {
+  if (p.e === "group") return "Сначала выберите группу в приложении — кнопка «Расписание» внизу слева.";
+  const d = new Date(`${p.d}T12:00:00Z`);
+  const today = new Date(Date.now() + 3 * 3600000).toISOString().slice(0, 10);
+  const head = `${p.d === today ? "☀️ Сегодня" : "📅"} · <b>${WEEKDAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}</b>${p.g ? ` · ${esc(p.g)}` : ""}`;
+  const rows = (p.l || []).map(([start, end, subject, room, flag]) => {
+    const line = `<b>${start}–${end}</b>  ${esc(subject)}${room ? ` · <i>${esc(room)}</i>` : ""}`;
+    return flag === 1 ? `<s>${line}</s>  ❌ отменена` : flag === 2 ? `${line}  ✏️` : line;
+  });
+  return rows.length ? `${head}\n\n${rows.join("\n")}` : `${head}\n\nПар нет 🎉`;
 }
 
 /** Запрос виджета: «d:2026-11-11» → пары этого дня. */
