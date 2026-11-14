@@ -16131,7 +16131,7 @@ body.pc-no-emoji .pc-emoji-gone {
 #schedule #freedom {
   display: none !important;
 }
-.chip {
+.ribbon .chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -16146,19 +16146,19 @@ body.pc-no-emoji .pc-emoji-gone {
   color: color-mix(in srgb, var(--text) 78%, var(--muted));
   background: color-mix(in srgb, var(--text) 6%, transparent);
 }
-.chip,
-.chip--on {
+.ribbon .chip,
+.ribbon .chip--on {
   box-shadow: none !important;
 }
-.chip--on {
+.ribbon .chip--on {
   color: var(--accent-text, #fff);
   background: var(--accent);
 }
-.chip--calm {
+.ribbon .chip--calm {
   color: #1d8a4b;
   background: color-mix(in srgb, #22a35a 13%, transparent);
 }
-.chip--warn {
+.ribbon .chip--warn {
   color: #c2410c;
   background: color-mix(in srgb, #f97316 14%, transparent);
 }
@@ -16236,7 +16236,7 @@ body:not(.onboarding) #schedule {
   background: var(--bg) !important;
 }
 /* Ровно по центру: плашки одной высоты, текст и точка — по оси. */
-.chip {
+.ribbon .chip {
   height: 30px;
   min-height: 0;
   padding: 0 11px;
@@ -17109,4 +17109,35 @@ body::-webkit-scrollbar {
   .forum-fab {
     transition: transform 220ms ease, opacity 200ms ease !important;
   }
+}
+
+/* Плашки под датой: если в строку не влезают — переносятся, а не режутся. */
+.ribbon.ribbon--chips {
+  flex-wrap: wrap !important;
+  row-gap: 6px !important;
+}
+.ribbon--chips .chip {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  flex: 0 0 auto !important;
+}
+/* «+ Добавить своё дело»: плюс ровно по оси текста. */
+.free-day-add {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px;
+}
+.free-day-add-plus {
+  display: inline-grid !important;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  line-height: 1 !important;
+  margin: 0 !important;
+  transform: translateY(-1px);
+}
+/* В настройках бар и «:P» не нужны — они закрывали «Сохранить». */
+#picker:not([hidden]) ~ #tabs,
+#picker:not([hidden]) ~ .forum-fab {
+  display: none !important;
 }
