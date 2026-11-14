@@ -5757,7 +5757,8 @@ ${invite}`,
       wsStat.send = { at: new Date().toISOString(), ok: Boolean(sent?.ok), error: sent?.ok ? "" : String(sent?.description || "нет ответа").slice(0, 300) };
       // В чате — только виджет: нажатие кнопки и прежний виджет убираем,
       // новый закрепляем. Текстом бот ничего не отвечает.
-      if (sent?.ok && sent.result?.message_id && env.STATS) {
+      // Текстовый запасной ответ (Telegram не пустил виджет) не закрепляем.
+      if (sent?.ok && sent.result?.message_id && env.STATS && !sent.viaText) {
         await callTelegram(env.BOT_TOKEN, "deleteMessage", { chat_id: message.chat.id, message_id: message.message_id }).catch(() => {});
         const key = `widgetpin:${message.chat.id}`;
         const prev = await env.STATS.prepare("SELECT value FROM forum_settings WHERE key = ?").bind(key).first().catch(() => null);
