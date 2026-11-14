@@ -3115,3 +3115,43 @@ body.fm-open .minihead {
 .fm-spacer {
   height: calc(var(--fm-bar, 72px) + 24px + var(--fm-kb));
 }
+
+/* Значки правил — как аватар по умолчанию: значок вместо головы, снизу
+   плечи. */
+.fm-rule-i {
+  position: relative;
+  overflow: hidden;
+  place-items: start center;
+  padding-top: 6px;
+}
+.fm-rule-i svg {
+  width: 19px;
+  height: 19px;
+  position: relative;
+  z-index: 1;
+}
+.fm-rule-i::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -13px;
+  width: 30px;
+  height: 24px;
+  transform: translateX(-50%);
+  border-radius: 50% 50% 0 0;
+  background: currentColor;
+  opacity: 0.85;
+}
+.fm-rule-i {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+.fm-rule-i svg {
+  margin: 0 auto;
+}
+.fm-rule-i::after {
+  background: var(--accent);
+  opacity: 0.55;
+}

@@ -252,6 +252,41 @@ function openRef() {
   const sheet = el("div", "sheet pot-sheet");
   sheet.setAttribute("role", "dialog");
   sheet.setAttribute("aria-modal", "true");
+  // Конкурса нет (кончился или не начат) — просто своя ссылка, без подарка и призов.
+  if (!st.live) {
+    const x = el("button", "sheet-x", "×");
+    x.type = "button";
+    x.setAttribute("aria-label", t("Закрыть"));
+    x.addEventListener("click", () => (back.hidden = true));
+    sheet.append(x, el("h2", "pot-title", t("Ссылка для друзей")), el("p", "pot-sub", t("Позови одногруппников — расписание группы у всех в Telegram: пары, замены и аудитории.")));
+    const link = el("button", "pot-link", st.link.replace("https://", ""));
+    link.type = "button";
+    link.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(st.link);
+        haptic("success");
+        toast(t("Ссылка скопирована"));
+      } catch {
+        toast(st.link);
+      }
+    });
+    const share = el("button", "pot-share", t("Отправить друзьям"));
+    share.type = "button";
+    share.addEventListener("click", () => {
+      haptic("medium");
+      const url = `https://t.me/share/url?url=${encodeURIComponent(st.link)}&text=${encodeURIComponent(refShareText())}`;
+      if (tg?.openTelegramLink) tg.openTelegramLink(url);
+      else window.open(url, "_blank");
+    });
+    sheet.append(link, share);
+    back.append(sheet);
+    back.addEventListener("click", (e) => {
+      if (e.target === back) back.hidden = true;
+    });
+    document.body.append(back);
+    requestAnimationFrame(() => (back.hidden = false));
+    return;
+  }
   // Шапка: сам приз — NFT, живой (анимация подарка), парит и поворачивается.
   const hero = el("div", "pot-hero pot-nft");
   const stage = el("div", "pot-nft-stage");
@@ -1949,10 +1984,18 @@ function rememberLook() {
       // В Telegram за верхним и нижним краем виден не html, а само окно
       // мини-приложения — красим и его, и шапку, в цвет расписания.
       const hex = toHex(paint);
+      // Шапка Telegram — цвета белого блока с датой (он уходит под неё),
+      // а не серого фона страницы, иначе на стыке видна граница.
+      const blockProbe = el("span");
+      blockProbe.style.cssText = "position:absolute;visibility:hidden;background:var(--bg)";
+      document.body.append(blockProbe);
+      const blockHex = toHex(getComputedStyle(blockProbe).backgroundColor);
+      blockProbe.remove();
       if (hex) {
         try {
           tg?.setBackgroundColor?.(hex);
-          tg?.setHeaderColor?.(hex);
+          window.__headColors = { block: blockHex || hex, page: hex };
+          syncHeadColor(true);
           tg?.setBottomBarColor?.(hex);
         } catch {
           // Старый Telegram — красит сам.
@@ -2020,7 +2063,8 @@ function applyTheme(granted = grantedTheme) {
   const own = colorTheme();
   const ownName = own === "msu" ? (inMsu() ? "msu" : "") : THEMES[own] ? own : "";
   // 31 октября у всех Хеллоуин, выданная тема всё равно сильнее.
-  const donor = !worn && isDonorDays();
+  // Красное оформление Дня донора выключено для всех: дни донора и плашка остаются.
+  const donor = false;
   document.body.classList.toggle("donor-days", donor);
   const name = worn || (isHalloween() ? "halloween" : "") || (donor ? "cherry" : "") || ownName || (ownGlam() ? "glam" : "");
   // Неон — свои классы, не из THEMES; под выданной темой не включаем.
@@ -3049,8 +3093,52 @@ function switchWeek(week, fromShift = 0) {
   const direction = Math.sign(week - selectedWeek);
   haptic("select");
   selectedWeek = week;
-  slideSwap(els.weekBody, direction, () => showWeek(), fromShift);
+  weekPush(direction, () => showWeek(), fromShift);
   return true;
+}
+
+/**
+ * Смена недели — как лента: старая неделя целиком уезжает, новая въезжает
+ * следом вплотную, одним движением, без наложения и проявления. Диапазон
+ * дат в шапке при этом прокручивается, как табло.
+ */
+function weekPush(direction, render, fromShift = 0) {
+  const box = els.weekBody;
+  const parent = box?.parentElement;
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  for (const old of parent?.querySelectorAll(":scope > .week-ghost") || []) old.remove();
+  for (const a of box?.getAnimations() || []) a.cancel();
+  if (!direction || !parent || reduce || !box.animate) return render();
+  const width = box.offsetWidth || document.documentElement.clientWidth;
+  const gap = width + 24;
+  const ghost = el("div", "week-ghost");
+  ghost.style.cssText = `position:absolute;left:${box.offsetLeft}px;top:${box.offsetTop}px;width:${width}px;pointer-events:none;z-index:1`;
+  ghost.append(...box.childNodes);
+  parent.append(ghost);
+  box.style.minHeight = `${ghost.offsetHeight}px`;
+  box.classList.add("no-cascade");
+  const range = document.getElementById("week-range");
+  const before = range?.textContent;
+  render();
+  const ease = "cubic-bezier(0.32, 0.72, 0, 1)";
+  const duration = 420;
+  ghost
+    .animate([{ transform: `translateX(${fromShift}px)` }, { transform: `translateX(${-direction * gap}px)` }], { duration, easing: ease, fill: "forwards" })
+    .finished.catch(() => {})
+    .finally(() => ghost.remove());
+  box
+    .animate([{ transform: `translateX(${direction * gap + fromShift}px)` }, { transform: "translateX(0)" }], { duration, easing: ease })
+    .finished.catch(() => {})
+    .finally(() => (box.style.minHeight = ""));
+  if (range && range.textContent !== before) {
+    range.animate(
+      [
+        { transform: `translateY(${direction * 55}%)`, opacity: 0, filter: "blur(3px)" },
+        { transform: "none", opacity: 1, filter: "none" },
+      ],
+      { duration: 360, easing: ease }
+    );
+  }
 }
 
 /** Свайп по неделе листает недели. Вертикальная прокрутка не мешает. */
@@ -3081,7 +3169,8 @@ function initWeekSwipe() {
     }
     if (!dragging) return;
     // Дальше двух недель листать некуда — сопротивление на краю.
-    const edge = (dx > 0 && selectedWeek <= -WEEKS_BACK) || (dx < 0 && selectedWeek >= NEAR_WEEKS - 1);
+    // После «Следующей» дальше — «Месяц», из месяца назад — «Следующая».
+    const edge = weekMode === "month" ? dx < 0 : (dx > 0 && selectedWeek <= -WEEKS_BACK);
     shift = edge ? dx * 0.25 : dx;
     body.style.transform = `translateX(${shift.toFixed(1)}px)`;
   });
@@ -3094,6 +3183,22 @@ function initWeekSwipe() {
     const far = Math.abs(shift) > body.clientWidth * SWIPE_DISTANCE;
     const target = selectedWeek + (shift < 0 ? 1 : -1);
     body.style.transition = "";
+    if (far || velocity > SWIPE_VELOCITY) {
+      // «Следующая» → свайп влево → «Месяц»; из «Месяца» свайп вправо → «Следующая».
+      if (weekMode === "week" && shift < 0 && target >= NEAR_WEEKS) {
+        body.style.transform = "";
+        haptic("select");
+        weekMode = "month";
+        return morphWeek(true);
+      }
+      if (weekMode === "month" && shift > 0) {
+        body.style.transform = "";
+        haptic("select");
+        weekMode = "week";
+        selectedWeek = NEAR_WEEKS - 1;
+        return morphWeek(false);
+      }
+    }
     if ((far || velocity > SWIPE_VELOCITY) && target >= -WEEKS_BACK && target < NEAR_WEEKS) {
       const from = shift;
       body.style.transform = "";
@@ -7478,7 +7583,6 @@ function initScrollChrome() {
     if (date && k !== lastK) {
       lastK = k;
       date.style.transform = k ? `translateY(${k * 6}px) scale(${1 - k * 0.22})` : "";
-      date.style.opacity = k ? `${1 - k * 0.85}` : "";
     }
     document.body.classList.toggle("head-compact", onSchedule && y > 96);
 
@@ -7582,32 +7686,78 @@ function renderRibbon() {
     if (last && span.start <= last.end) last.end = Math.max(last.end, span.end);
     else list.push({ ...span });
   }
-  if (!list.length) {
-    box.hidden = true;
-    return;
-  }
-  const from = list[0].start;
-  const to = Math.max(...list.map((s) => s.end));
-  const width = Math.max(1, to - from);
-  const today = isoDate(dateOfDay(selectedDay)) === isoDate(new Date());
-  const clock = new Date();
-  const now = clock.getHours() * 60 + clock.getMinutes() + clock.getSeconds() / 60;
-  const track = el("div", "ribbon-track");
-  for (const span of list) {
-    const piece = el("span", "ribbon-seg");
-    piece.style.left = `${((span.start - from) / width) * 100}%`;
-    piece.style.width = `${((span.end - span.start) / width) * 100}%`;
-    if (today && now >= span.end) piece.classList.add("ribbon-seg--past");
-    if (today && now >= span.start && now < span.end) piece.classList.add("ribbon-seg--now");
-    track.append(piece);
-  }
-  if (today && now >= from - 60 && now <= to) {
-    const dot = el("span", "ribbon-dot");
-    dot.style.left = `${Math.min(100, Math.max(0, ((now - from) / width) * 100))}%`;
-    track.append(dot);
-  }
+  // Под датой — строка плашек: главная (что сейчас) синяя, остальные спокойные.
+  // Полосу дня и строку «до конца семестра» заменяет целиком.
   const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(Math.round(m % 60)).padStart(2, "0")}`;
-  box.replaceChildren(el("span", "ribbon-time", hhmm(from)), track, el("span", "ribbon-time", hhmm(to)));
+  const chip = (text, kind) => el("span", `chip${kind ? ` chip--${kind}` : ""}`, text);
+  const live = (text) => {
+    const c = chip("", "on");
+    c.append(el("span", "chip-dot"), document.createTextNode(text));
+    return c;
+  };
+  const pairs = (n) => t(n % 10 === 1 && n % 100 !== 11 ? "{n} пара" : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? "{n} пары" : "{n} пар", { n });
+  const chips = [];
+  const today = isoDate(dateOfDay(selectedDay, selectedWeek)) === isoDate(new Date());
+  // Неделя семестра и сессия — для дней без пар и после пар.
+  const weeks = data.weeks || [];
+  const wIndex = weeks.findIndex((w) => date >= w.from && date <= w.to);
+  const daysLeft = weeks.length ? Math.ceil((new Date(`${weeks.at(-1).to}T23:59:59`) - new Date()) / 86400000) : null;
+  const semester = () => {
+    if (daysLeft !== null && daysLeft <= 0) return chips.push(chip(t("Семестр кончился"), "calm"));
+    if (daysLeft !== null && daysLeft <= 14) return chips.push(chip(t("Сессия через {d} дн.", { d: daysLeft }), "warn"));
+    if (wIndex >= 0) chips.push(chip(t("Неделя {k} из {n}", { k: wIndex + 1, n: weeks.length })));
+  };
+  if (!list.length) {
+    if (prefs.planner) {
+      box.hidden = true;
+      return;
+    }
+    chips.push(chip(selectedDay === 7 || selectedDay > 6 ? t("Выходной") : t("Пар нет"), "calm"));
+    semester();
+  } else {
+    const from = list[0].start;
+    const to = Math.max(...list.map((x) => x.end));
+    const clock = new Date();
+    const now = clock.getHours() * 60 + clock.getMinutes() + clock.getSeconds() / 60;
+    const k = list.findIndex((x) => now >= x.start && now < x.end);
+    if (today && k >= 0) {
+      const left = humanLeft(list[k].end - now);
+      chips.push(live(k === list.length - 1 ? t("Последняя · ещё {left}", { left }) : t("Идёт · ещё {left}", { left })));
+      chips.push(chip(t("{k} из {n}", { k: [...spans.keys()].filter((st) => st <= now).length || k + 1, n: spans.size })));
+      if (k < list.length - 1) chips.push(chip(t("до {time}", { time: hhmm(to) })));
+      else if (selectedDay >= 5) chips.push(chip(t("потом выходные"), "calm"));
+    } else if (today && now >= from && now < to) {
+      const nextSpan = list.find((x) => x.start > now);
+      chips.push(live(t("Перерыв · ещё {left}", { left: humanLeft(nextSpan.start - now) })));
+      chips.push(chip(t("{k} из {n}", { k: [...spans.keys()].filter((st) => st < nextSpan.start).length + 1, n: spans.size })));
+      chips.push(chip(t("до {time}", { time: hhmm(to) })));
+    } else if (today && now >= to) {
+      chips.push(chip(t("Пары закончились"), "calm"));
+      semester();
+    } else {
+      if (today && from - now <= 180) chips.push(live(t("через {left}", { left: humanLeft(from - now) })));
+      chips.push(chip(`${pairs(spans.size)} · ${hhmm(from)}–${hhmm(to)}`));
+    }
+  }
+  // Справа — кнопка прогресса семестра: кольцо с долей пройденного, нажатие
+  // открывает «Мой семестр».
+  if (weeks.length && !prefs.planner) {
+    const start = new Date(`${weeks[0].from}T00:00:00`);
+    const end = new Date(`${weeks.at(-1).to}T23:59:59`);
+    const share = Math.min(1, Math.max(0, (Date.now() - start) / (end - start)));
+    const btn = el("button", "sem-ring");
+    btn.type = "button";
+    btn.style.setProperty("--p", String(share));
+    btn.setAttribute("aria-label", t("Прогресс семестра: {p}%", { p: Math.round(share * 100) }));
+    btn.append(el("span", "sem-ring-num", `${Math.round(share * 100)}%`));
+    btn.addEventListener("click", () => {
+      haptic("light");
+      openSemester();
+    });
+    chips.push(btn);
+  }
+  box.replaceChildren(...chips);
+  box.classList.add("ribbon--chips");
   box.hidden = false;
 }
 
@@ -8309,6 +8459,9 @@ function syncDeadlineSheet() {
 /** Окно уезжает вниз, затемнение тает — как у остальных окон. */
 function slideSheetAway(sheet) {
   if (!sheet || sheet.hidden || sheet.classList.contains("sheet-backdrop--out")) return;
+  // Курсор в поле — сначала убираем клавиатуру, иначе её уход и перестройка
+  // экрана совпадали с анимацией закрытия, и окно дёргалось.
+  if (sheet.contains(document.activeElement)) document.activeElement.blur();
   sheet.classList.add("sheet-backdrop--out");
   setTimeout(() => {
     sheet.hidden = true;
@@ -10258,6 +10411,21 @@ window.addEventListener("resize", pinTabs);
 if (window.ResizeObserver && els.tabs) new ResizeObserver(() => requestAnimationFrame(pinTabs)).observe(els.tabs);
 window.addEventListener("orientationchange", () => setTimeout(pinTabs, 300));
 
+/** Телефон: капля — точно под кнопкой с классом tab--on (по замеру). */
+function placeTabsDrop() {
+  const bar = els.tabs;
+  const drop = els.tabsDrop;
+  const button = bar?.querySelector(".tab.tab--on");
+  if (!bar || !drop || !button || bar.hidden) return;
+  const box = bar.getBoundingClientRect();
+  const r = button.getBoundingClientRect();
+  if (!r.width) return;
+  drop.style.setProperty("--x", `${r.left - box.left - bar.clientLeft}px`);
+  drop.style.setProperty("--w", `${r.width}px`);
+}
+// Бар появился, сменил размер (Telegram раскрылся, повернули экран) — перемерить.
+if (window.ResizeObserver && els.tabs) new ResizeObserver(() => placeTabsDrop()).observe(els.tabs);
+
 function moveDrop(name, animate = true) {
   pinTabs();
   const drop = els.tabsDrop;
@@ -10272,6 +10440,13 @@ function moveDrop(name, animate = true) {
   drop.style.setProperty("--i", buttons.indexOf(button));
   drop.style.setProperty("--n", buttons.length);
   drop.classList.add("tabs-drop--on");
+  // Телефон: кнопки разной ширины (у открытой — подпись), поэтому капля
+  // встаёт точно под кнопку по замеру, когда та уже раскрылась.
+  if (window.matchMedia?.("(max-width: 899px)").matches) {
+    placeTabsDrop();
+    requestAnimationFrame(placeTabsDrop);
+    setTimeout(placeTabsDrop, 60);
+  }
   if (!animate) {
     // Отключили переход только на этот кадр: при первом показе капля должна
     // сразу стоять на месте, а не выезжать из левого угла.
@@ -10758,6 +10933,9 @@ function renderDays() {
         btn.dataset.icon = "🩸";
       }
       btn.append(el("span", "day-name", DAYS[day - 1]), el("span", "day-num", String(date.getDate())));
+      // Отдельной строки с месяцем над днями нет (он есть в дате шапки) —
+      // над плиткой первого числа маленькая метка месяца: «дек».
+      if (date.getDate() === 1) btn.append(el("span", "day-month", date.toLocaleDateString(LOCALE || "ru-RU", { month: "short" }).replace(".", "")));
       // Точки под числом — ровно столько, сколько пар в этот день, как на
       // заставке. Раньше больше четырёх не рисовали, и в пятипарный день
       // точки под датой и на заставке расходились.
@@ -11243,7 +11421,8 @@ function mountDrift(cards) {
   track.append(...cards);
   box.append(track);
   els.results.replaceChildren(box);
-  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  // Список преподавателей больше сам не плывёт — обычный список.
+  return;
   // Компьютер: обычный список во всю высоту, без «плавающего» окошка с обрезанными краями.
   if (window.matchMedia?.("(min-width: 1100px) and (hover: hover) and (pointer: fine)").matches) return;
   requestAnimationFrame(() => {
@@ -12734,7 +12913,9 @@ function slideSwap(container, direction, render, fromShift = 0) {
             { transform: `translateX(${direction * step}px)`, opacity: 0 },
             { transform: "translateX(0)", opacity: 1 },
           ],
-          { duration: 280, delay: 70, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)", fill: "backwards" }
+          // Календарь: сетки недель плотные, наложение двух читалось как
+          // мигание — новая неделя появляется, когда старая уже ушла.
+          { duration: 280, delay: container.closest("#week") ? 130 : 70, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)", fill: "backwards" }
         )
         .finished.catch(() => {})
         .finally(() => (container.style.minHeight = ""));
@@ -13738,7 +13919,6 @@ function renderHello() {
   };
   // На заставке — только приветствие и дата, без пожелания.
   box.replaceChildren(words(title, "splash-hello-title"));
-  if (isDonorDays() && !splash.querySelector(".splash-donor")) splash.insertBefore(donorSplashMark(), box);
   // Место под «Сегодня N пар» — сразу: когда текст придёт, ничего не сдвинется.
   if (window.matchMedia?.("(min-width: 900px)").matches) box.append(el("div", "splash-hello-wish splash-today", "\u00a0"));
   try {
@@ -14689,6 +14869,7 @@ async function init() {
       refreshNow();
       refreshNext();
       refreshFreedom();
+      renderRibbon();
     }
 
   }, 30_000);
@@ -14976,3 +15157,161 @@ function closeDonor() {
     donorSheet.classList.remove("sheet-backdrop--out");
   }, 260);
 }
+
+/* ---------- Компьютер: без эмодзи ----------
+ * На ПК эмодзи смотрятся игрушечно, поэтому интерфейс их не показывает:
+ * вычищаем из текста при появлении на странице. Элемент, где был только
+ * эмодзи (значок пункта меню), прячем. Поля ввода не трогаем. */
+(function pcNoEmoji() {
+  const pc = window.matchMedia?.("(min-width: 1100px) and (hover: hover) and (pointer: fine)");
+  if (!pc) return;
+  const EMOJI = /(?:\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic}|\p{Emoji_Modifier})*|[️⃣])/gu;
+  const TEST = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
+  const skip = (node) => node.parentElement?.closest("input, textarea, [contenteditable], script, style, svg");
+  const clean = (node) => {
+    if (node.nodeType !== 3 || !TEST.test(node.data) || skip(node)) return;
+    const next = node.data.replace(EMOJI, "").replace(/^\s+(?=\S)/, (m) => (node.previousSibling ? m : "")).replace(/\s{2,}/g, " ");
+    if (next === node.data) return;
+    node.data = next;
+    const host = node.parentElement;
+    if (host && !host.textContent.trim() && !host.querySelector("img, svg, canvas, video")) host.classList.add("pc-emoji-gone");
+  };
+  const walk = (root) => {
+    if (root.nodeType === 3) return clean(root);
+    if (root.nodeType !== 1) return;
+    const it = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = it.nextNode(); n; n = it.nextNode()) clean(n);
+  };
+  let observer = null;
+  const apply = () => {
+    document.body.classList.toggle("pc-no-emoji", pc.matches);
+    if (!pc.matches) return observer?.disconnect();
+    walk(document.body);
+    observer ||= new MutationObserver((list) => {
+      for (const m of list) {
+        if (m.type === "characterData") clean(m.target);
+        else for (const n of m.addedNodes) walk(n);
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  };
+  if (document.body) apply();
+  else document.addEventListener("DOMContentLoaded", apply, { once: true });
+  pc.addEventListener?.("change", apply);
+})();
+
+/* ---------- Телефон: круглая кнопка Подслушки рядом с нижним баром ----------
+ * Подслушка переехала из шапки вниз, справа от капсулы разделов: вход всегда
+ * под пальцем, а шапка разгружена. Кнопка в шапке остаётся для компьютера. */
+(function forumFab() {
+  const src = document.getElementById("forum-btn");
+  const tabs = document.getElementById("tabs");
+  if (!src || !tabs) return;
+  const fab = document.createElement("button");
+  fab.type = "button";
+  fab.id = "forum-fab";
+  fab.className = "forum-fab";
+  fab.setAttribute("aria-label", src.getAttribute("aria-label") || "Подслушка");
+  fab.innerHTML = '<span class="forum-fab-p">:P</span>';
+  fab.innerHTML += '<svg class="forum-fab-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>';
+  // В открытой Подслушке та же кнопка — «написать пост» (карандаш).
+  fab.addEventListener("click", () => {
+    if (document.body.classList.contains("fm-open")) {
+      haptic("medium");
+      return document.querySelector(".fm-page--feed .fm-fab, .fm-fab")?.click();
+    }
+    src.click();
+  });
+  document.body.append(fab);
+  // Видна вместе с баром и только там, где Подслушка доступна.
+  const sync = () => {
+    fab.hidden = tabs.hidden || src.hasAttribute("hidden");
+    document.body.classList.toggle("no-fab", fab.hidden);
+  };
+  sync();
+  new MutationObserver(sync).observe(tabs, { attributes: true, attributeFilter: ["hidden"] });
+  new MutationObserver(sync).observe(src, { attributes: true, attributeFilter: ["hidden"] });
+  // В обсуждении Подслушки карандаш прячется. Следим за одним классом ленты,
+  // без :has() в стилях — тот пересчитывался на каждом кадре анимации.
+  let watched = null;
+  const watchFeed = () => {
+    const feed = document.querySelector(".fm-page--feed");
+    if (!feed || feed === watched) return;
+    watched = feed;
+    const upd = () => document.body.classList.toggle("fab-off", feed.classList.contains("is-under"));
+    new MutationObserver(upd).observe(feed, { attributes: true, attributeFilter: ["class"] });
+    upd();
+  };
+  new MutationObserver(watchFeed).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+})();
+
+
+/* Свайп по бару — соседний раздел: вправо — следующий, влево — предыдущий. */
+(function tabsSwipe() {
+  const bar = document.getElementById("tabs");
+  if (!bar) return;
+  let start = null;
+  let swiped = false;
+  bar.addEventListener("pointerdown", (e) => {
+    start = { x: e.clientX, y: e.clientY, at: performance.now(), id: e.pointerId };
+    swiped = false;
+  });
+  // Свайп по бару не должен тянуть окно Telegram вниз (сворачивать приложение).
+  bar.addEventListener("touchstart", () => {
+    try {
+      tg?.disableVerticalSwipes?.();
+    } catch {}
+  }, { passive: true });
+  bar.addEventListener("touchmove", (e) => e.cancelable && e.preventDefault(), { passive: false });
+  bar.addEventListener("touchend", () => {
+    setTimeout(() => {
+      if (document.body.classList.contains("fm-open") || document.body.classList.contains("sheet-open")) return;
+      try {
+        tg?.enableVerticalSwipes?.();
+      } catch {}
+    }, 400);
+  }, { passive: true });
+  bar.addEventListener("pointerup", (e) => {
+    if (!start || e.pointerId !== start.id) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    const quick = performance.now() - start.at < 600;
+    start = null;
+    if (!quick || Math.abs(dx) < 28 || Math.abs(dx) < Math.abs(dy)) return;
+    const tabs = [...bar.querySelectorAll(".tab")].filter((t) => !t.hidden);
+    const now = tabs.findIndex((t) => t.classList.contains("tab--on"));
+    const next = tabs[Math.max(0, Math.min(tabs.length - 1, now + (dx > 0 ? 1 : -1)))];
+    if (!next || next === tabs[now]) return;
+    swiped = true;
+    haptic("select");
+    openTab(next.dataset.tab);
+  });
+  bar.addEventListener("pointercancel", () => (start = null));
+  // Свайп закончился над кнопкой — её клик не должен открыть другой раздел.
+  bar.addEventListener("click", (e) => {
+    if (!swiped) return;
+    swiped = false;
+    e.stopPropagation();
+    e.preventDefault();
+  }, true);
+})();
+
+/* Шапка Telegram — цвета белого блока, пока он у верхнего края, и цвета
+   серого фона, когда блок уехал при прокрутке: иначе на стыке белого
+   и серого видна полоса, режущая содержимое пополам. */
+let headColorNow = "";
+function syncHeadColor(force = false) {
+  const c = window.__headColors;
+  if (!c || !tg?.setHeaderColor) return;
+  const bar = document.querySelector("section:not([hidden]) > .bar--schedule");
+  // Блок с датой ещё касается верха — шапка белая; уехал целиком — серая.
+  const want = bar && bar.getBoundingClientRect().bottom + 22 > 0 ? c.block : c.page;
+  if (!force && want === headColorNow) return;
+  headColorNow = want;
+  try {
+    tg.setHeaderColor(want);
+  } catch {
+    // Старый Telegram — шапка как есть.
+  }
+}
+window.addEventListener("scroll", () => syncHeadColor(), { passive: true });
