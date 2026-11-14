@@ -16285,10 +16285,10 @@ body:not(.onboarding) #schedule {
   background: var(--bg);
 }
 /* Предложение напоминаний — компактнее. */
-.ask {
-  gap: 8px !important;
-  padding: 11px 13px !important;
-  border-radius: 16px !important;
+section .ask {
+  gap: 8px;
+  padding: 11px 13px;
+  border-radius: 16px;
 }
 .ask .ask-title {
   font-size: 14px !important;
@@ -16822,11 +16822,10 @@ body:not(.neon):not(.neon-day) #days > .day.day--today:not(.active) {
   }
 }
 /* Предложение напоминаний: во всю ширину, как карточки, и ниже ростом. */
-#remind-ask.ask,
-.ask {
-  margin: 0 0 10px !important;
-  padding: 10px 12px !important;
-  gap: 6px 10px !important;
+section #remind-ask.ask {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  gap: 6px 10px;
 }
 .ask .ask-line {
   display: none !important;
@@ -16984,4 +16983,56 @@ section > .menu-pop.menu-pop--out {
   #tabs .tab {
     transition: color 220ms ease !important;
   }
+}
+
+/* Закрытие предложения напоминаний — снова со своей анимацией. */
+section #remind-ask.ask--gone {
+  animation: ask-out 280ms var(--ease-soft) forwards !important;
+}
+/* «Идёт сейчас» — только показывает, на нажатия не отзывается. */
+#nowcard {
+  pointer-events: none;
+  cursor: default;
+}
+#tabs {
+  touch-action: none;
+}
+/* Кнопка Подслушки: «:P» снаружи, карандаш — когда Подслушка открыта. */
+.forum-fab-pen {
+  display: none;
+  width: 24px;
+  height: 24px;
+}
+body.fm-open .forum-fab .forum-fab-p {
+  display: none;
+}
+body.fm-open .forum-fab .forum-fab-pen {
+  display: block;
+}
+@media (max-width: 899px) {
+  body.fm-open .forum-fab {
+    display: grid !important;
+    z-index: 60;
+  }
+  body.fm-open .fm-fab {
+    display: none !important;
+  }
+}
+
+/* Смена раздела: проявляются несколько крупных блоков (а не каждый мелкий
+   элемент) — заметно и легко для телефона. */
+.screen-slide > :not(.bar--schedule):not(.menu-pop):not(.sheet-backdrop) {
+  animation: none !important;
+}
+.screen-slide > :is(#days, #nowcard, #lessons, #next, #week-switch, #week-body, #dl-body, #results, .dl-add, #deadlines > :not(.bar--schedule)) {
+  animation: screen-rise 340ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important;
+}
+.screen-slide > :is(#nowcard, #week-body, #results, #lessons) {
+  animation-delay: 50ms !important;
+}
+@keyframes screen-rise {
+  from { opacity: 0; transform: translate3d(0, 12px, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen-slide > * { animation: none !important; }
 }

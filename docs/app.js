@@ -15203,7 +15203,15 @@ function closeDonor() {
   fab.className = "forum-fab";
   fab.setAttribute("aria-label", src.getAttribute("aria-label") || "Подслушка");
   fab.innerHTML = '<span class="forum-fab-p">:P</span>';
-  fab.addEventListener("click", () => src.click());
+  fab.innerHTML += '<svg class="forum-fab-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>';
+  // В открытой Подслушке та же кнопка — «написать пост» (карандаш).
+  fab.addEventListener("click", () => {
+    if (document.body.classList.contains("fm-open")) {
+      haptic("medium");
+      return document.querySelector(".fm-page--feed .fm-fab, .fm-fab")?.click();
+    }
+    src.click();
+  });
   document.body.append(fab);
   // Видна вместе с баром и только там, где Подслушка доступна.
   const sync = () => {
@@ -15212,4 +15220,55 @@ function closeDonor() {
   sync();
   new MutationObserver(sync).observe(tabs, { attributes: true, attributeFilter: ["hidden"] });
   new MutationObserver(sync).observe(src, { attributes: true, attributeFilter: ["hidden"] });
+})();
+
+
+/* Бар можно «листать»: ведёшь пальцем по капсуле — капля едет за ним,
+   отпустил — открывается раздел под пальцем. */
+(function tabsScrub() {
+  const bar = document.getElementById("tabs");
+  if (!bar) return;
+  let start = null;
+  let target = null;
+  const tabAt = (x) => [...bar.querySelectorAll(".tab")].find((b) => {
+    const r = b.getBoundingClientRect();
+    return x >= r.left && x <= r.right;
+  });
+  bar.addEventListener("pointerdown", (e) => {
+    start = { x: e.clientX, id: e.pointerId, moved: false };
+    target = null;
+  });
+  bar.addEventListener("pointermove", (e) => {
+    if (!start || e.pointerId !== start.id) return;
+    if (!start.moved && Math.abs(e.clientX - start.x) < 10) return;
+    start.moved = true;
+    const tab = tabAt(e.clientX);
+    if (tab && tab !== target) {
+      target = tab;
+      haptic("select");
+      const drop = document.getElementById("tabs-drop");
+      const box = bar.getBoundingClientRect();
+      const r = tab.getBoundingClientRect();
+      drop?.style.setProperty("--x", `${r.left - box.left - bar.clientLeft}px`);
+      drop?.style.setProperty("--w", `${r.width}px`);
+    }
+  });
+  const end = (e) => {
+    if (!start || e.pointerId !== start.id) return;
+    const moved = start.moved;
+    start = null;
+    if (!moved || !target) return;
+    e.preventDefault();
+    openTab(target.dataset.tab);
+    target = null;
+  };
+  bar.addEventListener("pointerup", end);
+  bar.addEventListener("pointercancel", () => (start = null));
+  // После «листания» обычный клик по кнопке не срабатывает повторно.
+  bar.addEventListener("click", (e) => {
+    if (bar.dataset.scrubbed) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }, true);
 })();
