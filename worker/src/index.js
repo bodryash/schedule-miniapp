@@ -3152,7 +3152,16 @@ async function ensureWidgetUpdates(env) {
   const res = await callTelegram(env.BOT_TOKEN, "getWebhookInfo", {}).catch(() => null);
   const result = res ? (await res.json().catch(() => ({})))?.result : null;
   const ws = (globalThis.SCHEDULE_WIDGET_STATS ||= { queries: 0, last: "", data: "" });
-  ws.webhook = result ? { allowed: result.allowed_updates || "по умолчанию", error: result.last_error_message || "" } : "нет ответа";
+  ws.webhook = result
+    ? {
+        allowed: result.allowed_updates || "по умолчанию",
+        error: result.last_error_message || "",
+        errorAgoMin: result.last_error_date ? Math.round((Date.now() / 1000 - result.last_error_date) / 60) : null,
+        pending: result.pending_update_count || 0,
+        host: (() => { try { return new URL(result.url).host; } catch { return ""; } })(),
+        ip: result.ip_address || "",
+      }
+    : "нет ответа";
   if (!result?.url || !env.WEBHOOK_SECRET) return;
   const allowed = Array.isArray(result.allowed_updates) && result.allowed_updates.length ? result.allowed_updates : null;
   if (allowed && allowed.includes("widget_query")) return;
