@@ -3092,8 +3092,52 @@ function switchWeek(week, fromShift = 0) {
   const direction = Math.sign(week - selectedWeek);
   haptic("select");
   selectedWeek = week;
-  slideSwap(els.weekBody, direction, () => showWeek(), fromShift);
+  weekPush(direction, () => showWeek(), fromShift);
   return true;
+}
+
+/**
+ * Смена недели — как лента: старая неделя целиком уезжает, новая въезжает
+ * следом вплотную, одним движением, без наложения и проявления. Диапазон
+ * дат в шапке при этом прокручивается, как табло.
+ */
+function weekPush(direction, render, fromShift = 0) {
+  const box = els.weekBody;
+  const parent = box?.parentElement;
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  for (const old of parent?.querySelectorAll(":scope > .week-ghost") || []) old.remove();
+  for (const a of box?.getAnimations() || []) a.cancel();
+  if (!direction || !parent || reduce || !box.animate) return render();
+  const width = box.offsetWidth || document.documentElement.clientWidth;
+  const gap = width + 24;
+  const ghost = el("div", "week-ghost");
+  ghost.style.cssText = `position:absolute;left:${box.offsetLeft}px;top:${box.offsetTop}px;width:${width}px;pointer-events:none;z-index:1`;
+  ghost.append(...box.childNodes);
+  parent.append(ghost);
+  box.style.minHeight = `${ghost.offsetHeight}px`;
+  box.classList.add("no-cascade");
+  const range = document.getElementById("week-range");
+  const before = range?.textContent;
+  render();
+  const ease = "cubic-bezier(0.32, 0.72, 0, 1)";
+  const duration = 420;
+  ghost
+    .animate([{ transform: `translateX(${fromShift}px)` }, { transform: `translateX(${-direction * gap}px)` }], { duration, easing: ease, fill: "forwards" })
+    .finished.catch(() => {})
+    .finally(() => ghost.remove());
+  box
+    .animate([{ transform: `translateX(${direction * gap + fromShift}px)` }, { transform: "translateX(0)" }], { duration, easing: ease })
+    .finished.catch(() => {})
+    .finally(() => (box.style.minHeight = ""));
+  if (range && range.textContent !== before) {
+    range.animate(
+      [
+        { transform: `translateY(${direction * 55}%)`, opacity: 0, filter: "blur(3px)" },
+        { transform: "none", opacity: 1, filter: "none" },
+      ],
+      { duration: 360, easing: ease }
+    );
+  }
 }
 
 /** Свайп по неделе листает недели. Вертикальная прокрутка не мешает. */

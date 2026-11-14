@@ -16579,3 +16579,28 @@ body {
   color: var(--accent-text, #fff) !important;
   opacity: 0.85;
 }
+
+/* Календарь: лента недель не даёт горизонтальной прокрутки страницы. */
+#week {
+  overflow-x: clip;
+}
+.week-ghost {
+  will-change: transform;
+}
+.week-ghost,
+.week-ghost * {
+  animation: none !important;
+  opacity: 1 !important;
+}
+#week-body.no-cascade * {
+  animation: none !important;
+}
+
+/* Сегодня — с окантовкой цвета чётности, чтобы найти, если отлистал далеко. */
+body:not(.neon):not(.neon-day) #days > .day.day--today:not(.active) {
+  box-shadow: inset 0 0 0 2px var(--accent) !important;
+}
+#days > .day.day--today:not(.active) .day-num,
+#days > .day.day--today:not(.active) .day-name {
+  color: var(--accent) !important;
+}
