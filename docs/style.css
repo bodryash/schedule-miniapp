@@ -24,8 +24,8 @@
   --text: var(--tg-theme-text-color, #0f0f0f);
   --muted: var(--tg-theme-hint-color, #7d7d7d);
   --card: var(--tg-theme-secondary-bg-color, #f2f2f7);
-  --accent: #2ea6ff;
-  --accent-soft: rgba(46, 166, 255, 0.14);
+  --accent: #2a63f5;
+  --accent-soft: rgba(42, 99, 245, 0.12);
   --accent-text: #ffffff;
 
   /* Встроенные кривые CSS слишком вялые для интерфейса. */
@@ -39,8 +39,8 @@
 /* Цвет интерфейса подсказывает чётность недели: голубой — нечётная,
    оранжевый — чётная. Переключает showSchedule() через data-parity. */
 body[data-parity="even"] {
-  --accent: #f0821e;
-  --accent-soft: rgba(240, 130, 30, 0.16);
+  --accent: #ec6f12;
+  --accent-soft: rgba(236, 111, 18, 0.13);
 }
 
 body[data-parity="none"] {
@@ -16144,6 +16144,10 @@ body:has(.ribbon--chips:not([hidden])) #freedom {
   color: color-mix(in srgb, var(--text) 78%, var(--muted));
   background: color-mix(in srgb, var(--text) 6%, transparent);
 }
+.chip,
+.chip--on {
+  box-shadow: none !important;
+}
 .chip--on {
   color: var(--accent-text, #fff);
   background: var(--accent);
@@ -16197,4 +16201,24 @@ body:has(.ribbon--chips:not([hidden])) #freedom {
 .card .room-badge {
   border-radius: 10px !important;
   box-shadow: none !important;
+}
+
+/* Шапка дня — отдельным блоком: группа, неделя, дата и плашки. */
+.bar.bar--schedule {
+  margin: 8px 0 6px;
+  padding: 14px 14px 12px;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--text) 4.5%, var(--bg));
+}
+.bar.bar--schedule .ribbon--chips {
+  margin-bottom: 0;
+}
+/* Чипы на фоне блока — чуть плотнее, чтобы не растворялись. */
+.bar--schedule .chip:not(.chip--on):not(.chip--calm):not(.chip--warn) {
+  background: color-mix(in srgb, var(--text) 7%, var(--bg));
+}
+
+/* День донора: только плашка «Сегодня — День донора» над парами, без баннера в шапке. */
+#donor-banner {
+  display: none !important;
 }

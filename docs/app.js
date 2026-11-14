@@ -7666,9 +7666,8 @@ function renderRibbon() {
       chips.push(chip(t("Пары закончились"), "calm"));
       semester();
     } else {
-      if (today && from - now <= 180) chips.push(live(t("Начало через {left}", { left: humanLeft(from - now) })));
-      chips.push(chip(pairs(list.length)));
-      chips.push(chip(`${hhmm(from)}–${hhmm(to)}`));
+      if (today && from - now <= 180) chips.push(live(t("через {left}", { left: humanLeft(from - now) })));
+      chips.push(chip(`${pairs(list.length)} · ${hhmm(from)}–${hhmm(to)}`));
     }
   }
   box.replaceChildren(...chips);
