@@ -252,6 +252,41 @@ function openRef() {
   const sheet = el("div", "sheet pot-sheet");
   sheet.setAttribute("role", "dialog");
   sheet.setAttribute("aria-modal", "true");
+  // Конкурса нет (кончился или не начат) — просто своя ссылка, без подарка и призов.
+  if (!st.live) {
+    const x = el("button", "sheet-x", "×");
+    x.type = "button";
+    x.setAttribute("aria-label", t("Закрыть"));
+    x.addEventListener("click", () => (back.hidden = true));
+    sheet.append(x, el("h2", "pot-title", t("Ссылка для друзей")), el("p", "pot-sub", t("Позови одногруппников — расписание группы у всех в Telegram: пары, замены и аудитории.")));
+    const link = el("button", "pot-link", st.link.replace("https://", ""));
+    link.type = "button";
+    link.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(st.link);
+        haptic("success");
+        toast(t("Ссылка скопирована"));
+      } catch {
+        toast(st.link);
+      }
+    });
+    const share = el("button", "pot-share", t("Отправить друзьям"));
+    share.type = "button";
+    share.addEventListener("click", () => {
+      haptic("medium");
+      const url = `https://t.me/share/url?url=${encodeURIComponent(st.link)}&text=${encodeURIComponent(refShareText())}`;
+      if (tg?.openTelegramLink) tg.openTelegramLink(url);
+      else window.open(url, "_blank");
+    });
+    sheet.append(link, share);
+    back.append(sheet);
+    back.addEventListener("click", (e) => {
+      if (e.target === back) back.hidden = true;
+    });
+    document.body.append(back);
+    requestAnimationFrame(() => (back.hidden = false));
+    return;
+  }
   // Шапка: сам приз — NFT, живой (анимация подарка), парит и поворачивается.
   const hero = el("div", "pot-hero pot-nft");
   const stage = el("div", "pot-nft-stage");
