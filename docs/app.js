@@ -10845,11 +10845,10 @@ function renderDays() {
         btn.classList.add("day--event", "day--donor");
         btn.dataset.icon = "🩸";
       }
+      btn.append(el("span", "day-name", DAYS[day - 1]), el("span", "day-num", String(date.getDate())));
       // Отдельной строки с месяцем над днями нет (он есть в дате шапки) —
-      // первое число месяца подписано самим месяцем: «дек» вместо «вт».
-      const monthStart = date.getDate() === 1;
-      const dayName = monthStart ? date.toLocaleDateString(LOCALE || "ru-RU", { month: "short" }).replace(".", "") : DAYS[day - 1];
-      btn.append(el("span", `day-name${monthStart ? " day-name--month" : ""}`, dayName), el("span", "day-num", String(date.getDate())));
+      // над плиткой первого числа маленькая метка месяца: «дек».
+      if (date.getDate() === 1) btn.append(el("span", "day-month", date.toLocaleDateString(LOCALE || "ru-RU", { month: "short" }).replace(".", "")));
       // Точки под числом — ровно столько, сколько пар в этот день, как на
       // заставке. Раньше больше четырёх не рисовали, и в пятипарный день
       // точки под датой и на заставке расходились.

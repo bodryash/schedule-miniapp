@@ -16518,12 +16518,25 @@ body {
 #schedule > #month {
   display: none !important;
 }
-.day-name--month {
-  font-weight: 800 !important;
-  color: var(--accent) !important;
+#days > .day {
+  position: relative;
+  overflow: visible;
 }
-.day.active .day-name--month {
-  color: inherit !important;
+.day-month {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: lowercase;
+  color: var(--accent-text, #fff);
+  background: var(--accent);
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 /* Поиск: «борода» под фильтрами — как у остальных шапок. */
@@ -16534,4 +16547,35 @@ body {
   #search > .bar--search {
     margin-bottom: 24px !important;
   }
+}
+
+/* Мелкие подписи дат — читаемые на сером фоне и на цветных плашках. */
+.wgrid-day,
+.wgrid-time {
+  color: color-mix(in srgb, var(--text) 62%, var(--bg)) !important;
+}
+.wgrid-day--today,
+.wgrid-day--today b {
+  color: var(--accent-text, #fff) !important;
+}
+#week-switch .day:not(.active) *,
+#week-switch button:not(.active) * {
+  color: color-mix(in srgb, var(--text) 62%, var(--bg));
+}
+#week-switch .day:not(.active) b,
+#week-switch .day:not(.active) > :first-child {
+  color: var(--text);
+}
+#week-switch .day.active *,
+#week-switch button.active * {
+  color: var(--accent-text, #fff) !important;
+  opacity: 0.92;
+}
+#days > .day:not(.active) .day-name {
+  color: color-mix(in srgb, var(--text) 70%, var(--bg)) !important;
+}
+#days > .day.active .day-name,
+.days-drop .day-name {
+  color: var(--accent-text, #fff) !important;
+  opacity: 0.85;
 }
