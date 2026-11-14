@@ -17235,3 +17235,16 @@ body.sheet-open .forum-fab,
 #queues-body > .empty {
   margin-top: 40px;
 }
+.sheet--own {
+  position: relative;
+}
+.sheet--own .own-x {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+}
+
+body.sheet-open .bar-hint {
+  display: none;
+}

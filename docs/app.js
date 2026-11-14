@@ -3968,6 +3968,12 @@ function openOwn(event, forDate = null) {
     const sheet = el("div", "sheet sheet--own");
     sheet.setAttribute("role", "dialog");
     sheet.setAttribute("aria-modal", "true");
+    // Выйти без сохранения — крестиком в углу, как в остальных окнах.
+    const quit = el("button", "sheet-x own-x", "×");
+    quit.type = "button";
+    quit.setAttribute("aria-label", t("Закрыть"));
+    quit.addEventListener("click", () => closeOwn());
+    sheet.append(quit);
     const title = el("input", "own-title");
     title.type = "text";
     title.maxLength = 60;
