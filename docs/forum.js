@@ -650,7 +650,7 @@
     S.root.hidden = false;
     // Раскрывается из той кнопки, что видна: на телефоне — круглая внизу.
     const fab = document.getElementById("forum-fab");
-    S.origin = opts.origin || originOf(fab && !fab.hidden && fab.offsetParent ? fab : document.getElementById("forum-btn"));
+    S.origin = opts.origin || originOf(fab && !fab.hidden && fab.getBoundingClientRect().width ? fab : document.getElementById("forum-btn"));
     // instant — появиться сразу, без анимации: так Подслушка встаёт под
     // уезжающей игрой, и расписание между ними не мелькает.
     // Закрываться Подслушка должна одинаково красиво, как бы её ни открыли:

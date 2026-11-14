@@ -1568,7 +1568,7 @@ body {
    ощущается как задержка — вкладки нажимают часто. */
 /* Въезжает содержимое раздела, а белая подложка шапки стоит на месте —
    иначе она проявлялась вместе с разделом и шапка «моргала». */
-.screen-slide > :not(.bar--schedule),
+.screen-slide > :not(.bar--schedule):not(.menu-pop):not(.sheet-backdrop),
 .screen-slide > .bar--schedule > * {
   animation: slide-in 340ms var(--ease-soft);
 }
@@ -16308,7 +16308,7 @@ body:not(.onboarding) #schedule {
 section {
   animation: none;
 }
-section > :not(.bar--schedule) {
+section > :not(.bar--schedule):not(.menu-pop):not(.sheet-backdrop) {
   animation: appear 300ms var(--ease-soft);
 }
 .bar--schedule {
@@ -16860,11 +16860,11 @@ body:not(.neon):not(.neon-day) #days > .day.day--today:not(.active) {
 
 /* Смена раздела — мягко: содержимое проявляется с лёгким подъёмом, шапка
    стоит. Без сдвига вбок — он и читался топорно. */
-.screen-slide > :not(.bar--schedule),
+.screen-slide > :nth-child(-n + 7):not(.bar--schedule):not(.menu-pop):not(.sheet-backdrop),
 .screen-slide > .bar--schedule > * {
   animation: screen-soft 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important;
 }
-.screen-slide > :not(.bar--schedule) {
+.screen-slide > :not(.bar--schedule):not(.menu-pop):not(.sheet-backdrop) {
   animation-delay: 40ms !important;
 }
 @keyframes screen-soft {
@@ -16897,5 +16897,91 @@ body:not(.neon):not(.neon-day) #days > .day.day--today:not(.active) {
   }
   #tabs .tab.tab--on {
     flex: 0 0 auto !important;
+  }
+}
+
+/* Меню «•••» закрывается своей анимацией — правила разделов её не перебивают. */
+section > .menu-pop.menu-pop--out {
+  animation: menu-out-soft 160ms ease forwards !important;
+}
+/* Напоминания: ровный отступ от заголовка до кнопок. */
+.ask .ask-text {
+  flex: 1 0 100%;
+  margin-bottom: 2px;
+}
+.ask {
+  row-gap: 8px !important;
+}
+@media (max-width: 899px) {
+  .forum-fab-p {
+    font-family: inherit !important;
+    font-weight: 800 !important;
+    font-size: 21px !important;
+    transform: none !important;
+  }
+  /* Нижний бар — крупнее, в кнопки легко попасть. */
+  #tabs.tabs {
+    padding: 5px !important;
+  }
+  #tabs .tab {
+    height: 52px !important;
+  }
+  #tabs .tab .tab-icon,
+  #tabs .tab .tab-icon svg {
+    width: 25px !important;
+    height: 25px !important;
+  }
+  #tabs .tab.tab--on > span:not(.tab-icon) {
+    font-size: 14.5px !important;
+  }
+  .forum-fab {
+    width: 62px !important;
+    height: 62px !important;
+  }
+  #tabs.tabs {
+    right: 90px !important;
+  }
+}
+.ask .ask-chips {
+  margin-top: 8px !important;
+}
+.ask .ask-actions {
+  margin-top: 0 !important;
+}
+
+@keyframes screen-soft {
+  from { opacity: 0; }
+}
+@media (max-width: 899px) {
+  /* Капля под открытым разделом плавно переезжает и меняет ширину. */
+  #tabs .tabs-drop {
+    display: block !important;
+    position: absolute;
+    top: 5px !important;
+    bottom: 5px !important;
+    left: 0 !important;
+    width: var(--w, 0px) !important;
+    transform: translateX(var(--x, 0px)) !important;
+    border-radius: 999px;
+    background: var(--accent) !important;
+    box-shadow: none !important;
+    opacity: 1;
+    z-index: 0;
+    transition: transform 380ms cubic-bezier(0.3, 1.25, 0.5, 1), width 380ms cubic-bezier(0.3, 1.25, 0.5, 1), background-color 450ms ease !important;
+  }
+  #tabs .tabs-drop--still {
+    transition: none !important;
+  }
+  #tabs .tab {
+    position: relative;
+    z-index: 1;
+  }
+  #tabs .tab.tab--on {
+    background: transparent !important;
+  }
+}
+@media (max-width: 899px) {
+  #tabs .tab {
+    transition: color 220ms ease !important;
   }
 }

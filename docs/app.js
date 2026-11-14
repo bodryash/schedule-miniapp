@@ -10424,6 +10424,19 @@ function moveDrop(name, animate = true) {
   drop.style.setProperty("--i", buttons.indexOf(button));
   drop.style.setProperty("--n", buttons.length);
   drop.classList.add("tabs-drop--on");
+  // Телефон: кнопки разной ширины (у открытой — подпись), поэтому капля
+  // встаёт точно под кнопку по замеру, когда та уже раскрылась.
+  if (window.matchMedia?.("(max-width: 899px)").matches) {
+    const place = () => {
+      const box = els.tabs.getBoundingClientRect();
+      const r = button.getBoundingClientRect();
+      drop.style.setProperty("--x", `${r.left - box.left - els.tabs.clientLeft}px`);
+      drop.style.setProperty("--w", `${r.width}px`);
+    };
+    place();
+    requestAnimationFrame(place);
+    setTimeout(place, 60);
+  }
   if (!animate) {
     // Отключили переход только на этот кадр: при первом показе капля должна
     // сразу стоять на месте, а не выезжать из левого угла.
