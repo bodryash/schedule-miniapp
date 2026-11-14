@@ -17062,3 +17062,15 @@ body.fm-open .forum-fab .forum-fab-pen {
     transform: none;
   }
 }
+
+/* Полоса прокрутки справа не нужна — листают пальцем. */
+html,
+body {
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
