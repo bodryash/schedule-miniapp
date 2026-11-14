@@ -55,10 +55,10 @@ function forumErrorQuiet() {
 // Cloudflare остаётся прежний.
 const WEB_APP_URL = globalThis.SCHEDULE_APP_URL || "https://bodryash.github.io/schedule-miniapp/";
 
-// Тестовая сборка — ветка beta на Cloudflare: выкладывается сама при каждом
-// обновлении ветки (.github/workflows/beta-cloudflare.yml) и открывается,
-// даже когда свой сервер недоступен. Копия на сервере — beta.bodryash.ru.
-const BETA_URL = "https://fgp-schedule-beta.bodryash.workers.dev/";
+// Тестовая сборка — ветка beta на своём сервере (beta.bodryash.ru, обновляется
+// сама вместе с сервером). Копия на Cloudflare (fgp-schedule-beta…workers.dev)
+// осталась запасной: workers.dev из России часто не открывается.
+const BETA_URL = "https://beta.bodryash.ru/";
 
 // Объявление само снимается через неделю: забытая плашка «пара перенесена»
 // через месяц вводила бы в заблуждение сильнее, чем её отсутствие.
