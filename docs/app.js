@@ -15010,3 +15010,45 @@ function closeDonor() {
     donorSheet.classList.remove("sheet-backdrop--out");
   }, 260);
 }
+
+/* ---------- Компьютер: без эмодзи ----------
+ * На ПК эмодзи смотрятся игрушечно, поэтому интерфейс их не показывает:
+ * вычищаем из текста при появлении на странице. Элемент, где был только
+ * эмодзи (значок пункта меню), прячем. Поля ввода не трогаем. */
+(function pcNoEmoji() {
+  const pc = window.matchMedia?.("(min-width: 1100px) and (hover: hover) and (pointer: fine)");
+  if (!pc) return;
+  const EMOJI = /(?:\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic}|\p{Emoji_Modifier})*|[️⃣])/gu;
+  const TEST = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
+  const skip = (node) => node.parentElement?.closest("input, textarea, [contenteditable], script, style, svg");
+  const clean = (node) => {
+    if (node.nodeType !== 3 || !TEST.test(node.data) || skip(node)) return;
+    const next = node.data.replace(EMOJI, "").replace(/^\s+(?=\S)/, (m) => (node.previousSibling ? m : "")).replace(/\s{2,}/g, " ");
+    if (next === node.data) return;
+    node.data = next;
+    const host = node.parentElement;
+    if (host && !host.textContent.trim() && !host.querySelector("img, svg, canvas, video")) host.classList.add("pc-emoji-gone");
+  };
+  const walk = (root) => {
+    if (root.nodeType === 3) return clean(root);
+    if (root.nodeType !== 1) return;
+    const it = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = it.nextNode(); n; n = it.nextNode()) clean(n);
+  };
+  let observer = null;
+  const apply = () => {
+    document.body.classList.toggle("pc-no-emoji", pc.matches);
+    if (!pc.matches) return observer?.disconnect();
+    walk(document.body);
+    observer ||= new MutationObserver((list) => {
+      for (const m of list) {
+        if (m.type === "characterData") clean(m.target);
+        else for (const n of m.addedNodes) walk(n);
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  };
+  if (document.body) apply();
+  else document.addEventListener("DOMContentLoaded", apply, { once: true });
+  pc.addEventListener?.("change", apply);
+})();

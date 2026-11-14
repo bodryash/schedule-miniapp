@@ -16108,3 +16108,8 @@ body.donor-days.tint-cherry {
   text-transform: uppercase;
   color: var(--muted);
 }
+
+/* Компьютер: элементы, где был только эмодзи, скрыты (см. pcNoEmoji в app.js). */
+body.pc-no-emoji .pc-emoji-gone {
+  display: none !important;
+}
