@@ -16876,3 +16876,26 @@ body:not(.neon):not(.neon-day) #days > .day.day--today:not(.active) {
     animation: none !important;
   }
 }
+@media (max-width: 899px) {
+  .forum-fab-p {
+    font-family: "Oswald", "Bebas Neue", Impact, sans-serif;
+    font-weight: 700;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    transform: translateY(-1px);
+  }
+  /* Неактивные разделы делят остаток поровну — поиск больше не зажат. */
+  #tabs.tabs {
+    justify-content: flex-start !important;
+    gap: 0 !important;
+  }
+  #tabs .tab:not(.tab--on) {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+  }
+  #tabs .tab.tab--on {
+    flex: 0 0 auto !important;
+  }
+}

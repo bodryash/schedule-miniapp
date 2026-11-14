@@ -15189,7 +15189,7 @@ function closeDonor() {
   fab.id = "forum-fab";
   fab.className = "forum-fab";
   fab.setAttribute("aria-label", src.getAttribute("aria-label") || "Подслушка");
-  fab.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4 3.5V16h.5A2.5 2.5 0 0 1 5 13.5z"/></svg>';
+  fab.innerHTML = '<span class="forum-fab-p">:P</span>';
   fab.addEventListener("click", () => src.click());
   document.body.append(fab);
   // Видна вместе с баром и только там, где Подслушка доступна.
