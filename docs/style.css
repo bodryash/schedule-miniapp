@@ -17141,3 +17141,14 @@ body::-webkit-scrollbar {
 #picker:not([hidden]) ~ .forum-fab {
   display: none !important;
 }
+.free-day-add-plus {
+  width: 12px !important;
+  height: 12px !important;
+  transform: none !important;
+  font-size: 0 !important;
+}
+.free-day-add-plus svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+}

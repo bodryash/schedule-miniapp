@@ -11130,7 +11130,10 @@ function renderFreeDay() {
   if (line) caption.append(el("div", "free-day-line", line));
   const add = el("button", "free-day-add");
   add.type = "button";
-  add.append(el("span", "free-day-add-plus", "+"), document.createTextNode(t("Добавить своё дело")));
+  const plus = el("span", "free-day-add-plus");
+  // Плюс нарисован, а не символом: у «+» в шрифтах разная посадка, на iPhone он съезжал.
+  plus.innerHTML = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.5v9M1.5 6h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  add.append(plus, document.createTextNode(t("Добавить своё дело")));
   add.addEventListener("click", () => openOwn(null));
   caption.append(add);
   node.append(caption);
