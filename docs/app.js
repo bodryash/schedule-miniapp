@@ -15318,3 +15318,33 @@ function syncHeadColor(force = false) {
   }
 }
 window.addEventListener("scroll", () => syncHeadColor(), { passive: true });
+/* Одна подсказка про свайп по бару — первый раз на телефоне. */
+(function swipeHint() {
+  const KEY = "schedule.barSwipeHint";
+  try {
+    if (localStorage.getItem(KEY)) return;
+  } catch {
+    return;
+  }
+  if (!window.matchMedia?.("(max-width: 899px)").matches) return;
+  const show = () => {
+    const bar = document.getElementById("tabs");
+    if (!bar || bar.hidden || document.body.classList.contains("onboarding")) return setTimeout(show, 1500);
+    try {
+      localStorage.setItem(KEY, "1");
+    } catch {}
+    const tip = el("div", "bar-hint");
+    tip.append(el("span", "bar-hint-hand", "⇆"), document.createTextNode(t("Листайте бар свайпом — так быстрее между разделами")));
+    document.body.append(tip);
+    bar.classList.add("bar-hint-nudge");
+    const hide = () => {
+      tip.classList.add("bar-hint--out");
+      bar.classList.remove("bar-hint-nudge");
+      setTimeout(() => tip.remove(), 300);
+    };
+    setTimeout(hide, 5000);
+    bar.addEventListener("pointerdown", hide, { once: true });
+    tip.addEventListener("click", hide);
+  };
+  setTimeout(show, 2500);
+})();
