@@ -1083,5 +1083,33 @@
     "path": "msal-ip",
     "features": [],
     "short": "МГЮА ИП"
+  },
+  {
+    "id": "mospolytech-poly",
+    "university": "Московский Политех",
+    "faculty": "Полиграфический институт",
+    "path": "mospolytech-poly",
+    "features": [],
+    "short": "ПИ",
+    "source": {
+      "kind": "dmami",
+      "base": "https://rasp.dmami.ru/site/group"
+    }
+  },
+  {
+    "id": "gcolifk-afk",
+    "university": "РУС «ГЦОЛИФК»",
+    "faculty": "Факультет адаптивной физической культуры, рекреации и туризма",
+    "path": "gcolifk-afk",
+    "features": [],
+    "short": "ГЦОЛИФК АФК"
+  },
+  {
+    "id": "mpgu-izhkm",
+    "university": "МПГУ",
+    "faculty": "Институт журналистики, коммуникаций и медиаобразования",
+    "path": "mpgu-izhkm",
+    "features": [],
+    "short": "МПГУ ИЖКМ"
   }
 ]
