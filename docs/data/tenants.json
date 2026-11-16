@@ -1111,5 +1111,21 @@
     "path": "mpgu-izhkm",
     "features": [],
     "short": "МПГУ ИЖКМ"
+  },
+  {
+    "id": "gubkin-eu",
+    "university": "РГУ нефти и газа им. И.М. Губкина",
+    "faculty": "Экономика и управление",
+    "path": "gubkin-eu",
+    "features": [],
+    "short": "Губкин ЭиУ"
+  },
+  {
+    "id": "gnesin-college-noi",
+    "university": "Музыкальное училище им. Гнесиных",
+    "faculty": "Инструменты народного оркестра",
+    "path": "gnesin-college-noi",
+    "features": [],
+    "short": "Гнесинка, ИНО"
   }
 ]
