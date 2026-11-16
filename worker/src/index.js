@@ -5025,7 +5025,7 @@ export default {
     }
 
     // «📢 Сообщить студентам» под отчётом об обновлении расписания.
-    if (update.callback_query?.data === "upd") {
+    if (update.callback_query?.data === "upd" || update.callback_query?.data?.startsWith("upd:")) {
       const query = update.callback_query;
       const owner = isOwner(env, query.from?.id);
       await callTelegram(env.BOT_TOKEN, "answerCallbackQuery", {
@@ -5039,7 +5039,12 @@ export default {
           message_id: query.message.message_id,
           reply_markup: { inline_keyboard: [] },
         });
-        await draftBroadcast(env, query.message.chat.id, await updatedText(""), { button: true });
+        // Обновилось расписание одного факультета — и сообщать только ему
+        // (кнопка без факультета — от сверки ФГП).
+        const tid = query.data.startsWith("upd:") ? query.data.slice(4) : "msu-fgp";
+        const tenant = (await loadTenants().catch(() => [])).find((t) => t.id === tid);
+        const audience = { id: tid, university: tenant?.university || tid, short: tenant?.short || tenant?.faculty || "", label: `Только ${tenant ? `${tenant.university} · ${tenant.short || tenant.faculty}` : tid}` };
+        await draftBroadcast(env, query.message.chat.id, await updatedText(""), { button: true, audience });
       }
       return new Response("ok");
     }

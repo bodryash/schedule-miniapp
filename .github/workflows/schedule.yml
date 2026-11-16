@@ -112,7 +112,7 @@ jobs:
           if [ "$OK" = "success" ] && [ "$CHANGED" = "true" ]; then
             text="✅ Расписание обновлено.%0A%0A$DIFF%0A%0AСтуденты увидят через пару минут."
             # Кнопка готовит черновик рассылки «расписание обновлено» (/updated).
-            markup='{"inline_keyboard":[[{"text":"📢 Сообщить студентам","callback_data":"upd"}]]}'
+            markup='{"inline_keyboard":[[{"text":"📢 Сообщить студентам","callback_data":"upd:msu-fgp"}]]}'
           elif [ "$OK" = "success" ]; then
             text="Расписание совпало с прежним, менять нечего."
           else
