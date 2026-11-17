@@ -1127,5 +1127,18 @@
     "path": "gnesin-college-noi",
     "features": [],
     "short": "Гнесинка, ИНО"
+  },
+  {
+    "id": "kantiana-ien",
+    "university": "БФУ им. И. Канта",
+    "faculty": "Институт естественных наук",
+    "path": "kantiana-ien",
+    "features": [],
+    "short": "БФУ ИЕН",
+    "tz": 2,
+    "source": {
+      "kind": "kantiana",
+      "base": "https://schedule.kantiana.ru/v1/api/lessons/group"
+    }
   }
 ]
