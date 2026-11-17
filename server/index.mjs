@@ -515,7 +515,16 @@ const server = createServer(async (req, res) => {
         return;
       }
       try {
-        const r = await fetch(target, { headers: { "user-agent": "Mozilla/5.0 (schedule-bot)", referer: `${target.origin}/`, "x-requested-with": "XMLHttpRequest" }, redirect: "follow", signal: AbortSignal.timeout(25000) });
+        // ?warm=/путь — сначала открыть эту страницу того же сайта и взять её
+        // cookie (сайты, что отдают данные только «сессии» браузера).
+        let cookie = "";
+        const warm = new URL(req.url, "http://x").searchParams.get("warm");
+        if (warm) {
+          const w = await fetch(new URL(warm, target.origin), { headers: { "user-agent": "Mozilla/5.0 (schedule-bot)", accept: "text/html" }, redirect: "manual", signal: AbortSignal.timeout(15000) });
+          const set = typeof w.headers.getSetCookie === "function" ? w.headers.getSetCookie() : [w.headers.get("set-cookie") || ""];
+          cookie = set.filter(Boolean).map((c) => c.split(";")[0]).join("; ");
+        }
+        const r = await fetch(target, { headers: { "user-agent": "Mozilla/5.0 (schedule-bot)", referer: `${target.origin}/`, "x-requested-with": "XMLHttpRequest", ...(cookie ? { cookie } : {}) }, redirect: "follow", signal: AbortSignal.timeout(25000) });
         const buf = Buffer.from(await r.arrayBuffer());
         res.writeHead(200, { "content-type": "application/octet-stream", "x-upstream-status": String(r.status), "x-upstream-type": r.headers.get("content-type") || "" });
         res.end(buf.subarray(0, 20 * 1024 * 1024));
