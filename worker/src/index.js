@@ -5292,6 +5292,15 @@ ${invite}`,
         }
       }
       const words = message.text && !message.text.startsWith("/") && !["📅 Мои пары", "☀️ Сегодня", "🌙 Завтра"].includes(message.text) ? message.text : message.caption || "";
+      // Прислали расписание ссылкой — сразу «принято» (файлы и фото отвечают сами) (раз в 10 минут,
+      // чтобы серия файлов не дала серию одинаковых ответов). Фото — выше.
+      if (!photo && !message.document && (/https?:\/\/|\b[\w-]+\.(?:ru|рф|su|com|org)\//i.test(words))) {
+        const last = PHOTO_ACK.get(message.from.id) || 0;
+        if (Date.now() - last > 10 * 60 * 1000) {
+          PHOTO_ACK.set(message.from.id, Date.now());
+          await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: "Принято ✅ Скоро подключим — напишу, как будет готово." }).catch(() => {});
+        }
+      }
       if (words || photo) {
         await Promise.resolve(globalThis.SCHEDULE_SAVE_NOTE(message.from, words, Boolean(photo || message.document))).catch(() => {});
       }
