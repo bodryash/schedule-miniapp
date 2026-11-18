@@ -4440,7 +4440,9 @@ export default {
       const theme = await themeFor(env, user?.id, group).catch(() => "");
       const important = await importantList(env).catch(() => []);
       const hello = await helloFor(env, user?.id, group).catch(() => "");
-      const payload = { notices, cancels, changes, theme, hello, important, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments, deadlines, polls, rooms, lnotes };
+      // Сколько человек из группы уже пользуются расписанием (выбрали её).
+      const members = await env.STATS.prepare("SELECT COUNT(*) AS n FROM people WHERE grp = ?").bind(group.id).first().then((r) => r?.n || 0).catch(() => 0);
+      const payload = { notices, cancels, changes, theme, hello, important, owner: Boolean(user && isOwner(env, user.id)), homework, canEdit, canComment: commenter, comments, deadlines, polls, rooms, lnotes, members };
       return new Response(JSON.stringify(payload), {
         headers: {
           "content-type": "application/json; charset=utf-8",
