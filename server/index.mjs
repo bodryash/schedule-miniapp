@@ -536,6 +536,27 @@ const server = createServer(async (req, res) => {
     }
 
     // Закрытый адрес: написать человеку от бота. POST {"id":…, "text":"…"}. Только по ключу.
+    // Закрытый адрес: остановить идущую рассылку (как /stopcast у владельца).
+    if (String(req.url).startsWith("/admin/stopcast")) {
+      let key = "";
+      try { key = readFileSync(READ_KEY_FILE, "utf8").trim(); } catch {}
+      const given = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      if (!key || given.length !== key.length || !(await import("node:crypto")).timingSafeEqual(Buffer.from(given), Buffer.from(key))) {
+        res.writeHead(404, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false }));
+        return;
+      }
+      const live = STATS.raw.prepare("SELECT id FROM broadcasts WHERE status = 'sending'").all();
+      for (const b of live) {
+        STATS.raw.prepare("UPDATE broadcasts SET status = 'cancelled' WHERE id = ?").run(b.id);
+        STATS.raw.prepare("UPDATE outbox SET state = 'skipped' WHERE broadcast = ? AND state = 'pending'").run(b.id);
+      }
+      const sent = live.map((b) => ({ id: b.id, ...STATS.raw.prepare("SELECT SUM(state = 'sent') AS sent, SUM(state = 'skipped') AS skipped, SUM(state = 'sent' AND chat_id < 0) AS groups FROM outbox WHERE broadcast = ?").get(b.id) }));
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: true, stopped: sent }));
+      return;
+    }
+
     if (String(req.url).startsWith("/admin/say") && req.method === "POST") {
       let key = "";
       try { key = readFileSync(READ_KEY_FILE, "utf8").trim(); } catch {}
