@@ -4852,6 +4852,16 @@ export default {
       const chat = membership.chat;
       const byOwner = isOwner(env, membership.from?.id);
       const gone = status === "left" || status === "kicked";
+      // Владельцу — о любом добавлении бота в группу или канал и о выходе из них:
+      // кто добавил, куда, когда. Без этого бот оказывался в чужих чатах незаметно.
+      if (chat?.type !== "private" && !byOwner && env.OWNER_ID) {
+        const who = membership.from || {};
+        const name = [who.first_name, who.last_name].filter(Boolean).join(" ") || "?";
+        await callTelegram(env.BOT_TOKEN, "sendMessage", {
+          chat_id: env.OWNER_ID,
+          text: `${gone ? "🚪 Бота убрали из чата" : "➕ Бота добавили в чат"} «${chat.title || chat.id}» (${chat.type}, id ${chat.id})\nКто: ${name}${who.username ? ` @${who.username}` : ""} · id ${who.id || "?"}\nСтатус бота: ${status}`,
+        }).catch(() => {});
+      }
       if (chat?.type !== "private") {
         if (gone) {
           await env.STATS.prepare("DELETE FROM watched_chats WHERE chat_id = ?").bind(chat.id).run();
