@@ -1148,5 +1148,21 @@
     "path": "donnasa-mcis",
     "features": [],
     "short": "ДОННАСА"
+  },
+  {
+    "id": "donnasa-arch",
+    "university": "ДОННАСА — филиал НИУ МГСУ",
+    "faculty": "Архитектурный факультет",
+    "path": "donnasa-arch",
+    "features": [],
+    "short": "ДОННАСА"
+  },
+  {
+    "id": "mpgu-iip",
+    "university": "МПГУ",
+    "faculty": "Институт истории и политики",
+    "path": "mpgu-iip",
+    "features": [],
+    "short": "МПГУ"
   }
 ]
