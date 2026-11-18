@@ -17400,3 +17400,80 @@ body.app-reveal #schedule > :not(.bar--schedule):not(#days) {
     margin-bottom: 26px !important;
   }
 }
+
+/* Счётчик группы в меню — второй строкой, мелко. */
+.menu-count {
+  display: block;
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.menu-count:empty {
+  display: none;
+}
+/* Метка месяца на выбранном дне — светлая, не сливается с плиткой. */
+#days .day.active .day-month,
+#days .days-drop .day-month {
+  color: var(--accent) !important;
+  background: var(--bg) !important;
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+
+/* Строка «Группа … · Нечётная неделя» — всегда одной строкой: название
+   группы при нехватке места сокращается многоточием, метка недели целая. */
+#schedule .bar-top {
+  flex-wrap: nowrap !important;
+  gap: 8px;
+}
+#schedule .bar-top .context {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap !important;
+  gap: 8px !important;
+}
+#schedule .bar-top .group-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 1 auto;
+}
+#schedule .bar-top .week {
+  flex: none;
+  white-space: nowrap;
+}
+#schedule .bar-top .bar-actions {
+  flex: none;
+}
+@media (max-width: 400px) {
+  #schedule .bar-top .week {
+    padding: 3px 8px !important;
+    font-size: 12px !important;
+  }
+  .bar-actions .sem-ring {
+    width: 34px;
+    height: 34px;
+    margin-right: 6px;
+  }
+  .bar-actions .sem-ring::before {
+    inset: 8px;
+  }
+}
+/* Счётчик в плитке «Позвать группу»: по центру, помещается, контрастный. */
+.menu-pop .menu-count {
+  display: inline-block;
+  margin: 4px auto 0;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: var(--accent-text, #fff);
+  background: var(--accent);
+}
+.menu-pop .menu-count:empty {
+  display: none;
+}

@@ -471,6 +471,8 @@ async function loadNotices(group) {
     notices.changes = body.changes || [];
     notices.rooms = body.rooms || [];
     notices.lnotes = body.lnotes || [];
+    notices.members = Number(body.members) || 0;
+    showMembers();
     notices.owner = Boolean(body.owner);
     applyTheme(body.theme || "");
     notices.important = body.important || [];
@@ -15376,3 +15378,18 @@ window.addEventListener("scroll", () => syncHeadColor(), { passive: true });
   };
   show();
 })();
+
+
+/* Сколько человек из группы уже в :Расписании — в меню у «Позвать группу». */
+function showMembers() {
+  const n = notices.members || 0;
+  const item = document.querySelector('[data-menu="invite"]');
+  if (item) {
+    let tag = item.querySelector(".menu-count");
+    if (!tag) {
+      tag = el("span", "menu-count");
+      item.append(tag);
+    }
+    tag.textContent = n ? t("уже {n}", { n }) : "";
+  }
+}
