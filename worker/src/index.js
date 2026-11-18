@@ -432,7 +432,7 @@ async function draftBroadcast(env, chatId, text, { button = false, audience = nu
   const [audSql, ...audArgs] = audience ? audienceQuery(key) : [];
   const { count } = audience
     ? await env.STATS.prepare(`SELECT COUNT(*) AS count FROM (${audSql})`).bind(...audArgs).first()
-    : await env.STATS.prepare("SELECT COUNT(*) AS count FROM users").first();
+    : await env.STATS.prepare("SELECT COUNT(*) AS count FROM users WHERE id > 0").first();
 
   const draft = await env.STATS.prepare(
     "INSERT INTO broadcasts (text, created, button, audience, media_kind, media_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING id"
@@ -524,10 +524,10 @@ async function handleButton(env, query) {
       await env.STATS.batch([
         draft?.audience
           ? env.STATS.prepare(
-              `INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM (${audienceQuery(draft.audience)[0]})`
+              `INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM (${audienceQuery(draft.audience)[0]}) WHERE id > 0`
             ).bind(id, ...audienceQuery(draft.audience).slice(1))
           : env.STATS.prepare(
-              "INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM users"
+              "INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM users WHERE id > 0"
             ).bind(id),
         env.STATS.prepare(
           "UPDATE broadcasts SET status = 'sending' WHERE id = ? AND status = 'draft'"
@@ -609,7 +609,7 @@ async function drainOutbox(env, limit = BATCH) {
   if (!job) return;
 
   const { results = [] } = await env.STATS.prepare(
-    "SELECT chat_id FROM outbox WHERE broadcast = ? AND state = 'pending' LIMIT ?"
+    "SELECT chat_id FROM outbox WHERE broadcast = ? AND state = 'pending' AND chat_id > 0 LIMIT ?"
   )
     .bind(job.id, limit)
     .all();
