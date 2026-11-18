@@ -583,6 +583,22 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Закрытый адрес: возобновить остановленную рассылку (?id=76) — только людям.
+    if (String(req.url).startsWith("/admin/resumecast")) {
+      let key = "";
+      try { key = readFileSync(READ_KEY_FILE, "utf8").trim(); } catch {}
+      const given = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      if (!key || given.length !== key.length || !(await import("node:crypto")).timingSafeEqual(Buffer.from(given), Buffer.from(key))) {
+        res.writeHead(404); res.end("{}"); return;
+      }
+      const id = Number(new URL(req.url, "http://x").searchParams.get("id")) || 0;
+      const back = STATS.raw.prepare("UPDATE outbox SET state = 'pending' WHERE broadcast = ? AND state = 'skipped' AND chat_id > 0").run(id).changes;
+      STATS.raw.prepare("UPDATE broadcasts SET status = 'sending' WHERE id = ? AND status = 'cancelled'").run(id);
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: true, queued: back }));
+      return;
+    }
+
     // Закрытый адрес: остановить идущую рассылку (как /stopcast у владельца).
     if (String(req.url).startsWith("/admin/stopcast")) {
       let key = "";
