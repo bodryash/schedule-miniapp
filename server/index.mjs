@@ -536,6 +536,90 @@ const server = createServer(async (req, res) => {
     }
 
     // Закрытый адрес: написать человеку от бота. POST {"id":…, "text":"…"}. Только по ключу.
+    // Закрытый адрес: всё о чате (?id=-100…): Telegram и наша база.
+    if (String(req.url).startsWith("/admin/chatinfo")) {
+      let key = "";
+      try { key = readFileSync(READ_KEY_FILE, "utf8").trim(); } catch {}
+      const given = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      if (!key || given.length !== key.length || !(await import("node:crypto")).timingSafeEqual(Buffer.from(given), Buffer.from(key))) {
+        res.writeHead(404); res.end("{}"); return;
+      }
+      const id = new URL(req.url, "http://x").searchParams.get("id");
+      const tg = (m) => fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/${m}?chat_id=${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(8000) }).then((x) => x.json()).catch((e) => ({ error: String(e) }));
+      const db = {};
+      for (const [k, sql] of [["users", "SELECT * FROM users WHERE id = ?"], ["bot_chats", "SELECT * FROM bot_chats WHERE chat_id = ?"], ["watched", "SELECT * FROM watched_chats WHERE chat_id = ?"], ["outbox", "SELECT broadcast, state FROM outbox WHERE chat_id = ? ORDER BY broadcast DESC LIMIT 20"]]) {
+        try { db[k] = STATS.raw.prepare(sql).all(Number(id)).concat(STATS.raw.prepare(sql).all(String(id))); } catch (e) { db[k] = String(e).slice(0, 80); }
+      }
+      const out = { chat: await tg("getChat"), members: await tg("getChatMemberCount"), admins: await tg("getChatAdministrators"), db };
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify(out));
+      return;
+    }
+
+    // Закрытый адрес: в какие группы ушла рассылка (?id=76).
+    if (String(req.url).startsWith("/admin/castgroups")) {
+      let key = "";
+      try { key = readFileSync(READ_KEY_FILE, "utf8").trim(); } catch {}
+      const given = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      if (!key || given.length !== key.length || !(await import("node:crypto")).timingSafeEqual(Buffer.from(given), Buffer.from(key))) {
+        res.writeHead(404); res.end("{}"); return;
+      }
+      const id = Number(new URL(req.url, "http://x").searchParams.get("id")) || 0;
+      const rows = STATS.raw.prepare("SELECT chat_id, state FROM outbox WHERE broadcast = ? AND chat_id < 0 AND state = 'sent'").all(id);
+      const title = (cid) => {
+        for (const sql of ["SELECT title FROM bot_chats WHERE chat_id = ?", "SELECT title FROM watched_chats WHERE chat_id = ?", "SELECT name AS title FROM users WHERE id = ?"]) {
+          try { const r = STATS.raw.prepare(sql).get(String(cid)) || STATS.raw.prepare(sql).get(cid); if (r?.title) return r.title; } catch {}
+        }
+        return "";
+      };
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+      // Название берём и у самого Telegram: так видно даже группы, где бота уже нет в списке.
+      const out = [];
+      for (const r of rows) {
+        const info = await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/getChat?chat_id=${r.chat_id}`, { signal: AbortSignal.timeout(8000) }).then((x) => x.json()).catch(() => null);
+        out.push({ id: r.chat_id, title: title(r.chat_id), telegram: info?.ok ? { title: info.result.title, username: info.result.username || "", type: info.result.type } : { error: info?.description || "нет ответа" } });
+      }
+      res.end(JSON.stringify({ ok: true, groups: out }));
+      return;
+    }
+
+    // Закрытый адрес: возобновить остановленную рассылку (?id=76) — только людям.
+    if (String(req.url).startsWith("/admin/resumecast")) {
+      let key = "";
+      try { key = readFileSync(READ_KEY_FILE, "utf8").trim(); } catch {}
+      const given = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      if (!key || given.length !== key.length || !(await import("node:crypto")).timingSafeEqual(Buffer.from(given), Buffer.from(key))) {
+        res.writeHead(404); res.end("{}"); return;
+      }
+      const id = Number(new URL(req.url, "http://x").searchParams.get("id")) || 0;
+      const back = STATS.raw.prepare("UPDATE outbox SET state = 'pending' WHERE broadcast = ? AND state = 'skipped' AND chat_id > 0").run(id).changes;
+      STATS.raw.prepare("UPDATE broadcasts SET status = 'sending' WHERE id = ? AND status = 'cancelled'").run(id);
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: true, queued: back }));
+      return;
+    }
+
+    // Закрытый адрес: остановить идущую рассылку (как /stopcast у владельца).
+    if (String(req.url).startsWith("/admin/stopcast")) {
+      let key = "";
+      try { key = readFileSync(READ_KEY_FILE, "utf8").trim(); } catch {}
+      const given = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      if (!key || given.length !== key.length || !(await import("node:crypto")).timingSafeEqual(Buffer.from(given), Buffer.from(key))) {
+        res.writeHead(404, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false }));
+        return;
+      }
+      const live = STATS.raw.prepare("SELECT id FROM broadcasts WHERE status = 'sending'").all();
+      for (const b of live) {
+        STATS.raw.prepare("UPDATE broadcasts SET status = 'cancelled' WHERE id = ?").run(b.id);
+        STATS.raw.prepare("UPDATE outbox SET state = 'skipped' WHERE broadcast = ? AND state = 'pending'").run(b.id);
+      }
+      const sent = live.map((b) => ({ id: b.id, ...STATS.raw.prepare("SELECT SUM(state = 'sent') AS sent, SUM(state = 'skipped') AS skipped, SUM(state = 'sent' AND chat_id < 0) AS groups FROM outbox WHERE broadcast = ?").get(b.id) }));
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: true, stopped: sent }));
+      return;
+    }
+
     if (String(req.url).startsWith("/admin/say") && req.method === "POST") {
       let key = "";
       try { key = readFileSync(READ_KEY_FILE, "utf8").trim(); } catch {}
@@ -736,13 +820,15 @@ async function tick() {
   checkTelegram();
   checkAlarms().catch((error) => console.error("Сигналы упали:", error));
   try {
-    await new Promise((resolve) => {
+    // Сторож: минутная задача не может занимать больше трёх минут — иначе
+    // следующие не запускались бы вовсе.
+    await Promise.race([new Promise((r) => setTimeout(r, 180000)), new Promise((resolve) => {
       const pending = [];
       const cronCtx = { ...ctx, waitUntil: (promise) => pending.push(Promise.resolve(promise).catch((e) => console.error("Расписание упало:", e))) };
       Promise.resolve(worker.scheduled({ cron: "* * * * *", scheduledTime: Date.now() }, env, cronCtx))
         .catch((error) => console.error("Расписание упало:", error))
         .finally(() => Promise.all(pending).finally(resolve));
-    });
+    })]);
   } finally {
     ticking = false;
   }

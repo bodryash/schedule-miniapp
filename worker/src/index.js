@@ -129,6 +129,9 @@ async function callTelegram(token, method, payload) {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
+    // Без предела зависший ответ держал минутную задачу целиком: вставали
+    // напоминания и рассылка.
+    signal: AbortSignal.timeout(20000),
   });
   let response;
   for (let attempt = 0; ; attempt++) {
@@ -432,7 +435,7 @@ async function draftBroadcast(env, chatId, text, { button = false, audience = nu
   const [audSql, ...audArgs] = audience ? audienceQuery(key) : [];
   const { count } = audience
     ? await env.STATS.prepare(`SELECT COUNT(*) AS count FROM (${audSql})`).bind(...audArgs).first()
-    : await env.STATS.prepare("SELECT COUNT(*) AS count FROM users").first();
+    : await env.STATS.prepare("SELECT COUNT(*) AS count FROM users WHERE id > 0").first();
 
   const draft = await env.STATS.prepare(
     "INSERT INTO broadcasts (text, created, button, audience, media_kind, media_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING id"
@@ -524,10 +527,10 @@ async function handleButton(env, query) {
       await env.STATS.batch([
         draft?.audience
           ? env.STATS.prepare(
-              `INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM (${audienceQuery(draft.audience)[0]})`
+              `INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM (${audienceQuery(draft.audience)[0]}) WHERE id > 0`
             ).bind(id, ...audienceQuery(draft.audience).slice(1))
           : env.STATS.prepare(
-              "INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM users"
+              "INSERT OR IGNORE INTO outbox (broadcast, chat_id) SELECT ?, id FROM users WHERE id > 0"
             ).bind(id),
         env.STATS.prepare(
           "UPDATE broadcasts SET status = 'sending' WHERE id = ? AND status = 'draft'"
@@ -608,8 +611,10 @@ async function drainOutbox(env, limit = BATCH) {
   ).first();
   if (!job) return;
 
+  // Группы и каналы (отрицательные id) рассылка не трогает никогда.
+  await env.STATS.prepare("UPDATE outbox SET state = 'skipped' WHERE broadcast = ? AND state = 'pending' AND chat_id < 0").bind(job.id).run().catch(() => {});
   const { results = [] } = await env.STATS.prepare(
-    "SELECT chat_id FROM outbox WHERE broadcast = ? AND state = 'pending' LIMIT ?"
+    "SELECT chat_id FROM outbox WHERE broadcast = ? AND state = 'pending' AND chat_id > 0 LIMIT ?"
   )
     .bind(job.id, limit)
     .all();
@@ -4850,6 +4855,16 @@ export default {
       const chat = membership.chat;
       const byOwner = isOwner(env, membership.from?.id);
       const gone = status === "left" || status === "kicked";
+      // Владельцу — о любом добавлении бота в группу или канал и о выходе из них:
+      // кто добавил, куда, когда. Без этого бот оказывался в чужих чатах незаметно.
+      if (chat?.type !== "private" && !byOwner && env.OWNER_ID) {
+        const who = membership.from || {};
+        const name = [who.first_name, who.last_name].filter(Boolean).join(" ") || "?";
+        await callTelegram(env.BOT_TOKEN, "sendMessage", {
+          chat_id: env.OWNER_ID,
+          text: `${gone ? "🚪 Бота убрали из чата" : "➕ Бота добавили в чат"} «${chat.title || chat.id}» (${chat.type}, id ${chat.id})\nКто: ${name}${who.username ? ` @${who.username}` : ""} · id ${who.id || "?"}\nСтатус бота: ${status}`,
+        }).catch(() => {});
+      }
       if (chat?.type !== "private") {
         if (gone) {
           await env.STATS.prepare("DELETE FROM watched_chats WHERE chat_id = ?").bind(chat.id).run();
@@ -5437,7 +5452,7 @@ ${invite}`,
             "Одному факультету — с решёткой впереди: /broadcast #фгп Завтра занятий нет.",
             "Всем, кроме факультета — с минусом: /broadcast #-фгп Новая функция для вас.",
             "Всему вузу: /broadcast #вуз:мгу Текст — всем факультетам МГУ.",
-            "По умолчанию рассылка уходит только студентам. Всем вместе с преподавателями: /broadcast #все Текст.",
+            "По умолчанию рассылка уходит всем, и преподавателям тоже. Только студентам: /broadcast #студенты Текст.",
             "Одной группе: /broadcast #фгп гр:301 Текст.",
             "Курсу: /broadcast #фгп курс:3 Текст (магистратура — маг:1).",
             "Одному человеку: /broadcast @ник Текст или /broadcast id:123456 Текст.",
@@ -5486,10 +5501,9 @@ ${invite}`,
         } else if (tag) {
           found = await findAudience(except ? tag[1].slice(1) : tag[1]);
         }
-        // По умолчанию рассылка — только студентам. «#все Текст» — всем,
-        // вместе с преподавателями (как раньше было без решётки).
+        // По умолчанию рассылка — всем (и преподавателям). «#студенты Текст» —
+        // только студентам; «#все Текст» — то же, что без решётки.
         const allTag = tag && /^(все|all)$/i.test(tag[1]);
-        if (!tag) found = { id: "students", university: "Все студенты", short: "без преподавателей", label: "Всем студентам, без преподавателей" };
         let audience = allTag ? null : found ? { ...found, except } : null;
         let words = allTag ? (tag[2] || "").trim() : tag ? (tag[2] || "").trim() : body;
         // «#фгп гр:301 Текст» — одной группе, «#фгп курс:3» / «маг:1» — курсу.
@@ -5585,6 +5599,24 @@ ${invite}`,
       return new Response("ok");
     }
 
+    // /stopcast — остановить идущую рассылку: кто ещё не получил, тот не получит.
+    if (message && /^\/stopcast(?:@\w+)?$/.test(text.trim()) && isOwner(env, message.chat.id)) {
+      const live = await env.STATS.prepare("SELECT id FROM broadcasts WHERE status = 'sending'").all().then((r) => r.results || []).catch(() => []);
+      for (const b of live) {
+        await env.STATS.batch([
+          env.STATS.prepare("UPDATE broadcasts SET status = 'cancelled' WHERE id = ?").bind(b.id),
+          env.STATS.prepare("UPDATE outbox SET state = 'skipped' WHERE broadcast = ? AND state = 'pending'").bind(b.id),
+        ]);
+      }
+      const sent = live.length
+        ? await env.STATS.prepare(`SELECT SUM(state = 'sent') AS n FROM outbox WHERE broadcast IN (${live.map(() => "?").join(",")})`).bind(...live.map((b) => b.id)).first().catch(() => null)
+        : null;
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: live.length ? `⏹ Рассылка остановлена. Успели получить: ${sent?.n || 0}. Остальным не уйдёт.` : "Сейчас ничего не рассылается.",
+      });
+      return new Response("ok");
+    }
     if (message && /^\/casts(?:@\w+)?$/.test(text.trim())) {
       if (!isOwner(env, message.chat.id)) {
         await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: "Команда недоступна." });
