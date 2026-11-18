@@ -7765,7 +7765,14 @@ function renderRibbon() {
       haptic("light");
       openSemester();
     });
-    chips.push(btn);
+    // Кольцо — в шапку рядом с «•••»: в строке плашек оно переносилось
+    // на вторую строку и раздувало блок.
+    const actions = document.querySelector("#schedule .bar-actions");
+    actions?.querySelector(".sem-ring")?.remove();
+    if (actions) actions.prepend(btn);
+    else chips.push(btn);
+  } else {
+    document.querySelector("#schedule .bar-actions .sem-ring")?.remove();
   }
   box.replaceChildren(...chips);
   box.classList.add("ribbon--chips");
@@ -13409,9 +13416,8 @@ function refreshNow() {
       (card.querySelector(".card-body") || card).append(badge);
     }
     badge.querySelector(".now-label").textContent = t("идёт сейчас");
-    badge.querySelector(".now-left").textContent = t("осталось {time}", {
-      time: humanLeft(current.left),
-    });
+    // Коротко: длинное «осталось меньше минуты» налезало на номер пары.
+    badge.querySelector(".now-left").textContent = current.left < 1 ? t("ещё <1 мин") : t("ещё {time}", { time: humanLeft(current.left) });
     setNowRing(badge, current.total ? current.elapsed / current.total : 0);
 
     if (!bar) {
@@ -14227,6 +14233,9 @@ function dropSplash() {
     else scene.classList.remove("free-day--await");
   }
   splash.classList.add("splash--gone");
+  // Расписание проступает из тумана вместе с уходом заставки.
+  document.body.classList.add("app-reveal");
+  setTimeout(() => document.body.classList.remove("app-reveal"), 900);
   setTimeout(() => splash.remove(), sp(700));
   // Расписание развернулось — теперь можно и салют в честь праздника.
   setTimeout(() => {
