@@ -17324,7 +17324,7 @@ body.app-reveal #schedule > * {
 @keyframes day-in-blur {
   from {
     opacity: 0;
-    filter: blur(12px);
+    filter: blur(4px);
     transform: translate3d(var(--from-x, 0px), 10px, 0) scale(0.97);
   }
   to {
