@@ -17317,7 +17317,7 @@ body.app-reveal #schedule > * {
   animation: app-fog-in 620ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 @keyframes app-fog-in {
-  from { opacity: 0; filter: blur(10px); transform: scale(0.985); }
+  from { opacity: 0; transform: translateY(6px); }
 }
 
 /* ===== Листание дней — заметнее и мягче, по всей странице ===== */
@@ -17333,8 +17333,7 @@ body.app-reveal #schedule > * {
     transform: none;
   }
 }
-#lessons.is-swap > *,
-#lessons.is-swap ~ * {
+#lessons.is-swap > :not(.free-day) {
   animation-name: day-in-blur !important;
   animation-duration: 420ms !important;
   animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1) !important;
@@ -17476,4 +17475,18 @@ body.app-reveal #schedule > :not(.bar--schedule):not(#days) {
 }
 .menu-pop .menu-count:empty {
   display: none;
+}
+
+/* Пустой день: значок и надписи появляются своей лёгкой анимацией — без
+   размытия поверх (два слоя анимаций и blur давали рывки). */
+#lessons > .free-day,
+body.app-reveal #schedule > #lessons {
+  filter: none !important;
+}
+#lessons.is-swap > .free-day {
+  animation: none !important;
+}
+.free-day-emoji,
+.free-day-halo {
+  will-change: transform, opacity;
 }
