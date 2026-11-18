@@ -15390,6 +15390,6 @@ function showMembers() {
       tag = el("span", "menu-count");
       item.append(tag);
     }
-    tag.textContent = n ? t("уже {n} из группы", { n }) : "";
+    tag.textContent = n ? t("уже {n}", { n }) : "";
   }
 }
