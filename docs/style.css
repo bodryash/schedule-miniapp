@@ -17382,3 +17382,21 @@ body.app-reveal #schedule > :not(.bar--schedule):not(#days) {
 .screen-slide > .bar--schedule > * {
   animation: none !important;
 }
+
+/* Шапка дня — ровные зазоры: сверху 16, между строками по 14, снизу 16. */
+#schedule > .bar--schedule .date {
+  margin-top: 3px !important;
+  margin-bottom: 0 !important;
+}
+#schedule > .bar--schedule .ribbon.ribbon--chips {
+  margin-top: 11px !important;
+  margin-bottom: 0 !important;
+}
+@media (max-width: 899px) {
+  #schedule > .bar--schedule::before {
+    bottom: -16px !important;
+  }
+  #schedule > .bar--schedule {
+    margin-bottom: 26px !important;
+  }
+}
