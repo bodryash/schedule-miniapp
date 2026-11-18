@@ -11278,7 +11278,7 @@ function renderLessons(group, parity) {
   placeOwn(nodes, dateOfDay(selectedDay));
 
   // Пришли листанием — новый день въезжает с той стороны, откуда его тянули.
-  const from = enterFrom * 28;
+  const from = enterFrom * 64;
   enterFrom = 0;
   els.lessons.classList.remove("no-cascade");
   // Листали — пары проявляются из размытия, как дата в шапке.
@@ -11286,7 +11286,7 @@ function renderLessons(group, parity) {
   nodes.forEach((node, i) => {
     node.style.setProperty("--i", i);
     // Глубина: чем ниже карточка, тем дальше она «стоит» и тем длиннее путь.
-    node.style.setProperty("--from-x", `${Math.round(from * (1 + Math.min(i, 6) * 0.22))}px`);
+    node.style.setProperty("--from-x", `${Math.round(from * (1 + Math.min(i, 6) * 0.08))}px`);
   });
 
   // Кнопка своего дела — сразу после пар, перед «на сегодня всё».
@@ -12907,7 +12907,7 @@ function slideSwap(container, direction, render, fromShift = 0) {
   // Новая страница стоит невидимой на старте, пока браузер не отрисовал её.
   // Анимацию запускаем через кадр: сборка дня тяжёлая, и если стартовать в
   // тот же кадр, первые кадры движения теряются — отсюда и рваность.
-  const step = Math.min(28, width * 0.07);
+  const step = Math.min(72, width * 0.18);
   container.style.opacity = "0";
   container.style.transform = `translateX(${direction * step}px)`;
 
