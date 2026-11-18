@@ -553,7 +553,13 @@ const server = createServer(async (req, res) => {
         return "";
       };
       res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ ok: true, groups: rows.map((r) => ({ id: r.chat_id, title: title(r.chat_id) })) }));
+      // Название берём и у самого Telegram: так видно даже группы, где бота уже нет в списке.
+      const out = [];
+      for (const r of rows) {
+        const info = await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/getChat?chat_id=${r.chat_id}`, { signal: AbortSignal.timeout(8000) }).then((x) => x.json()).catch(() => null);
+        out.push({ id: r.chat_id, title: title(r.chat_id), telegram: info?.ok ? { title: info.result.title, username: info.result.username || "", type: info.result.type } : { error: info?.description || "нет ответа" } });
+      }
+      res.end(JSON.stringify({ ok: true, groups: out }));
       return;
     }
 
