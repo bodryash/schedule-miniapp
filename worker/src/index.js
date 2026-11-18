@@ -5584,6 +5584,24 @@ ${invite}`,
       return new Response("ok");
     }
 
+    // /stopcast — остановить идущую рассылку: кто ещё не получил, тот не получит.
+    if (message && /^\/stopcast(?:@\w+)?$/.test(text.trim()) && isOwner(env, message.chat.id)) {
+      const live = await env.STATS.prepare("SELECT id FROM broadcasts WHERE status = 'sending'").all().then((r) => r.results || []).catch(() => []);
+      for (const b of live) {
+        await env.STATS.batch([
+          env.STATS.prepare("UPDATE broadcasts SET status = 'cancelled' WHERE id = ?").bind(b.id),
+          env.STATS.prepare("UPDATE outbox SET state = 'skipped' WHERE broadcast = ? AND state = 'pending'").bind(b.id),
+        ]);
+      }
+      const sent = live.length
+        ? await env.STATS.prepare(`SELECT SUM(state = 'sent') AS n FROM outbox WHERE broadcast IN (${live.map(() => "?").join(",")})`).bind(...live.map((b) => b.id)).first().catch(() => null)
+        : null;
+      await callTelegram(env.BOT_TOKEN, "sendMessage", {
+        chat_id: message.chat.id,
+        text: live.length ? `⏹ Рассылка остановлена. Успели получить: ${sent?.n || 0}. Остальным не уйдёт.` : "Сейчас ничего не рассылается.",
+      });
+      return new Response("ok");
+    }
     if (message && /^\/casts(?:@\w+)?$/.test(text.trim())) {
       if (!isOwner(env, message.chat.id)) {
         await callTelegram(env.BOT_TOKEN, "sendMessage", { chat_id: message.chat.id, text: "Команда недоступна." });
