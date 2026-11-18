@@ -536,6 +536,27 @@ const server = createServer(async (req, res) => {
     }
 
     // Закрытый адрес: написать человеку от бота. POST {"id":…, "text":"…"}. Только по ключу.
+    // Закрытый адрес: в какие группы ушла рассылка (?id=76).
+    if (String(req.url).startsWith("/admin/castgroups")) {
+      let key = "";
+      try { key = readFileSync(READ_KEY_FILE, "utf8").trim(); } catch {}
+      const given = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      if (!key || given.length !== key.length || !(await import("node:crypto")).timingSafeEqual(Buffer.from(given), Buffer.from(key))) {
+        res.writeHead(404); res.end("{}"); return;
+      }
+      const id = Number(new URL(req.url, "http://x").searchParams.get("id")) || 0;
+      const rows = STATS.raw.prepare("SELECT chat_id, state FROM outbox WHERE broadcast = ? AND chat_id < 0 AND state = 'sent'").all(id);
+      const title = (cid) => {
+        for (const sql of ["SELECT title FROM bot_chats WHERE chat_id = ?", "SELECT title FROM watched_chats WHERE chat_id = ?", "SELECT name AS title FROM users WHERE id = ?"]) {
+          try { const r = STATS.raw.prepare(sql).get(String(cid)) || STATS.raw.prepare(sql).get(cid); if (r?.title) return r.title; } catch {}
+        }
+        return "";
+      };
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: true, groups: rows.map((r) => ({ id: r.chat_id, title: title(r.chat_id) })) }));
+      return;
+    }
+
     // Закрытый адрес: остановить идущую рассылку (как /stopcast у владельца).
     if (String(req.url).startsWith("/admin/stopcast")) {
       let key = "";
