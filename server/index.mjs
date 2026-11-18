@@ -820,13 +820,15 @@ async function tick() {
   checkTelegram();
   checkAlarms().catch((error) => console.error("Сигналы упали:", error));
   try {
-    await new Promise((resolve) => {
+    // Сторож: минутная задача не может занимать больше трёх минут — иначе
+    // следующие не запускались бы вовсе.
+    await Promise.race([new Promise((r) => setTimeout(r, 180000)), new Promise((resolve) => {
       const pending = [];
       const cronCtx = { ...ctx, waitUntil: (promise) => pending.push(Promise.resolve(promise).catch((e) => console.error("Расписание упало:", e))) };
       Promise.resolve(worker.scheduled({ cron: "* * * * *", scheduledTime: Date.now() }, env, cronCtx))
         .catch((error) => console.error("Расписание упало:", error))
         .finally(() => Promise.all(pending).finally(resolve));
-    });
+    })]);
   } finally {
     ticking = false;
   }

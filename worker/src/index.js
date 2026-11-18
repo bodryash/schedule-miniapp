@@ -129,6 +129,9 @@ async function callTelegram(token, method, payload) {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
+    // Без предела зависший ответ держал минутную задачу целиком: вставали
+    // напоминания и рассылка.
+    signal: AbortSignal.timeout(20000),
   });
   let response;
   for (let attempt = 0; ; attempt++) {
