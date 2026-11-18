@@ -608,6 +608,8 @@ async function drainOutbox(env, limit = BATCH) {
   ).first();
   if (!job) return;
 
+  // Группы и каналы (отрицательные id) рассылка не трогает никогда.
+  await env.STATS.prepare("UPDATE outbox SET state = 'skipped' WHERE broadcast = ? AND state = 'pending' AND chat_id < 0").bind(job.id).run().catch(() => {});
   const { results = [] } = await env.STATS.prepare(
     "SELECT chat_id FROM outbox WHERE broadcast = ? AND state = 'pending' AND chat_id > 0 LIMIT ?"
   )
