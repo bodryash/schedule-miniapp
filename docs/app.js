@@ -7765,7 +7765,14 @@ function renderRibbon() {
       haptic("light");
       openSemester();
     });
-    chips.push(btn);
+    // Кольцо — в шапку рядом с «•••»: в строке плашек оно переносилось
+    // на вторую строку и раздувало блок.
+    const actions = document.querySelector("#schedule .bar-actions");
+    actions?.querySelector(".sem-ring")?.remove();
+    if (actions) actions.prepend(btn);
+    else chips.push(btn);
+  } else {
+    document.querySelector("#schedule .bar-actions .sem-ring")?.remove();
   }
   box.replaceChildren(...chips);
   box.classList.add("ribbon--chips");
@@ -11271,7 +11278,7 @@ function renderLessons(group, parity) {
   placeOwn(nodes, dateOfDay(selectedDay));
 
   // Пришли листанием — новый день въезжает с той стороны, откуда его тянули.
-  const from = enterFrom * 28;
+  const from = enterFrom * 64;
   enterFrom = 0;
   els.lessons.classList.remove("no-cascade");
   // Листали — пары проявляются из размытия, как дата в шапке.
@@ -11279,7 +11286,7 @@ function renderLessons(group, parity) {
   nodes.forEach((node, i) => {
     node.style.setProperty("--i", i);
     // Глубина: чем ниже карточка, тем дальше она «стоит» и тем длиннее путь.
-    node.style.setProperty("--from-x", `${Math.round(from * (1 + Math.min(i, 6) * 0.22))}px`);
+    node.style.setProperty("--from-x", `${Math.round(from * (1 + Math.min(i, 6) * 0.08))}px`);
   });
 
   // Кнопка своего дела — сразу после пар, перед «на сегодня всё».
@@ -12900,7 +12907,7 @@ function slideSwap(container, direction, render, fromShift = 0) {
   // Новая страница стоит невидимой на старте, пока браузер не отрисовал её.
   // Анимацию запускаем через кадр: сборка дня тяжёлая, и если стартовать в
   // тот же кадр, первые кадры движения теряются — отсюда и рваность.
-  const step = Math.min(28, width * 0.07);
+  const step = Math.min(72, width * 0.18);
   container.style.opacity = "0";
   container.style.transform = `translateX(${direction * step}px)`;
 
@@ -13409,9 +13416,8 @@ function refreshNow() {
       (card.querySelector(".card-body") || card).append(badge);
     }
     badge.querySelector(".now-label").textContent = t("идёт сейчас");
-    badge.querySelector(".now-left").textContent = t("осталось {time}", {
-      time: humanLeft(current.left),
-    });
+    // Коротко: длинное «осталось меньше минуты» налезало на номер пары.
+    badge.querySelector(".now-left").textContent = current.left < 1 ? t("ещё <1 мин") : t("ещё {time}", { time: humanLeft(current.left) });
     setNowRing(badge, current.total ? current.elapsed / current.total : 0);
 
     if (!bar) {
@@ -14227,6 +14233,9 @@ function dropSplash() {
     else scene.classList.remove("free-day--await");
   }
   splash.classList.add("splash--gone");
+  // Расписание проступает из тумана вместе с уходом заставки.
+  document.body.classList.add("app-reveal");
+  setTimeout(() => document.body.classList.remove("app-reveal"), 900);
   setTimeout(() => splash.remove(), sp(700));
   // Расписание развернулось — теперь можно и салют в честь праздника.
   setTimeout(() => {
