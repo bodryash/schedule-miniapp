@@ -17362,3 +17362,23 @@ body.app-reveal #schedule > * {
   content-visibility: auto;
   contain-intrinsic-size: auto 180px;
 }
+
+/* При открытии шапка, дата, плашки и дни стоят сразу готовыми: никаких
+   появлений по очереди. Из тумана проступают только пары ниже. */
+.bar--schedule > *,
+.bar--schedule .bar-top > *,
+.bar--schedule .ribbon,
+.bar--schedule .chip,
+#schedule > #days,
+#days > .day,
+body.app-reveal #schedule > .bar--schedule,
+body.app-reveal #schedule > #days {
+  animation: none !important;
+}
+body.app-reveal #schedule > :not(.bar--schedule):not(#days) {
+  animation: app-fog-in 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+/* Смена раздела: шапка тоже не проявляется заново. */
+.screen-slide > .bar--schedule > * {
+  animation: none !important;
+}
