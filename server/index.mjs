@@ -536,6 +536,26 @@ const server = createServer(async (req, res) => {
     }
 
     // Закрытый адрес: написать человеку от бота. POST {"id":…, "text":"…"}. Только по ключу.
+    // Закрытый адрес: всё о чате (?id=-100…): Telegram и наша база.
+    if (String(req.url).startsWith("/admin/chatinfo")) {
+      let key = "";
+      try { key = readFileSync(READ_KEY_FILE, "utf8").trim(); } catch {}
+      const given = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      if (!key || given.length !== key.length || !(await import("node:crypto")).timingSafeEqual(Buffer.from(given), Buffer.from(key))) {
+        res.writeHead(404); res.end("{}"); return;
+      }
+      const id = new URL(req.url, "http://x").searchParams.get("id");
+      const tg = (m) => fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/${m}?chat_id=${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(8000) }).then((x) => x.json()).catch((e) => ({ error: String(e) }));
+      const db = {};
+      for (const [k, sql] of [["users", "SELECT * FROM users WHERE id = ?"], ["bot_chats", "SELECT * FROM bot_chats WHERE chat_id = ?"], ["watched", "SELECT * FROM watched_chats WHERE chat_id = ?"], ["outbox", "SELECT broadcast, state FROM outbox WHERE chat_id = ? ORDER BY broadcast DESC LIMIT 20"]]) {
+        try { db[k] = STATS.raw.prepare(sql).all(Number(id)).concat(STATS.raw.prepare(sql).all(String(id))); } catch (e) { db[k] = String(e).slice(0, 80); }
+      }
+      const out = { chat: await tg("getChat"), members: await tg("getChatMemberCount"), admins: await tg("getChatAdministrators"), db };
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify(out));
+      return;
+    }
+
     // Закрытый адрес: в какие группы ушла рассылка (?id=76).
     if (String(req.url).startsWith("/admin/castgroups")) {
       let key = "";
