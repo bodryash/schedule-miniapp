@@ -17420,3 +17420,44 @@ body.app-reveal #schedule > :not(.bar--schedule):not(#days) {
   background: var(--bg) !important;
   box-shadow: 0 0 0 1.5px var(--accent);
 }
+
+/* Строка «Группа … · Нечётная неделя» — всегда одной строкой: название
+   группы при нехватке места сокращается многоточием, метка недели целая. */
+#schedule .bar-top {
+  flex-wrap: nowrap !important;
+  gap: 8px;
+}
+#schedule .bar-top .context {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap !important;
+  gap: 8px !important;
+}
+#schedule .bar-top .group-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 1 auto;
+}
+#schedule .bar-top .week {
+  flex: none;
+  white-space: nowrap;
+}
+#schedule .bar-top .bar-actions {
+  flex: none;
+}
+@media (max-width: 400px) {
+  #schedule .bar-top .week {
+    padding: 3px 8px !important;
+    font-size: 12px !important;
+  }
+  .bar-actions .sem-ring {
+    width: 34px;
+    height: 34px;
+    margin-right: 6px;
+  }
+  .bar-actions .sem-ring::before {
+    inset: 8px;
+  }
+}
