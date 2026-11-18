@@ -1140,5 +1140,13 @@
       "kind": "kantiana",
       "base": "https://schedule.kantiana.ru/v1/api/lessons/group"
     }
+  },
+  {
+    "id": "donnasa-mcis",
+    "university": "ДОННАСА — филиал НИУ МГСУ",
+    "faculty": "Механики и цифрового инжиниринга в строительстве",
+    "path": "data/donnasa-mcis",
+    "features": [],
+    "short": "ДОННАСА"
   }
 ]
