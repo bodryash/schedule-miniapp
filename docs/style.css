@@ -17400,3 +17400,23 @@ body.app-reveal #schedule > :not(.bar--schedule):not(#days) {
     margin-bottom: 26px !important;
   }
 }
+
+/* Счётчик группы в меню — второй строкой, мелко. */
+.menu-count {
+  display: block;
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.menu-count:empty {
+  display: none;
+}
+/* Метка месяца на выбранном дне — светлая, не сливается с плиткой. */
+#days .day.active .day-month,
+#days .days-drop .day-month {
+  color: var(--accent) !important;
+  background: var(--bg) !important;
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
