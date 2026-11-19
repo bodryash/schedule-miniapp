@@ -2055,7 +2055,7 @@ function viceScene() {
   // Пальма — готовой картинкой, а не сотней векторных фигур в DOM: браузер
   // рисует её один раз, прокрутка и анимации не пересчитывают листья.
   const src = palmSrc();
-  box.innerHTML = `<div class="vice-sun"></div><i class="vice-palm vice-palm--l"></i><i class="vice-palm vice-palm--r"></i>`;
+  box.innerHTML = `<i class="vice-palm vice-palm--l"></i><i class="vice-palm vice-palm--r"></i>`;
   box.style.setProperty("--palm", `url("${src}")`);
   return box;
 }

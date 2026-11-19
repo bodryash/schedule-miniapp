@@ -17712,3 +17712,6 @@ body.tint-vice .tab.active {
   -webkit-mask: var(--palm) center / contain no-repeat;
   mask: var(--palm) center / contain no-repeat;
 }
+.vice-sun {
+  display: none !important;
+}
