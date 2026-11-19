@@ -2073,9 +2073,10 @@ function renderViceSky(on) {
   if (splash && !splash.querySelector(".vice-tag")) {
     const lines = ["Добро пожаловать в Вайс-Сити", "Леонида ждёт — но сначала пары", "Вайс-Сити не спит. Вы — тоже?", "Сегодня в эфире: пары и закат"];
     const tag = el("div", "vice-tag", t(lines[(new Date().getDate() + new Date().getMonth()) % lines.length]));
+    // Внутрь приветствия и поверх раскладки (position: absolute): строка
+    // ничего не сдвигает, когда появляется.
     const hello = splash.querySelector(".splash-hello");
-    if (hello) hello.after(tag);
-    else splash.prepend(tag);
+    if (hello) hello.append(tag);
   }
   if (sky) return;
   sky = el("div", "vice-sky");
@@ -14014,7 +14015,9 @@ function renderHello() {
     return line;
   };
   // На заставке — только приветствие и дата, без пожелания.
+  const viceTag = box.querySelector(".vice-tag");
   box.replaceChildren(words(title, "splash-hello-title"));
+  if (viceTag) box.append(viceTag);
   // Место под «Сегодня N пар» — сразу: когда текст придёт, ничего не сдвинется.
   if (window.matchMedia?.("(min-width: 900px)").matches) box.append(el("div", "splash-hello-wish splash-today", "\u00a0"));
   try {

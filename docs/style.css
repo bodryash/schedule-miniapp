@@ -17715,10 +17715,18 @@ body.tint-vice .tab.active {
 .vice-sun {
   display: none !important;
 }
-/* Строка-отсылка под приветствием на заставке Вайс-Сити. */
+/* Строка-отсылка под приветствием на заставке Вайс-Сити: лежит поверх
+   раскладки и только проявляется — ничего вокруг не двигает. */
+.splash-hello:has(> .vice-tag) {
+  position: relative;
+}
 .vice-tag {
-  margin-top: -14px;
-  font-size: 15px;
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 2px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.02em;
   text-align: center;
@@ -17727,11 +17735,17 @@ body.tint-vice .tab.active {
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  animation: vice-tag-in 600ms cubic-bezier(0.2, 0.8, 0.2, 1) 250ms both;
+  animation: vice-tag-in 700ms ease 350ms both;
 }
 @keyframes vice-tag-in {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; }
 }
 .splash--gone .vice-tag {
   animation: none;
+}
+
+/* Место под время «08:00 … 14:30» — сразу: строка приходит позже и иначе
+   раздвигала заставку, дата и приветствие прыгали на 12 px. */
+.splash-times {
+  min-height: 24px;
 }
