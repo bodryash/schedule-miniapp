@@ -397,7 +397,7 @@
     (function () { try {
       var vc = localStorage.getItem("schedule.colorTheme");
       if (localStorage.getItem("schedule.viceForced") !== "1") vc = "vice";
-      if (!vc || vc === "vice") {
+      if (true) { // Вайс-Сити сейчас у всех (VICE_FOR_ALL в app.js)
         document.documentElement.classList.add("vice-early");
         var sp = document.getElementById("splash"), day = document.getElementById("splash-day");
         if (sp && day && !sp.querySelector(".vice-tag")) {

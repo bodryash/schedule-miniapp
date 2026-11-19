@@ -2081,6 +2081,7 @@ function renderViceSky(on) {
   document.body.append(sky);
 }
 
+const VICE_FOR_ALL = true;
 function applyTheme(granted = grantedTheme) {
   rememberLook();
   grantedTheme = giftedTheme() || granted || "";
@@ -2111,7 +2112,9 @@ function applyTheme(granted = grantedTheme) {
   // Красное оформление Дня донора выключено для всех: дни донора и плашка остаются.
   const donor = false;
   document.body.classList.toggle("donor-days", donor);
-  const name = worn || (isHalloween() ? "halloween" : "") || (donor ? "cherry" : "") || ownName || (ownGlam() ? "glam" : "");
+  // Сейчас у всех без исключения Вайс-Сити: и поверх выданных тем, и поверх
+  // своего цвета. Вернуть как было — VICE_FOR_ALL = false.
+  const name = VICE_FOR_ALL ? "vice" : worn || (isHalloween() ? "halloween" : "") || (donor ? "cherry" : "") || ownName || (ownGlam() ? "glam" : "");
   // Неон — свои классы, не из THEMES; под выданной темой не включаем.
   document.body.classList.toggle("neon", !worn && own === "neon");
   document.body.classList.toggle("neon-day", !worn && own === "neon-day");
