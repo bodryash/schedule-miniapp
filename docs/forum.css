@@ -3226,21 +3226,31 @@ body.fm-open .minihead {
 @keyframes fm-photo-out { to { opacity: 0; } }
 
 .fm-comp-photo {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin: 8px 16px 0 64px;
+}
+.fm-comp-photo-frame {
   position: relative;
-  margin: 4px 0 8px 48px;
+  flex: none;
 }
 .fm-comp-photo img {
   display: block;
-  max-width: 100%;
-  max-height: 220px;
+  width: auto;
+  height: 84px;
+  max-width: 140px;
+  object-fit: cover;
   border-radius: 12px;
 }
 .fm-comp-photo-x {
   position: absolute;
-  top: 6px;
-  left: 6px;
-  width: 28px;
-  height: 28px;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
   border: 0;
   border-radius: 50%;
   color: #fff;
@@ -3249,16 +3259,46 @@ body.fm-open .minihead {
   place-items: center;
 }
 .fm-comp-photo-x svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 .fm-comp-photo-rule {
-  margin-top: 6px;
+  min-width: 0;
   font-size: 12px;
   line-height: 1.35;
-  color: var(--fm-muted, #8a8a8e);
+  color: var(--muted);
+}
+.fm-inline-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
 }
 .fm-chip.is-busy {
   opacity: 0.55;
   pointer-events: none;
+}
+/* Окно поста: заголовок в строку, плашки снизу — в одну строку, без переносов. */
+.fm-comp-top h2 {
+  white-space: nowrap;
+}
+.fm-comp-tools {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.fm-comp-tools::-webkit-scrollbar {
+  display: none;
+}
+.fm-comp-tools .fm-chip {
+  flex: none;
+  white-space: nowrap;
+}
+.fm-comp-tools .fm-chip:last-of-type:not(:only-of-type) {
+  flex: 0 1 auto;
+  min-width: 0;
 }

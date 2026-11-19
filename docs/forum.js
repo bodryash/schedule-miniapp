@@ -2630,6 +2630,8 @@
     for (const [name, title, text] of [
       ["shield", t("Без мата и травли"), t("Оскорбления не публикуются. Три жалобы — и пост скрыт.")],
       ["at", t("Без ссылок и чужих контактов"), t("Ни телефонов, ни @ников, ни ссылок: личное остаётся личным.")],
+      ["image", t("Фото — после проверки"), t("Одно фото на пост, не больше 3 в сутки. Каждое смотрит модератор. Нельзя: чужие лица без согласия, документы и личные данные, 18+, жестокость. Две жалобы — и фото скрыто.")],
+      ["clock", t("Без флуда"), t("Пост — раз в полторы минуты, повторы не проходят. Первый пост новичка проверяет модератор.")],
       ["mask", t("Анонимно — для студентов"), t("Другие не узнают, кто вы. Администратор видит автора, чтобы блокировать травлю и спам. Под своим именем — видно имя и ссылку на ваш Telegram.")],
     ]) {
       const row = document.createElement("div");
@@ -2710,6 +2712,8 @@
     body.append(area);
     const err = document.createElement("div");
     err.className = "fm-comp-err";
+    const rulesLink = Object.assign(document.createElement("button"), { type: "button", className: "fm-inline-link", textContent: t("Правила") });
+    rulesLink.addEventListener("click", () => openRules(false));
     const hint = Object.assign(document.createElement("div"), { className: "fm-comp-as", textContent: t("Рядом с текстом появится пометка «изменено».") });
     box.append(top, body, hint, err);
     fill(sheet.sh, box);
@@ -2997,11 +3001,15 @@
         showShot();
         update();
       });
-      const rule = Object.assign(document.createElement("div"), {
-        className: "fm-comp-photo-rule",
-        textContent: t("Фото проверит модератор. Нельзя: чужие лица без согласия, документы и личные данные, 18+, жестокость."),
-      });
-      shot.replaceChildren(img, drop, rule);
+      const rule = document.createElement("div");
+      rule.className = "fm-comp-photo-rule";
+      const more = Object.assign(document.createElement("button"), { type: "button", className: "fm-inline-link", textContent: t("Правила") });
+      more.addEventListener("click", () => openRules(false));
+      rule.append(document.createTextNode(t("Фото проверит модератор: без чужих лиц, документов и 18+. ")), more);
+      const frame = document.createElement("div");
+      frame.className = "fm-comp-photo-frame";
+      frame.append(img, drop);
+      shot.replaceChildren(frame, rule);
     };
     photoChip.addEventListener("click", () => {
       haptic("light");
@@ -3048,7 +3056,8 @@
               ? t("Другие увидят ваше имя и смогут перейти в ваш Telegram (@{nick}). ", { nick })
               : t("Другие увидят ваше имя. ")
         ),
-        Object.assign(document.createElement("b"), { textContent: anon ? t("Администратор видит автора.") : "" })
+        Object.assign(document.createElement("b"), { textContent: anon ? t("Администратор видит автора. ") : "" }),
+        rulesLink
       );
       if (animated) {
         const next = faces();
