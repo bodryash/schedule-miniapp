@@ -4487,6 +4487,20 @@ export default {
 
     // Аватарка автора под своим именем: фото профиля из Telegram. У анонимов и
     // у тех, кто скрыл фото, ответа нет — приложение рисует букву.
+    // Фото Подслушки: имя случайное, без него фото не найти.
+    const imgMatch = url.pathname.match(/^\/forum\/img\/([0-9a-f]{32})\.(jpg|webp)$/);
+    if (imgMatch && request.method === "GET") {
+      const bytes = globalThis.SCHEDULE_FORUM_IMG?.read(`${imgMatch[1]}.${imgMatch[2]}`);
+      if (!bytes) return new Response("", { status: 404, headers: { "access-control-allow-origin": "*", "cache-control": "no-store" } });
+      return new Response(bytes, {
+        headers: {
+          "content-type": imgMatch[2] === "jpg" ? "image/jpeg" : "image/webp",
+          "access-control-allow-origin": "*",
+          "cache-control": "public, max-age=604800, immutable",
+          "x-content-type-options": "nosniff",
+        },
+      });
+    }
     const avaMatch = url.pathname.match(/^\/forum\/ava\/([pru])\/(\d+)(?:\.([0-9a-f]{16}))?$/);
     if (avaMatch && request.method === "GET") {
       const miss = () => new Response("", { status: 404, headers: { "access-control-allow-origin": "*", "cache-control": "public, max-age=300" } });
