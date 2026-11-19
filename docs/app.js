@@ -11138,6 +11138,9 @@ function freeDayPhrase(date) {
 
 function renderFreeDay() {
   const node = el("div", "empty free-day");
+  // Пока висит заставка, сцена стоит невидимой и не играет: соберётся
+  // один раз, когда заставка уйдёт (иначе она мелькала дважды).
+  if (els.splash?.isConnected && !els.splash.classList.contains("splash--gone")) node.classList.add("free-day--pre");
   const date = dateOfDay(selectedDay);
   const [emoji, title, line] = freeDayPhrase(date);
   // Сцена: значок падает сверху и пружинит, под ним расходится круг, вокруг
@@ -14230,16 +14233,19 @@ function dropSplash() {
     setTimeout(() => document.body.classList.remove("app-reveal--free"), 900);
     // Значок не исчезает вместе с заставкой, а переезжает на своё место на
     // экране «пар нет»: заставка тает, он летит, сцена собирается вокруг.
-    const scene = renderFreeDay();
+    // Та же сцена, что уже стоит под заставкой (невидимой): без подмены
+    // узла — подмена давала мигание надписи и значка.
+    const scene = els.lessons.querySelector(".free-day");
     scene.classList.add("free-day--await");
-    // Меняем только сцену: «Своё дело» и другие плашки под ней остаются.
-    els.lessons.querySelector(".free-day").replaceWith(scene);
+    void scene.offsetWidth;
+    scene.classList.remove("free-day--pre");
     const from = splash.querySelector(".splash-free-emoji");
     const to = scene.querySelector(".free-day-emoji");
     if (from && to) flyEmoji(from, to, scene);
     else scene.classList.remove("free-day--await");
   }
   splash.classList.add("splash--gone");
+  els.lessons?.querySelectorAll(".free-day--pre").forEach((n) => n.classList.remove("free-day--pre"));
   // Расписание проступает из тумана вместе с уходом заставки.
   document.body.classList.add("app-reveal");
   setTimeout(() => document.body.classList.remove("app-reveal"), 900);

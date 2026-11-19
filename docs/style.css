@@ -17511,3 +17511,12 @@ body.pc-no-emoji .splash-free-emoji {
 body.pc-no-emoji .free-day {
   padding-top: 48px;
 }
+
+/* Свободный день под заставкой: невидим и не анимируется до её ухода. */
+.free-day--pre,
+.free-day--pre * {
+  animation: none !important;
+}
+.free-day--pre {
+  visibility: hidden;
+}
