@@ -17744,3 +17744,45 @@ body.tint-vice .tab.active {
 .splash-times {
   min-height: 24px;
 }
+
+/* Вайс-Сити по неделям: нечётная — закат (розовый → оранжевый, бирюза
+   вторым цветом), чётная — ночной неон (бирюза → фиолетовый, розовый
+   вторым цветом). Тот же город, разное время суток. */
+body.tint-vice[data-parity="even"] {
+  --tint1: #12b8c4;
+  --tint2: #8b5cf6;
+  --accent: #12b8c4;
+  --accent-soft: color-mix(in srgb, #12b8c4 15%, transparent);
+  --line: color-mix(in srgb, #12b8c4 22%, transparent);
+}
+body.tint-vice[data-parity="even"] .date,
+body.tint-vice[data-parity="even"] .date-old,
+body.tint-vice[data-parity="even"] .date-new {
+  background-image: linear-gradient(100deg, #12b8c4 0%, #6f6cf6 55%, #c04bff 100%);
+}
+body.tint-vice[data-parity="even"]:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .days-drop,
+body.tint-vice[data-parity="even"] #tabs .tabs-drop,
+body.tint-vice[data-parity="even"] .tab.active {
+  background: linear-gradient(150deg, #12b8c4 0%, #6f6cf6 60%, #ff2d95 125%) !important;
+}
+body.tint-vice[data-parity="even"] .week,
+body.tint-vice[data-parity="even"] #lessons details > summary {
+  color: #d1127a !important;
+  background: color-mix(in srgb, #ff2d95 14%, transparent) !important;
+}
+body.tint-vice[data-parity="even"] .day:not(.active) .day-dots i {
+  background: #ff2d95 !important;
+}
+body.tint-vice[data-parity="even"] .ribbon--chips .chip:not(:first-child) {
+  border-color: color-mix(in srgb, #ff2d95 40%, transparent) !important;
+}
+body.tint-vice[data-parity="even"] .card--now {
+  box-shadow:
+    -3px 0 0 0 #ff2d95,
+    0 12px 30px -14px color-mix(in srgb, #12b8c4 70%, transparent);
+}
+body.tint-vice[data-parity="even"] .vice-sky {
+  background:
+    radial-gradient(120% 46% at -10% -4%, rgba(18, 184, 196, 0.16), transparent 60%),
+    radial-gradient(120% 50% at 50% 115%, rgba(139, 92, 246, 0.18), transparent 66%);
+}
