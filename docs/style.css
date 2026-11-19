@@ -17634,18 +17634,34 @@ body.tint-vice .card--now {
 
 /* Заставка в Вайс-Сити. Сцена — под надписями (z-index −1 внутри
    заставки), сами надписи не трогаем: их раскладка своя. */
+/* Фон заставки — как у приложения (светлый или тёмный, как в Telegram),
+   поверх только прозрачный закатный отсвет снизу: тёмная тема остаётся тёмной. */
 body.tint-vice .splash {
   isolation: isolate;
-  background: linear-gradient(180deg, #fff3f9 0%, #ffe1ee 45%, #ffd2b8 100%);
+  background:
+    linear-gradient(180deg, transparent 35%, rgba(255, 45, 149, 0.14) 75%, rgba(255, 138, 61, 0.22) 100%),
+    var(--tg-theme-bg-color, #fff);
+}
+/* Свободный день: в центре значок дня — солнце и пальмы уходят ниже и тише,
+   значок виден сразу, а не выпрыгивает поверх солнца. */
+body.tint-vice .splash.splash--free .vice-scene .vice-sun {
+  display: none;
+}
+body.tint-vice .splash.splash--free .vice-scene .vice-palm {
+  opacity: 0.4;
+}
+body.tint-vice .splash--free .splash-free-emoji {
+  animation-delay: 0ms;
 }
 body.tint-vice .splash .vice-scene {
   z-index: -1;
 }
+/* Пальмы на заставке — силуэт цвета текста: тёмные на светлом, светлые на тёмном. */
 body.tint-vice .splash .vice-palm {
-  opacity: 0.85;
+  opacity: 0.8;
 }
 body.tint-vice .splash .vice-sun {
-  --sun-gap: #ffdccd;
+  --sun-gap: var(--tg-theme-bg-color, #fff);
   opacity: 0.9;
   bottom: 110px;
 }
@@ -17687,4 +17703,12 @@ body.tint-vice:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .days-drop,
 body.tint-vice #tabs .tabs-drop,
 body.tint-vice .tab.active {
   background: linear-gradient(150deg, #ff2d95 0%, #c04bff 60%, #22d3d6 115%) !important;
+}
+/* Пальма — маской цвета текста: подстраивается под светлую и тёмную схему. */
+.vice-palm {
+  display: block;
+  aspect-ratio: 2 / 3;
+  background: var(--tg-theme-text-color, #1d2a4a);
+  -webkit-mask: var(--palm) center / contain no-repeat;
+  mask: var(--palm) center / contain no-repeat;
 }

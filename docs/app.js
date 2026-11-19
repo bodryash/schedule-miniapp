@@ -2055,7 +2055,8 @@ function viceScene() {
   // Пальма — готовой картинкой, а не сотней векторных фигур в DOM: браузер
   // рисует её один раз, прокрутка и анимации не пересчитывают листья.
   const src = palmSrc();
-  box.innerHTML = `<div class="vice-sun"></div><img class="vice-palm vice-palm--l" alt="" decoding="async" src="${src}"><img class="vice-palm vice-palm--r" alt="" decoding="async" src="${src}">`;
+  box.innerHTML = `<div class="vice-sun"></div><i class="vice-palm vice-palm--l"></i><i class="vice-palm vice-palm--r"></i>`;
+  box.style.setProperty("--palm", `url("${src}")`);
   return box;
 }
 function renderViceSky(on) {
@@ -13961,11 +13962,6 @@ function helloLines() {
     return { title: filled.charAt(0).toUpperCase() + filled.slice(1), wish: "", custom: true };
   }
   if (isHalloween()) return { title: t("С Хэллоуином!"), wish: "", custom: false };
-  if (document.body.classList.contains("tint-vice") && LANG === "ru") {
-    const h = new Date().getHours();
-    const part = h >= 5 && h < 11 ? "Доброе утро" : h >= 11 && h < 17 ? "Добрый день" : h >= 17 && h < 23 ? "Добрый вечер" : "Доброй ночи";
-    return { title: `${part}, Вайс-Сити!`, wish: "", custom: false };
-  }
   const now = new Date();
   const hour = now.getHours();
   const hi = hour >= 5 && hour < 11 ? "Доброе утро" : hour >= 11 && hour < 17 ? "Добрый день" : hour >= 17 && hour < 23 ? "Добрый вечер" : "Доброй ночи";
