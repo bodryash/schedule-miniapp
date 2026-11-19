@@ -55,6 +55,7 @@ const DB_PATH = process.env.DB_PATH || join(here, "..", "data", "schedule.sqlite
 // Сколько тела запроса принимаем: самое большое — план напоминаний на две
 // недели, это десятки килобайт. Больше — кто-то шлёт мусор.
 const BODY_LIMIT = 512 * 1024;
+const CLIENT_LOG = [];
 
 for (const name of ["BOT_TOKEN", "OWNER_ID"]) {
   if (!process.env[name]) {
@@ -498,6 +499,33 @@ const server = createServer(async (req, res) => {
         });
       res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
       res.end(JSON.stringify({ ok: true, files }));
+      return;
+    }
+
+    // Ошибки приложения с телефонов: короткий текст, без личных данных.
+    // Принимаем от всех (ошибки случаются до входа), храним последние 100.
+    if (req.url === "/clientlog" && req.method === "POST") {
+      try {
+        const data = JSON.parse(Buffer.from((await readBody(req)) || "{}").toString("utf8"));
+        const clip = (v, n) => String(v || "").replace(/[\u0000-\u001f]+/g, " ").slice(0, n);
+        CLIENT_LOG.push({ at: new Date().toISOString(), where: clip(data.where, 40), msg: clip(data.msg, 400), stack: clip(data.stack, 800), ua: clip(req.headers["user-agent"], 160), v: clip(data.v, 20) });
+        if (CLIENT_LOG.length > 100) CLIENT_LOG.splice(0, CLIENT_LOG.length - 100);
+      } catch {}
+      res.writeHead(204, { "access-control-allow-origin": "*" });
+      res.end();
+      return;
+    }
+    if (String(req.url).startsWith("/admin/clientlog")) {
+      let key = "";
+      try { key = readFileSync(READ_KEY_FILE, "utf8").trim(); } catch {}
+      const given = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      if (!key || given.length !== key.length || !(await import("node:crypto")).timingSafeEqual(Buffer.from(given), Buffer.from(key))) {
+        res.writeHead(404, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false }));
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: true, log: CLIENT_LOG }));
       return;
     }
 
