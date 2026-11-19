@@ -17839,3 +17839,22 @@ body.tint-vice[data-parity="even"] .day:not(.active) .day-dots i {
   from { opacity: 0; transform: scaleX(-1) translateY(40px) scale(0.92); }
   to { transform: scaleX(-1); }
 }
+
+/* Пальмы ещё мягче: дольше, без масштаба, лёгкий подъём и плавное
+   проявление по одной кривой. */
+.splash .vice-palm {
+  animation: vice-palm-soft 1800ms cubic-bezier(0.25, 0.1, 0.25, 1) 150ms both;
+  will-change: opacity, transform;
+}
+.splash .vice-palm--r {
+  animation-name: vice-palm-soft-r;
+  animation-delay: 350ms;
+}
+@keyframes vice-palm-soft {
+  from { opacity: 0; transform: translate3d(0, 18px, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+@keyframes vice-palm-soft-r {
+  from { opacity: 0; transform: scaleX(-1) translate3d(0, 18px, 0); }
+  to { transform: scaleX(-1) translate3d(0, 0, 0); }
+}
