@@ -2076,7 +2076,21 @@ function renderViceSky(on) {
     // Внутрь приветствия и поверх раскладки (position: absolute): строка
     // ничего не сдвигает, когда появляется.
     const hello = splash.querySelector(".splash-hello");
-    if (hello) hello.append(tag);
+    if (hello) {
+      hello.append(tag);
+      // Ровно посередине между приветствием и датой — какой бы ни была
+      // раскладка заставки (на свободный день промежуток другой).
+      const center = () => {
+        const day = splash.querySelector(".splash-day");
+        if (!day || !tag.isConnected) return;
+        const h = hello.getBoundingClientRect();
+        const d = day.getBoundingClientRect();
+        const titleBottom = (hello.querySelector(".splash-hello-title") || hello).getBoundingClientRect().bottom;
+        tag.style.top = `${Math.round((titleBottom + d.top) / 2 - h.top - tag.offsetHeight / 2)}px`;
+      };
+      requestAnimationFrame(center);
+      document.fonts?.ready.then(() => requestAnimationFrame(center));
+    }
   }
   if (sky) return;
   sky = el("div", "vice-sky");

@@ -17749,3 +17749,8 @@ body.tint-vice .tab.active {
 .splash-times {
   min-height: 24px;
 }
+/* Воздух под строку Вайс-Сити: зазор задан заранее (класс ставит
+   index.html до кода приложения), строка встаёт ровно посередине. */
+.vice-early .splash-hello {
+  margin-bottom: 26px;
+}
