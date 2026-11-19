@@ -2068,6 +2068,15 @@ function renderViceSky(on) {
   }
   // На заставке — тот же закат с пальмами: приложение открывается уже в Вайс-Сити.
   if (splash && !splash.querySelector(".vice-scene")) splash.append(viceScene());
+  // Под приветствием — отсылка: своя строка, само приветствие не трогаем
+  // (его рисует страница ещё до кода — подмена давала бы скачок).
+  if (splash && !splash.querySelector(".vice-tag")) {
+    const lines = ["Добро пожаловать в Вайс-Сити", "Леонида ждёт — но сначала пары", "Вайс-Сити не спит. Вы — тоже?", "Сегодня в эфире: пары и закат"];
+    const tag = el("div", "vice-tag", t(lines[(new Date().getDate() + new Date().getMonth()) % lines.length]));
+    const hello = splash.querySelector(".splash-hello");
+    if (hello) hello.after(tag);
+    else splash.prepend(tag);
+  }
   if (sky) return;
   sky = el("div", "vice-sky");
   sky.id = "vice-sky";
