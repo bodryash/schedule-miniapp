@@ -3308,3 +3308,51 @@ body.fm-open .minihead {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Окно поста, причёсано: заголовок по центру между кнопками и не наезжает,
+   миниатюра фото — ровный квадрат под текстом. */
+.sheet--fm-composer .fm-comp-top {
+  gap: 8px;
+  padding: 14px 12px 4px 6px;
+}
+.sheet--fm-composer .fm-comp-top h2 {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  font-size: 16px;
+}
+.sheet--fm-composer .fm-link,
+.sheet--fm-composer .fm-publish {
+  flex: none;
+}
+.sheet--fm-composer .fm-publish {
+  min-width: 0;
+  padding: 8px 16px;
+  font-size: 14px;
+}
+.fm-comp-photo {
+  margin: 4px 16px 0 64px;
+}
+.fm-comp-photo img {
+  width: 76px;
+  height: 76px;
+  max-width: none;
+  object-fit: cover;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px var(--fm-line);
+}
+.sheet--fm-composer .fm-comp-body {
+  flex-basis: 110px;
+}
+.sheet--fm-composer .fm-comp-as {
+  padding-top: 8px;
+  font-size: 13px;
+}
+/* Узкий экран: заголовок не влезает между кнопками — убираем, окно и так понятно. */
+@media (max-width: 380px) {
+  .sheet--fm-composer .fm-comp-top h2 {
+    visibility: hidden;
+  }
+}
