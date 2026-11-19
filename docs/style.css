@@ -17527,3 +17527,11 @@ body.pc-no-emoji .free-day {
 #lessons:not(.is-swap) > .free-day {
   animation: none !important;
 }
+
+/* Список пар сам не проявляется: у карточек своя анимация. Иначе после
+   заставки (снятие app-reveal) «appear» запускалась заново и весь
+   экран под шапкой гас и проявлялся второй раз. */
+#schedule > #lessons,
+body:not(.app-reveal) #schedule > #lessons {
+  animation: none !important;
+}
