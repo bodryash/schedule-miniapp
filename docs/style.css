@@ -17520,3 +17520,10 @@ body.pc-no-emoji .free-day {
 .free-day--pre {
   visibility: hidden;
 }
+
+/* Свободный день появляется своей сценой; общее «въезжание» карточек ему
+   нужно только при листании дней — иначе оно запускалось заново после
+   заставки, и экран «Пар нет» мигал. */
+#lessons:not(.is-swap) > .free-day {
+  animation: none !important;
+}
