@@ -17590,24 +17590,31 @@ body.tint-vice .card--now {
     radial-gradient(90% 40% at 110% 2%, color-mix(in srgb, #ff8a3d 22%, transparent), transparent 62%),
     radial-gradient(120% 50% at 50% 115%, color-mix(in srgb, #22d3d6 30%, transparent), transparent 66%);
 }
+.vice-scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
 .vice-sun {
   position: absolute;
-  right: -60px;
-  bottom: 120px;
-  width: 220px;
-  height: 220px;
-  border-radius: 50%;
-  background: linear-gradient(180deg, #ffc23d, #ff8a3d 45%, #ff2d95);
-  opacity: 0.22;
-  -webkit-mask: repeating-linear-gradient(180deg, #000 0 14px, transparent 14px 19px);
-  mask: repeating-linear-gradient(180deg, #000 0 14px, transparent 14px 19px);
+  left: 50%;
+  bottom: 70px;
+  width: 240px;
+  height: 120px;
+  margin-left: -120px;
+  border-radius: 120px 120px 0 0;
+  background: linear-gradient(180deg, #ffd23d, #ff8a3d 50%, #ff2d95);
+  opacity: 0.28;
+  -webkit-mask: linear-gradient(#000 0 40%, transparent 40% 48%, #000 48% 62%, transparent 62% 70%, #000 70% 80%, transparent 80% 87%, #000 87%);
+  mask: linear-gradient(#000 0 40%, transparent 40% 48%, #000 48% 62%, transparent 62% 70%, #000 70% 80%, transparent 80% 87%, #000 87%);
 }
 .vice-palm {
   position: absolute;
-  bottom: -6px;
-  width: 150px;
-  color: #1aa9b0;
-  opacity: 0.32;
+  bottom: -14px;
+  width: 170px;
+  color: #123a4f;
+  opacity: 0.2;
 }
 .vice-palm svg {
   display: block;
@@ -17616,17 +17623,51 @@ body.tint-vice .card--now {
   fill: currentColor;
 }
 .vice-palm--l {
-  left: -34px;
+  left: -48px;
 }
 .vice-palm--r {
-  right: -26px;
-  width: 120px;
-  bottom: -20px;
-  opacity: 0.26;
+  right: -40px;
+  width: 140px;
+  bottom: -30px;
+  transform: scaleX(-1);
 }
 @media (min-width: 900px) {
-  .vice-palm { width: 240px; }
-  .vice-palm--r { width: 200px; }
+  .vice-palm { width: 260px; }
+  .vice-palm--r { width: 220px; }
+}
+
+/* Заставка в Вайс-Сити: закатное небо, солнце в полоску, две пальмы,
+   дата — градиентом заката. */
+body.tint-vice .splash {
+  background: linear-gradient(180deg, #fff3f9 0%, #ffe1ee 45%, #ffd2b8 100%);
+}
+body.tint-vice .splash .vice-palm {
+  opacity: 0.85;
+  color: #1d2a4a;
+}
+body.tint-vice .splash .vice-sun {
+  opacity: 0.9;
+  bottom: 110px;
+}
+body.tint-vice .splash .vice-scene {
+  z-index: 0;
+}
+body.tint-vice .splash > :not(.vice-scene) {
+  position: relative;
+  z-index: 1;
+}
+body.tint-vice .splash-day,
+body.tint-vice .splash-hello-title span {
+  background: linear-gradient(100deg, #ff2d95, #ff8a3d 60%, #ffb43d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+body.tint-vice .splash-fill,
+body.tint-vice .splash-comet,
+body.tint-vice .splash-dot {
+  background: linear-gradient(90deg, #ff2d95, #22d3d6) !important;
 }
 
 /* Бирюза — второй цвет темы. */
@@ -17648,15 +17689,6 @@ body.tint-vice .day:not(.active) .day-dots i {
 }
 body.tint-vice .ribbon--chips .chip:not(:first-child) {
   border-color: color-mix(in srgb, #22d3d6 45%, transparent) !important;
-}
-.vice-palm {
-  width: 190px;
-  color: #19b4bb;
-  opacity: 0.4;
-}
-.vice-palm--r {
-  width: 150px;
-  opacity: 0.34;
 }
 body.tint-vice:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .days-drop,
 body.tint-vice #tabs .tabs-drop,
