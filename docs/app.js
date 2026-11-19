@@ -1826,6 +1826,15 @@ const COLOR_THEMES = [
 ];
 const COLOR_IDS = new Set(COLOR_THEMES.map(([id]) => id));
 
+// Один раз ставим всем Вайс-Сити, даже тем, кто выбирал свой цвет. Потом
+// человек может снова выбрать любой — повторно не переключаем.
+try {
+  if (localStorage.getItem("schedule.viceForced") !== "1") {
+    localStorage.setItem("schedule.colorTheme", "vice");
+    localStorage.setItem("schedule.viceForced", "1");
+  }
+} catch {}
+
 function colorTheme() {
   try {
     const saved = localStorage.getItem(COLOR_KEY);
