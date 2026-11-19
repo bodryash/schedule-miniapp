@@ -11138,6 +11138,9 @@ function freeDayPhrase(date) {
 
 function renderFreeDay() {
   const node = el("div", "empty free-day");
+  // Пока висит заставка, сцена стоит невидимой и не играет: соберётся
+  // один раз, когда заставка уйдёт (иначе она мелькала дважды).
+  if (els.splash?.isConnected && !els.splash.classList.contains("splash--gone")) node.classList.add("free-day--pre");
   const date = dateOfDay(selectedDay);
   const [emoji, title, line] = freeDayPhrase(date);
   // Сцена: значок падает сверху и пружинит, под ним расходится круг, вокруг
@@ -11219,7 +11222,13 @@ function renderLessons(group, parity) {
     placeOwn(own, dateOfDay(selectedDay));
     // Есть свои дела — вместо большой картинки «свободный день» показываем
     // ленту дня: видно, где в сутках стоит каждое дело.
-    const head = own.length ? renderOwnStrip(dateOfDay(selectedDay)) : renderFreeDay();
+    // Тот же свободный день уже на экране — оставляем его узел: повторная
+    // отрисовка (пришли замены, обновились данные) иначе заново играла
+    // появление, и надпись со значком мигали.
+    const dayKey = isoDate(dateOfDay(selectedDay));
+    const prev = els.lessons.querySelector(":scope > .free-day");
+    const head = own.length ? renderOwnStrip(dateOfDay(selectedDay)) : prev?.dataset.day === dayKey ? prev : renderFreeDay();
+    if (head.classList.contains("free-day")) head.dataset.day = dayKey;
     els.lessons.replaceChildren(head, ...own, ...(own.length ? [renderOwnAdd()] : []), ...[renderStarostaAsk()].filter(Boolean));
     refreshNext();
     return;
@@ -12346,12 +12355,13 @@ function openPcMore() {
     if (item.hidden || item.classList.contains("menu-off")) continue;
     const kind = item.dataset.menu;
     const spans = item.querySelectorAll(":scope > span");
-    const icon = spans[0]?.textContent || "•";
+    const icon = spans[0]?.textContent.trim() || "";
     let label = (spans[1] || item).textContent.trim();
     if (kind === "calendar") label = t("В мой календарь");
     const row = el("button", "pc-more-row");
     row.type = "button";
-    row.append(el("span", "pc-more-ic", icon), el("span", "pc-more-label", label));
+    if (icon) row.append(el("span", "pc-more-ic", icon));
+    row.append(el("span", "pc-more-label", label));
     row.addEventListener("click", () => {
       closePcMore();
       // То же действие, что и в мобильном меню.
@@ -14223,18 +14233,25 @@ function dropSplash() {
   // в этот же момент на экране заново собирается сцена «пар нет» — раньше
   // она успевала отыграть под заставкой, и открывалась уже застывшей.
   if (free && els.lessons?.querySelector(".free-day")) {
+    // Пары не проступают из тумана: иначе сцена сдвигается и мигает
+    // прямо под летящим значком.
+    document.body.classList.add("app-reveal--free");
+    setTimeout(() => document.body.classList.remove("app-reveal--free"), 900);
     // Значок не исчезает вместе с заставкой, а переезжает на своё место на
     // экране «пар нет»: заставка тает, он летит, сцена собирается вокруг.
-    const scene = renderFreeDay();
+    // Та же сцена, что уже стоит под заставкой (невидимой): без подмены
+    // узла — подмена давала мигание надписи и значка.
+    const scene = els.lessons.querySelector(".free-day");
     scene.classList.add("free-day--await");
-    // Меняем только сцену: «Своё дело» и другие плашки под ней остаются.
-    els.lessons.querySelector(".free-day").replaceWith(scene);
+    void scene.offsetWidth;
+    scene.classList.remove("free-day--pre");
     const from = splash.querySelector(".splash-free-emoji");
     const to = scene.querySelector(".free-day-emoji");
     if (from && to) flyEmoji(from, to, scene);
     else scene.classList.remove("free-day--await");
   }
   splash.classList.add("splash--gone");
+  els.lessons?.querySelectorAll(".free-day--pre").forEach((n) => n.classList.remove("free-day--pre"));
   // Расписание проступает из тумана вместе с уходом заставки.
   document.body.classList.add("app-reveal");
   setTimeout(() => document.body.classList.remove("app-reveal"), 900);
@@ -15203,7 +15220,14 @@ function closeDonor() {
     if (next === node.data) return;
     node.data = next;
     const host = node.parentElement;
-    if (host && !host.textContent.trim() && !host.querySelector("img, svg, canvas, video")) host.classList.add("pc-emoji-gone");
+    // Скрываем не только сам опустевший элемент, но и обёртки, в которых
+    // кроме него остались лишь украшения (подложки, градиенты, ореолы).
+    const empty = (n) => n && !n.textContent.trim() && !n.querySelector("img, svg, canvas, video, input, select, textarea");
+    let box = host;
+    while (empty(box) && box !== document.body && !box.matches("button, a, [role=button], #lessons, .screen, main")) {
+      box.classList.add("pc-emoji-gone");
+      box = box.parentElement;
+    }
   };
   const walk = (root) => {
     if (root.nodeType === 3) return clean(root);
