@@ -1791,7 +1791,7 @@ function initReminders() {
 
 // Брутал выдаёт владелец командой /theme, гламур человек находит сам —
 // словом «гламур» в поиске по МФК. Тема с сервера сильнее найденной.
-const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", devil: "devil", msu: "msu", birthday: "birthday", halloween: "halloween", trump: "trump", putin: "putin", magnate: "magnate" };
+const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", vice: "tint-vice", devil: "devil", msu: "msu", birthday: "birthday", halloween: "halloween", trump: "trump", putin: "putin", magnate: "magnate" };
 const GLAM_KEY = "schedule.glam";
 // Зелёную тему волонтёра человек может выключить сам и вернуть обратно.
 // Остальные выданные темы так не умеют.
@@ -1814,7 +1814,9 @@ const MSU_THEME_KEY = "schedule.msuTheme";
 // тема для тех, у кого факультет МГУ.
 const COLOR_THEMES = [
   // Обычный — цвет меняется с чётностью недели (синий / оранжевый).
-  ["", "Обычный", ["#2ea6ff", "#f0821e"]],
+  // Вайс-Сити (в духе GTA VI) — у всех по умолчанию, пока стоит «Обычный».
+  ["vice", "Вайс-Сити", ["#ff2d95", "#22d3d6"]],
+  ["plain", "Обычный", ["#2ea6ff", "#f0821e"]],
   ["ocean", "Бирюза", ["#0ea5e9", "#0ea5e9"]],
   ["mint", "Мята", ["#10b981", "#10b981"]],
   ["sunset", "Закат", ["#f97316", "#f97316"]],
@@ -1828,14 +1830,14 @@ function colorTheme() {
   try {
     const saved = localStorage.getItem(COLOR_KEY);
     // Неон и графит убрали — у кого были, видят обычное оформление.
-    if (saved !== null) return COLOR_IDS.has(saved) ? saved : "";
+    if (saved) return COLOR_IDS.has(saved) ? saved : "vice";
     // Раньше неон и МГУ включались отдельно — переносим их выбор.
     const neon = localStorage.getItem("schedule.neon");
     if (localStorage.getItem(MSU_THEME_KEY) === "1") return "msu";
   } catch {
-    // Без памяти — обычная.
+    // Без памяти — как у всех.
   }
-  return "";
+  return "vice";
 }
 
 function msuThemeOn() {
@@ -2063,6 +2065,8 @@ function applyTheme(granted = grantedTheme) {
   // Выданная тема сильнее; выключенный волонтёр уступает своей теме.
   const worn = volunteer && volunteerOff() ? "" : grantedTheme;
   const own = colorTheme();
+  // Не выбирал своё оформление — у всех Вайс-Сити. «Обычный», выбранный
+  // явно (после появления Вайс-Сити), сохраняется как "plain".
   const ownName = own === "msu" ? (inMsu() ? "msu" : "") : THEMES[own] ? own : "";
   // 31 октября у всех Хеллоуин, выданная тема всё равно сильнее.
   // Красное оформление Дня донора выключено для всех: дни донора и плашка остаются.

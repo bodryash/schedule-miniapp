@@ -7739,14 +7739,17 @@ body.tint-sunset { --tint1: #f97316; --tint2: #db2777; }
 body.tint-mint { --tint1: #10b981; --tint2: #0d9488; }
 body.tint-lavender { --tint1: #8b5cf6; --tint2: #c026d3; }
 body.tint-graphite { --tint1: #8291a8; --tint2: #5b6b82; }
-body.tint-cherry { --tint1: #e11d48; --tint2: #be123c; }
+body.tint-cherry 
+body.tint-vice { --tint1: #e11d48; --tint2: #be123c; }
+body.tint-vice { --tint1: #ff2d95; --tint2: #ff8a3d; --tint3: #22d3d6; }
 
 body.tint-ocean,
 body.tint-sunset,
 body.tint-mint,
 body.tint-lavender,
 body.tint-graphite,
-body.tint-cherry {
+body.tint-cherry ,
+body.tint-vice {
   --accent: var(--tint1);
   --accent-soft: color-mix(in srgb, var(--tint1) 15%, transparent);
   --accent-text: #ffffff;
@@ -7758,7 +7761,8 @@ body.tint-sunset::before,
 body.tint-mint::before,
 body.tint-lavender::before,
 body.tint-graphite::before,
-body.tint-cherry::before {
+body.tint-cherry::before ,
+body.tint-vice::before {
   background:
     radial-gradient(130% 55% at -10% -8%, color-mix(in srgb, var(--tint1) 20%, transparent), transparent 62%),
     radial-gradient(100% 46% at 112% 4%, color-mix(in srgb, var(--tint2) 18%, transparent), transparent 64%);
@@ -7770,18 +7774,21 @@ body.tint-mint .date,
 body.tint-lavender .date,
 body.tint-graphite .date,
 body.tint-cherry .date,
+body.tint-vice .date,
 body.tint-ocean .date-old,
 body.tint-sunset .date-old,
 body.tint-mint .date-old,
 body.tint-lavender .date-old,
 body.tint-graphite .date-old,
 body.tint-cherry .date-old,
+body.tint-vice .date-old,
 body.tint-ocean .date-new,
 body.tint-sunset .date-new,
 body.tint-mint .date-new,
 body.tint-lavender .date-new,
 body.tint-graphite .date-new,
-body.tint-cherry .date-new {
+body.tint-cherry .date-new ,
+body.tint-vice .date-new {
   background: linear-gradient(100deg, var(--tint1), var(--tint2)) 0 0 / 100% 100% no-repeat;
   -webkit-background-clip: text;
   background-clip: text;
@@ -7795,18 +7802,21 @@ body.tint-mint .room-badge,
 body.tint-lavender .room-badge,
 body.tint-graphite .room-badge,
 body.tint-cherry .room-badge,
+body.tint-vice .room-badge,
 body.tint-ocean .primary,
 body.tint-sunset .primary,
 body.tint-mint .primary,
 body.tint-lavender .primary,
 body.tint-graphite .primary,
 body.tint-cherry .primary,
+body.tint-vice .primary,
 body.tint-ocean .days-drop,
 body.tint-sunset .days-drop,
 body.tint-mint .days-drop,
 body.tint-lavender .days-drop,
 body.tint-graphite .days-drop,
-body.tint-cherry .days-drop {
+body.tint-cherry .days-drop ,
+body.tint-vice .days-drop {
   background: linear-gradient(135deg, var(--tint1), var(--tint2));
   color: #ffffff;
 }
@@ -7816,7 +7826,8 @@ body.tint-sunset .card--now,
 body.tint-mint .card--now,
 body.tint-lavender .card--now,
 body.tint-graphite .card--now,
-body.tint-cherry .card--now {
+body.tint-cherry .card--now ,
+body.tint-vice .card--now {
   box-shadow:
     -3px 0 0 0 var(--tint1),
     0 10px 28px -14px color-mix(in srgb, var(--tint2) 60%, transparent);
@@ -17543,4 +17554,26 @@ body:not(.app-reveal) #schedule > #lessons {
   font-weight: 600;
   color: var(--text);
   opacity: 0.78;
+}
+
+/* --- Вайс-Сити: неоновый закат в духе GTA VI ---
+   Розовый, оранжевый и бирюза; дата — градиентом заката, фон — тёплое
+   небо с пальмовой бирюзой снизу. В тёмной схеме — ночной неон. */
+body.tint-vice::before {
+  background:
+    radial-gradient(120% 50% at -10% -6%, color-mix(in srgb, #ff2d95 26%, transparent), transparent 60%),
+    radial-gradient(90% 44% at 110% 0%, color-mix(in srgb, #ff8a3d 26%, transparent), transparent 62%),
+    radial-gradient(110% 40% at 50% 112%, color-mix(in srgb, #22d3d6 20%, transparent), transparent 66%);
+}
+body.tint-vice .date,
+body.tint-vice .date-old,
+body.tint-vice .date-new {
+  background: linear-gradient(100deg, #ff2d95 0%, #ff8a3d 55%, #ffc23d 100%) 0 0 / 100% 100% no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+body.tint-vice .card--now {
+  box-shadow:
+    -3px 0 0 0 #22d3d6,
+    0 12px 30px -14px color-mix(in srgb, #ff2d95 70%, transparent);
 }
