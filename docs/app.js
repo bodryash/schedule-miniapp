@@ -11222,7 +11222,13 @@ function renderLessons(group, parity) {
     placeOwn(own, dateOfDay(selectedDay));
     // Есть свои дела — вместо большой картинки «свободный день» показываем
     // ленту дня: видно, где в сутках стоит каждое дело.
-    const head = own.length ? renderOwnStrip(dateOfDay(selectedDay)) : renderFreeDay();
+    // Тот же свободный день уже на экране — оставляем его узел: повторная
+    // отрисовка (пришли замены, обновились данные) иначе заново играла
+    // появление, и надпись со значком мигали.
+    const dayKey = isoDate(dateOfDay(selectedDay));
+    const prev = els.lessons.querySelector(":scope > .free-day");
+    const head = own.length ? renderOwnStrip(dateOfDay(selectedDay)) : prev?.dataset.day === dayKey ? prev : renderFreeDay();
+    if (head.classList.contains("free-day")) head.dataset.day = dayKey;
     els.lessons.replaceChildren(head, ...own, ...(own.length ? [renderOwnAdd()] : []), ...[renderStarostaAsk()].filter(Boolean));
     refreshNext();
     return;
