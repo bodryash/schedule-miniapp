@@ -275,7 +275,7 @@
     .splash-track { position: relative; width: min(300px, 100%); height: 18px; }
     .splash-line {
       position: absolute; left: 0; right: 0; top: 7px; height: 4px; border-radius: 4px;
-      background: var(--tg-theme-text-color, #0f0f0f); opacity: 0.1;
+      background: var(--tg-theme-text-color, #0f0f0f); opacity: 0;
     }
     .splash-day { will-change: transform, opacity; }
     .splash-donor { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: -10px; animation: hello-word 600ms cubic-bezier(0.2, 0.9, 0.25, 1) backwards; }
@@ -348,6 +348,7 @@
     }
   </script>
   <noscript><link rel="stylesheet" href="style.css"></noscript>
+  <link rel="preload" href="palm.svg" as="image" type="image/svg+xml">
 </head>
 <body data-shell="2">
   <!-- Какой шрифт выбран для шапки, заставке надо знать до первого кадра. -->
@@ -372,6 +373,51 @@
   </div>
   <!-- Дата на заставке — сразу, не дожидаясь кода приложения. Воскресенье
        теперь есть в полосе дней, поэтому заставка показывает сегодняшний день. -->
+  <script>
+    // Ошибки приложения — на сервер (только текст ошибки, без личных данных):
+    // так видно, что ломается на телефонах, где нет консоли.
+    (function () {
+      var sent = 0;
+      function report(where, err) {
+        if (++sent > 8) return;
+        try {
+          var body = JSON.stringify({ where: where, msg: String((err && (err.message || err.reason)) || err), stack: String((err && err.stack) || "").slice(0, 800), v: String(window.__v || "") });
+          if (navigator.sendBeacon) navigator.sendBeacon("https://api.bodryash.ru/clientlog", body);
+          else fetch("https://api.bodryash.ru/clientlog", { method: "POST", body: body, keepalive: true });
+        } catch (e) {}
+      }
+      window.__report = report;
+      window.addEventListener("error", function (e) { report("error", e.error || e.message); });
+      window.addEventListener("unhandledrejection", function (e) { report("promise", e.reason); });
+    })();
+  </script>
+  <script>
+    // Вайс-Сити (тема по умолчанию): место под строку-отсылку на заставке —
+    // сразу, до кода приложения, чтобы потом ничего не сдвинулось.
+    (function () { try {
+      var vc = localStorage.getItem("schedule.colorTheme");
+      if (!vc || vc === "vice") {
+        document.documentElement.classList.add("vice-early");
+        var sp = document.getElementById("splash"), day = document.getElementById("splash-day");
+        if (sp && day && !sp.querySelector(".vice-tag")) {
+          var lines = ["Добро пожаловать в Вайс-Сити", "Леонида ждёт — но сначала пары", "Вайс-Сити не спит. Вы — тоже?", "Сегодня в эфире: пары и закат"];
+          var now = new Date(), tag = document.createElement("div");
+          tag.className = "vice-tag";
+          tag.textContent = lines[(now.getDate() + now.getMonth()) % lines.length];
+          sp.insertBefore(tag, day);
+        }
+        // Пальмы — сразу с заставкой, а не когда загрузится код приложения:
+        // иначе они выскакивали посреди открытия.
+        if (sp && !sp.querySelector(".vice-scene")) {
+          var scene = document.createElement("div");
+          scene.className = "vice-scene";
+          scene.setAttribute("aria-hidden", "true");
+          scene.innerHTML = '<img class="vice-palm vice-palm--l" src="palm.svg" alt=""><img class="vice-palm vice-palm--r" src="palm.svg" alt="">';
+          sp.appendChild(scene);
+        }
+      }
+    } catch (e) {} })();
+  </script>
   <script>
     (function () {
       try {
