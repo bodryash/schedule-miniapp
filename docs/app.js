@@ -2064,34 +2064,11 @@ function renderViceSky(on) {
   const splash = els.splash?.isConnected ? els.splash : null;
   if (!on) {
     splash?.querySelector(".vice-scene")?.remove();
+    splash?.querySelector(".vice-tag")?.remove();
     return sky?.remove();
   }
   // На заставке — тот же закат с пальмами: приложение открывается уже в Вайс-Сити.
   if (splash && !splash.querySelector(".vice-scene")) splash.append(viceScene());
-  // Под приветствием — отсылка: своя строка, само приветствие не трогаем
-  // (его рисует страница ещё до кода — подмена давала бы скачок).
-  if (splash && !splash.querySelector(".vice-tag")) {
-    const lines = ["Добро пожаловать в Вайс-Сити", "Леонида ждёт — но сначала пары", "Вайс-Сити не спит. Вы — тоже?", "Сегодня в эфире: пары и закат"];
-    const tag = el("div", "vice-tag", t(lines[(new Date().getDate() + new Date().getMonth()) % lines.length]));
-    // Внутрь приветствия и поверх раскладки (position: absolute): строка
-    // ничего не сдвигает, когда появляется.
-    const hello = splash.querySelector(".splash-hello");
-    if (hello) {
-      hello.append(tag);
-      // Ровно посередине между приветствием и датой — какой бы ни была
-      // раскладка заставки (на свободный день промежуток другой).
-      const center = () => {
-        const day = splash.querySelector(".splash-day");
-        if (!day || !tag.isConnected) return;
-        const h = hello.getBoundingClientRect();
-        const d = day.getBoundingClientRect();
-        const titleBottom = (hello.querySelector(".splash-hello-title") || hello).getBoundingClientRect().bottom;
-        tag.style.top = `${Math.round((titleBottom + d.top) / 2 - h.top - tag.offsetHeight / 2)}px`;
-      };
-      requestAnimationFrame(center);
-      document.fonts?.ready.then(() => requestAnimationFrame(center));
-    }
-  }
   if (sky) return;
   sky = el("div", "vice-sky");
   sky.id = "vice-sky";
@@ -14029,9 +14006,7 @@ function renderHello() {
     return line;
   };
   // На заставке — только приветствие и дата, без пожелания.
-  const viceTag = box.querySelector(".vice-tag");
   box.replaceChildren(words(title, "splash-hello-title"));
-  if (viceTag) box.append(viceTag);
   // Место под «Сегодня N пар» — сразу: когда текст придёт, ничего не сдвинется.
   if (window.matchMedia?.("(min-width: 900px)").matches) box.append(el("div", "splash-hello-wish splash-today", "\u00a0"));
   try {

@@ -375,10 +375,20 @@
   <script>
     // Вайс-Сити (тема по умолчанию): место под строку-отсылку на заставке —
     // сразу, до кода приложения, чтобы потом ничего не сдвинулось.
-    try {
+    (function () { try {
       var vc = localStorage.getItem("schedule.colorTheme");
-      if (!vc || vc === "vice") document.documentElement.classList.add("vice-early");
-    } catch (e) {}
+      if (!vc || vc === "vice") {
+        document.documentElement.classList.add("vice-early");
+        var sp = document.getElementById("splash"), day = document.getElementById("splash-day");
+        if (sp && day && !sp.querySelector(".vice-tag")) {
+          var lines = ["Добро пожаловать в Вайс-Сити", "Леонида ждёт — но сначала пары", "Вайс-Сити не спит. Вы — тоже?", "Сегодня в эфире: пары и закат"];
+          var now = new Date(), tag = document.createElement("div");
+          tag.className = "vice-tag";
+          tag.textContent = lines[(now.getDate() + now.getMonth()) % lines.length];
+          sp.insertBefore(tag, day);
+        }
+      }
+    } catch (e) {} })();
   </script>
   <script>
     (function () {

@@ -17715,27 +17715,22 @@ body.tint-vice .tab.active {
 .vice-sun {
   display: none !important;
 }
-/* Строка-отсылка под приветствием на заставке Вайс-Сити: лежит поверх
-   раскладки и только проявляется — ничего вокруг не двигает. */
-.splash-hello:has(> .vice-tag) {
-  position: relative;
-}
+/* Строка-отсылка на заставке Вайс-Сити — обычный элемент между
+   приветствием и датой, с тем же зазором, что у остальных; ставится сразу
+   при открытии (index.html), поэтому ничего не сдвигает. */
 .vice-tag {
-  position: absolute;
-  left: 50%;
-  top: calc(100% + 2px);
-  transform: translateX(-50%);
-  white-space: nowrap;
   font-size: 14px;
   font-weight: 700;
+  line-height: 1.2;
   letter-spacing: 0.02em;
   text-align: center;
+  white-space: nowrap;
   background: linear-gradient(90deg, #ff2d95, #22d3d6);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  animation: vice-tag-in 700ms ease 350ms both;
+  animation: vice-tag-in 700ms ease 200ms both;
 }
 @keyframes vice-tag-in {
   from { opacity: 0; }
@@ -17748,9 +17743,4 @@ body.tint-vice .tab.active {
    раздвигала заставку, дата и приветствие прыгали на 12 px. */
 .splash-times {
   min-height: 24px;
-}
-/* Воздух под строку Вайс-Сити: зазор задан заранее (класс ставит
-   index.html до кода приложения), строка встаёт ровно посередине. */
-.vice-early .splash-hello {
-  margin-bottom: 26px;
 }
