@@ -17577,3 +17577,89 @@ body.tint-vice .card--now {
     -3px 0 0 0 #22d3d6,
     0 12px 30px -14px color-mix(in srgb, #ff2d95 70%, transparent);
 }
+
+/* Вайс-Сити: бирюза и пальмы. */
+.vice-sky {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 46% at -10% -4%, color-mix(in srgb, #ff2d95 22%, transparent), transparent 60%),
+    radial-gradient(90% 40% at 110% 2%, color-mix(in srgb, #ff8a3d 22%, transparent), transparent 62%),
+    radial-gradient(120% 50% at 50% 115%, color-mix(in srgb, #22d3d6 30%, transparent), transparent 66%);
+}
+.vice-sun {
+  position: absolute;
+  right: -60px;
+  bottom: 120px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ffc23d, #ff8a3d 45%, #ff2d95);
+  opacity: 0.22;
+  -webkit-mask: repeating-linear-gradient(180deg, #000 0 14px, transparent 14px 19px);
+  mask: repeating-linear-gradient(180deg, #000 0 14px, transparent 14px 19px);
+}
+.vice-palm {
+  position: absolute;
+  bottom: -6px;
+  width: 150px;
+  color: #1aa9b0;
+  opacity: 0.32;
+}
+.vice-palm svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  fill: currentColor;
+}
+.vice-palm--l {
+  left: -34px;
+}
+.vice-palm--r {
+  right: -26px;
+  width: 120px;
+  bottom: -20px;
+  opacity: 0.26;
+}
+@media (min-width: 900px) {
+  .vice-palm { width: 240px; }
+  .vice-palm--r { width: 200px; }
+}
+
+/* Бирюза — второй цвет темы. */
+body.tint-vice .week {
+  color: #0b7f85 !important;
+  background: color-mix(in srgb, #22d3d6 20%, transparent) !important;
+}
+body.tint-vice #lessons details > summary {
+  color: #0b7f85 !important;
+  background: color-mix(in srgb, #22d3d6 18%, transparent) !important;
+}
+body.tint-vice .day.active,
+body.tint-vice .days-drop {
+  background: linear-gradient(150deg, #ff2d95 0%, #c04bff 60%, #22d3d6 115%) !important;
+  color: #fff !important;
+}
+body.tint-vice .day:not(.active) .day-dots i {
+  background: #22d3d6 !important;
+}
+body.tint-vice .ribbon--chips .chip:not(:first-child) {
+  border-color: color-mix(in srgb, #22d3d6 45%, transparent) !important;
+}
+.vice-palm {
+  width: 190px;
+  color: #19b4bb;
+  opacity: 0.4;
+}
+.vice-palm--r {
+  width: 150px;
+  opacity: 0.34;
+}
+body.tint-vice:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .days-drop,
+body.tint-vice #tabs .tabs-drop,
+body.tint-vice .tab.active {
+  background: linear-gradient(150deg, #ff2d95 0%, #c04bff 60%, #22d3d6 115%) !important;
+}

@@ -2042,6 +2042,26 @@ function giftedTheme() {
   return GIFTED_THEMES[nick] || "";
 }
 
+/* Вайс-Сити: пальмы и закатное небо за расписанием — отдельный слой,
+ * потому что body::before/::after у нас отключены. */
+const PALM = (flip) =>
+  `<svg viewBox="0 0 120 220" aria-hidden="true"${flip ? ' style="transform:scaleX(-1)"' : ""}>` +
+  '<path d="M64 218c-2-40 2-86 10-128l6 1c-8 42-11 87-9 127z"/>' +
+  '<path d="M77 92c-14-20-38-30-66-26 22 4 40 14 52 32-18-10-38-12-58-4 24 0 44 8 58 22-14 2-30 12-38 28 14-12 30-18 48-18z"/>' +
+  '<path d="M78 92c10-24 30-40 58-44-20 10-34 24-42 42 16-14 36-20 56-16-22 6-40 16-52 32 18-4 38 2 50 16-16-8-34-10-50-4z"/>' +
+  '<path d="M76 90c-2-22 6-44 22-62-8 20-10 40-6 58z"/>' +
+  "</svg>";
+function renderViceSky(on) {
+  let sky = document.getElementById("vice-sky");
+  if (!on) return sky?.remove();
+  if (sky) return;
+  sky = el("div", "vice-sky");
+  sky.id = "vice-sky";
+  sky.setAttribute("aria-hidden", "true");
+  sky.innerHTML = `<div class="vice-sun"></div><div class="vice-palm vice-palm--l">${PALM(false)}</div><div class="vice-palm vice-palm--r">${PALM(true)}</div>`;
+  document.body.prepend(sky);
+}
+
 function applyTheme(granted = grantedTheme) {
   rememberLook();
   grantedTheme = giftedTheme() || granted || "";
@@ -2086,6 +2106,7 @@ function applyTheme(granted = grantedTheme) {
   renderFlagTheme("putin", name === "putin");
   renderFlagTheme("magnate", name === "magnate");
   renderNokia(name === "nokia");
+  renderViceSky(name === "vice");
   // Именинник: салют один раз за день, когда заставка ушла.
   if (name === "birthday") {
     const today = new Date().toDateString();
