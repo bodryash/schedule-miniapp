@@ -17535,3 +17535,12 @@ body.pc-no-emoji .free-day {
 body:not(.app-reveal) #schedule > #lessons {
   animation: none !important;
 }
+
+/* Поиск → предметы: кто ведёт. */
+.teacher-who {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  opacity: 0.78;
+}

@@ -11111,6 +11111,8 @@ const FREE_DAYS = [
   ["🧘", "Пар нет", "Выдохните — день свободен"],
   ["🌙", "Пар нет", "Можно выспаться за всю неделю"],
   ["🎧", "Пар нет", "Время для своих дел и любимой музыки"],
+  ["🌴", "Пар нет", "Вайс-Сити сам себя не исследует — GTA VI ждёт"],
+  ["🚗", "Пар нет", "Идеальный день прокатиться по Леониде в GTA VI"],
 ];
 
 const SUNDAYS = [
@@ -11119,6 +11121,7 @@ const SUNDAYS = [
   ["🍳", "Воскресенье", "Поздний завтрак — законная традиция"],
   ["🚶", "Воскресенье", "Погулять, пока неделя не началась"],
   ["🎬", "Воскресенье", "Фильм, сериал или книга — выбирайте"],
+  ["🌴", "Воскресенье", "Пары подождут, а Вайс-Сити — нет. GTA VI?"],
 ];
 
 /** Значок, заголовок и подпись свободного дня; у одной даты — всегда одни. */
@@ -11898,18 +11901,26 @@ function groupFacts(kind) {
   const group = activeGroup();
   if (!group) return [];
   const counts = new Map();
+  const add = (lesson) => {
+    const key = kind === "room" ? lesson.room : lesson.subject;
+    if (!key) return;
+    if (!counts.has(key)) counts.set(key, { key, lessons: 0, extra: new Set(), teachers: new Set() });
+    const item = counts.get(key);
+    item.lessons += 1;
+    item.extra.add(kind === "room" ? lesson.subject : lesson.room);
+    for (const person of teachersOf(lesson.teacher)) if (person.surname) item.teachers.add(person.surname);
+  };
   for (const lesson of data.lessons) {
     const mine = group.teacher
       ? teachersOf(lesson.teacher).some((p) => p.key === group.teacher)
       : lesson.group === group.id && matchesPrefs(lesson);
     if (!mine) continue;
-    const key = kind === "room" ? lesson.room : lesson.subject;
-    if (!key) continue;
-    if (!counts.has(key)) counts.set(key, { key, lessons: 0, extra: new Set() });
-    const item = counts.get(key);
-    item.lessons += 1;
-    item.extra.add(kind === "room" ? lesson.subject : lesson.room);
+    // Общая строка МФК, если человек отметил свои курсы, — это его курсы:
+    // каждый отдельным предметом (добавляем ниже), а не одна строка на все.
+    if (kind !== "room" && !group.teacher && isMfkLesson(lesson.subject) && myMfk().length) continue;
+    add(lesson);
   }
+  if (kind !== "room" && !group.teacher) for (let day = 1; day <= 7; day++) mfkLessons(day).forEach(add);
   return [...counts.values()].sort((a, b) => b.lessons - a.lessons);
 }
 
@@ -11921,6 +11932,11 @@ function renderFactCard(item) {
   const body = el("div", "teacher-body");
   body.append(el("div", "teacher-name", withFlag(title)));
   body.append(el("div", "teacher-meta", lessonsCount(item.lessons)));
+  // У предмета — кто его ведёт: фамилии преподавателей.
+  if (searchKind !== "room" && item.teachers?.size) {
+    const names = [...item.teachers];
+    body.append(el("div", "teacher-who", names.slice(0, 4).join(", ") + (names.length > 4 ? ` +${names.length - 4}` : "")));
+  }
   const tags = el("div", "teacher-subjects");
   for (const extra of [...item.extra].filter(Boolean).slice(0, 6)) {
     tags.append(el("span", "tag", searchKind === "room" ? tr(extra) : roomLabel(extra)));
