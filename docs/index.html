@@ -396,6 +396,7 @@
     // сразу, до кода приложения, чтобы потом ничего не сдвинулось.
     (function () { try {
       var vc = localStorage.getItem("schedule.colorTheme");
+      if (localStorage.getItem("schedule.viceForced") !== "1") vc = "vice";
       if (!vc || vc === "vice") {
         document.documentElement.classList.add("vice-early");
         var sp = document.getElementById("splash"), day = document.getElementById("splash-day");
