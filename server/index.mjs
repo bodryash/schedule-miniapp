@@ -94,6 +94,8 @@ for (const change of [
   // Голосование стрелками: +1 «за», −1 «против». Прежние лайки остаются голосами «за».
   "ALTER TABLE forum_likes ADD COLUMN v INTEGER NOT NULL DEFAULT 1",
   "ALTER TABLE forum_reply_likes ADD COLUMN v INTEGER NOT NULL DEFAULT 1",
+  // Подслушка: фото в посте — имя файла в папке forum-img.
+  "ALTER TABLE forum_posts ADD COLUMN photo TEXT",
 ]) {
   try {
     STATS.raw.exec(change);
@@ -110,6 +112,27 @@ const env = {
   STATS_SALT: process.env.STATS_SALT,
   WEBHOOK_SECRET: process.env.WEBHOOK_SECRET,
   GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+};
+
+// Фото Подслушки: файлы рядом с базой. Имя — случайное (32 знака), его не
+// угадать, поэтому фото на проверке никто, кроме автора и модераторов, не видит.
+const FORUM_IMG = join(dirname(DB_PATH), "forum-img");
+mkdirSync(FORUM_IMG, { recursive: true });
+const imgPath = (name) => (/^[0-9a-f]{32}\.(jpg|webp)$/.test(String(name)) ? join(FORUM_IMG, name) : null);
+globalThis.SCHEDULE_FORUM_IMG = {
+  save(name, bytes) {
+    const path = imgPath(name);
+    if (!path) throw new Error("bad name");
+    writeFileSync(path, bytes);
+  },
+  read(name) {
+    const path = imgPath(name);
+    return path && existsSync(path) ? readFileSync(path) : null;
+  },
+  remove(name) {
+    const path = imgPath(name);
+    if (path && existsSync(path)) unlinkSync(path);
+  },
 };
 
 // Расписания новых факультетов, которые студенты присылают боту, кладём в

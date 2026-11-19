@@ -40,6 +40,61 @@ const REPLY_GAP_SEC = 8;
 const FLOOD_POSTS_PER_HOUR = 25;
 const TAG_MAX = 40;
 
+/* ---------- Фото в постах: правила ----------
+ * • одно фото на пост, только в постах (не в ответах);
+ * • приложение само сжимает до 1280 px и JPEG — метаданные (геометка,
+ *   модель телефона) при этом стираются; сервер берёт только JPEG/WebP
+ *   и не больше PHOTO_MAX;
+ * • не больше PHOTO_PER_DAY постов с фото в сутки на человека и
+ *   PHOTO_GAP_MIN минут между ними;
+ * • на всю Подслушку — не больше PHOTO_PER_HOUR фото в час (дальше пауза);
+ * • режим проверки (/forum photo): all — каждое фото ждёт модератора
+ *   (по умолчанию), new — только у тех, кого ещё не одобряли, off — фото выключены;
+ * • пост с фото скрывается уже после PHOTO_REPORTS_TO_HIDE жалоб;
+ * • удалённый пост — фото стирается с сервера сразу. */
+const PHOTO_MAX = 360 * 1024; // base64 + JSON укладываются в 512 КБ запроса
+const PHOTO_PER_DAY = 3;
+const PHOTO_GAP_MIN = 10;
+const PHOTO_PER_HOUR = 30;
+const PHOTO_REPORTS_TO_HIDE = 2;
+const IMG = () => globalThis.SCHEDULE_FORUM_IMG || null;
+
+function decodePhoto(raw) {
+  const b64 = String(raw || "").replace(/^data:image\/[a-z]+;base64,/, "");
+  if (!b64 || b64.length > Math.ceil(PHOTO_MAX / 3) * 4 + 8) return { error: "Фото слишком большое." };
+  let bytes;
+  try {
+    bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  } catch {
+    return { error: "Фото не прочиталось." };
+  }
+  const jpg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  const webp = String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" && String.fromCharCode(...bytes.slice(8, 12)) === "WEBP";
+  if (!jpg && !webp) return { error: "Подходят только фотографии (JPEG)." };
+  if (bytes.length > PHOTO_MAX || bytes.length < 1024) return { error: "Фото не подходит по размеру." };
+  return { bytes, ext: jpg ? "jpg" : "webp" };
+}
+
+function dropPhoto(name) {
+  try {
+    if (name) IMG()?.remove(name);
+  } catch {}
+}
+
+/** Фото на проверку владельцу — картинкой, с теми же кнопками. */
+async function notifyPhoto(env, name, caption, keyboard) {
+  const bytes = IMG()?.read(name);
+  if (!bytes) return;
+  const form = new FormData();
+  form.append("chat_id", String(env.OWNER_ID));
+  form.append("caption", caption.slice(0, 1000));
+  form.append("parse_mode", "HTML");
+  form.append("has_spoiler", "true");
+  if (keyboard) form.append("reply_markup", JSON.stringify({ inline_keyboard: keyboard }));
+  form.append("photo", new Blob([bytes], { type: "image/jpeg" }), name);
+  await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendPhoto`, { method: "POST", body: form, signal: AbortSignal.timeout(20000) });
+}
+
 const isOwner = (env, id) => String(id) === String(env.OWNER_ID);
 const nowIso = () => new Date(Date.now()).toISOString();
 const dayStartUtc = () => {
@@ -282,6 +337,7 @@ const REPORT_REASONS = {
   abuse: "оскорбления или травля",
   private: "личные данные",
   danger: "угрозы или опасное",
+  photo: "неприемлемое фото",
   other: "другое",
 };
 
@@ -321,6 +377,8 @@ function viewPost(env, row, user, perm, vote) {
     challenge: row.challenge ? true : undefined,
     best: row.best ? true : undefined,
     text: row.text,
+    // Фото на проверке видят только автор и модераторы.
+    photo: row.photo && (row.hidden === 0 || mine || perm.staff) ? `/forum/img/${row.photo}` : undefined,
     created: row.created,
     edited: row.edited ? true : undefined,
     // Рейтинг: голосов «за» минус голосов «против» (может быть отрицательным).
@@ -588,8 +646,8 @@ async function replies(env, body, user, who, ban) {
 }
 
 /** Общая проверка перед записью поста/ответа. Возвращает { fail } или { hold, flood }. */
-async function gate(env, user, who, kind, text, notify) {
-  const screen = screenText(text);
+async function gate(env, user, who, kind, text, notify, { photo = false } = {}) {
+  const screen = screenText(text, { allowEmpty: photo });
   if (who.owner) return { hold: "" };
   if (screen.block) return { fail: fail("blocked", 422, { reason: screen.block }) };
 
@@ -608,7 +666,7 @@ async function gate(env, user, who, kind, text, notify) {
     return { fail: fail("slow", 429, { reason: `Подождите ${gap} секунд между сообщениями.` }) };
   }
   // Повтор (свой или чужой) за последний час — нет: так не копируют рассылку.
-  if ((recent.results || []).some((r) => similarity(r.text, text) >= 0.9)) {
+  if (text && (recent.results || []).some((r) => similarity(r.text, text) >= 0.9)) {
     return { fail: fail("duplicate", 422, { reason: "Такое уже писали." }) };
   }
 
@@ -635,29 +693,58 @@ async function createPost(env, body, user, who, notify) {
   const text = String(body.text || "").trim();
   if (text.length > POST_MAX) return fail("too long");
   const tag = String(body.tag || "").trim().slice(0, TAG_MAX);
-  const verdict = await gate(env, user, who, "p", text, notify);
+  let photo = null;
+  let photoHold = "";
+  if (body.photo) {
+    const mode = await setting(env, "forum_photo", "all");
+    if (mode === "off" && !who.owner) return fail("photo", 422, { reason: "Фото в Подслушке сейчас выключены." });
+    if (!IMG()) return fail("photo", 503, { reason: "Фото сейчас не принимаются." });
+    const got = decodePhoto(body.photo);
+    if (got.error) return fail("photo", 422, { reason: got.error });
+    if (!who.owner) {
+      const [mine, last, hour] = await Promise.all([
+        env.STATS.prepare("SELECT COUNT(*) AS n FROM forum_posts WHERE tg_id = ? AND photo IS NOT NULL AND created >= ?").bind(user.id, dayStartUtc()).first(),
+        env.STATS.prepare("SELECT created FROM forum_posts WHERE tg_id = ? AND photo IS NOT NULL ORDER BY id DESC LIMIT 1").bind(user.id).first(),
+        env.STATS.prepare("SELECT COUNT(*) AS n FROM forum_posts WHERE photo IS NOT NULL AND created > ?").bind(new Date(Date.now() - 3600000).toISOString()).first(),
+      ]);
+      if (mine.n >= PHOTO_PER_DAY) return fail("limit", 429, { reason: `Не больше ${PHOTO_PER_DAY} постов с фото в сутки.` });
+      if (last && Date.now() - new Date(last.created).getTime() < PHOTO_GAP_MIN * 60000) {
+        return fail("slow", 429, { reason: `Следующее фото — через ${PHOTO_GAP_MIN} минут после прошлого.` });
+      }
+      if (hour.n >= PHOTO_PER_HOUR) return fail("limit", 429, { reason: "Сейчас слишком много фото — попробуйте через час." });
+      if (mode === "all") photoHold = "фото — проверка модератором";
+      else {
+        const trusted = await env.STATS.prepare("SELECT 1 AS ok FROM forum_trusted WHERE tg_id = ?").bind(user.id).first();
+        if (!trusted) photoHold = "фото от нового автора";
+      }
+    }
+    photo = { ...got, name: `${[...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("")}.${got.ext}` };
+  }
+  const verdict = await gate(env, user, who, "p", text, notify, { photo: Boolean(photo) });
   if (verdict.fail) return verdict.fail;
+  if (photoHold && !verdict.hold) verdict.hold = photoHold;
+  if (photo) IMG().save(photo.name, photo.bytes);
   if (tag && screenText(tag, { allowEmpty: true }).block) return fail("blocked", 422, { reason: "Подпись вуза не подходит." });
   const anon = body.anon === false ? 0 : 1;
   const hidden = verdict.hold ? 3 : 0;
   const result = await env.STATS.prepare(
-    `INSERT INTO forum_posts (tg_id, name, username, anon, text, created, hidden, held_for, tag, challenge)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+    `INSERT INTO forum_posts (tg_id, name, username, anon, text, created, hidden, held_for, tag, challenge, photo)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
   )
-    .bind(user.id, displayName(user), user.username || null, anon, text, nowIso(), hidden, verdict.hold ? verdict.hold + (verdict.hit ? ` («${verdict.hit}»)` : "") : "", tag, body.challenge && body.challenge === mskDay() ? mskDay() : null)
+    .bind(user.id, displayName(user), user.username || null, anon, text, nowIso(), hidden, verdict.hold ? verdict.hold + (verdict.hit ? ` («${verdict.hit}»)` : "") : "", tag, body.challenge && body.challenge === mskDay() ? mskDay() : null, photo ? photo.name : null)
     .first();
   if (hidden) {
-    await notify(
-      [
-        `📝 <b>Подслушка: пост №${result.id} ждёт проверки</b>`,
-        `Причина: <b>${escape(verdict.hold)}</b>${verdict.hit ? ` — сработало на «${escape(verdict.hit)}»` : ""}`,
-        `Автор: ${AUTHOR_LINK({ tg_id: user.id, name: displayName(user), username: user.username })}`,
-        `Показан как: ${anon ? "аноним" : "под именем"}`,
-        "",
-        snippet(text),
-      ].join("\n"),
-      buttons("p", result.id, { review: true })
-    ).catch(() => {});
+    const lines = [
+      `📝 <b>Подслушка: пост №${result.id} ждёт проверки</b>`,
+      `Причина: <b>${escape(verdict.hold)}</b>${verdict.hit ? ` — сработало на «${escape(verdict.hit)}»` : ""}`,
+      `Автор: ${AUTHOR_LINK({ tg_id: user.id, name: displayName(user), username: user.username })}`,
+      `Показан как: ${anon ? "аноним" : "под именем"}`,
+      "",
+      snippet(text, photo ? 400 : 500),
+    ].join("\n");
+    // С фото — присылаем само фото (под спойлером), чтобы решить по нему.
+    const sent = photo ? await notifyPhoto(env, photo.name, lines, buttons("p", result.id, { review: true })).then(() => true, () => false) : false;
+    if (!sent) await notify(lines + (photo ? "\n\n🖼 С фото — откройте в приложении." : ""), buttons("p", result.id, { review: true })).catch(() => {});
   }
   const row = await env.STATS.prepare("SELECT * FROM forum_posts WHERE id = ?").bind(result.id).first();
   return {
@@ -790,7 +877,7 @@ async function edit(env, body, user, who, notify) {
   if (!row || row.hidden === 2 || row.hidden === 1) return fail("not found", 404);
   if (row.tg_id !== user.id) return fail("forbidden", 403);
   if (text === row.text) return { status: 200, json: { ok: true, same: true } };
-  const screen = screenText(text);
+  const screen = screenText(text, { allowEmpty: Boolean(row.photo) });
   if (screen.block) return fail("blocked", 422, { reason: screen.block });
   const table = kind === "p" ? "forum_posts" : "forum_replies";
   const hold = screen.hold && !who.owner ? screen.hold : "";
@@ -828,7 +915,8 @@ async function report(env, body, user, who, notify) {
     .run();
   if (!added.meta?.changes) return { status: 200, json: { ok: true, already: true } };
   const reports = row.reports + 1;
-  const hide = reports >= REPORTS_TO_HIDE;
+  const limit = row.photo ? PHOTO_REPORTS_TO_HIDE : REPORTS_TO_HIDE;
+  const hide = reports >= limit;
   const table = kind === "p" ? "forum_posts" : "forum_replies";
   await env.STATS.prepare(`UPDATE ${table} SET reports = ?, hidden = ? WHERE id = ?`).bind(reports, hide ? 1 : 0, id).run();
   if (hide && kind === "r") await env.STATS.prepare("UPDATE forum_posts SET replies = MAX(replies - 1, 0) WHERE id = ?").bind(row.post).run();
@@ -850,7 +938,7 @@ async function report(env, body, user, who, notify) {
   // Каждая жалоба — владельцу: первая тихо (без звука), скрытие — со звуком.
   await notify(
     [
-      hide ? `⚠️ <b>Подслушка: ${label} №${id} скрыт после ${reports} жалоб</b>` : `🚩 Подслушка: жалоба на ${label} №${id} (${reports} из ${REPORTS_TO_HIDE})`,
+      hide ? `⚠️ <b>Подслушка: ${label} №${id} скрыт после ${reports} жалоб</b>` : `🚩 Подслушка: жалоба на ${label} №${id} (${reports} из ${limit})`,
       `Причина: ${escape(reasons)}`,
       `Жалуются:\n${reporters}`,
       `Автор: ${AUTHOR_LINK(row)} · показан как ${row.anon ? "аноним" : "под именем"}`,
@@ -907,6 +995,10 @@ async function applyAction(env, action, kind, row) {
   const visibleNow = row.hidden === 0;
   if (action === "del") {
     await env.STATS.prepare(`UPDATE ${table} SET hidden = 2 WHERE id = ?`).bind(row.id).run();
+    if (kind === "p" && row.photo) {
+      dropPhoto(row.photo);
+      await env.STATS.prepare("UPDATE forum_posts SET photo = NULL WHERE id = ?").bind(row.id).run();
+    }
     if (kind === "r" && visibleNow) await env.STATS.prepare("UPDATE forum_posts SET replies = MAX(replies - 1, 0) WHERE id = ?").bind(row.post).run();
   } else if (action === "ok") {
     await env.STATS.prepare(`UPDATE ${table} SET hidden = 0, reports = 0 WHERE id = ?`).bind(row.id).run();
@@ -930,6 +1022,9 @@ export async function banForumAuthor(env, row, days, reason) {
 }
 
 async function purgeForumAuthor(env, tgId) {
+  const { results: pics = [] } = await env.STATS.prepare("SELECT photo FROM forum_posts WHERE tg_id = ? AND photo IS NOT NULL").bind(tgId).all();
+  for (const p of pics) dropPhoto(p.photo);
+  await env.STATS.prepare("UPDATE forum_posts SET photo = NULL WHERE tg_id = ?").bind(tgId).run();
   const posts = await env.STATS.prepare("UPDATE forum_posts SET hidden = 2 WHERE tg_id = ? AND hidden != 2").bind(tgId).run();
   const replies = await env.STATS.prepare("UPDATE forum_replies SET hidden = 2 WHERE tg_id = ? AND hidden != 2").bind(tgId).run();
   // Счётчики ответов под постами пересчитываем разом.
@@ -979,6 +1074,7 @@ export const FORUM_HELP = [
   "/fclose [текст людям] — закрыть Подслушку на ремонт (переспросит) · /fopen — открыть",
   "/forum off · /forum on — то же без переспроса",
   "/forum newbie on|off — проверять первый пост нового автора",
+  "/forum photo all|new|off — фото: проверять все · только у новых · выключить",
   "/forum testers · /forum all — доступ: только свои (тестировщики, модераторы) или все",
   "/ftester @ник — открыть доступ тестировщику · /funtester @ник — закрыть",
   "/fmod @ник — назначить модератором · /funmod @ник — снять · /funmod all — снять всех модераторов сразу",
@@ -1109,6 +1205,16 @@ export async function forumCommand(env, text, findPerson) {
           sub === "all"
             ? "🌍 Подслушка открыта для всех, у кого есть приложение с ней."
             : "🔒 Подслушка в закрытом тестировании: пускаем только вас, тестировщиков и модераторов. Открыть всем: /forum all",
+      };
+    }
+    if (sub === "photo" && ["all", "new", "off"].includes(args[1])) {
+      await putSetting(env, "forum_photo", args[1]);
+      return {
+        text: {
+          all: "🖼 Фото: каждое ждёт вашей проверки (или модератора).",
+          new: "🖼 Фото: проверяются только у тех, чьи посты вы ещё не одобряли.",
+          off: "🚫 Фото в Подслушке выключены.",
+        }[args[1]],
       };
     }
     if (sub === "newbie" && (args[1] === "on" || args[1] === "off")) {
