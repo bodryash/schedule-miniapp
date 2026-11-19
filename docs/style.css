@@ -17816,3 +17816,20 @@ body.tint-vice .day:not(.active) .day-dots i {
 body.tint-vice[data-parity="even"] .day:not(.active) .day-dots i {
   background: color-mix(in srgb, #ff2d95 70%, var(--text, #000)) !important;
 }
+
+/* Пальмы на заставке не выскакивают, а мягко вырастают снизу. */
+.splash .vice-palm {
+  animation: vice-palm-in 1100ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: 50% 100%;
+}
+.splash .vice-palm--r {
+  animation-name: vice-palm-in-r;
+  animation-delay: 120ms;
+}
+@keyframes vice-palm-in {
+  from { opacity: 0; transform: translateY(40px) scale(0.92); }
+}
+@keyframes vice-palm-in-r {
+  from { opacity: 0; transform: scaleX(-1) translateY(40px) scale(0.92); }
+  to { transform: scaleX(-1); }
+}
