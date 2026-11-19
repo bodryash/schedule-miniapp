@@ -12346,12 +12346,13 @@ function openPcMore() {
     if (item.hidden || item.classList.contains("menu-off")) continue;
     const kind = item.dataset.menu;
     const spans = item.querySelectorAll(":scope > span");
-    const icon = spans[0]?.textContent || "•";
+    const icon = spans[0]?.textContent.trim() || "";
     let label = (spans[1] || item).textContent.trim();
     if (kind === "calendar") label = t("В мой календарь");
     const row = el("button", "pc-more-row");
     row.type = "button";
-    row.append(el("span", "pc-more-ic", icon), el("span", "pc-more-label", label));
+    if (icon) row.append(el("span", "pc-more-ic", icon));
+    row.append(el("span", "pc-more-label", label));
     row.addEventListener("click", () => {
       closePcMore();
       // То же действие, что и в мобильном меню.
@@ -14223,6 +14224,10 @@ function dropSplash() {
   // в этот же момент на экране заново собирается сцена «пар нет» — раньше
   // она успевала отыграть под заставкой, и открывалась уже застывшей.
   if (free && els.lessons?.querySelector(".free-day")) {
+    // Пары не проступают из тумана: иначе сцена сдвигается и мигает
+    // прямо под летящим значком.
+    document.body.classList.add("app-reveal--free");
+    setTimeout(() => document.body.classList.remove("app-reveal--free"), 900);
     // Значок не исчезает вместе с заставкой, а переезжает на своё место на
     // экране «пар нет»: заставка тает, он летит, сцена собирается вокруг.
     const scene = renderFreeDay();
@@ -15203,7 +15208,14 @@ function closeDonor() {
     if (next === node.data) return;
     node.data = next;
     const host = node.parentElement;
-    if (host && !host.textContent.trim() && !host.querySelector("img, svg, canvas, video")) host.classList.add("pc-emoji-gone");
+    // Скрываем не только сам опустевший элемент, но и обёртки, в которых
+    // кроме него остались лишь украшения (подложки, градиенты, ореолы).
+    const empty = (n) => n && !n.textContent.trim() && !n.querySelector("img, svg, canvas, video, input, select, textarea");
+    let box = host;
+    while (empty(box) && box !== document.body && !box.matches("button, a, [role=button], #lessons, .screen, main")) {
+      box.classList.add("pc-emoji-gone");
+      box = box.parentElement;
+    }
   };
   const walk = (root) => {
     if (root.nodeType === 3) return clean(root);
