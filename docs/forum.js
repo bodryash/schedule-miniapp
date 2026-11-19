@@ -1083,6 +1083,7 @@
       renderTail();
       if (first && !body.posts.length) renderFeed({ stagger: false });
     } catch (error) {
+      window.__report?.("forum-list", error);
       if (token !== S.token) return;
       if (reset) renderError(error);
       else {

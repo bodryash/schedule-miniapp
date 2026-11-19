@@ -374,6 +374,24 @@
   <!-- Дата на заставке — сразу, не дожидаясь кода приложения. Воскресенье
        теперь есть в полосе дней, поэтому заставка показывает сегодняшний день. -->
   <script>
+    // Ошибки приложения — на сервер (только текст ошибки, без личных данных):
+    // так видно, что ломается на телефонах, где нет консоли.
+    (function () {
+      var sent = 0;
+      function report(where, err) {
+        if (++sent > 8) return;
+        try {
+          var body = JSON.stringify({ where: where, msg: String((err && (err.message || err.reason)) || err), stack: String((err && err.stack) || "").slice(0, 800), v: String(window.__v || "") });
+          if (navigator.sendBeacon) navigator.sendBeacon("https://api.bodryash.ru/clientlog", body);
+          else fetch("https://api.bodryash.ru/clientlog", { method: "POST", body: body, keepalive: true });
+        } catch (e) {}
+      }
+      window.__report = report;
+      window.addEventListener("error", function (e) { report("error", e.error || e.message); });
+      window.addEventListener("unhandledrejection", function (e) { report("promise", e.reason); });
+    })();
+  </script>
+  <script>
     // Вайс-Сити (тема по умолчанию): место под строку-отсылку на заставке —
     // сразу, до кода приложения, чтобы потом ничего не сдвинулось.
     (function () { try {
