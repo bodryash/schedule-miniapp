@@ -17786,3 +17786,13 @@ body.tint-vice[data-parity="even"] .vice-sky {
     radial-gradient(120% 46% at -10% -4%, rgba(18, 184, 196, 0.16), transparent 60%),
     radial-gradient(120% 50% at 50% 115%, rgba(139, 92, 246, 0.18), transparent 66%);
 }
+
+/* Точки числа пар под днями — контрастнее: насыщенные тёмные оттенки,
+   без прозрачности. */
+body.tint-vice .day:not(.active) .day-dots i {
+  background: #0a8790 !important;
+  opacity: 1 !important;
+}
+body.tint-vice[data-parity="even"] .day:not(.active) .day-dots i {
+  background: #d1127a !important;
+}
