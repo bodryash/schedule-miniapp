@@ -59,6 +59,7 @@
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
     alert: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.8v5M12 16.2v.1"/>',
     eye: '<path d="M2.8 12S6 6 12 6s9.2 6 9.2 6-3.2 6-9.2 6S2.8 12 2.8 12z"/><circle cx="12" cy="12" r="2.6"/>',
+    image: '<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.7"/><path d="M4 17l5-4.5 4 3.5 2.5-2 4.5 3.5"/>',
     building: '<path d="M5 20.5V6.5L12 3.5l7 3v14M3.5 20.5h17M9 10h1.5M13.5 10H15M9 14h1.5M13.5 14H15"/>',
     ban: '<circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/>',
     broom: '<path d="M14.5 4.5l5 5M17 7l-6.5 6.5M10.5 13.5c-3.5 0-5.6 2.2-6.3 6 3.8.4 6.2-1.6 6.3-6zM8.2 16.2l1.6 1.6"/>',
@@ -1331,7 +1332,8 @@
     text.className = "fm-text is-clamped";
     // В ленте — без пустых строк: иначе «…» от обрезки повисает отдельной строкой.
     text.textContent = post.text.replace(/\n{2,}/g, "\n");
-    main.append(text);
+    if (post.text) main.append(text);
+    if (post.photo) main.append(photoView(post, "fm-photo--feed"));
 
     const acts = document.createElement("footer");
     acts.className = "fm-acts";
@@ -2000,7 +2002,8 @@
     const text = document.createElement("p");
     text.className = "fm-th-text";
     text.textContent = post.text;
-    box.append(text);
+    if (post.text) box.append(text);
+    if (post.photo) box.append(photoView(post, "fm-photo--thread"));
     wireDoubleTap(text, post);
 
     const stats = document.createElement("div");
@@ -2513,6 +2516,7 @@
       const list = document.createElement("div");
       list.className = "fm-actions";
       for (const [code, name, ic] of [
+        ...(kind === "p" && item?.photo ? [["photo", t("Неприемлемое фото"), "image"]] : []),
         ["spam", t("Спам или реклама"), "alert"],
         ["abuse", t("Оскорбления или травля"), "ban"],
         ["private", t("Личные данные"), "eye"],
@@ -2838,6 +2842,82 @@
 
   /* ---------- Новый пост ---------- */
 
+  /* ---------- Фото в посте ----------
+   * Сжимаем в телефоне: до 1280 px по длинной стороне, JPEG. Перерисовка через
+   * canvas заодно стирает метаданные (геометку, модель телефона). */
+  const PHOTO_SIDE = 1280;
+  const PHOTO_BYTES = 330 * 1024;
+  async function shrinkPhoto(file) {
+    if (!/^image\//.test(file.type || "image/")) throw new Error(t("Это не фото."));
+    if (file.size > 25 * 1024 * 1024) throw new Error(t("Фото больше 25 МБ."));
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = () => reject(new Error(t("Фото не открылось.")));
+        i.src = url;
+      });
+      let side = PHOTO_SIDE;
+      for (let step = 0; step < 6; step++) {
+        const k = Math.min(1, side / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(img.naturalWidth * k));
+        c.height = Math.max(1, Math.round(img.naturalHeight * k));
+        const g = c.getContext("2d");
+        g.fillStyle = "#fff";
+        g.fillRect(0, 0, c.width, c.height);
+        g.drawImage(img, 0, 0, c.width, c.height);
+        for (const q of [0.82, 0.7, 0.58]) {
+          const data = c.toDataURL("image/jpeg", q);
+          if ((data.length - 23) * 0.75 <= PHOTO_BYTES) return { data, w: c.width, h: c.height };
+        }
+        side = Math.round(side * 0.8);
+      }
+      throw new Error(t("Не получилось сжать фото."));
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+  const photoUrl = (path) => (path ? FORUM_URL.replace(/\/forum$/, "") + path : "");
+  function photoView(post, cls) {
+    const box = document.createElement("button");
+    box.type = "button";
+    box.className = `fm-photo ${cls || ""}`;
+    box.setAttribute("aria-label", t("Открыть фото"));
+    const img = document.createElement("img");
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.alt = "";
+    img.src = photoUrl(post.photo);
+    img.addEventListener("load", () => box.classList.add("is-loaded"), { once: true });
+    img.addEventListener("error", () => box.remove(), { once: true });
+    box.append(img);
+    box.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openPhoto(img.src);
+    });
+    return box;
+  }
+  function openPhoto(src) {
+    haptic("light");
+    const layer = document.createElement("div");
+    layer.className = "fm-photo-full";
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = "";
+    const close = Object.assign(document.createElement("button"), { type: "button", className: "fm-photo-close" });
+    close.setAttribute("aria-label", t("Закрыть"));
+    close.append(icon("close"));
+    layer.append(img, close);
+    const done = () => {
+      layer.classList.add("is-out");
+      setTimeout(() => layer.remove(), 220);
+    };
+    layer.addEventListener("click", done);
+    document.body.append(layer);
+  }
+
   function openComposer(opts = {}) {
     if (S.banned) return toast(t("Вам закрыт доступ к записям."), { tone: "warn", icon: "lock" });
     haptic("light");
@@ -2893,11 +2973,61 @@
     // Счётчик знаков: пока места много — его нет, чтобы не мозолил глаза.
     const ring = document.createElement("div");
     ring.className = "fm-count";
-    tools.append(anonChip);
+    const photoChip = document.createElement("button");
+    photoChip.type = "button";
+    photoChip.className = "fm-chip";
+    photoChip.replaceChildren(icon("image"), document.createTextNode(t("Фото")));
+    const picker = Object.assign(document.createElement("input"), { type: "file", accept: "image/jpeg,image/png,image/webp,image/heic,image/heif" });
+    picker.hidden = true;
+    const shot = document.createElement("div");
+    shot.className = "fm-comp-photo";
+    shot.hidden = true;
+    let photo = null;
+    const showShot = () => {
+      shot.hidden = !photo;
+      photoChip.classList.toggle("is-on", Boolean(photo));
+      if (!photo) return shot.replaceChildren();
+      const img = Object.assign(document.createElement("img"), { src: photo.data, alt: "" });
+      const drop = Object.assign(document.createElement("button"), { type: "button", className: "fm-comp-photo-x" });
+      drop.setAttribute("aria-label", t("Убрать фото"));
+      drop.append(icon("close"));
+      drop.addEventListener("click", () => {
+        photo = null;
+        haptic("select");
+        showShot();
+        update();
+      });
+      const rule = Object.assign(document.createElement("div"), {
+        className: "fm-comp-photo-rule",
+        textContent: t("Фото проверит модератор. Нельзя: чужие лица без согласия, документы и личные данные, 18+, жестокость."),
+      });
+      shot.replaceChildren(img, drop, rule);
+    };
+    photoChip.addEventListener("click", () => {
+      haptic("light");
+      picker.value = "";
+      picker.click();
+    });
+    picker.addEventListener("change", async () => {
+      const file = picker.files?.[0];
+      if (!file) return;
+      photoChip.classList.add("is-busy");
+      try {
+        photo = await shrinkPhoto(file);
+        clearErr();
+        showShot();
+        update();
+      } catch (error) {
+        showErr(error.message || t("Фото не подошло."));
+      } finally {
+        photoChip.classList.remove("is-busy");
+      }
+    });
+    tools.append(anonChip, photoChip);
     if (tagLabel) tools.append(tagChip);
     tools.append(ring);
 
-    box.append(...[top, chalNote, body, as, err, tools].filter(Boolean));
+    box.append(...[top, chalNote, body, shot, picker, as, err, tools].filter(Boolean));
     fill(sheet.sh, box);
 
     const me = { name: S.user.first_name || t("Вы"), hue: hueOf(String(S.user.id || "me")), photo: tg?.initDataUnsafe?.user?.photo_url || S.meAva };
@@ -2929,7 +3059,7 @@
     };
     const update = () => {
       const len = area.value.trim().length;
-      const ready = len >= 3 && len <= POST_MAX;
+      const ready = (len >= 3 || (photo && len === 0)) && len <= POST_MAX;
       publish.classList.toggle("is-ready", ready);
       const left = POST_MAX - len;
       ring.textContent = left <= 100 ? String(left) : "";
@@ -2984,14 +3114,16 @@
     const submit = async () => {
       if (busy) return;
       const text = area.value.trim();
-      if (text.length < 3) return showErr(t("Напишите хотя бы пару фраз :P"));
-      const bad = precheck(text);
+      if (text.length < 3 && !(photo && !text)) return showErr(t("Напишите хотя бы пару фраз :P"));
+      const bad = text ? precheck(text) : "";
       if (bad) return showErr(bad);
       busy = true;
       publish.classList.add("is-busy");
       clearErr();
       try {
-        const res = await request("post", { text, anon, tag: withTag ? tagLabel : "", challenge: opts.challenge?.day || undefined });
+        const res = await request("post", { text, anon, tag: withTag ? tagLabel : "", challenge: opts.challenge?.day || undefined, photo: photo?.data || undefined });
+        photo = null;
+        showShot();
         haptic("success");
         store(KEY.draft, null);
         area.value = "";

@@ -3155,3 +3155,110 @@ body.fm-open .minihead {
   background: var(--accent);
   opacity: 0.55;
 }
+
+/* ===== Фото в постах ===== */
+.fm-photo {
+  display: block;
+  position: relative;
+  width: 100%;
+  margin: 8px 0 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--fm-soft, rgba(127, 127, 127, 0.12));
+  cursor: zoom-in;
+}
+.fm-photo img {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+.fm-photo--feed {
+  aspect-ratio: 4 / 3;
+}
+.fm-photo--feed img {
+  height: 100%;
+}
+.fm-photo--thread img {
+  max-height: 70vh;
+  object-fit: contain;
+}
+.fm-photo.is-loaded img {
+  opacity: 1;
+}
+.fm-photo-full {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.92);
+  animation: fm-photo-in 200ms ease both;
+}
+.fm-photo-full.is-out {
+  animation: fm-photo-out 200ms ease both;
+}
+.fm-photo-full img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 10px;
+  object-fit: contain;
+}
+.fm-photo-close {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  display: grid;
+  place-items: center;
+}
+@keyframes fm-photo-in { from { opacity: 0; } }
+@keyframes fm-photo-out { to { opacity: 0; } }
+
+.fm-comp-photo {
+  position: relative;
+  margin: 4px 0 8px 48px;
+}
+.fm-comp-photo img {
+  display: block;
+  max-width: 100%;
+  max-height: 220px;
+  border-radius: 12px;
+}
+.fm-comp-photo-x {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: center;
+}
+.fm-comp-photo-x svg {
+  width: 16px;
+  height: 16px;
+}
+.fm-comp-photo-rule {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--fm-muted, #8a8a8e);
+}
+.fm-chip.is-busy {
+  opacity: 0.55;
+  pointer-events: none;
+}
