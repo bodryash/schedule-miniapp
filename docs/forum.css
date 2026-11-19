@@ -3197,7 +3197,7 @@ body.fm-open .minihead {
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgba(0, 0, 0, 0.92);
+  background: rgba(0, 0, 0, 0.96);
   animation: fm-photo-in 200ms ease both;
 }
 .fm-photo-full.is-out {
@@ -3211,16 +3211,41 @@ body.fm-open .minihead {
 }
 .fm-photo-close {
   position: absolute;
-  top: calc(12px + env(safe-area-inset-top, 0px));
-  right: 12px;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  right: 14px;
+  z-index: 1;
   width: 40px;
   height: 40px;
+  padding: 0;
   border: 0;
   border-radius: 50%;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.16);
   display: grid;
   place-items: center;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.fm-photo-close svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+.fm-photo-close:active {
+  transform: scale(0.92);
+}
+.fm-photo-full {
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+.fm-photo-full img {
+  will-change: transform;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 @keyframes fm-photo-in { from { opacity: 0; } }
 @keyframes fm-photo-out { to { opacity: 0; } }
