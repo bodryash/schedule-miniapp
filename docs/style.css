@@ -17502,3 +17502,12 @@ body.app-reveal--free #lessons > .free-day {
 .free-day--landed .free-day-emoji {
   animation: free-bob 5.2s ease-in-out 400ms infinite !important;
 }
+
+/* ПК без эмодзи: у свободного дня нет значка — убираем и пятно света под ним. */
+body.pc-no-emoji .free-day-stage,
+body.pc-no-emoji .splash-free-emoji {
+  display: none !important;
+}
+body.pc-no-emoji .free-day {
+  padding-top: 48px;
+}
