@@ -17796,3 +17796,23 @@ body.tint-vice .day:not(.active) .day-dots i {
 body.tint-vice[data-parity="even"] .day:not(.active) .day-dots i {
   background: #d1127a !important;
 }
+
+/* Пустую полосу не показываем, пока неизвестно, есть ли сегодня пары:
+   в свободный день она мелькала на секунду. Появляется вместе с парами. */
+.splash-line {
+  opacity: 0 !important;
+  transition: opacity 260ms ease;
+}
+.splash:not(.splash--free) .splash-track--ready .splash-line {
+  opacity: 0.1 !important;
+}
+
+/* Точки числа пар под днями: оттенок смешан с цветом текста — темнее на
+   светлой схеме и светлее на тёмной, видно в обеих. */
+body.tint-vice .day:not(.active) .day-dots i {
+  background: color-mix(in srgb, #22d3d6 62%, var(--text, #000)) !important;
+  opacity: 1 !important;
+}
+body.tint-vice[data-parity="even"] .day:not(.active) .day-dots i {
+  background: color-mix(in srgb, #ff2d95 70%, var(--text, #000)) !important;
+}
