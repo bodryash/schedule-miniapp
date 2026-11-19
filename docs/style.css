@@ -17585,10 +17585,11 @@ body.tint-vice .card--now {
   z-index: -1;
   pointer-events: none;
   overflow: hidden;
+  contain: strict;
+  transform: translateZ(0);
   background:
-    radial-gradient(120% 46% at -10% -4%, color-mix(in srgb, #ff2d95 22%, transparent), transparent 60%),
-    radial-gradient(90% 40% at 110% 2%, color-mix(in srgb, #ff8a3d 22%, transparent), transparent 62%),
-    radial-gradient(120% 50% at 50% 115%, color-mix(in srgb, #22d3d6 30%, transparent), transparent 66%);
+    radial-gradient(120% 46% at -10% -4%, rgba(255, 45, 149, 0.16), transparent 60%),
+    radial-gradient(120% 50% at 50% 115%, rgba(34, 211, 214, 0.2), transparent 66%);
 }
 .vice-scene {
   position: absolute;
@@ -17596,6 +17597,7 @@ body.tint-vice .card--now {
   pointer-events: none;
   overflow: hidden;
 }
+/* Солнце в полоску — обычным градиентом, без маски (маска дорогая). */
 .vice-sun {
   position: absolute;
   left: 50%;
@@ -17604,23 +17606,17 @@ body.tint-vice .card--now {
   height: 120px;
   margin-left: -120px;
   border-radius: 120px 120px 0 0;
-  background: linear-gradient(180deg, #ffd23d, #ff8a3d 50%, #ff2d95);
-  opacity: 0.28;
-  -webkit-mask: linear-gradient(#000 0 40%, transparent 40% 48%, #000 48% 62%, transparent 62% 70%, #000 70% 80%, transparent 80% 87%, #000 87%);
-  mask: linear-gradient(#000 0 40%, transparent 40% 48%, #000 48% 62%, transparent 62% 70%, #000 70% 80%, transparent 80% 87%, #000 87%);
+  background:
+    linear-gradient(transparent 0 40%, var(--sun-gap, #fbe9ef) 40% 48%, transparent 48% 62%, var(--sun-gap, #fbe9ef) 62% 70%, transparent 70% 80%, var(--sun-gap, #fbe9ef) 80% 87%, transparent 87%),
+    linear-gradient(180deg, #ffd23d, #ff8a3d 50%, #ff2d95);
+  opacity: 0.22;
 }
 .vice-palm {
   position: absolute;
   bottom: -14px;
   width: 170px;
-  color: #123a4f;
-  opacity: 0.2;
-}
-.vice-palm svg {
-  display: block;
-  width: 100%;
   height: auto;
-  fill: currentColor;
+  opacity: 0.12;
 }
 .vice-palm--l {
   left: -48px;
@@ -17636,25 +17632,22 @@ body.tint-vice .card--now {
   .vice-palm--r { width: 220px; }
 }
 
-/* Заставка в Вайс-Сити: закатное небо, солнце в полоску, две пальмы,
-   дата — градиентом заката. */
+/* Заставка в Вайс-Сити. Сцена — под надписями (z-index −1 внутри
+   заставки), сами надписи не трогаем: их раскладка своя. */
 body.tint-vice .splash {
+  isolation: isolate;
   background: linear-gradient(180deg, #fff3f9 0%, #ffe1ee 45%, #ffd2b8 100%);
+}
+body.tint-vice .splash .vice-scene {
+  z-index: -1;
 }
 body.tint-vice .splash .vice-palm {
   opacity: 0.85;
-  color: #1d2a4a;
 }
 body.tint-vice .splash .vice-sun {
+  --sun-gap: #ffdccd;
   opacity: 0.9;
   bottom: 110px;
-}
-body.tint-vice .splash .vice-scene {
-  z-index: 0;
-}
-body.tint-vice .splash > :not(.vice-scene) {
-  position: relative;
-  z-index: 1;
 }
 body.tint-vice .splash-day,
 body.tint-vice .splash-hello-title span {
