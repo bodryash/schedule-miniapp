@@ -1791,7 +1791,7 @@ function initReminders() {
 
 // Брутал выдаёт владелец командой /theme, гламур человек находит сам —
 // словом «гламур» в поиске по МФК. Тема с сервера сильнее найденной.
-const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", devil: "devil", msu: "msu", birthday: "birthday", halloween: "halloween", trump: "trump", putin: "putin", magnate: "magnate" };
+const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", vice: "tint-vice", devil: "devil", msu: "msu", birthday: "birthday", halloween: "halloween", trump: "trump", putin: "putin", magnate: "magnate" };
 const GLAM_KEY = "schedule.glam";
 // Зелёную тему волонтёра человек может выключить сам и вернуть обратно.
 // Остальные выданные темы так не умеют.
@@ -1814,7 +1814,9 @@ const MSU_THEME_KEY = "schedule.msuTheme";
 // тема для тех, у кого факультет МГУ.
 const COLOR_THEMES = [
   // Обычный — цвет меняется с чётностью недели (синий / оранжевый).
-  ["", "Обычный", ["#2ea6ff", "#f0821e"]],
+  // Вайс-Сити (в духе GTA VI) — у всех по умолчанию, пока стоит «Обычный».
+  ["vice", "Вайс-Сити", ["#ff2d95", "#22d3d6"]],
+  ["plain", "Обычный", ["#2ea6ff", "#f0821e"]],
   ["ocean", "Бирюза", ["#0ea5e9", "#0ea5e9"]],
   ["mint", "Мята", ["#10b981", "#10b981"]],
   ["sunset", "Закат", ["#f97316", "#f97316"]],
@@ -1828,14 +1830,14 @@ function colorTheme() {
   try {
     const saved = localStorage.getItem(COLOR_KEY);
     // Неон и графит убрали — у кого были, видят обычное оформление.
-    if (saved !== null) return COLOR_IDS.has(saved) ? saved : "";
+    if (saved) return COLOR_IDS.has(saved) ? saved : "vice";
     // Раньше неон и МГУ включались отдельно — переносим их выбор.
     const neon = localStorage.getItem("schedule.neon");
     if (localStorage.getItem(MSU_THEME_KEY) === "1") return "msu";
   } catch {
-    // Без памяти — обычная.
+    // Без памяти — как у всех.
   }
-  return "";
+  return "vice";
 }
 
 function msuThemeOn() {
@@ -2040,6 +2042,36 @@ function giftedTheme() {
   return GIFTED_THEMES[nick] || "";
 }
 
+/* Вайс-Сити: пальмы и закатное небо за расписанием — отдельный слой,
+ * потому что body::before/::after у нас отключены. */
+function viceScene() {
+  const box = el("div", "vice-scene");
+  box.setAttribute("aria-hidden", "true");
+  // Пальма — готовой картинкой, а не сотней векторных фигур в DOM: браузер
+  // рисует её один раз, прокрутка и анимации не пересчитывают листья.
+  box.innerHTML = `<img class="vice-palm vice-palm--l" src="palm.svg" alt=""><img class="vice-palm vice-palm--r" src="palm.svg" alt="">`;
+
+  return box;
+}
+function renderViceSky(on) {
+  let sky = document.getElementById("vice-sky");
+  const splash = els.splash?.isConnected ? els.splash : null;
+  if (!on) {
+    splash?.querySelector(".vice-scene")?.remove();
+    splash?.querySelector(".vice-tag")?.remove();
+    document.documentElement.classList.remove("vice-early");
+    return sky?.remove();
+  }
+  // На заставке — тот же закат с пальмами: приложение открывается уже в Вайс-Сити.
+  if (splash && !splash.querySelector(".vice-scene")) splash.append(viceScene());
+  if (sky) return;
+  sky = el("div", "vice-sky");
+  sky.id = "vice-sky";
+  sky.setAttribute("aria-hidden", "true");
+  sky.append(viceScene());
+  document.body.append(sky);
+}
+
 function applyTheme(granted = grantedTheme) {
   rememberLook();
   grantedTheme = giftedTheme() || granted || "";
@@ -2063,6 +2095,8 @@ function applyTheme(granted = grantedTheme) {
   // Выданная тема сильнее; выключенный волонтёр уступает своей теме.
   const worn = volunteer && volunteerOff() ? "" : grantedTheme;
   const own = colorTheme();
+  // Не выбирал своё оформление — у всех Вайс-Сити. «Обычный», выбранный
+  // явно (после появления Вайс-Сити), сохраняется как "plain".
   const ownName = own === "msu" ? (inMsu() ? "msu" : "") : THEMES[own] ? own : "";
   // 31 октября у всех Хеллоуин, выданная тема всё равно сильнее.
   // Красное оформление Дня донора выключено для всех: дни донора и плашка остаются.
@@ -2082,6 +2116,7 @@ function applyTheme(granted = grantedTheme) {
   renderFlagTheme("putin", name === "putin");
   renderFlagTheme("magnate", name === "magnate");
   renderNokia(name === "nokia");
+  renderViceSky(name === "vice");
   // Именинник: салют один раз за день, когда заставка ушла.
   if (name === "birthday") {
     const today = new Date().toDateString();
@@ -11111,6 +11146,8 @@ const FREE_DAYS = [
   ["🧘", "Пар нет", "Выдохните — день свободен"],
   ["🌙", "Пар нет", "Можно выспаться за всю неделю"],
   ["🎧", "Пар нет", "Время для своих дел и любимой музыки"],
+  ["🌴", "Пар нет", "Вайс-Сити сам себя не исследует — GTA VI ждёт"],
+  ["🚗", "Пар нет", "Идеальный день прокатиться по Леониде в GTA VI"],
 ];
 
 const SUNDAYS = [
@@ -11119,6 +11156,7 @@ const SUNDAYS = [
   ["🍳", "Воскресенье", "Поздний завтрак — законная традиция"],
   ["🚶", "Воскресенье", "Погулять, пока неделя не началась"],
   ["🎬", "Воскресенье", "Фильм, сериал или книга — выбирайте"],
+  ["🌴", "Воскресенье", "Пары подождут, а Вайс-Сити — нет. GTA VI?"],
 ];
 
 /** Значок, заголовок и подпись свободного дня; у одной даты — всегда одни. */
@@ -11898,18 +11936,26 @@ function groupFacts(kind) {
   const group = activeGroup();
   if (!group) return [];
   const counts = new Map();
+  const add = (lesson) => {
+    const key = kind === "room" ? lesson.room : lesson.subject;
+    if (!key) return;
+    if (!counts.has(key)) counts.set(key, { key, lessons: 0, extra: new Set(), teachers: new Set() });
+    const item = counts.get(key);
+    item.lessons += 1;
+    item.extra.add(kind === "room" ? lesson.subject : lesson.room);
+    for (const person of teachersOf(lesson.teacher)) if (person.surname) item.teachers.add(person.surname);
+  };
   for (const lesson of data.lessons) {
     const mine = group.teacher
       ? teachersOf(lesson.teacher).some((p) => p.key === group.teacher)
       : lesson.group === group.id && matchesPrefs(lesson);
     if (!mine) continue;
-    const key = kind === "room" ? lesson.room : lesson.subject;
-    if (!key) continue;
-    if (!counts.has(key)) counts.set(key, { key, lessons: 0, extra: new Set() });
-    const item = counts.get(key);
-    item.lessons += 1;
-    item.extra.add(kind === "room" ? lesson.subject : lesson.room);
+    // Общая строка МФК, если человек отметил свои курсы, — это его курсы:
+    // каждый отдельным предметом (добавляем ниже), а не одна строка на все.
+    if (kind !== "room" && !group.teacher && isMfkLesson(lesson.subject) && myMfk().length) continue;
+    add(lesson);
   }
+  if (kind !== "room" && !group.teacher) for (let day = 1; day <= 7; day++) mfkLessons(day).forEach(add);
   return [...counts.values()].sort((a, b) => b.lessons - a.lessons);
 }
 
@@ -11921,6 +11967,11 @@ function renderFactCard(item) {
   const body = el("div", "teacher-body");
   body.append(el("div", "teacher-name", withFlag(title)));
   body.append(el("div", "teacher-meta", lessonsCount(item.lessons)));
+  // У предмета — кто его ведёт: фамилии преподавателей.
+  if (searchKind !== "room" && item.teachers?.size) {
+    const names = [...item.teachers];
+    body.append(el("div", "teacher-who", names.slice(0, 4).join(", ") + (names.length > 4 ? ` +${names.length - 4}` : "")));
+  }
   const tags = el("div", "teacher-subjects");
   for (const extra of [...item.extra].filter(Boolean).slice(0, 6)) {
     tags.append(el("span", "tag", searchKind === "room" ? tr(extra) : roomLabel(extra)));

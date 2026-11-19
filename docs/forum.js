@@ -1083,6 +1083,7 @@
       renderTail();
       if (first && !body.posts.length) renderFeed({ stagger: false });
     } catch (error) {
+      window.__report?.("forum-list", error);
       if (token !== S.token) return;
       if (reset) renderError(error);
       else {
@@ -2908,15 +2909,56 @@
     const img = document.createElement("img");
     img.src = src;
     img.alt = "";
+    img.draggable = false;
     const close = Object.assign(document.createElement("button"), { type: "button", className: "fm-photo-close" });
     close.setAttribute("aria-label", t("Закрыть"));
     close.append(icon("close"));
     layer.append(img, close);
+    let gone = false;
     const done = () => {
+      if (gone) return;
+      gone = true;
       layer.classList.add("is-out");
       setTimeout(() => layer.remove(), 220);
     };
-    layer.addEventListener("click", done);
+    // Тап мимо фото (по тёмному фону) или по крестику — закрыть; по самому фото — нет.
+    layer.addEventListener("click", (e) => {
+      if (e.target !== img) done();
+    });
+    // Свайп вверх или вниз: фото едет за пальцем, фон светлеет; отпустили
+    // дальше 90 px (или резко) — закрываем, иначе возвращаем на место.
+    let y0 = null;
+    let t0 = 0;
+    let dy = 0;
+    layer.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1) return;
+      y0 = e.touches[0].clientY;
+      t0 = performance.now();
+      dy = 0;
+      img.style.transition = "none";
+      layer.style.transition = "none";
+    }, { passive: true });
+    layer.addEventListener("touchmove", (e) => {
+      if (y0 === null) return;
+      dy = e.touches[0].clientY - y0;
+      img.style.transform = `translate3d(0, ${dy}px, 0) scale(${1 - Math.min(Math.abs(dy) / 1600, 0.12)})`;
+      layer.style.backgroundColor = `rgba(0, 0, 0, ${0.92 * (1 - Math.min(Math.abs(dy) / 400, 0.7))})`;
+    }, { passive: true });
+    layer.addEventListener("touchend", () => {
+      if (y0 === null) return;
+      const fast = Math.abs(dy) / Math.max(1, performance.now() - t0) > 0.6;
+      y0 = null;
+      img.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
+      layer.style.transition = "background-color 220ms ease";
+      if (Math.abs(dy) > 90 || (fast && Math.abs(dy) > 24)) {
+        img.style.transform = `translate3d(0, ${dy > 0 ? "100vh" : "-100vh"}, 0)`;
+        haptic("light");
+        done();
+      } else {
+        img.style.transform = "";
+        layer.style.backgroundColor = "";
+      }
+    });
     document.body.append(layer);
   }
 

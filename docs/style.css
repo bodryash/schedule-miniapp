@@ -7739,14 +7739,17 @@ body.tint-sunset { --tint1: #f97316; --tint2: #db2777; }
 body.tint-mint { --tint1: #10b981; --tint2: #0d9488; }
 body.tint-lavender { --tint1: #8b5cf6; --tint2: #c026d3; }
 body.tint-graphite { --tint1: #8291a8; --tint2: #5b6b82; }
-body.tint-cherry { --tint1: #e11d48; --tint2: #be123c; }
+body.tint-cherry 
+body.tint-vice { --tint1: #e11d48; --tint2: #be123c; }
+body.tint-vice { --tint1: #ff2d95; --tint2: #ff8a3d; --tint3: #22d3d6; }
 
 body.tint-ocean,
 body.tint-sunset,
 body.tint-mint,
 body.tint-lavender,
 body.tint-graphite,
-body.tint-cherry {
+body.tint-cherry ,
+body.tint-vice {
   --accent: var(--tint1);
   --accent-soft: color-mix(in srgb, var(--tint1) 15%, transparent);
   --accent-text: #ffffff;
@@ -7758,7 +7761,8 @@ body.tint-sunset::before,
 body.tint-mint::before,
 body.tint-lavender::before,
 body.tint-graphite::before,
-body.tint-cherry::before {
+body.tint-cherry::before ,
+body.tint-vice::before {
   background:
     radial-gradient(130% 55% at -10% -8%, color-mix(in srgb, var(--tint1) 20%, transparent), transparent 62%),
     radial-gradient(100% 46% at 112% 4%, color-mix(in srgb, var(--tint2) 18%, transparent), transparent 64%);
@@ -7770,18 +7774,21 @@ body.tint-mint .date,
 body.tint-lavender .date,
 body.tint-graphite .date,
 body.tint-cherry .date,
+body.tint-vice .date,
 body.tint-ocean .date-old,
 body.tint-sunset .date-old,
 body.tint-mint .date-old,
 body.tint-lavender .date-old,
 body.tint-graphite .date-old,
 body.tint-cherry .date-old,
+body.tint-vice .date-old,
 body.tint-ocean .date-new,
 body.tint-sunset .date-new,
 body.tint-mint .date-new,
 body.tint-lavender .date-new,
 body.tint-graphite .date-new,
-body.tint-cherry .date-new {
+body.tint-cherry .date-new ,
+body.tint-vice .date-new {
   background: linear-gradient(100deg, var(--tint1), var(--tint2)) 0 0 / 100% 100% no-repeat;
   -webkit-background-clip: text;
   background-clip: text;
@@ -7795,18 +7802,21 @@ body.tint-mint .room-badge,
 body.tint-lavender .room-badge,
 body.tint-graphite .room-badge,
 body.tint-cherry .room-badge,
+body.tint-vice .room-badge,
 body.tint-ocean .primary,
 body.tint-sunset .primary,
 body.tint-mint .primary,
 body.tint-lavender .primary,
 body.tint-graphite .primary,
 body.tint-cherry .primary,
+body.tint-vice .primary,
 body.tint-ocean .days-drop,
 body.tint-sunset .days-drop,
 body.tint-mint .days-drop,
 body.tint-lavender .days-drop,
 body.tint-graphite .days-drop,
-body.tint-cherry .days-drop {
+body.tint-cherry .days-drop ,
+body.tint-vice .days-drop {
   background: linear-gradient(135deg, var(--tint1), var(--tint2));
   color: #ffffff;
 }
@@ -7816,7 +7826,8 @@ body.tint-sunset .card--now,
 body.tint-mint .card--now,
 body.tint-lavender .card--now,
 body.tint-graphite .card--now,
-body.tint-cherry .card--now {
+body.tint-cherry .card--now ,
+body.tint-vice .card--now {
   box-shadow:
     -3px 0 0 0 var(--tint1),
     0 10px 28px -14px color-mix(in srgb, var(--tint2) 60%, transparent);
@@ -17534,4 +17545,361 @@ body.pc-no-emoji .free-day {
 #schedule > #lessons,
 body:not(.app-reveal) #schedule > #lessons {
   animation: none !important;
+}
+
+/* Поиск → предметы: кто ведёт. */
+.teacher-who {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  opacity: 0.78;
+}
+
+/* --- Вайс-Сити: неоновый закат в духе GTA VI ---
+   Розовый, оранжевый и бирюза; дата — градиентом заката, фон — тёплое
+   небо с пальмовой бирюзой снизу. В тёмной схеме — ночной неон. */
+body.tint-vice::before {
+  background:
+    radial-gradient(120% 50% at -10% -6%, color-mix(in srgb, #ff2d95 26%, transparent), transparent 60%),
+    radial-gradient(90% 44% at 110% 0%, color-mix(in srgb, #ff8a3d 26%, transparent), transparent 62%),
+    radial-gradient(110% 40% at 50% 112%, color-mix(in srgb, #22d3d6 20%, transparent), transparent 66%);
+}
+body.tint-vice .date,
+body.tint-vice .date-old,
+body.tint-vice .date-new {
+  background: linear-gradient(100deg, #ff2d95 0%, #ff8a3d 55%, #ffc23d 100%) 0 0 / 100% 100% no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+body.tint-vice .card--now {
+  box-shadow:
+    -3px 0 0 0 #22d3d6,
+    0 12px 30px -14px color-mix(in srgb, #ff2d95 70%, transparent);
+}
+
+/* Вайс-Сити: бирюза и пальмы. */
+.vice-sky {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  contain: strict;
+  transform: translateZ(0);
+  background:
+    radial-gradient(120% 46% at -10% -4%, rgba(255, 45, 149, 0.16), transparent 60%),
+    radial-gradient(120% 50% at 50% 115%, rgba(34, 211, 214, 0.2), transparent 66%);
+}
+.vice-scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+/* Солнце в полоску — обычным градиентом, без маски (маска дорогая). */
+.vice-sun {
+  position: absolute;
+  left: 50%;
+  bottom: 70px;
+  width: 240px;
+  height: 120px;
+  margin-left: -120px;
+  border-radius: 120px 120px 0 0;
+  background:
+    linear-gradient(transparent 0 40%, var(--sun-gap, #fbe9ef) 40% 48%, transparent 48% 62%, var(--sun-gap, #fbe9ef) 62% 70%, transparent 70% 80%, var(--sun-gap, #fbe9ef) 80% 87%, transparent 87%),
+    linear-gradient(180deg, #ffd23d, #ff8a3d 50%, #ff2d95);
+  opacity: 0.22;
+}
+.vice-palm {
+  position: absolute;
+  bottom: -14px;
+  width: 170px;
+  height: auto;
+  opacity: 0.12;
+}
+.vice-palm--l {
+  left: -48px;
+}
+.vice-palm--r {
+  right: -40px;
+  width: 140px;
+  bottom: -30px;
+  transform: scaleX(-1);
+}
+@media (min-width: 900px) {
+  .vice-palm { width: 260px; }
+  .vice-palm--r { width: 220px; }
+}
+
+/* Заставка в Вайс-Сити. Сцена — под надписями (z-index −1 внутри
+   заставки), сами надписи не трогаем: их раскладка своя. */
+/* Фон заставки — как у приложения (светлый или тёмный, как в Telegram),
+   поверх только прозрачный закатный отсвет снизу: тёмная тема остаётся тёмной. */
+.vice-early .splash,
+body.tint-vice .splash {
+  isolation: isolate;
+  background:
+    linear-gradient(180deg, transparent 35%, rgba(255, 45, 149, 0.14) 75%, rgba(255, 138, 61, 0.22) 100%),
+    var(--tg-theme-bg-color, #fff);
+}
+/* Свободный день: в центре значок дня — солнце и пальмы уходят ниже и тише,
+   значок виден сразу, а не выпрыгивает поверх солнца. */
+body.tint-vice .splash.splash--free .vice-scene .vice-sun {
+  display: none;
+}
+.vice-early .splash.splash--free .vice-scene .vice-palm,
+body.tint-vice .splash.splash--free .vice-scene .vice-palm {
+  opacity: 0.4;
+}
+body.tint-vice .splash--free .splash-free-emoji {
+  animation-delay: 0ms;
+}
+.vice-early .splash .vice-scene,
+body.tint-vice .splash .vice-scene {
+  z-index: -1;
+}
+/* Пальмы на заставке — силуэт цвета текста: тёмные на светлом, светлые на тёмном. */
+.vice-early .splash .vice-palm,
+body.tint-vice .splash .vice-palm {
+  opacity: 0.8;
+}
+body.tint-vice .splash .vice-sun {
+  --sun-gap: var(--tg-theme-bg-color, #fff);
+  opacity: 0.9;
+  bottom: 110px;
+}
+.vice-early .splash-day,
+.vice-early .splash-hello-title span,
+body.tint-vice .splash-day,
+body.tint-vice .splash-hello-title span {
+  background: linear-gradient(100deg, #ff2d95, #ff8a3d 60%, #ffb43d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+body.tint-vice .splash-fill,
+body.tint-vice .splash-comet,
+body.tint-vice .splash-dot {
+  background: linear-gradient(90deg, #ff2d95, #22d3d6) !important;
+}
+
+/* Бирюза — второй цвет темы. */
+body.tint-vice .week {
+  color: #0b7f85 !important;
+  background: color-mix(in srgb, #22d3d6 20%, transparent) !important;
+}
+body.tint-vice #lessons details > summary {
+  color: #0b7f85 !important;
+  background: color-mix(in srgb, #22d3d6 18%, transparent) !important;
+}
+body.tint-vice .day.active,
+body.tint-vice .days-drop {
+  background: linear-gradient(150deg, #ff2d95 0%, #c04bff 60%, #22d3d6 115%) !important;
+  color: #fff !important;
+}
+body.tint-vice .day:not(.active) .day-dots i {
+  background: #22d3d6 !important;
+}
+body.tint-vice .ribbon--chips .chip:not(:first-child) {
+  border-color: color-mix(in srgb, #22d3d6 45%, transparent) !important;
+}
+body.tint-vice:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .days-drop,
+body.tint-vice #tabs .tabs-drop,
+body.tint-vice .tab.active {
+  background: linear-gradient(150deg, #ff2d95 0%, #c04bff 60%, #22d3d6 115%) !important;
+}
+/* Пальма — маской цвета текста: подстраивается под светлую и тёмную схему. */
+.vice-palm {
+  display: block;
+  aspect-ratio: 2 / 3;
+  background: var(--tg-theme-text-color, #1d2a4a);
+  -webkit-mask: url("palm.svg") center / contain no-repeat;
+  mask: url("palm.svg") center / contain no-repeat;
+}
+.vice-sun {
+  display: none !important;
+}
+/* Строка-отсылка на заставке Вайс-Сити — обычный элемент между
+   приветствием и датой, с тем же зазором, что у остальных; ставится сразу
+   при открытии (index.html), поэтому ничего не сдвигает. */
+.vice-tag {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  text-align: center;
+  white-space: nowrap;
+  background: linear-gradient(90deg, #ff2d95, #22d3d6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: vice-tag-in 700ms ease 200ms both;
+}
+@keyframes vice-tag-in {
+  from { opacity: 0; }
+}
+.splash--gone .vice-tag {
+  animation: none;
+}
+
+/* Место под время «08:00 … 14:30» — сразу: строка приходит позже и иначе
+   раздвигала заставку, дата и приветствие прыгали на 12 px. */
+.splash-times {
+  min-height: 24px;
+}
+
+/* Вайс-Сити по неделям: нечётная — закат (розовый → оранжевый, бирюза
+   вторым цветом), чётная — ночной неон (бирюза → фиолетовый, розовый
+   вторым цветом). Тот же город, разное время суток. */
+body.tint-vice[data-parity="even"] {
+  --tint1: #12b8c4;
+  --tint2: #8b5cf6;
+  --accent: #12b8c4;
+  --accent-soft: color-mix(in srgb, #12b8c4 15%, transparent);
+  --line: color-mix(in srgb, #12b8c4 22%, transparent);
+}
+body.tint-vice[data-parity="even"] .date,
+body.tint-vice[data-parity="even"] .date-old,
+body.tint-vice[data-parity="even"] .date-new {
+  background-image: linear-gradient(100deg, #12b8c4 0%, #6f6cf6 55%, #c04bff 100%);
+}
+body.tint-vice[data-parity="even"]:not(.neon):not(.neon-day) :is(#days, .slide-ghost) > .days-drop,
+body.tint-vice[data-parity="even"] #tabs .tabs-drop,
+body.tint-vice[data-parity="even"] .tab.active {
+  background: linear-gradient(150deg, #12b8c4 0%, #6f6cf6 60%, #ff2d95 125%) !important;
+}
+body.tint-vice[data-parity="even"] .week,
+body.tint-vice[data-parity="even"] #lessons details > summary {
+  color: #d1127a !important;
+  background: color-mix(in srgb, #ff2d95 14%, transparent) !important;
+}
+body.tint-vice[data-parity="even"] .day:not(.active) .day-dots i {
+  background: #ff2d95 !important;
+}
+body.tint-vice[data-parity="even"] .ribbon--chips .chip:not(:first-child) {
+  border-color: color-mix(in srgb, #ff2d95 40%, transparent) !important;
+}
+body.tint-vice[data-parity="even"] .card--now {
+  box-shadow:
+    -3px 0 0 0 #ff2d95,
+    0 12px 30px -14px color-mix(in srgb, #12b8c4 70%, transparent);
+}
+body.tint-vice[data-parity="even"] .vice-sky {
+  background:
+    radial-gradient(120% 46% at -10% -4%, rgba(18, 184, 196, 0.16), transparent 60%),
+    radial-gradient(120% 50% at 50% 115%, rgba(139, 92, 246, 0.18), transparent 66%);
+}
+
+/* Точки числа пар под днями — контрастнее: насыщенные тёмные оттенки,
+   без прозрачности. */
+body.tint-vice .day:not(.active) .day-dots i {
+  background: #0a8790 !important;
+  opacity: 1 !important;
+}
+body.tint-vice[data-parity="even"] .day:not(.active) .day-dots i {
+  background: #d1127a !important;
+}
+
+/* Пустую полосу не показываем, пока неизвестно, есть ли сегодня пары:
+   в свободный день она мелькала на секунду. Появляется вместе с парами. */
+.splash-line {
+  opacity: 0 !important;
+  transition: opacity 260ms ease;
+}
+.splash:not(.splash--free) .splash-track--ready .splash-line {
+  opacity: 0.1 !important;
+}
+
+/* Точки числа пар под днями: оттенок смешан с цветом текста — темнее на
+   светлой схеме и светлее на тёмной, видно в обеих. */
+body.tint-vice .day:not(.active) .day-dots i {
+  background: color-mix(in srgb, #22d3d6 62%, var(--text, #000)) !important;
+  opacity: 1 !important;
+}
+body.tint-vice[data-parity="even"] .day:not(.active) .day-dots i {
+  background: color-mix(in srgb, #ff2d95 70%, var(--text, #000)) !important;
+}
+
+/* Пальмы на заставке не выскакивают, а мягко вырастают снизу. */
+.splash .vice-palm {
+  animation: vice-palm-in 1100ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: 50% 100%;
+}
+.splash .vice-palm--r {
+  animation-name: vice-palm-in-r;
+  animation-delay: 120ms;
+}
+@keyframes vice-palm-in {
+  from { opacity: 0; transform: translateY(40px) scale(0.92); }
+}
+@keyframes vice-palm-in-r {
+  from { opacity: 0; transform: scaleX(-1) translateY(40px) scale(0.92); }
+  to { transform: scaleX(-1); }
+}
+
+/* Пальмы ещё мягче: дольше, без масштаба, лёгкий подъём и плавное
+   проявление по одной кривой. */
+.splash .vice-palm {
+  animation: vice-palm-soft 1800ms cubic-bezier(0.25, 0.1, 0.25, 1) 150ms both;
+  will-change: opacity, transform;
+}
+.splash .vice-palm--r {
+  animation-name: vice-palm-soft-r;
+  animation-delay: 350ms;
+}
+@keyframes vice-palm-soft {
+  from { opacity: 0; transform: translate3d(0, 18px, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+@keyframes vice-palm-soft-r {
+  from { opacity: 0; transform: scaleX(-1) translate3d(0, 18px, 0); }
+  to { transform: scaleX(-1) translate3d(0, 0, 0); }
+}
+
+/* Пальма — картинкой, без маски: маску телефон перерисовывает каждый кадр,
+   а картинку видеокарта просто двигает. Цвет — приглушённый сиреневый,
+   читается и на светлом, и на тёмном фоне. */
+.vice-palm {
+  background: none !important;
+  -webkit-mask: none !important;
+  mask: none !important;
+  aspect-ratio: auto;
+  height: auto;
+}
+.splash .vice-palm {
+  animation: vice-palm-smooth 1200ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+  backface-visibility: hidden;
+}
+.splash .vice-palm--r {
+  animation-name: vice-palm-smooth-r;
+  animation-delay: 260ms;
+}
+@keyframes vice-palm-smooth {
+  from { opacity: 0; transform: translate3d(0, 16px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes vice-palm-smooth-r {
+  from { opacity: 0; transform: translate3d(0, 16px, 0) scaleX(-1); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scaleX(-1); }
+}
+
+/* Конец проявления пальм — та же яркость, что и у покоящейся пальмы:
+   кадр «после анимации» не отличается от последнего кадра анимации. */
+.vice-early .splash .vice-palm,
+body.tint-vice .splash .vice-palm {
+  opacity: 0.85;
+}
+@keyframes vice-palm-smooth {
+  from { opacity: 0; transform: translate3d(0, 16px, 0); }
+  to { opacity: 0.85; transform: translate3d(0, 0, 0); }
+}
+@keyframes vice-palm-smooth-r {
+  from { opacity: 0; transform: translate3d(0, 16px, 0) scaleX(-1); }
+  to { opacity: 0.85; transform: translate3d(0, 0, 0) scaleX(-1); }
+}
+.splash .vice-palm {
+  backface-visibility: visible;
 }
