@@ -3298,7 +3298,3 @@ body.fm-open .minihead {
   flex: none;
   white-space: nowrap;
 }
-.fm-comp-tools .fm-chip:last-of-type:not(:only-of-type) {
-  flex: 0 1 auto;
-  min-width: 0;
-}

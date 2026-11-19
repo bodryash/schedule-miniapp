@@ -2712,8 +2712,6 @@
     body.append(area);
     const err = document.createElement("div");
     err.className = "fm-comp-err";
-    const rulesLink = Object.assign(document.createElement("button"), { type: "button", className: "fm-inline-link", textContent: t("Правила") });
-    rulesLink.addEventListener("click", () => openRules(false));
     const hint = Object.assign(document.createElement("div"), { className: "fm-comp-as", textContent: t("Рядом с текстом появится пометка «изменено».") });
     box.append(top, body, hint, err);
     fill(sheet.sh, box);
@@ -2965,6 +2963,8 @@
     as.className = "fm-comp-as";
     const err = document.createElement("div");
     err.className = "fm-comp-err";
+    const rulesLink = Object.assign(document.createElement("button"), { type: "button", className: "fm-inline-link", textContent: t("Правила") });
+    rulesLink.addEventListener("click", () => openRules(false));
 
     const tools = document.createElement("div");
     tools.className = "fm-comp-tools";
@@ -3003,9 +3003,7 @@
       });
       const rule = document.createElement("div");
       rule.className = "fm-comp-photo-rule";
-      const more = Object.assign(document.createElement("button"), { type: "button", className: "fm-inline-link", textContent: t("Правила") });
-      more.addEventListener("click", () => openRules(false));
-      rule.append(document.createTextNode(t("Фото проверит модератор: без чужих лиц, документов и 18+. ")), more);
+      rule.append(document.createTextNode(t("Фото проверит модератор: без чужих лиц, документов и 18+.")));
       const frame = document.createElement("div");
       frame.className = "fm-comp-photo-frame";
       frame.append(img, drop);
