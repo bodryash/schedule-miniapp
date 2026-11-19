@@ -1826,12 +1826,25 @@ const COLOR_THEMES = [
 ];
 const COLOR_IDS = new Set(COLOR_THEMES.map(([id]) => id));
 
+// Вайс-Сити у всех: выданные темы (волонтёр, гламур, МГУ…) хранятся на
+// сервере и не теряются — тема их только перекрывает, пока это true.
+const VICE_FOR_ALL = true;
 // Один раз ставим всем Вайс-Сити, даже тем, кто выбирал свой цвет. Потом
 // человек может снова выбрать любой — повторно не переключаем.
 try {
+  // Прежний выбор цвета запоминаем — когда Вайс-Сити закончится, вернём его.
   if (localStorage.getItem("schedule.viceForced") !== "1") {
+    const before = localStorage.getItem("schedule.colorTheme");
+    if (before && before !== "vice") localStorage.setItem("schedule.colorBeforeVice", before);
     localStorage.setItem("schedule.colorTheme", "vice");
     localStorage.setItem("schedule.viceForced", "1");
+  }
+  // Вайс-Сити выключили для всех — возвращаем каждому его цвет.
+  if (!VICE_FOR_ALL && localStorage.getItem("schedule.viceForced") === "1") {
+    const before = localStorage.getItem("schedule.colorBeforeVice");
+    if (localStorage.getItem("schedule.colorTheme") === "vice") localStorage.setItem("schedule.colorTheme", before || "plain");
+    localStorage.removeItem("schedule.colorBeforeVice");
+    localStorage.setItem("schedule.viceForced", "done");
   }
 } catch {}
 
@@ -2081,7 +2094,6 @@ function renderViceSky(on) {
   document.body.append(sky);
 }
 
-const VICE_FOR_ALL = true;
 function applyTheme(granted = grantedTheme) {
   rememberLook();
   grantedTheme = giftedTheme() || granted || "";
