@@ -17885,3 +17885,21 @@ body.tint-vice[data-parity="even"] .day:not(.active) .day-dots i {
   from { opacity: 0; transform: translate3d(0, 16px, 0) scaleX(-1); }
   to { opacity: 1; transform: translate3d(0, 0, 0) scaleX(-1); }
 }
+
+/* Конец проявления пальм — та же яркость, что и у покоящейся пальмы:
+   кадр «после анимации» не отличается от последнего кадра анимации. */
+.vice-early .splash .vice-palm,
+body.tint-vice .splash .vice-palm {
+  opacity: 0.85;
+}
+@keyframes vice-palm-smooth {
+  from { opacity: 0; transform: translate3d(0, 16px, 0); }
+  to { opacity: 0.85; transform: translate3d(0, 0, 0); }
+}
+@keyframes vice-palm-smooth-r {
+  from { opacity: 0; transform: translate3d(0, 16px, 0) scaleX(-1); }
+  to { opacity: 0.85; transform: translate3d(0, 0, 0) scaleX(-1); }
+}
+.splash .vice-palm {
+  backface-visibility: visible;
+}
