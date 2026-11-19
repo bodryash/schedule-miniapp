@@ -2980,7 +2980,9 @@
     const photoChip = document.createElement("button");
     photoChip.type = "button";
     photoChip.className = "fm-chip";
-    photoChip.replaceChildren(icon("image"), document.createTextNode(t("Фото")));
+    photoChip.classList.add("fm-chip--icon");
+    photoChip.setAttribute("aria-label", t("Фото"));
+    photoChip.replaceChildren(icon("image"));
     const picker = Object.assign(document.createElement("input"), { type: "file", accept: "image/jpeg,image/png,image/webp,image/heic,image/heif" });
     picker.hidden = true;
     const shot = document.createElement("div");
@@ -2990,6 +2992,7 @@
     const showShot = () => {
       shot.hidden = !photo;
       photoChip.classList.toggle("is-on", Boolean(photo));
+      redraw(false);
       if (!photo) return shot.replaceChildren();
       const img = Object.assign(document.createElement("img"), { src: photo.data, alt: "" });
       const drop = Object.assign(document.createElement("button"), { type: "button", className: "fm-comp-photo-x" });
@@ -3001,13 +3004,10 @@
         showShot();
         update();
       });
-      const rule = document.createElement("div");
-      rule.className = "fm-comp-photo-rule";
-      rule.append(document.createTextNode(t("Фото проверит модератор: без чужих лиц, документов и 18+.")));
       const frame = document.createElement("div");
       frame.className = "fm-comp-photo-frame";
       frame.append(img, drop);
-      shot.replaceChildren(frame, rule);
+      shot.replaceChildren(frame);
     };
     photoChip.addEventListener("click", () => {
       haptic("light");
@@ -3048,13 +3048,8 @@
       const nick = S.user.username;
       as.replaceChildren(
         document.createTextNode(
-          anon
-            ? t("Другие увидят «Аноним …». ")
-            : nick
-              ? t("Другие увидят ваше имя и смогут перейти в ваш Telegram (@{nick}). ", { nick })
-              : t("Другие увидят ваше имя. ")
+          (photo ? t("Фото проверит модератор") : anon ? t("Автора видит только админ") : nick ? t("Видно имя и @{nick}", { nick }) : t("Видно ваше имя")) + " · "
         ),
-        Object.assign(document.createElement("b"), { textContent: anon ? t("Администратор видит автора. ") : "" }),
         rulesLink
       );
       if (animated) {

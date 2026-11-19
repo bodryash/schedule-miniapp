@@ -3298,3 +3298,13 @@ body.fm-open .minihead {
   flex: none;
   white-space: nowrap;
 }
+.fm-chip--icon {
+  width: 36px;
+  padding: 0;
+  justify-content: center;
+}
+.sheet--fm-composer .fm-comp-as {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
