@@ -2049,7 +2049,7 @@ function viceScene() {
   box.setAttribute("aria-hidden", "true");
   // Пальма — готовой картинкой, а не сотней векторных фигур в DOM: браузер
   // рисует её один раз, прокрутка и анимации не пересчитывают листья.
-  box.innerHTML = `<i class="vice-palm vice-palm--l"></i><i class="vice-palm vice-palm--r"></i>`;
+  box.innerHTML = `<img class="vice-palm vice-palm--l" src="palm.svg" alt=""><img class="vice-palm vice-palm--r" src="palm.svg" alt="">`;
 
   return box;
 }

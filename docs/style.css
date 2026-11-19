@@ -17858,3 +17858,30 @@ body.tint-vice[data-parity="even"] .day:not(.active) .day-dots i {
   from { opacity: 0; transform: scaleX(-1) translate3d(0, 18px, 0); }
   to { transform: scaleX(-1) translate3d(0, 0, 0); }
 }
+
+/* Пальма — картинкой, без маски: маску телефон перерисовывает каждый кадр,
+   а картинку видеокарта просто двигает. Цвет — приглушённый сиреневый,
+   читается и на светлом, и на тёмном фоне. */
+.vice-palm {
+  background: none !important;
+  -webkit-mask: none !important;
+  mask: none !important;
+  aspect-ratio: auto;
+  height: auto;
+}
+.splash .vice-palm {
+  animation: vice-palm-smooth 1200ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+  backface-visibility: hidden;
+}
+.splash .vice-palm--r {
+  animation-name: vice-palm-smooth-r;
+  animation-delay: 260ms;
+}
+@keyframes vice-palm-smooth {
+  from { opacity: 0; transform: translate3d(0, 16px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes vice-palm-smooth-r {
+  from { opacity: 0; transform: translate3d(0, 16px, 0) scaleX(-1); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scaleX(-1); }
+}
