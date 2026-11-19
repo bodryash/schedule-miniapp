@@ -1826,12 +1826,25 @@ const COLOR_THEMES = [
 ];
 const COLOR_IDS = new Set(COLOR_THEMES.map(([id]) => id));
 
+// Вайс-Сити у всех: выданные темы (волонтёр, гламур, МГУ…) хранятся на
+// сервере и не теряются — тема их только перекрывает, пока это true.
+const VICE_FOR_ALL = true;
 // Один раз ставим всем Вайс-Сити, даже тем, кто выбирал свой цвет. Потом
 // человек может снова выбрать любой — повторно не переключаем.
 try {
+  // Прежний выбор цвета запоминаем — когда Вайс-Сити закончится, вернём его.
   if (localStorage.getItem("schedule.viceForced") !== "1") {
+    const before = localStorage.getItem("schedule.colorTheme");
+    if (before && before !== "vice") localStorage.setItem("schedule.colorBeforeVice", before);
     localStorage.setItem("schedule.colorTheme", "vice");
     localStorage.setItem("schedule.viceForced", "1");
+  }
+  // Вайс-Сити выключили для всех — возвращаем каждому его цвет.
+  if (!VICE_FOR_ALL && localStorage.getItem("schedule.viceForced") === "1") {
+    const before = localStorage.getItem("schedule.colorBeforeVice");
+    if (localStorage.getItem("schedule.colorTheme") === "vice") localStorage.setItem("schedule.colorTheme", before || "plain");
+    localStorage.removeItem("schedule.colorBeforeVice");
+    localStorage.setItem("schedule.viceForced", "done");
   }
 } catch {}
 
@@ -2111,7 +2124,9 @@ function applyTheme(granted = grantedTheme) {
   // Красное оформление Дня донора выключено для всех: дни донора и плашка остаются.
   const donor = false;
   document.body.classList.toggle("donor-days", donor);
-  const name = worn || (isHalloween() ? "halloween" : "") || (donor ? "cherry" : "") || ownName || (ownGlam() ? "glam" : "");
+  // Сейчас у всех без исключения Вайс-Сити: и поверх выданных тем, и поверх
+  // своего цвета. Вернуть как было — VICE_FOR_ALL = false.
+  const name = VICE_FOR_ALL ? "vice" : worn || (isHalloween() ? "halloween" : "") || (donor ? "cherry" : "") || ownName || (ownGlam() ? "glam" : "");
   // Неон — свои классы, не из THEMES; под выданной темой не включаем.
   document.body.classList.toggle("neon", !worn && own === "neon");
   document.body.classList.toggle("neon-day", !worn && own === "neon-day");
