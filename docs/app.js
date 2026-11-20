@@ -3931,12 +3931,12 @@ function renderStarostaAsk() {
 /* Оплаченная реклама под парами — рядом с плашкой старосты, на время
    кампании. Помечена «Реклама», закрывается крестиком на сутки. */
 const PROMO = {
-  id: "campus8-2026-11",
-  until: Date.parse("2026-11-18T23:59:59+03:00"),
-  icon: "💘",
-  title: "Знакомства для студентов",
-  hint: "Друзья, компания и пара из твоего вуза — @campus8bot",
-  link: "https://t.me/campus8bot?start=raspisanie",
+  id: "diflags-2026-11",
+  until: Date.parse("2026-11-27T23:59:59+03:00"),
+  icon: "🚩",
+  title: "«Флаги» — знакомства для студентов",
+  hint: "Анкеты, взаимные симпатии и новые друзья — @diflags_bot",
+  link: "https://t.me/diflags_bot?start=raspisanie",
 };
 
 function renderPromo() {
