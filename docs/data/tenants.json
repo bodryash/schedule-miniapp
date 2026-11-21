@@ -72,6 +72,13 @@
     "features": []
   },
   {
+    "id": "vmeda-ld2",
+    "university": "ВМедА им. С.М. Кирова",
+    "faculty": "ЛД, 2 курс",
+    "path": "vmeda-ld2",
+    "features": []
+  },
+  {
     "id": "samgmu-ikm-lech",
     "university": "СамГМУ",
     "faculty": "Институт клинической медицины — Лечебное дело",
