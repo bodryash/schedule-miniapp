@@ -1814,8 +1814,6 @@ const MSU_THEME_KEY = "schedule.msuTheme";
 // тема для тех, у кого факультет МГУ.
 const COLOR_THEMES = [
   // Обычный — цвет меняется с чётностью недели (синий / оранжевый).
-  // Вайс-Сити (в духе GTA VI) — у всех по умолчанию, пока стоит «Обычный».
-  ["vice", "Вайс-Сити", ["#ff2d95", "#22d3d6"]],
   ["plain", "Обычный", ["#2ea6ff", "#f0821e"]],
   ["ocean", "Бирюза", ["#0ea5e9", "#0ea5e9"]],
   ["mint", "Мята", ["#10b981", "#10b981"]],
@@ -1826,25 +1824,15 @@ const COLOR_THEMES = [
 ];
 const COLOR_IDS = new Set(COLOR_THEMES.map(([id]) => id));
 
-// Вайс-Сити у всех: выданные темы (волонтёр, гламур, МГУ…) хранятся на
-// сервере и не теряются — тема их только перекрывает, пока это true.
-const VICE_FOR_ALL = true;
-// Один раз ставим всем Вайс-Сити, даже тем, кто выбирал свой цвет. Потом
-// человек может снова выбрать любой — повторно не переключаем.
+// Restore the personal color saved before the Vice City event.
 try {
-  // Прежний выбор цвета запоминаем — когда Вайс-Сити закончится, вернём его.
-  if (localStorage.getItem("schedule.viceForced") !== "1") {
-    const before = localStorage.getItem("schedule.colorTheme");
-    if (before && before !== "vice") localStorage.setItem("schedule.colorBeforeVice", before);
-    localStorage.setItem("schedule.colorTheme", "vice");
-    localStorage.setItem("schedule.viceForced", "1");
-  }
-  // Вайс-Сити выключили для всех — возвращаем каждому его цвет.
-  if (!VICE_FOR_ALL && localStorage.getItem("schedule.viceForced") === "1") {
+  if (localStorage.getItem(COLOR_KEY) === "vice") {
     const before = localStorage.getItem("schedule.colorBeforeVice");
-    if (localStorage.getItem("schedule.colorTheme") === "vice") localStorage.setItem("schedule.colorTheme", before || "plain");
-    localStorage.removeItem("schedule.colorBeforeVice");
-    localStorage.setItem("schedule.viceForced", "done");
+    if (before && before !== "vice" && COLOR_IDS.has(before)) {
+      localStorage.setItem(COLOR_KEY, before);
+    } else {
+      localStorage.removeItem(COLOR_KEY);
+    }
   }
 } catch {}
 
@@ -1852,14 +1840,14 @@ function colorTheme() {
   try {
     const saved = localStorage.getItem(COLOR_KEY);
     // Неон и графит убрали — у кого были, видят обычное оформление.
-    if (saved) return COLOR_IDS.has(saved) ? saved : "vice";
+    if (saved) return COLOR_IDS.has(saved) && saved !== "vice" ? saved : "plain";
     // Раньше неон и МГУ включались отдельно — переносим их выбор.
     const neon = localStorage.getItem("schedule.neon");
     if (localStorage.getItem(MSU_THEME_KEY) === "1") return "msu";
   } catch {
     // Без памяти — как у всех.
   }
-  return "vice";
+  return "plain";
 }
 
 function msuThemeOn() {
@@ -2117,16 +2105,12 @@ function applyTheme(granted = grantedTheme) {
   // Выданная тема сильнее; выключенный волонтёр уступает своей теме.
   const worn = volunteer && volunteerOff() ? "" : grantedTheme;
   const own = colorTheme();
-  // Не выбирал своё оформление — у всех Вайс-Сити. «Обычный», выбранный
-  // явно (после появления Вайс-Сити), сохраняется как "plain".
   const ownName = own === "msu" ? (inMsu() ? "msu" : "") : THEMES[own] ? own : "";
   // 31 октября у всех Хеллоуин, выданная тема всё равно сильнее.
   // Красное оформление Дня донора выключено для всех: дни донора и плашка остаются.
   const donor = false;
   document.body.classList.toggle("donor-days", donor);
-  // Сейчас у всех без исключения Вайс-Сити: и поверх выданных тем, и поверх
-  // своего цвета. Вернуть как было — VICE_FOR_ALL = false.
-  const name = VICE_FOR_ALL ? "vice" : worn || (isHalloween() ? "halloween" : "") || (donor ? "cherry" : "") || ownName || (ownGlam() ? "glam" : "");
+  const name = worn || (isHalloween() ? "halloween" : "") || (donor ? "cherry" : "") || ownName || (ownGlam() ? "glam" : "");
   // Неон — свои классы, не из THEMES; под выданной темой не включаем.
   document.body.classList.toggle("neon", !worn && own === "neon");
   document.body.classList.toggle("neon-day", !worn && own === "neon-day");
