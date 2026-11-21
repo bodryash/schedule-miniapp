@@ -4473,11 +4473,26 @@ async function openPersonalProfile() {
   backdrop.addEventListener("keydown", (event) => { if (event.key === "Escape") dismiss(); });
 
   const group = activeGroup();
-  const user = tg?.initDataUnsafe?.user;
+  const user = tg?.initDataUnsafe?.user || window.__webLogin;
   const name = [user?.first_name, user?.last_name].filter(Boolean).join(" ");
   const head = el("div");
   head.append(el("h2", "", t("Мой профиль")));
-  if (name || group) head.append(el("div", "sem-note", [name, group && groupLabel(group)].filter(Boolean).join(" · ")));
+  const identity = el("div", "web-login-me");
+  const avatar = el("span", "web-login-ava", [...name][0]?.toUpperCase() || "?");
+  const showAvatar = (src) => {
+    if (!src) return;
+    const img = new Image();
+    img.alt = "";
+    img.referrerPolicy = "no-referrer";
+    img.onload = () => avatar.replaceChildren(img);
+    img.src = src;
+  };
+  showAvatar(user?.photo_url);
+  const account = el("div", "web-login-text");
+  account.append(el("b", "web-login-who", name || t("Гость")));
+  if (user?.username) account.append(el("small", "", `@${user.username}`));
+  if (group) account.append(el("small", "", groupLabel(group)));
+  identity.append(avatar, account);
   const top = el("div", "sheet-top");
   top.append(head, close);
   const content = el("div", "sem-body");
@@ -4495,7 +4510,7 @@ async function openPersonalProfile() {
   const forum = el("section");
   const forumStats = el("p", "sem-note", t(tg?.initData ? "Загрузка статистики…" : "Войдите через Telegram, чтобы увидеть статистику."));
   forum.append(el("h3", "sem-title", t("Подслушка")), forumStats);
-  content.append(semester, forum);
+  content.append(identity, semester, forum);
   sheet.append(top, content);
   backdrop.append(sheet);
   document.body.append(backdrop);
@@ -4510,6 +4525,7 @@ async function openPersonalProfile() {
     });
     const result = await response.json();
     if (!response.ok || !result.ok || !result.me) throw new Error("Forum statistics unavailable");
+    if (!user?.photo_url && result.meAva?.startsWith("/forum/ava/")) showAvatar(`${API_URL}${result.meAva}`);
     const { icon, name: rank, karma, next } = result.me;
     forumStats.textContent = [`${icon} ${t(rank)}`, t("Карма: {n}", { n: karma }), next && t("До уровня «{rank}» осталось {n}", { rank: t(next.name), n: next.need })].filter(Boolean).join(" · ");
   } catch {
