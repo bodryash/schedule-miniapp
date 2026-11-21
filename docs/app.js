@@ -10770,6 +10770,16 @@ function refitDate() {
 document.fonts?.ready.then(refitDate);
 document.fonts?.addEventListener?.("loadingdone", refitDate);
 
+function animateDayHeaderIn(node, direction) {
+  return node.animate(
+    [
+      { transform: `translateX(${22 * direction}px)`, opacity: 0, filter: "blur(2px)" },
+      { transform: "translateX(0)", opacity: 1, filter: "blur(0)" },
+    ],
+    { duration: 320, delay: 90, easing: "cubic-bezier(0.18, 0.89, 0.32, 1)", fill: "backwards" }
+  );
+}
+
 function setDateLabel(text, direction) {
   const label = els.dateLabel;
   // Откуда уезжаем — дата, к которой ехали, а не текст целиком: при быстром
@@ -10799,14 +10809,7 @@ function setDateLabel(text, direction) {
     ],
     { duration: 180, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }
   );
-  fresh
-    .animate(
-      [
-        { transform: `translateX(${shift}px)`, opacity: 0, filter: "blur(2px)" },
-        { transform: "translateX(0)", opacity: 1, filter: "blur(0)" },
-      ],
-      { duration: 320, delay: 90, easing: "cubic-bezier(0.18, 0.89, 0.32, 1)", fill: "backwards" }
-    )
+  animateDayHeaderIn(fresh, direction)
     .finished.catch(() => {})
     .finally(() => {
       if (label.contains(fresh)) label.textContent = text;
@@ -10827,7 +10830,8 @@ function showSchedule() {
   els.currentGroup.textContent = groupLabel(group);
 
   const label = FULL_DATE.format(dateOfDay(selectedDay));
-  setDateLabel(label[0].toUpperCase() + label.slice(1), pendingLabel);
+  const direction = pendingLabel;
+  setDateLabel(label[0].toUpperCase() + label.slice(1), direction);
   renderDonorBanner();
   renderDonorDay();
   pendingLabel = 0;
@@ -10849,6 +10853,14 @@ function showSchedule() {
   renderEvent();
   renderExamBanner();
   renderLessons(group, parity);
+  if (direction && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    renderRibbon();
+    const ribbon = document.getElementById("ribbon");
+    if (ribbon) {
+      for (const animation of ribbon.getAnimations()) animation.cancel();
+      if (!ribbon.hidden) animateDayHeaderIn(ribbon, direction);
+    }
+  }
   renderSeason();
   loadNotes().then(applyNotes);
   noticesReady = loadNotices(group);
