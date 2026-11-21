@@ -4389,10 +4389,10 @@ function semBar(done, total, missed = 0) {
   return bar;
 }
 
-function renderSemester(container = semesterSheet) {
+function renderSemester() {
   const stats = semesterStats();
-  const body = container.querySelector(".sem-body");
-  container.querySelector(".sem-note").textContent = t("По вашему расписанию, без учёта отмен");
+  const body = semesterSheet.querySelector(".sem-body");
+  semesterSheet.querySelector(".sem-note").textContent = t("По вашему расписанию, без учёта отмен");
   if (!stats.total) {
     body.replaceChildren(el("p", "empty", t("Пар в этом семестре нет")));
     return;
@@ -4447,90 +4447,6 @@ function renderSemester(container = semesterSheet) {
     list.append(row);
   }
   body.replaceChildren(hero, tiles, facts, el("h3", "sem-title", t("По предметам")), list);
-}
-
-let personalProfileSheet;
-
-async function openPersonalProfile() {
-  personalProfileSheet?.remove();
-  const backdrop = el("div", "sheet-backdrop");
-  personalProfileSheet = backdrop;
-  const sheet = el("div", "sheet sheet--abs sheet--semester");
-  sheet.setAttribute("role", "dialog");
-  sheet.setAttribute("aria-modal", "true");
-  sheet.setAttribute("aria-label", t("Мой профиль"));
-  const anchor = document.activeElement;
-  const dismiss = () => {
-    backdrop.remove();
-    if (personalProfileSheet === backdrop) personalProfileSheet = null;
-    anchor?.focus();
-  };
-  const close = el("button", "icon", "×");
-  close.type = "button";
-  close.setAttribute("aria-label", t("Закрыть"));
-  close.addEventListener("click", dismiss);
-  backdrop.addEventListener("click", (event) => { if (event.target === backdrop) dismiss(); });
-  backdrop.addEventListener("keydown", (event) => { if (event.key === "Escape") dismiss(); });
-
-  const group = activeGroup();
-  const user = tg?.initDataUnsafe?.user || window.__webLogin;
-  const name = [user?.first_name, user?.last_name].filter(Boolean).join(" ");
-  const head = el("div");
-  head.append(el("h2", "", t("Мой профиль")));
-  const identity = el("div", "web-login-me");
-  const avatar = el("span", "web-login-ava", [...name][0]?.toUpperCase() || "?");
-  const showAvatar = (src) => {
-    if (!src) return;
-    const img = new Image();
-    img.alt = "";
-    img.referrerPolicy = "no-referrer";
-    img.onload = () => avatar.replaceChildren(img);
-    img.src = src;
-  };
-  showAvatar(user?.photo_url);
-  const account = el("div", "web-login-text");
-  account.append(el("b", "web-login-who", name || t("Гость")));
-  if (user?.username) account.append(el("small", "", `@${user.username}`));
-  if (group) account.append(el("small", "", groupLabel(group)));
-  identity.append(avatar, account);
-  const top = el("div", "sheet-top");
-  top.append(head, close);
-  const content = el("div", "sem-body");
-  const semester = el("section");
-  semester.append(el("h3", "sem-title", t("Мой семестр")), el("p", "sem-note"), el("div", "sem-body"));
-  if (data && group) {
-    renderSemester(semester);
-    const exam = el("button", "chip", t("Сессия"));
-    exam.type = "button";
-    exam.addEventListener("click", () => { dismiss(); openExams(); });
-    semester.append(exam);
-  } else {
-    semester.querySelector(".sem-note").textContent = t("Выберите группу, чтобы увидеть статистику семестра.");
-  }
-  const forum = el("section");
-  const forumStats = el("p", "sem-note", t(tg?.initData ? "Загрузка статистики…" : "Войдите через Telegram, чтобы увидеть статистику."));
-  forum.append(el("h3", "sem-title", t("Подслушка")), forumStats);
-  content.append(identity, semester, forum);
-  sheet.append(top, content);
-  backdrop.append(sheet);
-  document.body.append(backdrop);
-  close.focus();
-  if (data && group) void loadAbsences().then(() => { if (backdrop.isConnected && activeGroup() === group) renderSemester(semester); });
-  if (!tg?.initData) return;
-  try {
-    const response = await fetch(`${API_URL}/forum/list`, {
-      method: "POST",
-      body: JSON.stringify({ initData: tg.initData, sort: "new" }),
-      signal: AbortSignal.timeout(10000),
-    });
-    const result = await response.json();
-    if (!response.ok || !result.ok || !result.me) throw new Error("Forum statistics unavailable");
-    if (!user?.photo_url && result.meAva?.startsWith("/forum/ava/")) showAvatar(`${API_URL}${result.meAva}`);
-    const { icon, name: rank, karma, next } = result.me;
-    forumStats.textContent = [`${icon} ${t(rank)}`, t("Карма: {n}", { n: karma }), next && t("До уровня «{rank}» осталось {n}", { rank: t(next.name), n: next.need })].filter(Boolean).join(" · ");
-  } catch {
-    forumStats.textContent = t("Статистика Подслушки сейчас недоступна.");
-  }
 }
 
 /* ---------- Пропуски ---------- */
@@ -12957,16 +12873,8 @@ function initMenu() {
     if (item.dataset.menu === "settings") showPicker();
     if (item.dataset.menu === "absences") openAbsences();
     if (item.dataset.menu === "semester") openSemester();
-    if (item.dataset.menu === "personal-profile") void openPersonalProfile();
     if (item.dataset.menu === "meet") openMeet();
   });
-  if (!pop.querySelector('[data-menu="personal-profile"]')) {
-    const item = el("button");
-    item.type = "button";
-    item.dataset.menu = "personal-profile";
-    item.append(el("span", "", "👤"), el("span", "", t("Мой профиль")));
-    pop.prepend(item);
-  }
   if (!pop.querySelector('[data-menu="exams"]')) {
     const item = el("button");
     item.type = "button";

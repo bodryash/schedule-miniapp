@@ -17903,3 +17903,56 @@ body.tint-vice .splash .vice-palm {
 .splash .vice-palm {
   backface-visibility: visible;
 }
+
+/* Exam agenda and month planner share the active theme. */
+.exam-day {
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0 2px;
+}
+.exam-day:first-child { margin-top: 0; }
+.exam-day-till {
+  flex-shrink: 0;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+}
+.exam-row {
+  grid-template-columns: minmax(0, 6.5em) minmax(0, 1fr);
+  align-items: start;
+  padding: 15px;
+  border-radius: 16px;
+  background: var(--card);
+  border-inline-start: 3px solid var(--accent);
+}
+.exam-row--soft { opacity: 1; border-color: var(--muted); }
+.exam-when { color: var(--text); font-size: 14px; }
+.exam-when:empty { display: none; }
+.exam-when:empty + .exam-what { grid-column: 1 / -1; }
+.exam-what { gap: 5px; overflow-wrap: anywhere; }
+.sheet--exams .empty {
+  margin: 12px 0 0;
+  padding: 20px 16px;
+  border-radius: 18px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 700;
+}
+.month-view .month-nav {
+  padding: 8px;
+  border-radius: 18px;
+  background: var(--card);
+}
+.month-view .mgrid {
+  padding: clamp(4px, 1.4vw, 12px);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+.month-view .mgrid-num { padding-block: 3px; }
+.mgrid-cell--today .mgrid-num {
+  padding: 3px 6px;
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--accent-soft);
+}
+.month-view button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
