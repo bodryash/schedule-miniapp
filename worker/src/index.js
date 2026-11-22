@@ -178,7 +178,7 @@ function toHex(bytes) {
  * Проверяет подпись initData мини-приложения. Без неё эндпоинт открыт
  * всему интернету и счётчики можно накрутить одной командой.
  */
-async function verifyInitData(initData, token) {
+export async function verifyInitData(initData, token) {
   const params = new URLSearchParams(initData);
   const hash = params.get("hash");
   if (!hash) return null;
@@ -3207,6 +3207,7 @@ const PHOTO_ACK = new Map();
  * волонтёра. Повторно одному человеку про тот же вуз не пишем.
  */
 async function notifyConnected(env, ids, title, target = null) {
+  if (!target?.tenant || !target?.group) return ids.map(id => ({ id, ok: false, error: "group required" }));
   const out = [];
   for (const id of [...new Set(ids.map(Number).filter(Boolean))]) {
     const key = `connected:${id}:${title}`;
@@ -3217,7 +3218,7 @@ async function notifyConnected(env, ids, title, target = null) {
     await env.STATS.prepare("INSERT INTO forum_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING").bind(key, new Date().toISOString()).run();
     await grantVolunteer(env, { id }).catch(() => {});
     // Кнопка сразу открывает его группу: код приглашения, как у «Позвать группу».
-    let url = WEB_APP_URL;
+    let url;
     if (target?.tenant && target?.group) {
       const code = shareCode();
       const group = target.tenant === DEFAULT_TENANT ? target.group : `${target.tenant}/${target.group}`;
@@ -3227,10 +3228,15 @@ async function notifyConnected(env, ids, title, target = null) {
         .then(() => { url = `${WEB_APP_URL}?grp=${code}`; })
         .catch(() => {});
     }
+    if (!url) {
+      await env.STATS.prepare("DELETE FROM forum_settings WHERE key = ?").bind(key).run();
+      out.push({ id, ok: false, error: "group link unavailable" });
+      continue;
+    }
     const r = await callTelegram(env.BOT_TOKEN, "sendMessage", {
       chat_id: id,
       parse_mode: "HTML",
-      text: `🎉 Спасибо! Твоё расписание подключено${title ? ` — <b>${escape(title)}</b>` : ""}.\n\nЗа помощь выдаю тебе зелёную тему волонтёра 💚 Она уже в приложении.\n\nРаздай бота всем, кому можешь, — одногруппникам и в чат курса: пусть тоже пользуются.`,
+      text: `🎉 Спасибо! Твоё расписание подключено${title ? ` — <b>${escape(title)}</b>` : ""}.\n\nЗа помощь выдаю тебе зелёную тему волонтёра 💚 Она уже в приложении.\n\nПоделись, пожалуйста, ботом с одногруппниками и друзьями: https://t.me/FGPshedulebot\n\n— Команда :Расписания`,
       reply_markup: { inline_keyboard: [[{ text: "📅 Открыть моё расписание", web_app: { url } }]] },
     }).catch((e) => ({ ok: false, description: String(e) }));
     const why = r?.ok ? undefined : r?.description || (await r?.text?.().catch(() => ""))?.slice(0, 200);

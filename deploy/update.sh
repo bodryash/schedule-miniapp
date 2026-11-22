@@ -114,7 +114,7 @@ if [ -f "$CADDY" ] && grep -q '^	header Cache-Control "no-cache"$' "$CADDY" && g
   fi
 fi
 # Apply only the beta site from the repository, preserving other live sites.
-if [ -f "$CADDY" ] && grep -q '^beta\.bodryash\.ru {' "$CADDY" && ! grep -Fq '$2b$12$A/bSVVkx7RgH/J1LfmqK0uOTkxbP8hL2XCEzx2FE68BXYtRJjhboS' "$CADDY"; then
+if [ -f "$CADDY" ] && grep -q '^beta\.bodryash\.ru {' "$CADDY" && ! grep -Fq 'uri /_beta/check' "$CADDY"; then
   candidate=$(mktemp /etc/caddy/beta-site.XXXXXX)
   awk 'FNR==NR {if (/^beta\.bodryash\.ru [{]/) take=1; if(take) site=site $0 "\n"; if(/^}/) take=0; next}
     /^beta\.bodryash\.ru [{]/ {printf "%s",site; skip=1}

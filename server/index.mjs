@@ -9,6 +9,7 @@ import { cpus, freemem, loadavg, totalmem } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDatabase } from "./d1.mjs";
+import { betaAccess } from "./beta-access.mjs";
 import tls from "node:tls";
 
 // Node 24 по умолчанию шлёт в начале TLS ещё и пост-квантовый ключ — первый
@@ -49,7 +50,7 @@ if (TELEGRAM_BASE) {
     return direct(input, init);
   };
 }
-const { default: worker } = await import("../worker/src/index.js");
+const { default: worker, verifyInitData } = await import("../worker/src/index.js");
 const PORT = Number(process.env.PORT || 8787);
 const DB_PATH = process.env.DB_PATH || join(here, "..", "data", "schedule.sqlite");
 // Сколько тела запроса принимаем: самое большое — план напоминаний на две
@@ -446,6 +447,10 @@ async function checkTelegram() {
 const server = createServer(async (req, res) => {
   const startedAt = performance.now();
   stats.requests += 1;
+  if (req.url === "/_beta/check" || req.url === "/_beta/login") {
+    try { await betaAccess(req, res, env, verifyInitData, readBody); } catch { if (!res.headersSent) res.writeHead(403); res.end(); }
+    return;
+  }
   if (req.url !== "/healthz" && limited(req)) {
     stats.limited += 1;
     if (String(req.url).startsWith("/ics/")) console.log(`ICS limited ${String(req.url).split("?")[0]}`);
