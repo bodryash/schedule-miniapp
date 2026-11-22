@@ -20,13 +20,13 @@ if ! grep -q "beta.bodryash.ru" /etc/caddy/Caddyfile; then
 
 # Бета: ветка beta, обновляется вместе с основной копией.
 beta.bodryash.ru {
+	basicauth {
+		owner $2b$12$A/bSVVkx7RgH/J1LfmqK0uOTkxbP8hL2XCEzx2FE68BXYtRJjhboS
+	}
+	header Cache-Control "private, no-store"
 	root * /opt/schedule-beta/docs
 	encode zstd gzip
 	file_server
-	@betapage path / /index.html
-	header @betapage Cache-Control "no-cache"
-	@betaassets path *.js *.css *.json *.woff2 *.png *.svg *.jpg
-	header @betaassets Cache-Control "public, max-age=60"
 	header X-Robots-Tag "noindex, nofollow"
 }
 CADDY

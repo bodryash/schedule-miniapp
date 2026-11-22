@@ -52,16 +52,16 @@ jobs:
           [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || unset CLOUDFLARE_ACCOUNT_ID
           # Пустой конфиг рядом: иначе wrangler подхватил бы настройки бота из worker/.
           mkdir -p /tmp/beta && cd /tmp/beta
-          npx --yes wrangler@4 deploy --name fgp-schedule-beta --assets "$GITHUB_WORKSPACE/docs" \
-            --compatibility-date 2026-09-11
-
-      - name: Бета отвечает?
-        if: steps.token.outputs.ok == 'yes'
-        run: |
-          sleep 5
-          url=https://fgp-schedule-beta.bodryash.workers.dev
-          curl -s -o /dev/null -m 20 -w "$url → HTTP %{http_code}\n" "$url/" || true
-          curl -fsS -m 20 "$url/app.js?v=$(date +%s)" | grep -q setPlannerMode && echo "свежая версия на месте" || echo "app.js не тот или не открылся"
+          cat > index.mjs <<'WORKER'
+          export default {
+            fetch(request) {
+              const url = new URL(request.url);
+              url.hostname = "beta.bodryash.ru";
+              return Response.redirect(url.href, 302);
+            }
+          };
+          WORKER
+          npx --yes wrangler@4 deploy index.mjs --name fgp-schedule-beta --compatibility-date 2026-09-11
 
       # Кнопка в боте — прямо через Telegram, без своего сервера: бета
       # открывается мини-приложением, даже когда сервер бота лежит.
@@ -82,7 +82,7 @@ jobs:
               "chat_id": os.environ["OWNER_ID"],
               "text": "🧪 Тестовая версия расписания (ветка beta). Студенты её не видят, обновляется сама после каждой выкладки.",
               "reply_markup": {"inline_keyboard": [[{"text": "🧪 Открыть бету",
-                  "web_app": {"url": "https://fgp-schedule-beta.bodryash.workers.dev/"}}]]},
+                  "web_app": {"url": "https://beta.bodryash.ru/"}}]]},
           })
           print("сообщение:", "отправлено" if sent.get("ok") else sent)
           if sent.get("ok"):
