@@ -113,6 +113,19 @@ if [ -f "$CADDY" ] && grep -q '^	header Cache-Control "no-cache"$' "$CADDY" && g
     cp "$CADDY.bak" "$CADDY"
   fi
 fi
+# Apply only the beta site from the repository, preserving other live sites.
+if [ -f "$CADDY" ] && grep -q '^beta\.bodryash\.ru {' "$CADDY" && ! grep -Fq '$2b$12$A/bSVVkx7RgH/J1LfmqK0uOTkxbP8hL2XCEzx2FE68BXYtRJjhboS' "$CADDY"; then
+  candidate=$(mktemp /etc/caddy/beta-site.XXXXXX)
+  awk 'FNR==NR {if (/^beta\.bodryash\.ru [{]/) take=1; if(take) site=site $0 "\n"; if(/^}/) take=0; next}
+    /^beta\.bodryash\.ru [{]/ {printf "%s",site; skip=1}
+    skip {if(/^}/) skip=0; next} {print}' /opt/schedule/deploy/Caddyfile "$CADDY" > "$candidate"
+  if caddy validate --config "$candidate" --adapter caddyfile; then
+    cp -p "$CADDY" "$CADDY.before-owner-beta"
+    cat "$candidate" > "$CADDY"
+    if ! systemctl reload caddy; then cp -p "$CADDY.before-owner-beta" "$CADDY"; fi
+  fi
+  rm -f "$candidate"
+fi
 # Бета (beta.bodryash.ru) — вторая копия из ветки beta. Только файлы
 # приложения, бот у беты общий с основным. Обновляем первой: основная
 # копия ниже может выйти раньше, если в ней ничего нового.
