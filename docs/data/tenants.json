@@ -1179,5 +1179,13 @@
     "path": "rudn-ai",
     "features": [],
     "short": "РУДН"
+  },
+  {
+    "id": "mgutm-sgt",
+    "university": "МГУТУ им. К. Г. Разумовского",
+    "faculty": "Социально-гуманитарных технологий",
+    "path": "mgutm-sgt",
+    "short": "МГУТУ",
+    "features": []
   }
 ]
