@@ -1171,5 +1171,13 @@
     "path": "mpgu-iip",
     "features": [],
     "short": "МПГУ"
+  },
+  {
+    "id": "rudn-ai",
+    "university": "РУДН",
+    "faculty": "Факультет искусственного интеллекта",
+    "path": "rudn-ai",
+    "features": [],
+    "short": "РУДН"
   }
 ]
