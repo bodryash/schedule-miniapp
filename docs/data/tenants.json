@@ -1187,5 +1187,13 @@
     "path": "mgutm-sgt",
     "short": "МГУТУ",
     "features": []
+  },
+  {
+    "id": "msu-fnm",
+    "university": "МГУ",
+    "faculty": "Факультет наук о материалах",
+    "path": "msu-fnm",
+    "short": "ФНМ",
+    "features": []
   }
 ]
