@@ -1,0 +1,31 @@
+body.newyear {
+  --accent: #17745c;
+  --accent-soft: color-mix(in srgb, #238967 15%, var(--card));
+  --holiday-gold: #dfaa4e;
+}
+@media (prefers-color-scheme: dark) {
+  body.newyear { --accent: #61cba4; }
+}
+body.newyear #lessons .card {
+  border-inline-start: 3px solid var(--accent);
+}
+body.newyear #schedule .date {
+  color: var(--accent);
+}
+body.newyear #days {
+  border-block-end: 2px solid transparent;
+  border-image: linear-gradient(90deg, transparent, var(--accent), var(--holiday-gold), transparent) 1;
+}
+body.newyear #schedule::before {
+  content: "";
+  display: block;
+  height: 22px;
+  margin-block-end: 6px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 10px 10px, #dfaa4e 0 3px, transparent 4px),
+    radial-gradient(circle at 34px 13px, #b83b46 0 3px, transparent 4px),
+    radial-gradient(circle at 58px 10px, #238967 0 3px, transparent 4px),
+    radial-gradient(ellipse 36px 10px at 36px 0, transparent 93%, var(--accent) 96% 100%, transparent 104%);
+  background-size: 72px 20px;
+}

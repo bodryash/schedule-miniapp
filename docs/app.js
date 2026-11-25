@@ -1791,7 +1791,7 @@ function initReminders() {
 
 // Брутал выдаёт владелец командой /theme, гламур человек находит сам —
 // словом «гламур» в поиске по МФК. Тема с сервера сильнее найденной.
-const THEMES = { glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", vice: "tint-vice", devil: "devil", msu: "msu", birthday: "birthday", halloween: "halloween", trump: "trump", putin: "putin", magnate: "magnate" };
+const THEMES = { newyear: "newyear", glam: "glam", brutal: "glam-noir", champion: "champion", volunteer: "volunteer", cska: "cska", nokia: "nokia", ocean: "tint-ocean", sunset: "tint-sunset", mint: "tint-mint", lavender: "tint-lavender", graphite: "tint-graphite", cherry: "tint-cherry", vice: "tint-vice", devil: "devil", msu: "msu", birthday: "birthday", halloween: "halloween", trump: "trump", putin: "putin", magnate: "magnate" };
 const GLAM_KEY = "schedule.glam";
 // Зелёную тему волонтёра человек может выключить сам и вернуть обратно.
 // Остальные выданные темы так не умеют.
@@ -1815,6 +1815,7 @@ const MSU_THEME_KEY = "schedule.msuTheme";
 const COLOR_THEMES = [
   // Обычный — цвет меняется с чётностью недели (синий / оранжевый).
   ["plain", "Обычный", ["#2ea6ff", "#f0821e"]],
+  ["newyear", "Новый год", ["#17745c", "#dfaa4e"]],
   ["ocean", "Бирюза", ["#0ea5e9", "#0ea5e9"]],
   ["mint", "Мята", ["#10b981", "#10b981"]],
   ["sunset", "Закат", ["#f97316", "#f97316"]],
@@ -1898,7 +1899,7 @@ function setOwnGlam(on) {
 // Владелец примеряет темы у себя прямо в настройках. Выбор лежит только в его
 // браузере и сильнее темы с сервера; «как выдано» возвращает обычный порядок.
 const OWNER_THEME_KEY = "schedule.ownerTheme";
-const THEME_TITLES = {
+const THEME_TITLES = { newyear: "Новый год",
   "": "Обычная", glam: "Гламур", brutal: "Брутал", champion: "Чемпион", volunteer: "Волонтёр", cska: "ЦСКА", nokia: "Нокия",
   ocean: "Океан", sunset: "Закат", mint: "Мята", lavender: "Лаванда", graphite: "Графит", cherry: "Вишня", devil: "Дьявол", msu: "МГУ", trump: "Трамп", putin: "Путин", magnate: "Магнат",
 };
