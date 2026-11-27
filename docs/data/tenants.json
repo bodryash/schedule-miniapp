@@ -1195,5 +1195,14 @@
     "path": "msu-fnm",
     "short": "ФНМ",
     "features": []
+  },
+  {
+    "id": "belgu-law",
+    "university": "НИУ БелГУ",
+    "faculty": "Юридический институт",
+    "path": "belgu-law",
+    "short": "ЮИ",
+    "features": [],
+    "source": "https://bsuedu.ru/bsu/education/schedule/groups/index.php?group=01002501"
   }
 ]
